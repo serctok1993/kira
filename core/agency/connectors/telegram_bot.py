@@ -162,6 +162,9 @@ def _short(args: dict) -> str:
     return s if len(s) <= 60 else s[:57] + "…"
 
 
+_SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+
+
 def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: str,
                    voice_text: str | None = None) -> None:
     """Agentischer Chat mit Live-Trace (Denken + Werkzeug-Schritte). Ein Sprachmemo wird NUR
@@ -171,9 +174,9 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
 
     _typing(client, chat_id)
     head = ("🎙️ «" + voice_text[:200] + "»\n") if voice_text else ""
-    init = client.post(f"{API}/sendMessage", json={"chat_id": chat_id, "text": head + "💭 Kira denkt."}).json()
+    init = client.post(f"{API}/sendMessage", json={"chat_id": chat_id, "text": head + "💭 Kira denkt ⠋"}).json()
     mid = init.get("result", {}).get("message_id")
-    state = {"think": "", "lines": [], "tools": [], "done": False, "tick": 0}
+    state = {"think": "", "lines": [], "tools": [], "done": False, "tick": 0, "last_render": ""}
     lock = threading.Lock()
 
     def render() -> str:
@@ -181,23 +184,28 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
         if voice_text:
             parts.append("🎙️ «" + voice_text[:160] + "»")
         parts += state["lines"][-6:]
+        spin = _SPINNER[state["tick"] % len(_SPINNER)]
         if state["think"]:
             parts.append("💭 " + state["think"][-200:])
         if not state["done"]:
-            parts.append("⏳ Kira arbeitet" + "." * (1 + state["tick"] % 3))
+            parts.append(spin + " Kira arbeitet")
         return ("\n".join(parts))[:4000] or "💭 …"
 
     def edit() -> None:
-        if mid:
-            try:
-                client.post(f"{API}/editMessageText", json={"chat_id": chat_id, "message_id": mid, "text": render()})
-            except Exception:
-                pass
+        if not mid:
+            return
+        txt = render()
+        if txt == state["last_render"]:
+            return  # nichts geaendert -> kein API-Call
+        state["last_render"] = txt
+        try:
+            client.post(f"{API}/editMessageText", json={"chat_id": chat_id, "message_id": mid, "text": txt})
+        except Exception:
+            pass
 
     def animate() -> None:
-        # haelt den Trace sichtbar lebendig — auch waehrend langer (GLM-)Denkpausen
         while not state["done"]:
-            time.sleep(1.8)
+            time.sleep(0.7)
             with lock:
                 if state["done"]:
                     break
@@ -212,6 +220,7 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
             k = ev["kind"]
             if k == "think":
                 state["think"] += ev["text"]
+                edit()
             elif k == "tool":
                 state["tools"].append(ev["name"])
                 state["lines"].append(f"🔧 {ev['name']} {_short(ev['args'])}")
