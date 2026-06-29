@@ -57,7 +57,7 @@ def web_search(query: str, max_results: int = 5) -> str:
 
 # --- Datei-Haende: Kira kann auf dem PC lesen/schreiben/auflisten/Ordner anlegen ---
 @tool("read_file", "Liest eine Datei vom PC und gibt den Textinhalt zurueck.", {"path": "Dateipfad"})
-def read_file(path: str, max_chars: int = 8000) -> str:
+def read_file(path: str, max_chars: int = 24000) -> str:
     p = Path(path).expanduser()
     if not p.exists():
         return f"(Datei nicht gefunden: {p})"

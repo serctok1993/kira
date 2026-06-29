@@ -167,47 +167,63 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
     """Agentischer Chat mit Live-Trace (Denken + Werkzeug-Schritte). Ein Sprachmemo wird NUR
     live im Arbeits-Trace gezeigt (kein separates 'Verstanden'); am Ende faellt der Trace zu
     einer kompakten Taetigkeits-Zeile zusammen, die Antwort kommt als neue Nachricht."""
+    import threading
+
     _typing(client, chat_id)
     head = ("🎙️ «" + voice_text[:200] + "»\n") if voice_text else ""
-    init = client.post(f"{API}/sendMessage", json={"chat_id": chat_id, "text": head + "💭 …"}).json()
+    init = client.post(f"{API}/sendMessage", json={"chat_id": chat_id, "text": head + "💭 Kira denkt."}).json()
     mid = init.get("result", {}).get("message_id")
-    state = {"think": "", "lines": [], "tools": [], "last": 0.0}
+    state = {"think": "", "lines": [], "tools": [], "done": False, "tick": 0}
+    lock = threading.Lock()
 
     def render() -> str:
         parts = []
         if voice_text:
-            parts.append("🎙️ «" + voice_text[:200] + "»")
+            parts.append("🎙️ «" + voice_text[:160] + "»")
+        parts += state["lines"][-6:]
         if state["think"]:
-            parts.append("💭 " + state["think"][-300:])
-        parts += state["lines"][-8:]
+            parts.append("💭 " + state["think"][-200:])
+        if not state["done"]:
+            parts.append("⏳ Kira arbeitet" + "." * (1 + state["tick"] % 3))
         return ("\n".join(parts))[:4000] or "💭 …"
 
-    def push(force: bool = False) -> None:
-        now = time.time()
-        if mid and (force or now - state["last"] > 1.3):
+    def edit() -> None:
+        if mid:
             try:
                 client.post(f"{API}/editMessageText", json={"chat_id": chat_id, "message_id": mid, "text": render()})
             except Exception:
                 pass
-            state["last"] = now
+
+    def animate() -> None:
+        # haelt den Trace sichtbar lebendig — auch waehrend langer (GLM-)Denkpausen
+        while not state["done"]:
+            time.sleep(1.8)
+            with lock:
+                if state["done"]:
+                    break
+                state["tick"] += 1
+                edit()
             _typing(client, chat_id)
 
+    threading.Thread(target=animate, daemon=True).start()
+
     def on_event(ev: dict) -> None:
-        k = ev["kind"]
-        if k == "think":
-            state["think"] += ev["text"]
-            push()
-        elif k == "tool":
-            state["tools"].append(ev["name"])
-            state["lines"].append(f"🔧 {ev['name']} {_short(ev['args'])}")
-            push(force=True)
-        elif k == "obs":
-            state["lines"].append(f"   ✓ {ev['text'][:70]}")
-            push(force=True)
+        with lock:
+            k = ev["kind"]
+            if k == "think":
+                state["think"] += ev["text"]
+            elif k == "tool":
+                state["tools"].append(ev["name"])
+                state["lines"].append(f"🔧 {ev['name']} {_short(ev['args'])}")
+                edit()
+            elif k == "obs":
+                state["lines"].append(f"   ✓ {ev['text'][:60]}")
+                edit()
 
     from core.agency.act import act_chat
 
     answer = act_chat(text, session_id=session_id, on_event=on_event).strip()
+    state["done"] = True
 
     # Arbeits-Trace abschliessen: bei Werkzeug-Nutzung eine kompakte Taetigkeits-Zeile,
     # sonst die Trace-Nachricht entfernen (sauberer Chat, kein Transkript-Berg).
