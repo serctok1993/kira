@@ -440,7 +440,7 @@ DASHBOARD_HTML = """<!doctype html>
  --muted:#9a8fb0;--accent:#a855f7;--accent2:#7c3aed;--amber:#c4b5fd;--danger:#f0596a;}
 *{box-sizing:border-box}
 body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Code",Consolas,monospace;
- background:linear-gradient(rgba(10,7,16,.80),rgba(10,7,16,.93)),url('/api/bg') center/cover fixed no-repeat,var(--bg);color:var(--ink)}
+ background:#000;color:var(--ink)}
 #side{width:210px;flex-shrink:0;border-right:1px solid var(--line);background:rgba(13,9,20,.72);
  backdrop-filter:blur(8px);display:flex;flex-direction:column}
 #side h1{font-size:19px;letter-spacing:3px;padding:16px 16px 2px;color:#fff;margin:0;
