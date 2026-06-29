@@ -46,10 +46,17 @@ def _visible_from_raw(raw: str) -> str:
         s = s[:idx]
     return s
 
+# Bekannte Anbieter -> Name der Env-Variable mit dem Key.
+# OpenRouter ist der "universelle" Anbieter: EIN Key, hunderte Modelle aller Firmen.
 _PROVIDER_KEYS = {
+    "openrouter": "OPENROUTER_API_KEY",   # universell, kein Lock-in
     "anthropic": "ANTHROPIC_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
     "openai": "OPENAI_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "mistral": "MISTRAL_API_KEY",
+    "xai": "XAI_API_KEY",
+    "gemini": "GEMINI_API_KEY",
 }
 
 

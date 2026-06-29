@@ -198,11 +198,13 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
                   f"Lokal: {', '.join(s['ollama_local']) or '(keine)'}")
         elif args[0] == "use" and len(args) >= 2:
             _send(client, chat_id, f"Aktives Modell -> {models.set_model(args[1])}")
+        elif args[0] == "openrouter" and len(args) >= 2:
+            _send(client, chat_id, f"Aktiv ueber OpenRouter -> {models.add_openrouter(args[1])}")
         elif args[0] == "add" and len(args) >= 5:
             models.add_provider(args[1], args[2], args[3], args[4])
             _send(client, chat_id, f"Provider '{args[1]}' angelegt. Nutzen: /model use {args[1]}")
         else:
-            _send(client, chat_id, "Nutzung: /model | /model use <id> | /model add <alias> <modell> <api_base> <ENV>")
+            _send(client, chat_id, "Nutzung: /model | /model use <id> | /model openrouter <modell> | /model add <alias> <modell> <api_base> <ENV>")
         return
     _send(client, chat_id, "Unbekannter Befehl. /help zeigt, was ich kann.")
 

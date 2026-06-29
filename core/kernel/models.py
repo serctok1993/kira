@@ -20,6 +20,7 @@ import sys
 import httpx
 
 from core.config import CONFIG, DATA_DIR, apply_model_overrides
+from core.kernel.llm_router import _PROVIDER_KEYS
 
 OVERRIDE = DATA_DIR / "models.json"
 _MAIN_SCOPES = ("chat", "reason", "bulk")  # diese Routing-Pfade folgen dem Default
@@ -62,6 +63,16 @@ def set_model(model_id: str, scope: str = "default") -> str:
     return model_id
 
 
+def add_openrouter(model_id: str) -> str:
+    """OpenRouter = universeller Anbieter: EIN Key (OPENROUTER_API_KEY) -> jedes Modell.
+
+    Beispiel model_id: 'anthropic/claude-opus-4-8', 'google/gemini-2.5-pro',
+    'meta-llama/llama-3.1-70b-instruct', 'deepseek/deepseek-chat'.
+    Setzt das aktive Modell auf 'openrouter/<model_id>'.
+    """
+    return set_model(f"openrouter/{model_id.lstrip('/')}")
+
+
 def add_provider(alias: str, model: str, api_base: str, api_key_env: str) -> dict:
     """Eigenen API-Provider registrieren (OpenAI-kompatibel via litellm).
 
@@ -89,6 +100,7 @@ def status() -> dict:
         "routing": m.get("routing", {}),
         "escalation_model": m.get("escalation_model"),
         "providers": {a: {**p, "key_set": bool(os.getenv(p.get("api_key_env", "")))} for a, p in providers.items()},
+        "api_keys": {prov: bool(os.getenv(env)) for prov, env in _PROVIDER_KEYS.items()},
         "ollama_local": ollama_models(),
     }
 
@@ -106,6 +118,8 @@ if __name__ == "__main__":
         print("Lokal in Ollama:", s["ollama_local"] or "(keine/Service aus)")
     elif cmd == "use" and len(args) >= 2:
         print("Default-Modell gesetzt auf:", set_model(args[1]))
+    elif cmd == "openrouter" and len(args) >= 2:
+        print("Aktiv ueber OpenRouter:", add_openrouter(args[1]))
     elif cmd == "add" and len(args) >= 5:
         print("Provider angelegt:", add_provider(args[1], args[2], args[3], args[4]))
     else:

@@ -133,11 +133,13 @@ def handle_command(line: str) -> None:
             print(f"Lokal in Ollama: {s['ollama_local'] or '(keine)'}")
         elif args[0] == "use" and len(args) >= 2:
             print(f"Aktives Modell -> {models.set_model(args[1])}")
+        elif args[0] == "openrouter" and len(args) >= 2:
+            print(f"Aktiv ueber OpenRouter -> {models.add_openrouter(args[1])}  (OPENROUTER_API_KEY noetig)")
         elif args[0] == "add" and len(args) >= 5:
             models.add_provider(args[1], args[2], args[3], args[4])
             print(f"Provider '{args[1]}' angelegt. Nutzen mit: /model use {args[1]}")
         else:
-            print("Nutzung: /model  |  /model use <id>  |  /model add <alias> <litellm-modell> <api_base> <API_KEY_ENV>")
+            print("Nutzung: /model | /model use <id> | /model openrouter <modell> | /model add <alias> <modell> <api_base> <ENV>")
 
     elif cmd == "/stop":
         kill_switch_path().write_text("stop", encoding="utf-8")
