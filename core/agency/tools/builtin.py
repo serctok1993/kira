@@ -100,3 +100,14 @@ def make_dir(path: str) -> str:
     p = Path(path).expanduser()
     p.mkdir(parents=True, exist_ok=True)
     return f"OK, Ordner angelegt: {p}"
+
+
+@tool("request_secret",
+      "Fordert einen Zugang/Key an, den du brauchst. Sergen traegt ihn sicher im Dashboard "
+      "(Zugaenge) ein. NICHT im Chat nach Passwoertern/Keys fragen.",
+      {"name": "Env-Name, z.B. OPENROUTER_API_KEY", "reason": "wofuer du ihn brauchst"})
+def request_secret(name: str, reason: str = "") -> str:
+    from core.governance import secrets
+
+    secrets.request(name, reason)
+    return f"Zugang '{name}' angefordert. Sergen traegt ihn im Dashboard unter 'Zugaenge' ein."

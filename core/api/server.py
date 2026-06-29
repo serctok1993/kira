@@ -12,7 +12,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
 from core.config import CONFIG, MIND_DIR, ROOT
-from core.governance import audit, treasury, trust
+from core.governance import audit, secrets, treasury, trust
 from core.kernel import events, models
 from core.kernel.llm_router import today_spend_usd
 from core.kernel.scheduler import kill_switch_active, kill_switch_path
@@ -117,6 +117,26 @@ def api_memory(limit: int = 80) -> list[dict]:
 async def api_memory_delete(body: dict) -> dict:
     memory.delete(body.get("id", ""))
     events.emit("memory_deleted", {"id": body.get("id", ""), "via": "dashboard"})
+    return {"ok": True}
+
+
+@app.get("/api/secrets")
+def api_secrets() -> dict:
+    from core.kernel.llm_router import _PROVIDER_KEYS
+
+    return {
+        "set": secrets.names_status(),
+        "pending": secrets.pending(),
+        "suggested": list(_PROVIDER_KEYS.values()) + ["TELEGRAM_BOT_TOKEN"],
+    }
+
+
+@app.post("/api/secrets/set")
+async def api_secrets_set(body: dict) -> dict:
+    name = (body.get("name") or "").strip()
+    if not name:
+        return {"ok": False, "error": "Name fehlt"}
+    secrets.set_secret(name, body.get("value", ""))
     return {"ok": True}
 
 
@@ -256,6 +276,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
   <a data-v="files">› Seele &amp; Dateien</a>
   <a data-v="models">› Modelle</a>
   <a data-v="gov">› Gewissen</a>
+  <a data-v="keys">› Zugaenge</a>
   <a data-v="mem">› Gedaechtnis</a>
   <a data-v="log">› Protokoll</a>
   <div class="spacer"></div>
@@ -301,6 +322,17 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
     <div class="card"><h3>Audit — protokollierte Aussen-Aktionen</h3><div id="g-audit" class="muted">…</div></div>
   </div>
 
+  <div class="view" id="v-keys">
+    <div class="card"><h3>Von Kyros angefordert</h3><div id="k-pending" class="muted">…</div></div>
+    <div class="card"><h3>Zugang eintragen / aktualisieren</h3>
+      <div class="muted">Werte sind write-only — werden nie angezeigt oder protokolliert. NIEMALS im Chat eingeben.</div>
+      <div class="row"><input id="k-name" placeholder="Name, z.B. OPENROUTER_API_KEY"/>
+        <input id="k-val" type="password" placeholder="Wert / Key / Passwort"/>
+        <button id="k-save">Speichern</button></div>
+      <div id="k-sugg" class="muted" style="margin-top:8px"></div></div>
+    <div class="card"><h3>Vorhandene Zugaenge</h3><div id="k-set"></div></div>
+  </div>
+
   <div class="view" id="v-mem">
     <div class="muted" style="margin-bottom:8px;max-width:980px">Juengste Erinnerungen — mit ✕ loeschen. (Verfassung/Seele/Ziel sind Dateien und bleiben unberuehrt.)</div>
     <div id="memlist"></div>
@@ -314,7 +346,7 @@ let cur="chat";
 $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
 function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");
- if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
+ if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
 
 async function refreshStatus(){const s=await (await fetch("/api/status")).json();
  $("#who").textContent=s.partner.toLowerCase()+" · cockpit";
@@ -397,6 +429,22 @@ async function loadGov(){const g=await (await fetch("/api/governance")).json();c
  a.innerHTML=g.audit.map(e=>{const ts=new Date(e.ts*1000).toLocaleString();const p=e.payload;
   return '<div style="padding:6px 0;border-bottom:1px solid #1b2a33"><b>'+p.action+'</b> '+(p.target||'')
    +' <small class=muted>'+ts+(p.reversible?' · rückrollbar':'')+'</small></div>';}).join("");}
+
+/* ---- Zugaenge ---- */
+async function loadKeys(){const s=await (await fetch("/api/secrets")).json();
+ const pe=$("#k-pending");
+ if(!s.pending.length){pe.innerHTML='<span class=muted>(keine offenen Anfragen)</span>';}
+ else{pe.innerHTML=s.pending.map(r=>'<div class="e"><span class="t">'+r.name+'</span><span class="m">'+(r.reason||'')
+   +'</span><button class="ghost" data-n="'+r.name+'" style="padding:2px 9px">eintragen</button></div>').join("");
+  pe.querySelectorAll("button").forEach(b=>b.onclick=()=>{$("#k-name").value=b.dataset.n;$("#k-val").focus();});}
+ const ks=Object.entries(s.set);
+ $("#k-set").innerHTML=ks.length?ks.map(([k,v])=>'<span class="pill '+(v?'ok':'no')+'">'+k+(v?' ✓':' (leer)')+'</span>').join(""):'<span class=muted>(noch keine)</span>';
+ const sg=$("#k-sugg");sg.innerHTML="Vorschlaege: "+s.suggested.map(n=>'<span class="pill" data-n="'+n+'">'+n+'</span>').join(" ");
+ sg.querySelectorAll(".pill").forEach(p=>p.onclick=()=>{$("#k-name").value=p.dataset.n;$("#k-val").focus();});}
+$("#k-save").onclick=async()=>{const name=$("#k-name").value.trim();if(!name)return;
+ await fetch("/api/secrets/set",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({name,value:$("#k-val").value})});
+ $("#k-val").value="";$("#k-name").value="";loadKeys();refreshStatus();};
 
 /* ---- Gedaechtnis ---- */
 async function loadMem(){const ms=await (await fetch("/api/memory?limit=100")).json();const el=$("#memlist");el.innerHTML="";

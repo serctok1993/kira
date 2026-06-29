@@ -93,6 +93,10 @@ def run_once(escalate: bool = False) -> dict:
 
 
 def run_forever(interval: int | None = None) -> None:
+    if not CONFIG.get("heartbeat", {}).get("enabled"):
+        print("Heartbeat deaktiviert (config.yaml: heartbeat.enabled=false). "
+              "Fuer echten 24/7-Betrieb auf true setzen. (Test einzeln: --once)")
+        return
     interval = interval or CONFIG.get("heartbeat", {}).get("interval_seconds", 900)
     events.init_db()
     print(f"Mission-Heartbeat laeuft alle {interval}s. Strg+C oder Kill-Switch (data/STOP) stoppt.")

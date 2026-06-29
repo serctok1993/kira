@@ -51,3 +51,16 @@ if _MODEL_OVERRIDE.exists():
         apply_model_overrides(_json.loads(_MODEL_OVERRIDE.read_text(encoding="utf-8")))
     except Exception:
         pass
+
+# Zugaenge/Secrets aus data/secrets.json in die Umgebung laden (write-only, gitignored)
+_SECRETS_FILE = DATA_DIR / "secrets.json"
+if _SECRETS_FILE.exists():
+    import json as _json2
+    import os as _os
+
+    try:
+        for _k, _v in (_json2.loads(_SECRETS_FILE.read_text(encoding="utf-8")).get("secrets") or {}).items():
+            if _v:
+                _os.environ[_k] = str(_v)
+    except Exception:
+        pass
