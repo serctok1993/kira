@@ -89,14 +89,14 @@ def _handle(client: httpx.Client, update: dict) -> None:
         return
 
     text = msg.get("text")
+    voice_text = None
     if not text and "voice" in msg and _cfg().get("voice", True):
         _typing(client, chat_id)
         text = _transcribe_voice(client, msg)
-        if text:
-            _send(client, chat_id, f"🎙️ Verstanden: «{text}»")
-        else:
+        if not text:
             _send(client, chat_id, "Konnte das Memo nicht verstehen (Whisper installiert? 'uv sync').")
             return
+        voice_text = text  # nur live im Arbeits-Trace zeigen, kein separates "Verstanden"
     if not text:
         return
 
@@ -105,7 +105,7 @@ def _handle(client: httpx.Client, update: dict) -> None:
         return
 
     events.emit("telegram_in", {"chat_id": chat_id, "text": text}, session_id=f"telegram-{chat_id}")
-    _agentic_reply(client, chat_id, f"telegram-{chat_id}", text)
+    _agentic_reply(client, chat_id, f"telegram-{chat_id}", text, voice_text=voice_text)
 
 
 def _clean(t: str) -> str:
@@ -119,15 +119,21 @@ def _short(args: dict) -> str:
     return s if len(s) <= 60 else s[:57] + "…"
 
 
-def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: str) -> None:
-    """Agentischer Chat mit Live-Trace (Denken + Werkzeug-Schritte), Antwort als neue Nachricht."""
+def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: str,
+                   voice_text: str | None = None) -> None:
+    """Agentischer Chat mit Live-Trace (Denken + Werkzeug-Schritte). Ein Sprachmemo wird NUR
+    live im Arbeits-Trace gezeigt (kein separates 'Verstanden'); am Ende faellt der Trace zu
+    einer kompakten Taetigkeits-Zeile zusammen, die Antwort kommt als neue Nachricht."""
     _typing(client, chat_id)
-    init = client.post(f"{API}/sendMessage", json={"chat_id": chat_id, "text": "💭 …"}).json()
+    head = ("🎙️ «" + voice_text[:200] + "»\n") if voice_text else ""
+    init = client.post(f"{API}/sendMessage", json={"chat_id": chat_id, "text": head + "💭 …"}).json()
     mid = init.get("result", {}).get("message_id")
-    state = {"think": "", "lines": [], "last": 0.0}
+    state = {"think": "", "lines": [], "tools": [], "last": 0.0}
 
     def render() -> str:
         parts = []
+        if voice_text:
+            parts.append("🎙️ «" + voice_text[:200] + "»")
         if state["think"]:
             parts.append("💭 " + state["think"][-300:])
         parts += state["lines"][-8:]
@@ -149,6 +155,7 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
             state["think"] += ev["text"]
             push()
         elif k == "tool":
+            state["tools"].append(ev["name"])
             state["lines"].append(f"🔧 {ev['name']} {_short(ev['args'])}")
             push(force=True)
         elif k == "obs":
@@ -159,18 +166,20 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
 
     answer = _clean(act_chat(text, session_id=session_id, on_event=on_event))
 
-    # Arbeits-/Trace-Nachricht abschliessen
+    # Arbeits-Trace abschliessen: bei Werkzeug-Nutzung eine kompakte Taetigkeits-Zeile,
+    # sonst die Trace-Nachricht entfernen (sauberer Chat, kein Transkript-Berg).
     if mid:
         try:
-            if state["lines"]:
+            if state["tools"]:
+                uniq = list(dict.fromkeys(state["tools"]))
                 client.post(f"{API}/editMessageText",
-                            json={"chat_id": chat_id, "message_id": mid, "text": "🔧 Schritte:\n" + "\n".join(state["lines"][-8:])[:3800]})
+                            json={"chat_id": chat_id, "message_id": mid, "text": "🔧 erledigt: " + ", ".join(uniq)})
             else:
                 client.post(f"{API}/deleteMessage", json={"chat_id": chat_id, "message_id": mid})
         except Exception:
             pass
 
-    # Finale Antwort als NEUE Nachricht (erscheint als ungelesen)
+    # Finale Antwort als NEUE Nachricht
     _send(client, chat_id, answer or "(keine Antwort)")
 
 
