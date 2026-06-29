@@ -20,7 +20,7 @@ from core.agency.act import act
 from core.agency.missions import planner, queue
 from core.config import CONFIG
 from core.kernel import events
-from core.kernel.scheduler import kill_switch_active
+from core.kernel.scheduler import heartbeat_on, kill_switch_active
 from core.mind.agent import _read
 
 
@@ -93,26 +93,26 @@ def run_once(escalate: bool = False) -> dict:
 
 
 def run_forever(interval: int | None = None) -> None:
-    if not CONFIG.get("heartbeat", {}).get("enabled"):
-        print("Heartbeat deaktiviert (config.yaml: heartbeat.enabled=false). "
-              "Fuer echten 24/7-Betrieb auf true setzen. (Test einzeln: --once)")
-        return
-    interval = interval or CONFIG.get("heartbeat", {}).get("interval_seconds", 900)
+    interval = interval or CONFIG.get("heartbeat", {}).get("interval_seconds", 1800)
     events.init_db()
-    print(f"Mission-Heartbeat laeuft alle {interval}s. Strg+C oder Kill-Switch (data/STOP) stoppt.")
+    print(f"Mission-Runner laeuft. 24/7-Loop nur aktiv, wenn eingeschaltet (Cockpit/Flag). Takt {interval}s.")
     while True:
-        if kill_switch_active():
-            print("KILL-SWITCH aktiv — Heartbeat haelt an.")
-            break
         try:
-            out = run_once()
-            print("tick:", {k: (str(v)[:80]) for k, v in out.items()})
+            if kill_switch_active():
+                time.sleep(15)  # Not-Aus: pausieren, nach /go weiter
+                continue
+            if heartbeat_on():
+                out = run_once()
+                print("tick:", {k: (str(v)[:80]) for k, v in out.items()})
+                time.sleep(interval)
+            else:
+                time.sleep(20)  # aus -> schnell wieder pruefen (Live-Toggle aus dem Cockpit)
         except KeyboardInterrupt:
-            print("\nHeartbeat gestoppt.")
+            print("\nGestoppt.")
             break
         except Exception as e:  # noqa: BLE001
             events.emit("heartbeat_error", {"error": str(e)})
-        time.sleep(interval)
+            time.sleep(20)
 
 
 if __name__ == "__main__":

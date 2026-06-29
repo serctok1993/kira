@@ -18,7 +18,7 @@ from core.config import CONFIG, MIND_DIR, ROOT
 from core.governance import audit, secrets, treasury, trust
 from core.kernel import events, models
 from core.kernel.llm_router import today_spend_usd
-from core.kernel.scheduler import kill_switch_active, kill_switch_path
+from core.kernel.scheduler import heartbeat_on, kill_switch_active, kill_switch_path, set_heartbeat
 from core.mind.agent import Agent
 from core.mind.memory import store as memory
 
@@ -195,6 +195,42 @@ async def api_model_params(body: dict) -> dict:
     return {"ok": True, **p, "loaded": models.loaded()}
 
 
+@app.get("/api/mission")
+def api_mission() -> dict:
+    from core.agency.missions import queue as mqueue
+
+    mqueue.init_queue()
+    m = CONFIG.get("mission", {})
+    recent = []
+    for e in events.recent(250):
+        if e["type"] == "mission_task_done":
+            recent.append({"ts": e["ts"], "summary": str(e["payload"].get("summary", ""))})
+            if len(recent) >= 8:
+                break
+    return {
+        "enabled": heartbeat_on(),
+        "interval": CONFIG.get("heartbeat", {}).get("interval_seconds", 1800),
+        "mission": m.get("name"),
+        "pending": mqueue.pending(m.get("name", "default")),
+        "recent": recent,
+    }
+
+
+@app.post("/api/mission/toggle")
+async def api_mission_toggle(body: dict) -> dict:
+    set_heartbeat(bool(body.get("on")))
+    events.emit("heartbeat_toggle", {"on": heartbeat_on(), "via": "dashboard"})
+    return {"ok": True, "enabled": heartbeat_on()}
+
+
+@app.post("/api/mission/runonce")
+async def api_mission_runonce(body: dict) -> dict:
+    from core.agency.missions import runner
+
+    out = await anyio.to_thread.run_sync(runner.run_once)
+    return {"ok": True, "result": out}
+
+
 @app.post("/api/kill")
 async def api_kill(body: dict) -> dict:
     if body.get("on"):
@@ -327,6 +363,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
   <a data-v="files">› Seele &amp; Dateien</a>
   <a data-v="models">› Modelle</a>
   <a data-v="gov">› Gewissen</a>
+  <a data-v="mission">› Mission</a>
   <a data-v="keys">› Zugaenge</a>
   <a data-v="mem">› Gedaechtnis</a>
   <a data-v="log">› Protokoll</a>
@@ -389,6 +426,19 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
     <div class="card"><h3>Audit — protokollierte Aussen-Aktionen</h3><div id="g-audit" class="muted">…</div></div>
   </div>
 
+  <div class="view" id="v-mission">
+    <div class="card"><h3>24/7-Mission</h3>
+      <div id="ms-status" class="muted">…</div>
+      <div class="row" style="margin-top:8px">
+        <button id="ms-toggle">24/7 an/aus</button>
+        <button class="ghost" id="ms-once">Jetzt ein Schritt</button>
+      </div>
+      <div class="muted" style="margin-top:6px" id="ms-hint">Ziel der Mission setzt du in „Seele &amp; Dateien → config.yaml" (mission.goal).</div>
+    </div>
+    <div class="card"><h3>Offene Aufgaben</h3><div id="ms-queue" class="muted">…</div></div>
+    <div class="card"><h3>Letzte Schritte</h3><div id="ms-recent" class="muted">…</div></div>
+  </div>
+
   <div class="view" id="v-keys">
     <div class="card"><h3>Von Kyros angefordert</h3><div id="k-pending" class="muted">…</div></div>
     <div class="card"><h3>Zugang eintragen / aktualisieren</h3>
@@ -413,7 +463,18 @@ let cur="home";
 $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
 function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");
- if(v==="home")loadHome(); if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
+ if(v==="home")loadHome(); if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="mission")loadMission(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
+
+/* ---- Mission (24/7) ---- */
+async function loadMission(){const m=await (await fetch("/api/mission")).json();
+ $("#ms-status").innerHTML="Mission: <b>"+(m.mission||"-")+"</b> · 24/7: "+(m.enabled?'<b style="color:#1fb6a6">AN</b>':'<span class=muted>aus</span>')+" · Takt "+Math.round(m.interval/60)+" min";
+ $("#ms-queue").innerHTML=m.pending.length?m.pending.map(t=>"• "+(t.description||"").replace(/</g,"&lt;")).join("<br>"):'<span class=muted>(leer — beim naechsten Lauf plant Kyros neue)</span>';
+ $("#ms-recent").innerHTML=m.recent.length?m.recent.map(r=>{const ts=new Date(r.ts*1000).toLocaleString();return '<div style="padding:6px 0;border-bottom:1px solid #1b2a33"><small class=muted>'+ts+'</small><br>'+(r.summary||"").slice(0,220).replace(/</g,"&lt;")+'</div>';}).join(""):'<span class=muted>(noch keine)</span>';}
+$("#ms-toggle").onclick=async()=>{const m=await (await fetch("/api/mission")).json();
+ await fetch("/api/mission/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({on:!m.enabled})});loadMission();};
+$("#ms-once").onclick=async()=>{$("#ms-hint").textContent="… Kyros macht einen autonomen Schritt (kann ~1 min dauern) …";
+ const r=await (await fetch("/api/mission/runonce",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();
+ $("#ms-hint").textContent="Fertig.";loadMission();};
 
 /* ---- Uebersicht ---- */
 async function loadHome(){const o=await (await fetch("/api/overview")).json();const b=o.budget;
