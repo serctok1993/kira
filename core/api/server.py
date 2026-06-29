@@ -20,13 +20,17 @@ from core.mind.agent import Agent
 from core.mind.memory import store as memory
 
 app = FastAPI(title="Prometheus Cockpit")
+events.init_db()
+memory.init_memory()
 
-# Im Dashboard sichtbare/bearbeitbare Dateien
+# Im Dashboard sichtbare/bearbeitbare Dateien. Alles editierbar — DU bist der Eigentuemer.
+# (Die Verfassung ist nur fuer KYROS gesperrt — via evolution.py; du darfst sie hier aendern.)
 FILES: dict[str, dict] = {
-    "constitution.md": {"path": MIND_DIR / "constitution.md", "editable": False, "label": "Verfassung (unveraenderlich)"},
+    "constitution.md": {"path": MIND_DIR / "constitution.md", "editable": True, "label": "Verfassung (fuer Kyros gesperrt, von dir editierbar)"},
     "SOUL.md": {"path": MIND_DIR / "SOUL.md", "editable": True, "label": "Seele (SOUL)"},
     "GOAL.md": {"path": MIND_DIR / "GOAL.md", "editable": True, "label": "Ziel (GOAL)"},
-    "config.yaml": {"path": ROOT / "config.yaml", "editable": False, "label": "Konfiguration"},
+    "USER.md": {"path": MIND_DIR / "USER.md", "editable": True, "label": "Nutzer-Profil (Sergen)"},
+    "config.yaml": {"path": ROOT / "config.yaml", "editable": True, "label": "Konfiguration (Vorsicht: YAML)"},
 }
 
 
@@ -102,6 +106,18 @@ async def api_file_save(body: dict) -> dict:
 @app.get("/api/events")
 def api_events(limit: int = 60) -> list[dict]:
     return events.recent(limit)
+
+
+@app.get("/api/memory")
+def api_memory(limit: int = 80) -> list[dict]:
+    return memory.recent(limit)
+
+
+@app.post("/api/memory/delete")
+async def api_memory_delete(body: dict) -> dict:
+    memory.delete(body.get("id", ""))
+    events.emit("memory_deleted", {"id": body.get("id", ""), "via": "dashboard"})
+    return {"ok": True}
 
 
 @app.post("/api/model/use")
@@ -228,10 +244,10 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 .row{display:flex;gap:8px;margin-top:8px}
 .row input{flex:1;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--ink);
  outline:none;font-family:inherit}
-#evlog{font-size:12px;max-width:980px}
-#evlog .e{padding:6px 10px;border-bottom:1px solid var(--line);display:flex;gap:12px}
-#evlog .e .t{color:var(--accent);min-width:160px}
-#evlog .e .m{color:var(--muted);white-space:pre-wrap}
+#evlog,#memlist{font-size:12px;max-width:980px}
+.e{padding:6px 10px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
+.e .t{color:var(--accent);min-width:150px}
+.e .m{color:var(--muted);white-space:pre-wrap;flex:1}
 .muted{color:var(--muted)}
 </style></head><body>
 <div id="side">
@@ -240,6 +256,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
   <a data-v="files">› Seele &amp; Dateien</a>
   <a data-v="models">› Modelle</a>
   <a data-v="gov">› Gewissen</a>
+  <a data-v="mem">› Gedaechtnis</a>
   <a data-v="log">› Protokoll</a>
   <div class="spacer"></div>
   <div class="kill" id="kill">Not-Aus: aus</div>
@@ -284,6 +301,11 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
     <div class="card"><h3>Audit — protokollierte Aussen-Aktionen</h3><div id="g-audit" class="muted">…</div></div>
   </div>
 
+  <div class="view" id="v-mem">
+    <div class="muted" style="margin-bottom:8px;max-width:980px">Juengste Erinnerungen — mit ✕ loeschen. (Verfassung/Seele/Ziel sind Dateien und bleiben unberuehrt.)</div>
+    <div id="memlist"></div>
+  </div>
+
   <div class="view" id="v-log"><div id="evlog"></div></div>
 </div>
 <script>
@@ -292,7 +314,7 @@ let cur="chat";
 $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
 function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");
- if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="log")loadEvents();}
+ if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
 
 async function refreshStatus(){const s=await (await fetch("/api/status")).json();
  $("#who").textContent=s.partner.toLowerCase()+" · cockpit";
@@ -375,6 +397,17 @@ async function loadGov(){const g=await (await fetch("/api/governance")).json();c
  a.innerHTML=g.audit.map(e=>{const ts=new Date(e.ts*1000).toLocaleString();const p=e.payload;
   return '<div style="padding:6px 0;border-bottom:1px solid #1b2a33"><b>'+p.action+'</b> '+(p.target||'')
    +' <small class=muted>'+ts+(p.reversible?' · rückrollbar':'')+'</small></div>';}).join("");}
+
+/* ---- Gedaechtnis ---- */
+async function loadMem(){const ms=await (await fetch("/api/memory?limit=100")).json();const el=$("#memlist");el.innerHTML="";
+ if(!ms.length){el.innerHTML='<span class=muted>(noch keine Erinnerungen)</span>';return;}
+ ms.forEach(m=>{const d=document.createElement("div");d.className="e";const ts=new Date(m.ts*1000).toLocaleString();
+  const esc=(m.text||"").slice(0,400).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+  d.innerHTML='<span class="t">'+m.role+'/'+m.kind+'<br><small class=muted>'+ts+'</small></span>'
+   +'<span class="m">'+esc+'</span><button class="ghost" title="loeschen" style="padding:2px 9px">✕</button>';
+  d.querySelector("button").onclick=async()=>{await fetch("/api/memory/delete",{method:"POST",
+    headers:{"Content-Type":"application/json"},body:JSON.stringify({id:m.id})});loadMem();};
+  el.appendChild(d);});}
 
 refreshStatus();setInterval(()=>{refreshStatus();if(cur==="log")loadEvents();if(cur==="gov")loadGov();},5000);
 </script></body></html>"""

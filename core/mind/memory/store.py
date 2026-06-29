@@ -141,6 +141,26 @@ def forget_matching(substrings: list[str], role: str | None = None) -> int:
     return deleted
 
 
+def recent(limit: int = 60) -> list[dict]:
+    """Juengste Erinnerungen (fuer die Gedaechtnis-Verwaltung im Dashboard)."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT id, ts, session_id, role, kind, text FROM memory ORDER BY ts DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return [{"id": r[0], "ts": r[1], "session_id": r[2], "role": r[3], "kind": r[4], "text": r[5]} for r in rows]
+
+
+def delete(mem_id: str) -> bool:
+    with _conn() as c:
+        c.execute("DELETE FROM memory WHERE id=?", (mem_id,))
+        try:
+            c.execute("DELETE FROM memory_fts WHERE mem_id=?", (mem_id,))
+        except sqlite3.OperationalError:
+            pass
+    return True
+
+
 def recall_lessons(limit: int = 5) -> list[str]:
     """Die juengsten gelernten Lektionen (aus der Reflexion)."""
     with _conn() as c:

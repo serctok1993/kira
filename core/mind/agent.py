@@ -53,6 +53,7 @@ def build_system_prompt(user_message: str, session_id: str | None = None) -> str
     constitution = _read("constitution.md")
     soul = _read("SOUL.md")
     goal = _read("GOAL.md")
+    user = _read("USER.md")
     recalled = memory.recall(user_message, limit=6, exclude_session=session_id)
     if recalled:
         mem_block = "\n".join(f"- ({m['role']}) {m['text']}" for m in recalled)
@@ -70,6 +71,9 @@ def build_system_prompt(user_message: str, session_id: str | None = None) -> str
 
 # DEIN ZIEL (wofuer du existierst)
 {goal}
+
+# DEIN PARTNER (mit wem du arbeitest)
+{user}
 
 # DEINE GELERNTEN LEKTIONEN (aus eigener Reflexion)
 {lessons_block}
