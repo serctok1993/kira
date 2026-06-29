@@ -420,6 +420,11 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
   <div class="view on" id="v-home"><div id="home" style="overflow:auto"></div></div>
 
   <div class="view" id="v-chat">
+    <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:4px 0 8px">
+      <small class="muted">Hirn:</small>
+      <select id="chat-model" style="max-width:300px"></select>
+      <small class="muted" id="chat-model-now"></small>
+    </div>
     <div id="log"></div>
     <form id="cform"><input id="cin" placeholder="Schreib Kira…" autocomplete="off" autofocus/><button>Senden</button></form>
   </div>
@@ -518,7 +523,21 @@ let cur="home";
 $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
 function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");
- if(v==="home")loadHome(); if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="mission")loadMission(); if(v==="monitor")loadMonitor(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
+ if(v==="home")loadHome(); if(v==="chat")loadChatModels(); if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="mission")loadMission(); if(v==="monitor")loadMonitor(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
+
+/* ---- Modell-Umschalter in der Chat-Pane ---- */
+async function loadChatModels(){const s=await (await fetch("/api/status")).json();
+ const sel=$("#chat-model"); if(!sel) return;
+ const opts=[]; const seen={};
+ const add=(id,lbl)=>{ if(id && !seen[id]){ seen[id]=1; opts.push('<option value="'+id+'"'+(id===s.default?' selected':'')+'>'+lbl+'</option>'); } };
+ add(s.default, s.default+" (aktiv)");
+ (s.ollama_local||[]).forEach(n=>add("ollama_chat/"+n.replace(/:latest$/,""), n+" (lokal, 0€)"));
+ if(s.api_keys&&s.api_keys.openrouter){ add("openrouter/z-ai/glm-5.2","GLM 5.2 (Cloud, stark)"); }
+ sel.innerHTML=opts.join("");
+ $("#chat-model-now").textContent="aktiv: "+s.default;}
+$("#chat-model")&&($("#chat-model").onchange=async(e)=>{const id=e.target.value;
+ await fetch("/api/model/use",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
+ $("#chat-model-now").textContent="gewechselt zu: "+id; refreshStatus();});
 
 /* ---- Monitor ---- */
 async function loadMonitor(){const m=await (await fetch("/api/monitor")).json();

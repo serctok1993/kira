@@ -135,3 +135,63 @@ def self_edit(path: str, instruction: str) -> str:
 
     r = _se(path, instruction)
     return ("OK — " + r.get("note", "")) if r.get("ok") else ("Fehlgeschlagen: " + r.get("error", ""))
+
+
+# --- Dashboard-Steuerung: Kira pflegt Monitor & Modell selbst (erscheint sofort im Cockpit) ---
+@tool("watch_add",
+      "Fuegt dem Web-/News-Monitor eine Beobachtung hinzu (erscheint sofort im Dashboard). "
+      "kind='feed' fuer eine RSS-URL, kind='search' fuer ein Web-Thema/Suchbegriff.",
+      {"kind": "'feed' oder 'search'", "value": "RSS-URL oder Suchbegriff", "label": "kurzer Name (optional)"})
+def watch_add(kind: str, value: str, label: str = "") -> str:
+    from core.agency.connectors import news_monitor
+
+    w = news_monitor.add_watch(kind, value, label)
+    return f"Beobachtung angelegt: {w['label']} [{w['kind']}] -> {w['value']}"
+
+
+@tool("watch_list", "Zeigt alle aktiven Monitor-Beobachtungen (Feeds/Themen) mit ihrer id.", {})
+def watch_list() -> str:
+    from core.agency.connectors import news_monitor
+
+    ws = news_monitor.list_watches()
+    if not ws:
+        return "(keine Beobachtungen)"
+    return "\n".join(f"- {w['label']} [{w['kind']}] {w['value']} (id={w['id']})" for w in ws)
+
+
+@tool("watch_remove", "Entfernt eine Monitor-Beobachtung anhand ihrer id (siehe watch_list).",
+      {"id": "die id der Beobachtung"})
+def watch_remove(id: str) -> str:
+    from core.agency.connectors import news_monitor
+
+    return "Entfernt." if news_monitor.remove_watch(id) else "Keine Beobachtung mit dieser id gefunden."
+
+
+@tool("switch_model",
+      "Wechselt dein aktives Hirn (Default-Modell), sofort live + im Dashboard sichtbar. "
+      "Beispiele: 'ollama_chat/qwythos' (lokal, 0 EUR) oder 'openrouter/z-ai/glm-5.2' (stark, Cloud).",
+      {"model": "die Modell-ID im litellm-Format"})
+def switch_model(model: str) -> str:
+    from core.kernel import models
+
+    return f"Aktives Modell jetzt: {models.set_model(model.strip())}"
+
+
+@tool("list_models", "Zeigt das aktive Modell, das Eskalations-Modell und die lokal verfuegbaren Ollama-Modelle.", {})
+def list_models() -> str:
+    from core.kernel import models
+
+    s = models.status()
+    local = ", ".join(s.get("ollama_local", [])) or "(keine)"
+    return f"Aktiv: {s['default']} | Eskalation: {s['escalation_model']} | Lokal: {local}"
+
+
+@tool("set_context",
+      "Setzt Kontextfenster (num_ctx) und/oder max. Ausgabetokens (max_tokens), sofort live. "
+      "0 lassen heisst 'nicht aendern'.",
+      {"num_ctx": "Kontext-Token, z.B. 16384", "max_tokens": "max. Ausgabetokens, z.B. 8192"})
+def set_context(num_ctx: int = 0, max_tokens: int = 0) -> str:
+    from core.kernel import models
+
+    r = models.set_params(num_ctx=int(num_ctx) or None, max_tokens=int(max_tokens) or None)
+    return f"Gesetzt: num_ctx={r['num_ctx']}, max_tokens={r['max_tokens']} (laedt beim naechsten Aufruf neu)."
