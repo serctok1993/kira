@@ -17,7 +17,7 @@ import httpx
 
 from core.config import CONFIG, DATA_DIR
 from core.kernel import events
-from core.kernel.scheduler import kill_switch_active
+from core.kernel.scheduler import kill_switch_active, kill_switch_path
 from core.mind.agent import Agent
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
@@ -98,10 +98,52 @@ def _handle(client: httpx.Client, update: dict) -> None:
     if not text:
         return
 
+    if text.startswith("/"):
+        _handle_command(client, chat_id, text)
+        return
+
     events.emit("telegram_in", {"chat_id": chat_id, "text": text}, session_id=f"telegram-{chat_id}")
     _typing(client, chat_id)
     result = _agent_for(chat_id).respond(text)
     _send(client, chat_id, result["text"])
+
+
+def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
+    parts = text.split(maxsplit=1)
+    cmd = parts[0].lower().lstrip("/")
+    rest = parts[1].strip() if len(parts) > 1 else ""
+
+    if cmd in ("start", "help"):
+        _send(client, chat_id,
+              "Ich bin Kyros. Schreib oder sprich mir einfach.\n"
+              "Befehle:\n"
+              "/act <aufgabe>  – ich nutze Werkzeuge (z.B. Web), um etwas zu erledigen\n"
+              "/stop  – Not-Aus (ich halte sofort an)\n"
+              "/go    – Not-Aus aufheben")
+        return
+    if cmd == "stop":
+        kill_switch_path().write_text("stop", encoding="utf-8")
+        events.emit("kill_switch_set", {"via": "telegram"})
+        _send(client, chat_id, "🛑 Not-Aus aktiv. Ich halte alle Aktionen an. Mit /go wieder frei.")
+        return
+    if cmd == "go":
+        p = kill_switch_path()
+        if p.exists():
+            p.unlink()
+        events.emit("kill_switch_clear", {"via": "telegram"})
+        _send(client, chat_id, "✅ Not-Aus aufgehoben. Ich bin wieder einsatzbereit.")
+        return
+    if cmd == "act":
+        if not rest:
+            _send(client, chat_id, "Nutzung: /act <aufgabe>")
+            return
+        _typing(client, chat_id)
+        from core.agency.act import act
+
+        result = act(rest, session_id=f"telegram-{chat_id}")
+        _send(client, chat_id, result["text"])
+        return
+    _send(client, chat_id, "Unbekannter Befehl. /help zeigt, was ich kann.")
 
 
 def run() -> None:

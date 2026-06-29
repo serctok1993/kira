@@ -7,14 +7,19 @@ Der Kill-Switch wird hier bereits respektiert.
 from __future__ import annotations
 
 import time
+from pathlib import Path
 
 from core.config import CONFIG, ROOT
 from core.kernel import events
 
 
-def kill_switch_active() -> bool:
+def kill_switch_path() -> Path:
     rel = CONFIG.get("governance", {}).get("kill_switch_file", "data/STOP")
-    return (ROOT / rel).exists()
+    return ROOT / rel
+
+
+def kill_switch_active() -> bool:
+    return kill_switch_path().exists()
 
 
 def tick() -> None:

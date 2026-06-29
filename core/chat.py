@@ -4,7 +4,9 @@ Slash-Befehle machen Reflexion, Council und Selbst-Evolution direkt erlebbar.
 """
 from __future__ import annotations
 
+from core.agency.act import act as run_act
 from core.config import CONFIG
+from core.kernel.scheduler import kill_switch_path
 from core.mind import council, evolution, reflection
 from core.mind.agent import Agent, _read
 from core.mind.memory import store as memory
@@ -19,8 +21,11 @@ HELP = """Befehle:  (ein '!' am Befehlsende eskaliert diese eine Aufgabe in die 
   /lessons                     gelernte Lektionen anzeigen
   /evolve <soul|goal> [text]   Vorschlag zur Selbst-Ueberarbeitung erzeugen (+ Verfassungs-Check)
   /apply  <soul|goal> [grund]  letzten Vorschlag uebernehmen (Backup wird angelegt)
+  /act <aufgabe>               Aufgabe mit Werkzeugen erledigen (Web etc.)
+  /stop | /go                  Not-Aus setzen / aufheben
   exit                         beenden
 Beispiele:  /council! Welche Nische zuerst?   (einmalig Cloud)
+            /act Lies https://example.com und fasse zusammen
 """
 
 _DOC = {"soul": "SOUL.md", "goal": "GOAL.md"}
@@ -88,6 +93,24 @@ def handle_command(line: str) -> None:
         reason = args[1] if len(args) > 1 else "(kein Grund)"
         res = evolution.apply_update(doc, reason)
         print(f"Uebernommen. Backup: {res['backup']}")
+
+    elif cmd == "/act":
+        if not rest:
+            print("Nutzung: /act <aufgabe>")
+            return
+        print("...Kyros arbeitet (Werkzeuge)..." + ("  [Cloud]" if escalate else ""))
+        r = run_act(rest, escalate=escalate)
+        print(f"\n{r['text']}\n[Schritte: {r['steps']}]")
+
+    elif cmd == "/stop":
+        kill_switch_path().write_text("stop", encoding="utf-8")
+        print("🛑 Not-Aus aktiv (data/STOP). Mit /go aufheben.")
+
+    elif cmd == "/go":
+        p = kill_switch_path()
+        if p.exists():
+            p.unlink()
+        print("✅ Not-Aus aufgehoben.")
 
     else:
         print("Unbekannter Befehl. /help fuer Hilfe.")
