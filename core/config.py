@@ -25,3 +25,29 @@ CONFIG = load_config()
 
 # Datenverzeichnis sicherstellen
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def apply_model_overrides(d: dict) -> None:
+    """Laufzeit-Overrides ueber die models-Sektion legen (Modellwahl, Provider).
+
+    So bleibt config.yaml (mit Kommentaren) unangetastet; geaendert wird nur
+    data/models.json zur Laufzeit.
+    """
+    m = CONFIG.setdefault("models", {})
+    if "default" in d:
+        m["default"] = d["default"]
+    if "routing" in d:
+        m.setdefault("routing", {}).update(d["routing"])
+    if "providers" in d:
+        m.setdefault("providers", {}).update(d["providers"])
+
+
+# Beim Start vorhandene Overrides einspielen
+_MODEL_OVERRIDE = DATA_DIR / "models.json"
+if _MODEL_OVERRIDE.exists():
+    import json as _json
+
+    try:
+        apply_model_overrides(_json.loads(_MODEL_OVERRIDE.read_text(encoding="utf-8")))
+    except Exception:
+        pass

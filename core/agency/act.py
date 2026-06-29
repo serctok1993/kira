@@ -16,7 +16,7 @@ import re
 from core.kernel import events, executor, llm_router
 from core.agency.tools import builtin  # noqa: F401  -> registriert die eingebauten Tools
 from core.agency.tools import registry, synthesize
-from core.mind.agent import _read
+from core.mind.agent import _read, PERSONA_DIRECTIVE
 
 # Frueher von Kyros selbst gebaute Werkzeuge wieder verfuegbar machen.
 synthesize.load_synthesized()
@@ -28,7 +28,8 @@ def _identity() -> str:
     return (
         f"# DEINE VERFASSUNG\n{_read('constitution.md')}\n\n"
         f"# DEINE SEELE\n{_read('SOUL.md')}\n\n"
-        f"# DEIN ZIEL\n{_read('GOAL.md')}"
+        f"# DEIN ZIEL\n{_read('GOAL.md')}\n\n"
+        f"{PERSONA_DIRECTIVE}"
     )
 
 

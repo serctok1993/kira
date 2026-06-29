@@ -186,6 +186,24 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
         else:
             _send(client, chat_id, f"❌ Nicht registriert: {r.get('reason')}\n{r.get('test_output','')[:200]}")
         return
+    if cmd == "model":
+        from core.kernel import models
+
+        args = rest.split()
+        if not args:
+            s = models.status()
+            _send(client, chat_id,
+                  f"Aktiv: {s['default']}\nEskalation: {s['escalation_model']}\n"
+                  f"Eigene Provider: {s['providers'] or '(keine)'}\n"
+                  f"Lokal: {', '.join(s['ollama_local']) or '(keine)'}")
+        elif args[0] == "use" and len(args) >= 2:
+            _send(client, chat_id, f"Aktives Modell -> {models.set_model(args[1])}")
+        elif args[0] == "add" and len(args) >= 5:
+            models.add_provider(args[1], args[2], args[3], args[4])
+            _send(client, chat_id, f"Provider '{args[1]}' angelegt. Nutzen: /model use {args[1]}")
+        else:
+            _send(client, chat_id, "Nutzung: /model | /model use <id> | /model add <alias> <modell> <api_base> <ENV>")
+        return
     _send(client, chat_id, "Unbekannter Befehl. /help zeigt, was ich kann.")
 
 

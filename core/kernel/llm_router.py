@@ -53,8 +53,24 @@ _PROVIDER_KEYS = {
 }
 
 
+def _provider_config(model_id: str) -> tuple[str, str | None, str | None]:
+    """Loest einen eigenen Provider-Alias auf.
+
+    Rueckgabe: (litellm_modell, api_base, api_key_env). Fuer Standardmodelle
+    (ollama/anthropic/...) bleibt es (model_id, None, None).
+    """
+    providers = CONFIG["models"].get("providers", {})
+    if model_id in providers:
+        p = providers[model_id]
+        return p.get("model", model_id), p.get("api_base"), p.get("api_key_env")
+    return model_id, None, None
+
+
 def _has_key(model: str) -> bool:
-    provider = model.split("/", 1)[0]
+    real, _api_base, key_env = _provider_config(model)
+    if key_env:  # eigener Provider -> dessen Env-Variable
+        return bool(os.getenv(key_env))
+    provider = real.split("/", 1)[0]
     if provider.startswith("ollama"):
         return True  # lokal, kein Key noetig
     env = _PROVIDER_KEYS.get(provider)
@@ -120,6 +136,7 @@ def complete(
             escalate = False  # zurueck auf lokal -> 0 EUR
 
     model, fell_back = resolve_model(task_type, escalate=escalate)
+    real, api_base, key_env = _provider_config(model)
 
     msgs: list[dict] = []
     if system:
@@ -127,17 +144,21 @@ def complete(
     msgs.extend(messages)
 
     extra: dict = {}
-    if model.startswith("ollama"):
+    if real.startswith("ollama"):
         keep_alive = CONFIG["models"].get("keep_alive")
         if keep_alive is not None:
             extra["keep_alive"] = keep_alive  # Modell im VRAM halten (Ollama)
         num_ctx = CONFIG["models"].get("num_ctx")
         if num_ctx is not None:
             extra["num_ctx"] = num_ctx  # groesseres Kontextfenster (Ollama)
+    if api_base:
+        extra["api_base"] = api_base
+    if key_env:
+        extra["api_key"] = os.getenv(key_env)
 
     t0 = time.time()
     resp = litellm.completion(
-        model=model,
+        model=real,
         messages=msgs,
         temperature=CONFIG["models"].get("temperature", 0.7),
         max_tokens=CONFIG["models"].get("max_tokens", 2048),
@@ -196,8 +217,10 @@ def stream(messages, system=None, task_type="chat", session_id=None, escalate=Fa
     ein Block ausgegeben.
     """
     model, fell_back = resolve_model(task_type, escalate=escalate)
+    real, _api_base, _key_env = _provider_config(model)
 
-    if not model.startswith("ollama"):
+    if not real.startswith("ollama"):
+        # Cloud/eigener Provider -> ueber complete() (sauberes Kosten-Logging), als ein Block
         res = complete(messages, system=system, task_type=task_type, session_id=session_id, escalate=escalate)
         yield res["text"]
         return
@@ -215,7 +238,7 @@ def stream(messages, system=None, task_type="chat", session_id=None, escalate=Fa
 
     t0 = time.time()
     resp = litellm.completion(
-        model=model,
+        model=real,
         messages=msgs,
         temperature=CONFIG["models"].get("temperature", 0.7),
         max_tokens=CONFIG["models"].get("max_tokens", 2048),

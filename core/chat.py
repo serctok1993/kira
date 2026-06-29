@@ -7,6 +7,7 @@ from __future__ import annotations
 from core.agency.act import act as run_act
 from core.agency.tools import synthesize
 from core.config import CONFIG
+from core.kernel import models
 from core.kernel.scheduler import kill_switch_path
 from core.mind import council, evolution, reflection
 from core.mind.agent import Agent, _read
@@ -24,6 +25,9 @@ HELP = """Befehle:  (ein '!' am Befehlsende eskaliert diese eine Aufgabe in die 
   /apply  <soul|goal> [grund]  letzten Vorschlag uebernehmen (Backup wird angelegt)
   /act <aufgabe>               Aufgabe mit Werkzeugen erledigen (Web etc.)
   /build <beschreibung>        Kyros baut sich ein NEUES Werkzeug (testet + registriert)
+  /model                       Modelle anzeigen (aktiv, lokal, eigene Provider)
+  /model use <id>              aktives LLM wechseln (z.B. llama3.1:8b -> ollama_chat/...)
+  /model add <alias> <litellm-modell> <api_base> <API_KEY_ENV>   eigenen API-Provider anlegen
   /stop | /go                  Not-Aus setzen / aufheben
   exit                         beenden
 Beispiele:  /council! Welche Nische zuerst?   (einmalig Cloud)
@@ -117,6 +121,23 @@ def handle_command(line: str) -> None:
             print(f"❌ Nicht registriert ({r.get('reason')}).")
             if r.get("test_output"):
                 print(f"   {r['test_output'][:300]}")
+
+    elif cmd == "/model":
+        args = rest.split()
+        if not args:
+            s = models.status()
+            print(f"Aktiv (default): {s['default']}")
+            print(f"Routing: {s['routing']}")
+            print(f"Eskalation (Cloud): {s['escalation_model']}")
+            print(f"Eigene Provider: {s['providers'] or '(keine)'}")
+            print(f"Lokal in Ollama: {s['ollama_local'] or '(keine)'}")
+        elif args[0] == "use" and len(args) >= 2:
+            print(f"Aktives Modell -> {models.set_model(args[1])}")
+        elif args[0] == "add" and len(args) >= 5:
+            models.add_provider(args[1], args[2], args[3], args[4])
+            print(f"Provider '{args[1]}' angelegt. Nutzen mit: /model use {args[1]}")
+        else:
+            print("Nutzung: /model  |  /model use <id>  |  /model add <alias> <litellm-modell> <api_base> <API_KEY_ENV>")
 
     elif cmd == "/stop":
         kill_switch_path().write_text("stop", encoding="utf-8")

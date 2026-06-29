@@ -115,6 +115,32 @@ def recent_dialogue(session_id: str, limit: int = 10) -> list[dict]:
     return [{"role": r[0], "text": r[1]} for r in rows]
 
 
+def clear_session(session_id: str) -> int:
+    """Loescht das episodische Gedaechtnis EINER Session (frischer Start im Chat).
+
+    Identitaet (Verfassung/Seele/Ziel) bleibt unberuehrt; nur der Gespraechsverlauf
+    dieser Session wird vergessen. Gibt die Anzahl geloeschter Eintraege zurueck.
+    """
+    with _conn() as c:
+        n = c.execute("SELECT COUNT(*) FROM memory WHERE session_id=?", (session_id,)).fetchone()[0]
+        c.execute("DELETE FROM memory WHERE session_id=?", (session_id,))
+    return int(n)
+
+
+def forget_matching(substrings: list[str], role: str | None = None) -> int:
+    """Loescht Erinnerungen, deren Text einen der Teilstrings enthaelt (z.B. Fehlaussagen)."""
+    deleted = 0
+    with _conn() as c:
+        rows = c.execute("SELECT id, text, role FROM memory").fetchall()
+        for mid, text, r in rows:
+            if role and r != role:
+                continue
+            if any(s.lower() in (text or "").lower() for s in substrings):
+                c.execute("DELETE FROM memory WHERE id=?", (mid,))
+                deleted += 1
+    return deleted
+
+
 def recall_lessons(limit: int = 5) -> list[str]:
     """Die juengsten gelernten Lektionen (aus der Reflexion)."""
     with _conn() as c:
