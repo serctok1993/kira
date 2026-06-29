@@ -9,7 +9,7 @@ import time
 
 import anyio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 
 from core.agency.tools import builtin as _builtin  # noqa: F401  (registriert eingebaute Tools)
 from core.agency.tools import registry
@@ -318,6 +318,36 @@ async def api_kill(body: dict) -> dict:
     return {"ok": True, "kill_switch": kill_switch_active()}
 
 
+@app.get("/api/bg")
+def api_bg():
+    for ext in ("jpg", "jpeg", "png", "webp", "gif"):
+        p = ROOT / "data" / f"background.{ext}"
+        if p.exists():
+            return FileResponse(str(p))
+    return Response(status_code=404)
+
+
+@app.post("/api/bg/upload")
+async def api_bg_upload(body: dict) -> dict:
+    import base64
+    import re
+
+    m = re.match(r"data:image/(\w+);base64,(.+)$", body.get("dataurl", ""), re.DOTALL)
+    if not m:
+        return {"ok": False, "error": "kein gueltiges Bild"}
+    ext = m.group(1).lower().replace("jpeg", "jpg")
+    raw = base64.b64decode(m.group(2))
+    data_dir = ROOT / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    for e in ("jpg", "jpeg", "png", "webp", "gif"):
+        old = data_dir / f"background.{e}"
+        if old.exists():
+            old.unlink()
+    (data_dir / f"background.{ext}").write_bytes(raw)
+    events.emit("background_set", {"ext": ext, "bytes": len(raw)})
+    return {"ok": True, "ext": ext, "bytes": len(raw)}
+
+
 # ---------- Chat (Live-Thinking) ----------
 @app.websocket("/ws/chat")
 async def ws_chat(ws: WebSocket) -> None:
@@ -359,19 +389,20 @@ DASHBOARD_HTML = """<!doctype html>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Kira Cockpit</title>
 <style>
-:root{--bg:#080c0f;--panel:#0e161b;--panel2:#0b1217;--line:#1b2a33;--ink:#dfeaef;
- --muted:#7791a0;--accent:#1fb6a6;--accent2:#0e7c8c;--amber:#e0a35a;--danger:#e0564e;}
+:root{--bg:#0a0710;--panel:#150f20;--panel2:#100b18;--line:#2a1f3a;--ink:#f3eef9;
+ --muted:#9a8fb0;--accent:#a855f7;--accent2:#7c3aed;--amber:#c4b5fd;--danger:#f0596a;}
 *{box-sizing:border-box}
 body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Code",Consolas,monospace;
- background:var(--bg);color:var(--ink)}
-#side{width:210px;flex-shrink:0;border-right:1px solid var(--line);background:var(--panel2);
- display:flex;flex-direction:column}
-#side h1{font-size:15px;letter-spacing:2px;padding:16px 16px 4px;color:var(--amber);margin:0}
-#side .sub{font-size:11px;color:var(--muted);padding:0 16px 14px}
+ background:linear-gradient(rgba(10,7,16,.80),rgba(10,7,16,.93)),url('/api/bg') center/cover fixed no-repeat,var(--bg);color:var(--ink)}
+#side{width:210px;flex-shrink:0;border-right:1px solid var(--line);background:rgba(13,9,20,.72);
+ backdrop-filter:blur(8px);display:flex;flex-direction:column}
+#side h1{font-size:19px;letter-spacing:3px;padding:16px 16px 2px;color:#fff;margin:0;
+ text-shadow:0 0 12px rgba(168,85,247,.9),0 0 26px rgba(124,58,237,.5)}
+#side .sub{font-size:11px;color:var(--muted);padding:0 16px 14px;letter-spacing:1px}
 #side a{display:block;padding:10px 16px;color:var(--ink);text-decoration:none;cursor:pointer;
  border-left:3px solid transparent}
-#side a:hover{background:var(--panel)}
-#side a.on{background:var(--panel);border-left-color:var(--accent);color:var(--accent)}
+#side a:hover{background:rgba(168,85,247,.10)}
+#side a.on{background:rgba(168,85,247,.14);border-left-color:var(--accent);color:#fff}
 #side .spacer{flex:1}
 #side .kill{margin:12px;padding:9px;text-align:center;border:1px solid var(--line);border-radius:8px;
  cursor:pointer;color:var(--muted)}
@@ -387,8 +418,8 @@ body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Cod
 /* chat */
 #log{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;max-width:880px;margin:0 auto;width:100%}
 .msg{padding:11px 14px;border-radius:12px;border:1px solid var(--line);white-space:pre-wrap;max-width:84%}
-.me{align-self:flex-end;background:#13212a}
-.bot{align-self:flex-start;background:var(--panel)}
+.me{align-self:flex-end;background:rgba(124,58,237,.22);border-color:rgba(168,85,247,.35)}
+.bot{align-self:flex-start;background:rgba(21,15,32,.72)}
 .sys{align-self:center;color:var(--muted);font-size:12px;border:none}
 .think{align-self:flex-start;max-width:84%;color:var(--muted);font-size:12px;font-style:italic;
  border-left:2px solid var(--accent2);padding:4px 10px;margin:-4px 0 0;white-space:pre-wrap;display:none}
@@ -399,7 +430,7 @@ body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Cod
  outline:none;font-family:inherit}
 #cin:focus{border-color:var(--accent2)}
 button{padding:0 16px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-family:inherit;
- background:linear-gradient(135deg,var(--accent),var(--accent2));color:#04181a}
+ background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 0 14px rgba(168,85,247,.35)}
 button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line)}
 /* files */
 .cols{display:flex;gap:16px;flex:1;min-height:0}
@@ -414,7 +445,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 #farea:read-only{color:var(--muted)}
 .frow{display:flex;gap:10px;align-items:center}
 /* models + protokoll */
-.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px;max-width:880px}
+.card{background:rgba(21,15,32,.62);backdrop-filter:blur(8px);border:1px solid rgba(168,85,247,.18);border-radius:12px;padding:14px;margin-bottom:14px;max-width:880px}
 .card h3{margin:0 0 8px;font-size:13px;color:var(--amber)}
 .pill{display:inline-block;padding:3px 9px;border:1px solid var(--line);border-radius:20px;margin:3px 5px 3px 0;
  font-size:12px;cursor:pointer}
@@ -431,7 +462,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 .muted{color:var(--muted)}
 </style></head><body>
 <div id="side">
-  <h1>KIRA</h1><div class="sub" id="who">cockpit</div>
+  <h1>KIRA <span style="color:var(--accent)">&#9829;</span></h1><div class="sub" id="who">cockpit</div>
   <a data-v="home" class="on">› Uebersicht</a>
   <a data-v="chat">› Chat</a>
   <a data-v="files">› Seele &amp; Dateien</a>
@@ -444,6 +475,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
   <a data-v="mem">› Gedaechtnis</a>
   <a data-v="log">› Protokoll</a>
   <div class="spacer"></div>
+  <label class="kill" id="bgbtn" style="cursor:pointer;font-size:12px">🖼 Hintergrund<input id="bgfile" type="file" accept="image/*" style="display:none"/></label>
   <div class="kill" id="kill">Not-Aus: aus</div>
 </div>
 <div id="main">
@@ -589,6 +621,12 @@ async function loadChatModels(){const s=await (await fetch("/api/status")).json(
 $("#chat-model")&&($("#chat-model").onchange=async(e)=>{const id=e.target.value;
  await fetch("/api/model/use",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
  $("#chat-model-now").textContent="gewechselt zu: "+id; refreshStatus();});
+
+/* ---- Hintergrundbild hochladen ---- */
+$("#bgfile")&&($("#bgfile").onchange=(e)=>{const f=e.target.files[0];if(!f)return;
+ const rd=new FileReader();rd.onload=async()=>{await fetch("/api/bg/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dataurl:rd.result})});
+  document.body.style.backgroundImage="linear-gradient(rgba(10,7,16,.80),rgba(10,7,16,.93)),url('/api/bg?t="+Date.now()+"')";};
+ rd.readAsDataURL(f);});
 
 /* ---- Monitor ---- */
 async function loadMonitor(){const m=await (await fetch("/api/monitor")).json();
