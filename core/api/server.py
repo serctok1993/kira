@@ -231,6 +231,44 @@ async def api_mission_runonce(body: dict) -> dict:
     return {"ok": True, "result": out}
 
 
+@app.get("/api/monitor")
+def api_monitor() -> dict:
+    from core.agency.connectors import news_monitor
+
+    recent = []
+    for e in events.recent(250):
+        if e["type"] == "monitor_new":
+            recent.append({
+                "ts": e["ts"], "label": e["payload"].get("label"),
+                "count": e["payload"].get("count"), "summary": e["payload"].get("summary", ""),
+            })
+            if len(recent) >= 8:
+                break
+    return {"watches": news_monitor.list_watches(), "recent": recent}
+
+
+@app.post("/api/monitor/add")
+async def api_monitor_add(body: dict) -> dict:
+    from core.agency.connectors import news_monitor
+
+    return {"ok": True, "watch": news_monitor.add_watch(body.get("kind", "search"), body.get("value", ""), body.get("label", ""))}
+
+
+@app.post("/api/monitor/remove")
+async def api_monitor_remove(body: dict) -> dict:
+    from core.agency.connectors import news_monitor
+
+    return {"ok": news_monitor.remove_watch(body.get("id", ""))}
+
+
+@app.post("/api/monitor/check")
+async def api_monitor_check(body: dict) -> dict:
+    from core.agency.connectors import news_monitor
+
+    out = await anyio.to_thread.run_sync(lambda: news_monitor.run_all(force=True, notify=True))
+    return {"ok": True, **out}
+
+
 @app.post("/api/kill")
 async def api_kill(body: dict) -> dict:
     if body.get("on"):
@@ -364,6 +402,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
   <a data-v="models">› Modelle</a>
   <a data-v="gov">› Gewissen</a>
   <a data-v="mission">› Mission</a>
+  <a data-v="monitor">› Monitor</a>
   <a data-v="keys">› Zugaenge</a>
   <a data-v="mem">› Gedaechtnis</a>
   <a data-v="log">› Protokoll</a>
@@ -439,6 +478,22 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
     <div class="card"><h3>Letzte Schritte</h3><div id="ms-recent" class="muted">…</div></div>
   </div>
 
+  <div class="view" id="v-monitor">
+    <div class="card"><h3>Web-/News-Monitor (rein lesend)</h3>
+      <div class="muted">Kira ueberwacht Feeds &amp; Themen, fasst Neues zusammen und meldet per Telegram. Nur Lesen — sicher.</div>
+      <div class="row" style="margin-top:8px">
+        <select id="mo-kind"><option value="feed">RSS-Feed</option><option value="search">Web-Thema</option></select>
+        <input id="mo-value" placeholder="RSS-URL  oder  Suchbegriff" style="min-width:240px"/>
+        <input id="mo-label" placeholder="Label (optional)" style="max-width:150px"/>
+        <button id="mo-add">+ Beobachten</button>
+        <button class="ghost" id="mo-check">Jetzt pruefen</button>
+      </div>
+      <div class="muted" id="mo-hint" style="margin-top:6px"></div>
+    </div>
+    <div class="card"><h3>Beobachtungen</h3><div id="mo-list" class="muted">…</div></div>
+    <div class="card"><h3>Zuletzt gemeldet</h3><div id="mo-recent" class="muted">…</div></div>
+  </div>
+
   <div class="view" id="v-keys">
     <div class="card"><h3>Von Kira angefordert</h3><div id="k-pending" class="muted">…</div></div>
     <div class="card"><h3>Zugang eintragen / aktualisieren</h3>
@@ -463,7 +518,15 @@ let cur="home";
 $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
 function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");
- if(v==="home")loadHome(); if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="mission")loadMission(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
+ if(v==="home")loadHome(); if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="mission")loadMission(); if(v==="monitor")loadMonitor(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
+
+/* ---- Monitor ---- */
+async function loadMonitor(){const m=await (await fetch("/api/monitor")).json();
+ $("#mo-list").innerHTML=m.watches.length?m.watches.map(w=>'<div style="padding:6px 0;border-bottom:1px solid #1b2a33"><b>'+(w.label||"").replace(/</g,"&lt;")+'</b> <small class=muted>['+w.kind+']</small> <a href="#" data-rm="'+w.id+'" style="float:right;color:#e0a35a">entfernen</a><br><small class=muted>'+(w.value||"").replace(/</g,"&lt;")+'</small></div>').join(""):'<span class=muted>(noch keine — oben hinzufuegen)</span>';
+ document.querySelectorAll('#mo-list a[data-rm]').forEach(a=>a.onclick=async(e)=>{e.preventDefault();await fetch("/api/monitor/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.rm})});loadMonitor();});
+ $("#mo-recent").innerHTML=m.recent.length?m.recent.map(r=>{const ts=new Date(r.ts*1000).toLocaleString();return '<div style="padding:6px 0;border-bottom:1px solid #1b2a33"><small class=muted>'+ts+'</small> <b>'+(r.label||"")+'</b> ('+r.count+' neu)<br>'+(r.summary||"").slice(0,320).replace(/</g,"&lt;").replace(/\\n/g,"<br>")+'</div>';}).join(""):'<span class=muted>(noch nichts gemeldet)</span>';}
+$("#mo-add").onclick=async()=>{const v=$("#mo-value").value.trim();if(!v)return;await fetch("/api/monitor/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:$("#mo-kind").value,value:v,label:$("#mo-label").value})});$("#mo-value").value="";$("#mo-label").value="";loadMonitor();};
+$("#mo-check").onclick=async()=>{$("#mo-hint").textContent="… prueft alle Beobachtungen (kann etwas dauern) …";const r=await (await fetch("/api/monitor/check",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();$("#mo-hint").textContent="Geprueft: "+r.checked+" Quelle(n) · Neu gemeldet: "+(r.digests?r.digests.length:0);loadMonitor();};
 
 /* ---- Mission (24/7) ---- */
 async function loadMission(){const m=await (await fetch("/api/mission")).json();

@@ -62,6 +62,14 @@ def run_once(escalate: bool = False) -> dict:
         events.emit("heartbeat_halted", {"reason": "kill_switch"})
         return {"halted": True}
 
+    # Rein lesendes Web-/News-Monitoring (rate-limited pro Quelle) bei jedem Tick.
+    try:
+        from core.agency.connectors import news_monitor
+
+        news_monitor.run_all(force=False, notify=True)
+    except Exception as e:  # noqa: BLE001
+        events.emit("monitor_error", {"error": str(e)})
+
     m = _mission()
     mission = m.get("name", "default")
     goal = m.get("goal") or _read("GOAL.md")
