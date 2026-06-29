@@ -45,7 +45,7 @@ def _parse_act(text: str):
     return m.group(1), args
 
 
-def act(task: str, session_id: str | None = None, max_steps: int = 5, escalate: bool = False) -> dict:
+def act(task: str, session_id: str | None = None, max_steps: int = 8, escalate: bool = False) -> dict:
     system = _identity() + f"""
 
 # WERKZEUGE
@@ -58,7 +58,14 @@ Beispiel: ACT web_fetch {{"url": "https://example.com"}}
 
 Du bekommst danach das ERGEBNIS und kannst ein weiteres Werkzeug nutzen oder,
 wenn du genug weisst, normal antworten (ohne ACT) — das ist dann dein Endergebnis
-fuer Sergen. Nutze Werkzeuge nur, wenn noetig."""
+fuer Sergen. Nutze Werkzeuge nur, wenn noetig.
+
+Denke vor jedem Schritt gruendlich Schritt fuer Schritt nach, was der beste
+naechste Zug ist, bevor du handelst.
+
+WICHTIG: Gib nicht auf und sage nicht "keine Treffer". Wenn dir Informationen
+fehlen, BENUTZE web_search (Stichworte) und danach web_fetch auf die besten Links,
+um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort."""
 
     messages: list[dict] = [{"role": "user", "content": task}]
     events.emit("act_start", {"task": task}, session_id=session_id)
@@ -94,8 +101,15 @@ fuer Sergen. Nutze Werkzeuge nur, wenn noetig."""
             {"role": "user", "content": f"ERGEBNIS von {name}:\n{obs}\n\nMach weiter oder gib die finale Antwort."}
         )
 
-    events.emit("act_truncated", {"steps": max_steps}, session_id=session_id)
-    return {"text": "(Maximale Schrittzahl erreicht, keine finale Antwort.)", "steps": max_steps}
+    # Schrittlimit erreicht -> erzwinge eine finale Zusammenfassung aus dem Recherchierten.
+    messages.append({
+        "role": "user",
+        "content": "Du hast genug recherchiert. Fasse JETZT deine Erkenntnisse als finale, "
+                   "konkrete Antwort fuer Sergen zusammen — ohne weitere Werkzeuge (kein ACT).",
+    })
+    res = llm_router.complete(messages, system=system, task_type="reason", session_id=session_id, escalate=escalate)
+    events.emit("act_truncated_summary", {"steps": max_steps}, session_id=session_id)
+    return {"text": res["text"].strip(), "steps": max_steps}
 
 
 if __name__ == "__main__":
