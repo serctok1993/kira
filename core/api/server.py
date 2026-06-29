@@ -1,35 +1,120 @@
-"""FastAPI: Web-Chat + Status/Events-API + WebSocket-Live-Kanal.
+"""FastAPI-Cockpit: Chat (mit Live-Thinking), Seele/Dateien, Modelle, Protokoll.
 
-Spaeter speist dieser Live-Kanal das Next.js-Cockpit (Phase 6).
+Ein Prozess, eine Seite (Terminal-Look). Start:
+    uv run uvicorn core.api.server:app --reload   ->  http://127.0.0.1:8000
 """
 from __future__ import annotations
+
+import time
 
 import anyio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
-from core.config import CONFIG
-from core.kernel import events
+from core.config import CONFIG, MIND_DIR, ROOT
+from core.kernel import events, models
+from core.kernel.llm_router import today_spend_usd
+from core.kernel.scheduler import kill_switch_active, kill_switch_path
 from core.mind.agent import Agent
+from core.mind.memory import store as memory
 
-app = FastAPI(title="Prometheus")
+app = FastAPI(title="Prometheus Cockpit")
+
+# Im Dashboard sichtbare/bearbeitbare Dateien
+FILES: dict[str, dict] = {
+    "constitution.md": {"path": MIND_DIR / "constitution.md", "editable": False, "label": "Verfassung (unveraenderlich)"},
+    "SOUL.md": {"path": MIND_DIR / "SOUL.md", "editable": True, "label": "Seele (SOUL)"},
+    "GOAL.md": {"path": MIND_DIR / "GOAL.md", "editable": True, "label": "Ziel (GOAL)"},
+    "config.yaml": {"path": ROOT / "config.yaml", "editable": False, "label": "Konfiguration"},
+}
 
 
+# ---------- REST ----------
 @app.get("/health")
 def health() -> dict:
+    return {"status": "alive", "harness": CONFIG["identity"]["harness_name"]}
+
+
+@app.get("/api/status")
+def api_status() -> dict:
+    m = models.status()
     return {
-        "status": "alive",
         "harness": CONFIG["identity"]["harness_name"],
-        "trust_level": CONFIG["governance"]["trust_level"],
+        "partner": CONFIG["identity"].get("partner_name") or "Partner",
+        "model": m["default"],
+        "api_keys": m["api_keys"],
+        "providers": m["providers"],
+        "ollama_local": m["ollama_local"],
+        "escalation_model": m["escalation_model"],
+        "spend_usd_today": round(today_spend_usd(), 4),
+        "kill_switch": kill_switch_active(),
         "events": events.counts_by_type(),
+        "lessons": memory.recall_lessons(8),
     }
 
 
-@app.get("/events")
-def get_events(limit: int = 50) -> list[dict]:
+@app.get("/api/files")
+def api_files() -> list[dict]:
+    return [{"name": n, "label": f["label"], "editable": f["editable"]} for n, f in FILES.items()]
+
+
+@app.get("/api/file")
+def api_file(name: str) -> dict:
+    f = FILES.get(name)
+    if not f:
+        return {"error": "unbekannte Datei"}
+    p = f["path"]
+    content = p.read_text(encoding="utf-8") if p.exists() else ""
+    return {"name": name, "label": f["label"], "editable": f["editable"], "content": content}
+
+
+@app.post("/api/file")
+async def api_file_save(body: dict) -> dict:
+    name = body.get("name", "")
+    f = FILES.get(name)
+    if not f or not f["editable"]:
+        return {"ok": False, "error": "Datei ist nicht bearbeitbar."}
+    p = f["path"]
+    # Backup vor dem Ueberschreiben (Undo-Spur)
+    hist = MIND_DIR / "history"
+    hist.mkdir(parents=True, exist_ok=True)
+    if p.exists():
+        ts = time.strftime("%Y%m%d-%H%M%S")
+        (hist / f"{name}.{ts}.bak").write_text(p.read_text(encoding="utf-8"), encoding="utf-8")
+    p.write_text(body.get("content", ""), encoding="utf-8")
+    events.emit("file_edited", {"file": name, "via": "dashboard"})
+    return {"ok": True}
+
+
+@app.get("/api/events")
+def api_events(limit: int = 60) -> list[dict]:
     return events.recent(limit)
 
 
+@app.post("/api/model/use")
+async def api_model_use(body: dict) -> dict:
+    return {"ok": True, "active": models.set_model(body.get("id", ""))}
+
+
+@app.post("/api/model/openrouter")
+async def api_model_openrouter(body: dict) -> dict:
+    return {"ok": True, "active": models.add_openrouter(body.get("model", ""))}
+
+
+@app.post("/api/kill")
+async def api_kill(body: dict) -> dict:
+    if body.get("on"):
+        kill_switch_path().write_text("stop", encoding="utf-8")
+        events.emit("kill_switch_set", {"via": "dashboard"})
+    else:
+        p = kill_switch_path()
+        if p.exists():
+            p.unlink()
+        events.emit("kill_switch_clear", {"via": "dashboard"})
+    return {"ok": True, "kill_switch": kill_switch_active()}
+
+
+# ---------- Chat (Live-Thinking) ----------
 @app.websocket("/ws/chat")
 async def ws_chat(ws: WebSocket) -> None:
     await ws.accept()
@@ -38,112 +123,221 @@ async def ws_chat(ws: WebSocket) -> None:
     try:
         while True:
             user_text = await ws.receive_text()
-            # Blockierenden LLM-Call in einen Thread auslagern.
-            result = await anyio.to_thread.run_sync(agent.respond, user_text)
-            await ws.send_json(
-                {
-                    "role": "partner",
-                    "text": result["text"],
-                    "fell_back": result["fell_back"],
-                    "model": result["model"],
-                }
-            )
+            gen = agent.respond_stream_tagged(user_text)
+
+            def next_piece():
+                try:
+                    return next(gen)
+                except StopIteration:
+                    return None
+
+            while True:
+                piece = await anyio.to_thread.run_sync(next_piece)
+                if piece is None:
+                    break
+                await ws.send_json({"role": "partner", **piece})
+            await ws.send_json({"role": "partner", "done": True})
     except WebSocketDisconnect:
         pass
 
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
-    return CHAT_HTML
+    return DASHBOARD_HTML
 
 
-CHAT_HTML = """<!doctype html>
-<html lang="de">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Prometheus</title>
+DASHBOARD_HTML = """<!doctype html>
+<html lang="de"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Prometheus Cockpit</title>
 <style>
-  :root { --bg:#0a0f12; --panel:#0f171c; --line:#1c2a32; --ink:#e6f1f5;
-          --muted:#7c93a0; --accent:#1fb6a6; --accent2:#0e7c8c; --user:#13212a; }
-  * { box-sizing:border-box; }
-  body { margin:0; font:15px/1.55 system-ui,Segoe UI,Roboto,sans-serif;
-         background:radial-gradient(1200px 600px at 70% -10%, #10262a 0%, var(--bg) 60%);
-         color:var(--ink); height:100vh; display:flex; flex-direction:column; }
-  header { padding:14px 20px; border-bottom:1px solid var(--line);
-           display:flex; align-items:center; gap:10px; }
-  .dot { width:9px; height:9px; border-radius:50%; background:var(--accent);
-         box-shadow:0 0 12px var(--accent); }
-  header b { letter-spacing:.5px; }
-  header span { color:var(--muted); font-size:13px; }
-  #log { flex:1; overflow-y:auto; padding:24px; display:flex; flex-direction:column; gap:14px;
-         max-width:820px; width:100%; margin:0 auto; }
-  .msg { padding:12px 16px; border-radius:14px; max-width:80%; white-space:pre-wrap;
-         border:1px solid var(--line); }
-  .me  { align-self:flex-end; background:var(--user); border-color:#21323d; }
-  .bot { align-self:flex-start; background:var(--panel); }
-  .sys { align-self:center; color:var(--muted); font-size:12px; border:none; }
-  .meta { color:var(--muted); font-size:11px; margin-top:6px; }
-  form { display:flex; gap:10px; padding:16px; border-top:1px solid var(--line);
-         max-width:820px; width:100%; margin:0 auto; }
-  input { flex:1; padding:13px 16px; border-radius:12px; border:1px solid var(--line);
-          background:var(--panel); color:var(--ink); outline:none; font-size:15px; }
-  input:focus { border-color:var(--accent2); }
-  button { padding:0 20px; border-radius:12px; border:none; cursor:pointer; font-weight:600;
-           background:linear-gradient(135deg,var(--accent),var(--accent2)); color:#04181a; }
-  button:disabled { opacity:.5; cursor:default; }
-</style>
-</head>
-<body>
-  <header><span class="dot"></span><b>PROMETHEUS</b><span id="status">verbinde…</span></header>
-  <div id="log"></div>
-  <form id="f">
-    <input id="i" placeholder="Schreib deinem Partner…" autocomplete="off" autofocus />
-    <button id="b" type="submit">Senden</button>
-  </form>
+:root{--bg:#080c0f;--panel:#0e161b;--panel2:#0b1217;--line:#1b2a33;--ink:#dfeaef;
+ --muted:#7791a0;--accent:#1fb6a6;--accent2:#0e7c8c;--amber:#e0a35a;--danger:#e0564e;}
+*{box-sizing:border-box}
+body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Code",Consolas,monospace;
+ background:var(--bg);color:var(--ink)}
+#side{width:210px;flex-shrink:0;border-right:1px solid var(--line);background:var(--panel2);
+ display:flex;flex-direction:column}
+#side h1{font-size:15px;letter-spacing:2px;padding:16px 16px 4px;color:var(--amber);margin:0}
+#side .sub{font-size:11px;color:var(--muted);padding:0 16px 14px}
+#side a{display:block;padding:10px 16px;color:var(--ink);text-decoration:none;cursor:pointer;
+ border-left:3px solid transparent}
+#side a:hover{background:var(--panel)}
+#side a.on{background:var(--panel);border-left-color:var(--accent);color:var(--accent)}
+#side .spacer{flex:1}
+#side .kill{margin:12px;padding:9px;text-align:center;border:1px solid var(--line);border-radius:8px;
+ cursor:pointer;color:var(--muted)}
+#side .kill.active{border-color:var(--danger);color:var(--danger)}
+#main{flex:1;display:flex;flex-direction:column;min-width:0}
+#bar{padding:9px 18px;border-bottom:1px solid var(--line);display:flex;gap:18px;align-items:center;
+ font-size:12px;color:var(--muted);background:var(--panel2)}
+#bar .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+#bar b{color:var(--ink)}
+.view{flex:1;overflow:auto;display:none;padding:18px}
+.view.on{display:flex;flex-direction:column}
+/* chat */
+#log{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;max-width:880px;margin:0 auto;width:100%}
+.msg{padding:11px 14px;border-radius:12px;border:1px solid var(--line);white-space:pre-wrap;max-width:84%}
+.me{align-self:flex-end;background:#13212a}
+.bot{align-self:flex-start;background:var(--panel)}
+.sys{align-self:center;color:var(--muted);font-size:12px;border:none}
+.think{align-self:flex-start;max-width:84%;color:var(--muted);font-size:12px;font-style:italic;
+ border-left:2px solid var(--accent2);padding:4px 10px;margin:-4px 0 0;white-space:pre-wrap;display:none}
+.think.show{display:block}
+.think .h{color:var(--accent2);font-style:normal;cursor:pointer}
+#cform{display:flex;gap:10px;max-width:880px;margin:10px auto 0;width:100%}
+#cin{flex:1;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);
+ outline:none;font-family:inherit}
+#cin:focus{border-color:var(--accent2)}
+button{padding:0 16px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-family:inherit;
+ background:linear-gradient(135deg,var(--accent),var(--accent2));color:#04181a}
+button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line)}
+/* files */
+.cols{display:flex;gap:16px;flex:1;min-height:0}
+.flist{width:230px;flex-shrink:0;display:flex;flex-direction:column;gap:6px}
+.flist .f{padding:9px 11px;border:1px solid var(--line);border-radius:8px;cursor:pointer;background:var(--panel)}
+.flist .f:hover{border-color:var(--accent2)}
+.flist .f.on{border-color:var(--accent);color:var(--accent)}
+.flist .f small{display:block;color:var(--muted);font-size:10px}
+.fedit{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0}
+#farea{flex:1;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;
+ padding:12px;font-family:inherit;font-size:13px;resize:none;outline:none}
+#farea:read-only{color:var(--muted)}
+.frow{display:flex;gap:10px;align-items:center}
+/* models + protokoll */
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px;max-width:880px}
+.card h3{margin:0 0 8px;font-size:13px;color:var(--amber)}
+.pill{display:inline-block;padding:3px 9px;border:1px solid var(--line);border-radius:20px;margin:3px 5px 3px 0;
+ font-size:12px;cursor:pointer}
+.pill:hover{border-color:var(--accent)}
+.pill.ok{color:var(--accent);border-color:var(--accent2)}
+.pill.no{color:var(--muted)}
+.row{display:flex;gap:8px;margin-top:8px}
+.row input{flex:1;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--ink);
+ outline:none;font-family:inherit}
+#evlog{font-size:12px;max-width:980px}
+#evlog .e{padding:6px 10px;border-bottom:1px solid var(--line);display:flex;gap:12px}
+#evlog .e .t{color:var(--accent);min-width:160px}
+#evlog .e .m{color:var(--muted);white-space:pre-wrap}
+.muted{color:var(--muted)}
+</style></head><body>
+<div id="side">
+  <h1>PROMETHEUS</h1><div class="sub" id="who">cockpit</div>
+  <a data-v="chat" class="on">› Chat</a>
+  <a data-v="files">› Seele &amp; Dateien</a>
+  <a data-v="models">› Modelle</a>
+  <a data-v="log">› Protokoll</a>
+  <div class="spacer"></div>
+  <div class="kill" id="kill">Not-Aus: aus</div>
+</div>
+<div id="main">
+  <div id="bar">
+    <span class="dot"></span><span>ONLINE</span>
+    <span>Modell: <b id="b-model">…</b></span>
+    <span>Heute: <b id="b-spend">…</b></span>
+    <span id="b-kill"></span>
+  </div>
+
+  <div class="view on" id="v-chat">
+    <div id="log"></div>
+    <form id="cform"><input id="cin" placeholder="Schreib Kyros…" autocomplete="off" autofocus/><button>Senden</button></form>
+  </div>
+
+  <div class="view" id="v-files">
+    <div class="cols">
+      <div class="flist" id="flist"></div>
+      <div class="fedit">
+        <div class="frow"><b id="ftitle" class="muted">Datei waehlen…</b><span class="spacer" style="flex:1"></span>
+          <button class="ghost" id="fsave" style="display:none">Speichern</button></div>
+        <textarea id="farea" readonly placeholder="—"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="view" id="v-models">
+    <div class="card"><h3>Aktives Modell</h3><div id="m-active" class="muted">…</div></div>
+    <div class="card"><h3>Lokal (Ollama) — klicken zum Wechseln</h3><div id="m-ollama"></div></div>
+    <div class="card"><h3>OpenRouter — ein Key, alle Modelle</h3>
+      <div class="muted" id="m-orkey"></div>
+      <div class="row"><input id="m-or" placeholder="z.B. anthropic/claude-opus-4-8 oder google/gemini-2.5-pro"/>
+        <button id="m-orgo">Aktivieren</button></div></div>
+    <div class="card"><h3>API-Schluessel (in .env)</h3><div id="m-keys"></div></div>
+  </div>
+
+  <div class="view" id="v-log"><div id="evlog"></div></div>
+</div>
 <script>
-  const log = document.getElementById('log');
-  const form = document.getElementById('f');
-  const input = document.getElementById('i');
-  const btn = document.getElementById('b');
-  const status = document.getElementById('status');
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+let cur="chat";
+$$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
+function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
+ $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");
+ if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="log")loadEvents();}
 
-  function add(text, cls, meta) {
-    const d = document.createElement('div');
-    d.className = 'msg ' + cls;
-    d.textContent = text;
-    if (meta) { const m = document.createElement('div'); m.className='meta'; m.textContent=meta; d.appendChild(m); }
-    log.appendChild(d); log.scrollTop = log.scrollHeight;
-    return d;
-  }
+async function refreshStatus(){const s=await (await fetch("/api/status")).json();
+ $("#who").textContent=s.partner.toLowerCase()+" · cockpit";
+ $("#b-model").textContent=s.model; $("#b-spend").textContent="$"+s.spend_usd_today;
+ const k=$("#kill"); k.classList.toggle("active",s.kill_switch);
+ k.textContent="Not-Aus: "+(s.kill_switch?"AKTIV":"aus");
+ $("#b-kill").innerHTML=s.kill_switch?'<b style="color:#e0564e">⛔ NOT-AUS</b>':'';
+ return s;}
+$("#kill").onclick=async()=>{const on=!$("#kill").classList.contains("active");
+ await fetch("/api/kill",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({on})});refreshStatus();};
 
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  const ws = new WebSocket(proto + '://' + location.host + '/ws/chat');
-  let pending = null;
+/* ---- Chat ---- */
+const log=$("#log");
+function add(t,c){const d=document.createElement("div");d.className="msg "+c;d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight;return d;}
+const proto=location.protocol==="https:"?"wss":"ws";
+let ws,curBot,curThink,thinkBuf;
+function connect(){ws=new WebSocket(proto+"://"+location.host+"/ws/chat");
+ ws.onmessage=ev=>{const m=JSON.parse(ev.data);
+  if(m.role==="system"){add(m.text,"sys");return;}
+  if(m.done){curBot=null;curThink=null;return;}
+  if(m.kind==="think"){if(!curThink){thinkBuf="";curThink=document.createElement("div");curThink.className="think show";
+     curThink.innerHTML='<span class="h">💭 denkt (klick)</span><div class="c"></div>';
+     curThink.querySelector(".h").onclick=()=>curThink.classList.toggle("show");log.appendChild(curThink);}
+   thinkBuf+=m.text;curThink.querySelector(".c").textContent=thinkBuf;log.scrollTop=log.scrollHeight;return;}
+  if(m.kind==="answer"){if(!curBot)curBot=add("","bot");curBot.textContent+=m.text;log.scrollTop=log.scrollHeight;}};
+ ws.onclose=()=>setTimeout(connect,1500);}
+connect();
+$("#cform").onsubmit=e=>{e.preventDefault();const t=$("#cin").value.trim();if(!t||ws.readyState!==1)return;
+ add(t,"me");ws.send(t);$("#cin").value="";curBot=null;curThink=null;};
 
-  ws.onopen = () => { status.textContent = 'online'; };
-  ws.onclose = () => { status.textContent = 'getrennt'; btn.disabled = true; };
-  ws.onmessage = (ev) => {
-    const m = JSON.parse(ev.data);
-    if (pending) { pending.remove(); pending = null; }
-    if (m.role === 'system') { add(m.text, 'sys'); }
-    else {
-      const meta = m.fell_back ? 'lokal · 0 €' : (m.model || '');
-      add(m.text, 'bot', meta);
-    }
-    btn.disabled = false;
-  };
+/* ---- Files ---- */
+let fcur=null;
+async function loadFiles(){const fs=await (await fetch("/api/files")).json();const el=$("#flist");el.innerHTML="";
+ fs.forEach(f=>{const d=document.createElement("div");d.className="f";
+  d.innerHTML="<b>"+f.name+"</b><small>"+f.label+(f.editable?"":" · nur lesen")+"</small>";
+  d.onclick=()=>openFile(f.name,d);el.appendChild(d);});}
+async function openFile(name,el){$$(".flist .f").forEach(x=>x.classList.remove("on"));el.classList.add("on");
+ const f=await (await fetch("/api/file?name="+encodeURIComponent(name))).json();fcur=f;
+ $("#ftitle").textContent=f.label;$("#ftitle").className="";$("#farea").value=f.content;
+ $("#farea").readOnly=!f.editable;$("#fsave").style.display=f.editable?"block":"none";}
+$("#fsave").onclick=async()=>{if(!fcur)return;
+ const r=await (await fetch("/api/file",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({name:fcur.name,content:$("#farea").value})})).json();
+ $("#ftitle").textContent=fcur.label+(r.ok?" — gespeichert ✓":" — Fehler");};
 
-  form.onsubmit = (e) => {
-    e.preventDefault();
-    const t = input.value.trim();
-    if (!t || ws.readyState !== 1) return;
-    add(t, 'me');
-    ws.send(t);
-    input.value = '';
-    btn.disabled = true;
-    pending = add('…denkt', 'bot');
-  };
-</script>
-</body>
-</html>"""
+/* ---- Models ---- */
+async function loadModels(){const s=await (await fetch("/api/status")).json();
+ $("#m-active").innerHTML="<b>"+s.model+"</b> &nbsp; <span class=muted>Eskalation: "+(s.escalation_model||"-")+"</span>";
+ const ol=$("#m-ollama");ol.innerHTML="";(s.ollama_local||[]).forEach(m=>{const p=document.createElement("span");
+  p.className="pill"+(("ollama_chat/"+m)===s.model?" ok":"");p.textContent=m;
+  p.onclick=()=>useModel("ollama_chat/"+m);ol.appendChild(p);});
+ if(!(s.ollama_local||[]).length)ol.innerHTML='<span class=muted>(Ollama aus oder keine Modelle)</span>';
+ $("#m-orkey").textContent=s.api_keys.openrouter?"OPENROUTER_API_KEY gesetzt ✓":"OPENROUTER_API_KEY fehlt — in .env eintragen (openrouter.ai/keys)";
+ const ks=$("#m-keys");ks.innerHTML="";Object.entries(s.api_keys).forEach(([k,v])=>{const p=document.createElement("span");
+  p.className="pill "+(v?"ok":"no");p.textContent=k+(v?" ✓":" ✗");ks.appendChild(p);});}
+async function useModel(id){await fetch("/api/model/use",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({id})});loadModels();refreshStatus();}
+$("#m-orgo").onclick=async()=>{const m=$("#m-or").value.trim();if(!m)return;
+ await fetch("/api/model/openrouter",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({model:m})});$("#m-or").value="";loadModels();refreshStatus();};
+
+/* ---- Protokoll ---- */
+async function loadEvents(){const es=await (await fetch("/api/events?limit=80")).json();const el=$("#evlog");el.innerHTML="";
+ es.forEach(e=>{const d=document.createElement("div");d.className="e";const t=new Date(e.ts*1000).toLocaleTimeString();
+  d.innerHTML='<span class="t">'+t+" · "+e.type+'</span><span class="m">'+JSON.stringify(e.payload).slice(0,180)+"</span>";el.appendChild(d);});}
+
+refreshStatus();setInterval(()=>{refreshStatus();if(cur==="log")loadEvents();},5000);
+</script></body></html>"""

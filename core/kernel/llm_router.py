@@ -46,6 +46,20 @@ def _visible_from_raw(raw: str) -> str:
         s = s[:idx]
     return s
 
+
+def _think_portion(raw: str) -> str:
+    """Fuer das Dashboard: der bisherige DENK-Anteil (Inhalt der <think>-Bloecke).
+
+    Konkateniert abgeschlossene Bloecke + einen evtl. offenen. Waechst monoton.
+    """
+    parts = re.findall(r"<think>(.*?)</think>", raw, re.DOTALL)
+    s = "".join(parts)
+    open_idx = raw.rfind("<think>")
+    close_idx = raw.rfind("</think>")
+    if open_idx != -1 and open_idx > close_idx:
+        s += raw[open_idx + len("<think>"):]
+    return s
+
 # Bekannte Anbieter -> Name der Env-Variable mit dem Key.
 # OpenRouter ist der "universelle" Anbieter: EIN Key, hunderte Modelle aller Firmen.
 _PROVIDER_KEYS = {
@@ -288,5 +302,74 @@ def stream(messages, system=None, task_type="chat", session_id=None, escalate=Fa
             "latency_s": round(time.time() - t0, 2),
             "streamed": True,
         },
+        session_id=session_id,
+    )
+
+
+def stream_tagged(messages, system=None, task_type="chat", session_id=None, escalate=False):
+    """Wie stream(), aber getaggt: yields {"kind": "think"|"answer", "text": delta}.
+
+    Fuer das Dashboard, das Kyros' Denken live sichtbar machen soll. Lokale Modelle
+    werden tokenweise getaggt; Cloud/Provider laufen ueber complete() (ein answer-Block).
+    """
+    model, fell_back = resolve_model(task_type, escalate=escalate)
+    real, _api_base, _key_env = _provider_config(model)
+
+    if not real.startswith("ollama"):
+        res = complete(messages, system=system, task_type=task_type, session_id=session_id, escalate=escalate)
+        yield {"kind": "answer", "text": res["text"]}
+        return
+
+    msgs: list[dict] = []
+    if system:
+        msgs.append({"role": "system", "content": system})
+    msgs.extend(messages)
+
+    extra: dict = {}
+    if CONFIG["models"].get("keep_alive") is not None:
+        extra["keep_alive"] = CONFIG["models"]["keep_alive"]
+    if CONFIG["models"].get("num_ctx") is not None:
+        extra["num_ctx"] = CONFIG["models"]["num_ctx"]
+
+    t0 = time.time()
+    resp = litellm.completion(
+        model=real,
+        messages=msgs,
+        temperature=CONFIG["models"].get("temperature", 0.7),
+        max_tokens=CONFIG["models"].get("max_tokens", 2048),
+        stream=True,
+        **extra,
+    )
+
+    raw = ""
+    shown_think = ""
+    shown_answer = ""
+    for chunk in resp:
+        try:
+            delta = chunk.choices[0].delta.content or ""
+        except (AttributeError, IndexError):
+            delta = ""
+        if not delta:
+            continue
+        raw += delta
+        think_part = _think_portion(raw)
+        answer_part = _visible_from_raw(raw)
+        if len(think_part) > len(shown_think) and think_part.startswith(shown_think):
+            yield {"kind": "think", "text": think_part[len(shown_think):]}
+            shown_think = think_part
+        if len(answer_part) > len(shown_answer) and answer_part.startswith(shown_answer):
+            yield {"kind": "answer", "text": answer_part[len(shown_answer):]}
+            shown_answer = answer_part
+
+    if not shown_answer.strip():  # nur <think> kam -> Fallback
+        fb = raw.strip()
+        if fb:
+            yield {"kind": "answer", "text": fb}
+
+    events.emit(
+        "llm_call",
+        {"model": model, "task_type": task_type, "fell_back": fell_back,
+         "had_think": "<think>" in raw, "cost_usd": 0.0,
+         "latency_s": round(time.time() - t0, 2), "streamed": True},
         session_id=session_id,
     )

@@ -137,3 +137,26 @@ class Agent:
 
         memory.remember(full, role="partner", session_id=self.session_id)
         events.emit("partner_message", {"text": full, "streamed": True}, session_id=self.session_id)
+
+    def respond_stream_tagged(self, user_message: str):
+        """Wie respond_stream(), aber getaggt fuer das Dashboard: yields
+        {"kind": "think"|"answer", "text": delta}. Nur die Antwort kommt ins Gedaechtnis."""
+        events.emit("user_message", {"text": user_message}, session_id=self.session_id)
+        history = memory.recent_dialogue(self.session_id, limit=10)
+        memory.remember(user_message, role="user", session_id=self.session_id)
+
+        system = build_system_prompt(user_message, session_id=self.session_id)
+        messages = [
+            {"role": "assistant" if h["role"] == "partner" else "user", "content": h["text"]}
+            for h in history
+        ]
+        messages.append({"role": "user", "content": user_message})
+
+        answer = ""
+        for piece in llm_router.stream_tagged(messages, system=system, task_type="chat", session_id=self.session_id):
+            if piece["kind"] == "answer":
+                answer += piece["text"]
+            yield piece
+
+        memory.remember(answer, role="partner", session_id=self.session_id)
+        events.emit("partner_message", {"text": answer, "streamed": True}, session_id=self.session_id)
