@@ -12,6 +12,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
 from core.config import CONFIG, MIND_DIR, ROOT
+from core.governance import audit, treasury, trust
 from core.kernel import events, models
 from core.kernel.llm_router import today_spend_usd
 from core.kernel.scheduler import kill_switch_active, kill_switch_path
@@ -47,9 +48,21 @@ def api_status() -> dict:
         "ollama_local": m["ollama_local"],
         "escalation_model": m["escalation_model"],
         "spend_usd_today": round(today_spend_usd(), 4),
+        "budget": treasury.status(),
+        "trust_level": trust.level(),
         "kill_switch": kill_switch_active(),
         "events": events.counts_by_type(),
         "lessons": memory.recall_lessons(8),
+    }
+
+
+@app.get("/api/governance")
+def api_governance() -> dict:
+    lv = trust.level()
+    return {
+        "treasury": treasury.status(),
+        "trust": {"level": lv, "label": trust.LEVELS.get(lv, "?"), **trust.stats()},
+        "audit": audit.recent(30),
     }
 
 
@@ -226,6 +239,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
   <a data-v="chat" class="on">› Chat</a>
   <a data-v="files">› Seele &amp; Dateien</a>
   <a data-v="models">› Modelle</a>
+  <a data-v="gov">› Gewissen</a>
   <a data-v="log">› Protokoll</a>
   <div class="spacer"></div>
   <div class="kill" id="kill">Not-Aus: aus</div>
@@ -264,6 +278,12 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
     <div class="card"><h3>API-Schluessel (in .env)</h3><div id="m-keys"></div></div>
   </div>
 
+  <div class="view" id="v-gov">
+    <div class="card"><h3>Budget (Treasury)</h3><div id="g-budget" class="muted">…</div></div>
+    <div class="card"><h3>Vertrauen (Trust-Level)</h3><div id="g-trust" class="muted">…</div></div>
+    <div class="card"><h3>Audit — protokollierte Aussen-Aktionen</h3><div id="g-audit" class="muted">…</div></div>
+  </div>
+
   <div class="view" id="v-log"><div id="evlog"></div></div>
 </div>
 <script>
@@ -272,11 +292,12 @@ let cur="chat";
 $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
 function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");
- if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="log")loadEvents();}
+ if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="log")loadEvents();}
 
 async function refreshStatus(){const s=await (await fetch("/api/status")).json();
  $("#who").textContent=s.partner.toLowerCase()+" · cockpit";
- $("#b-model").textContent=s.model; $("#b-spend").textContent="$"+s.spend_usd_today;
+ $("#b-model").textContent=s.model;
+ $("#b-spend").textContent="$"+s.spend_usd_today+((s.budget&&s.budget.day_limit!=null)?(" / "+s.budget.day_limit+"€"):"");
  const k=$("#kill"); k.classList.toggle("active",s.kill_switch);
  k.textContent="Not-Aus: "+(s.kill_switch?"AKTIV":"aus");
  $("#b-kill").innerHTML=s.kill_switch?'<b style="color:#e0564e">⛔ NOT-AUS</b>':'';
@@ -339,5 +360,21 @@ async function loadEvents(){const es=await (await fetch("/api/events?limit=80"))
  es.forEach(e=>{const d=document.createElement("div");d.className="e";const t=new Date(e.ts*1000).toLocaleTimeString();
   d.innerHTML='<span class="t">'+t+" · "+e.type+'</span><span class="m">'+JSON.stringify(e.payload).slice(0,180)+"</span>";el.appendChild(d);});}
 
-refreshStatus();setInterval(()=>{refreshStatus();if(cur==="log")loadEvents();},5000);
+/* ---- Gewissen ---- */
+function bar(spent,limit){if(limit==null)return '<span class=muted>kein Limit</span>';
+ const pct=Math.min(100,Math.round(spent/limit*100));const col=pct>90?'#e0564e':pct>70?'#e0a35a':'#1fb6a6';
+ return '<div style="background:#0b1217;border:1px solid #1b2a33;border-radius:6px;height:16px;overflow:hidden">'
+  +'<div style="height:100%;width:'+pct+'%;background:'+col+'"></div></div>'
+  +'<small class=muted>'+spent.toFixed(4)+' / '+limit+' € ('+pct+'%)</small>';}
+async function loadGov(){const g=await (await fetch("/api/governance")).json();const t=g.treasury;
+ $("#g-budget").innerHTML="Heute:<br>"+bar(t.day_spent,t.day_limit)+"<br><br>Diesen Monat:<br>"+bar(t.month_spent,t.month_limit);
+ $("#g-trust").innerHTML="Stufe <b>"+g.trust.level+"</b> — "+g.trust.label
+  +'<br><span class=muted>Erfolge: '+g.trust.success+' · Fehlschlaege: '+g.trust.fail+'</span>'
+  +'<br><span class=muted>Bei Stufe 3 begrenzt nur das Budget; Außen-Aktionen brauchen kein Go.</span>';
+ const a=$("#g-audit");if(!g.audit.length){a.innerHTML='<span class=muted>(noch keine Außen-Aktionen protokolliert)</span>';return;}
+ a.innerHTML=g.audit.map(e=>{const ts=new Date(e.ts*1000).toLocaleString();const p=e.payload;
+  return '<div style="padding:6px 0;border-bottom:1px solid #1b2a33"><b>'+p.action+'</b> '+(p.target||'')
+   +' <small class=muted>'+ts+(p.reversible?' · rückrollbar':'')+'</small></div>';}).join("");}
+
+refreshStatus();setInterval(()=>{refreshStatus();if(cur==="log")loadEvents();if(cur==="gov")loadGov();},5000);
 </script></body></html>"""

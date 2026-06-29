@@ -146,14 +146,11 @@ def complete(
     Rueckgabe: {text, model, cost_usd, fell_back, latency_s, escalated}
     """
     if escalate:
-        budget = CONFIG.get("governance", {}).get("budget", {}).get("daily_eur")
-        spent = today_spend_usd()
-        if budget is not None and spent >= budget:
-            events.emit(
-                "budget_block",
-                {"reason": "daily_budget_reached", "spent_usd": round(spent, 4), "limit_eur": budget},
-                session_id=session_id,
-            )
+        from core.governance import treasury  # lazy -> kein Import-Zyklus
+
+        ok, why = treasury.can_spend(0.0)  # schon am Limit? -> keine Cloud mehr
+        if not ok:
+            events.emit("budget_block", {"reason": why, "spent_usd": round(treasury.today_spend(), 4)}, session_id=session_id)
             escalate = False  # zurueck auf lokal -> 0 EUR
 
     model, fell_back = resolve_model(task_type, escalate=escalate)
