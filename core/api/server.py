@@ -509,11 +509,11 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 .muted{color:var(--muted)}
 </style></head><body>
 <div id="side">
-  <h1>KIRA <span style="color:var(--accent)">&#9829;</span></h1><div class="sub" id="who">cockpit</div>
+  <h1>KIRA</h1><div class="sub" id="who">cockpit</div>
   <a data-v="home" class="on">› Uebersicht</a>
   <a data-v="chat">› Chat</a>
   <a data-v="files">› Seele &amp; Dateien</a>
-  <a data-v="models">› Modelle</a>
+  <a data-v="models">⚙ Einstellungen</a>
   <a data-v="gov">› Gewissen</a>
   <a data-v="mission">› Mission</a>
   <a data-v="monitor">› Monitor</a>
@@ -522,7 +522,6 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
   <a data-v="mem">› Gedaechtnis</a>
   <a data-v="log">› Protokoll</a>
   <div class="spacer"></div>
-  <label class="kill" id="bgbtn" style="cursor:pointer;font-size:12px">🖼 Hintergrund<input id="bgfile" type="file" accept="image/*" style="display:none"/></label>
   <div class="kill" id="kill">Not-Aus: aus</div>
 </div>
 <div id="main">
@@ -580,8 +579,17 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
     <div class="card"><h3>Lokal (Ollama) — klicken zum Wechseln</h3><div id="m-ollama"></div></div>
     <div class="card"><h3>OpenRouter — ein Key, alle Modelle</h3>
       <div class="muted" id="m-orkey"></div>
-      <div class="row"><input id="m-or" placeholder="z.B. anthropic/claude-opus-4-8 oder google/gemini-2.5-pro"/>
-        <button id="m-orgo">Aktivieren</button></div></div>
+      <div class="row"><input id="m-or" placeholder="z.B. anthropic/claude-opus-4-8"/>
+        <button id="m-orgo">Aktivieren</button></div>
+      <div style="margin-top:8px">Beliebt:
+        <span class="pill" data-or="z-ai/glm-5.2">GLM 5.2</span>
+        <span class="pill" data-or="anthropic/claude-opus-4-8">Claude Opus 4.8</span>
+        <span class="pill" data-or="google/gemini-2.5-pro">Gemini 2.5 Pro</span>
+        <span class="pill" data-or="deepseek/deepseek-chat">DeepSeek</span></div>
+      <div class="muted" style="margin-top:6px">Modell-ID eintippen (oder Pill klicken) → „Aktivieren" macht es zu Kiras Hirn. Volle Liste: openrouter.ai/models</div></div>
+    <div class="card"><h3>Hintergrundbild</h3>
+      <div class="muted">Lade dein Kira-Bild als Cockpit-Hintergrund hoch (ein dunkler Verlauf bleibt drueber, damit die Schrift lesbar bleibt).</div>
+      <div class="row"><label class="ghost" style="display:inline-flex;align-items:center;padding:9px 14px;border-radius:8px;cursor:pointer">Bild waehlen…<input id="bgfile" type="file" accept="image/*" style="display:none"/></label></div></div>
     <div class="card"><h3>API-Schluessel (in .env)</h3><div id="m-keys"></div></div>
   </div>
 
@@ -664,12 +672,14 @@ function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset
 async function loadChatModels(){const s=await (await fetch("/api/status")).json();
  const sel=$("#chat-model"); if(!sel) return;
  const opts=[]; const seen={};
- const add=(id,lbl)=>{ if(id && !seen[id]){ seen[id]=1; opts.push('<option value="'+id+'"'+(id===s.default?' selected':'')+'>'+lbl+'</option>'); } };
- add(s.default, s.default+" (aktiv)");
- (s.ollama_local||[]).forEach(n=>add("ollama_chat/"+n.replace(/:latest$/,""), n+" (lokal, 0€)"));
+ const add=(id,lbl)=>{ if(id && !seen[id]){ seen[id]=1; opts.push('<option value="'+id+'"'+(id===s.model?' selected':'')+'>'+lbl+'</option>'); } };
+ add(s.model, s.model+" (aktiv)");
+ (s.ollama_local||[]).forEach(n=>{const low=n.toLowerCase();
+   if(low.includes("embed")||low.includes("hf.co")||low.includes("gguf")) return;  // Embedding/roher GGUF-Name raus
+   add("ollama_chat/"+n.replace(/:latest$/,""), n.replace(/:latest$/,"")+" (lokal, 0€)");});
  if(s.api_keys&&s.api_keys.openrouter){ add("openrouter/z-ai/glm-5.2","GLM 5.2 (Cloud, stark)"); }
  sel.innerHTML=opts.join("");
- $("#chat-model-now").textContent="aktiv: "+s.default;}
+ $("#chat-model-now").textContent="aktiv: "+(s.model||"?");}
 $("#chat-model")&&($("#chat-model").onchange=async(e)=>{const id=e.target.value;
  await fetch("/api/model/use",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
  $("#chat-model-now").textContent="gewechselt zu: "+id; refreshStatus();});
@@ -818,14 +828,17 @@ async function loadModels(){const s=await (await fetch("/api/status")).json();
  $("#m-ctx").value=s.num_ctx||""; $("#m-maxtok").value=s.max_tokens||"";
  fetch("/api/model/loaded").then(r=>r.json()).then(ld=>showLoaded($("#m-loaded"),ld));
  document.querySelectorAll('#v-models .pill[data-ctx]').forEach(p=>p.onclick=()=>{$("#m-ctx").value=p.dataset.ctx;});
+ document.querySelectorAll('#v-models .pill[data-or]').forEach(p=>p.onclick=()=>{$("#m-or").value=p.dataset.or;});
  $("#m-paramgo").onclick=async()=>{const ctx=parseInt($("#m-ctx").value)||null;const mt=parseInt($("#m-maxtok").value)||null;
   $("#m-loaded").textContent="… lädt mit neuem Kontext (kann ~30 s dauern) …";
   const r=await (await fetch("/api/model/params",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({num_ctx:ctx,max_tokens:mt})})).json();
   showLoaded($("#m-loaded"),r.loaded||{});refreshStatus();};
- const ol=$("#m-ollama");ol.innerHTML="";(s.ollama_local||[]).forEach(m=>{const p=document.createElement("span");
-  p.className="pill"+(("ollama_chat/"+m)===s.model?" ok":"");p.textContent=m;
-  p.onclick=()=>useModel("ollama_chat/"+m);ol.appendChild(p);});
- if(!(s.ollama_local||[]).length)ol.innerHTML='<span class=muted>(Ollama aus oder keine Modelle)</span>';
+ const ol=$("#m-ollama");ol.innerHTML="";(s.ollama_local||[]).forEach(m=>{const low=m.toLowerCase();
+  if(low.includes("embed")||low.includes("hf.co")||low.includes("gguf"))return;  // kein Hirn / Alias nutzen
+  const id="ollama_chat/"+m.replace(/:latest$/,"");const p=document.createElement("span");
+  p.className="pill"+(id===s.model?" ok":"");p.textContent=m.replace(/:latest$/,"");
+  p.onclick=()=>useModel(id);ol.appendChild(p);});
+ if(!$("#m-ollama").children.length)ol.innerHTML='<span class=muted>(keine nutzbaren lokalen Modelle)</span>';
  $("#m-orkey").textContent=s.api_keys.openrouter?"OPENROUTER_API_KEY gesetzt ✓":"OPENROUTER_API_KEY fehlt — in .env eintragen (openrouter.ai/keys)";
  const ks=$("#m-keys");ks.innerHTML="";Object.entries(s.api_keys).forEach(([k,v])=>{const p=document.createElement("span");
   p.className="pill "+(v?"ok":"no");p.textContent=k+(v?" ✓":" ✗");ks.appendChild(p);});}
