@@ -1,0 +1,174 @@
+"""LLM-Router: ein Gateway fuer alle Modelle (Claude / DeepSeek / Ollama).
+
+Cloud-first: Standard ist das in config.yaml gesetzte Modell pro Task-Typ.
+Fehlt der noetige API-Key, faellt der Router automatisch auf das lokale
+Ollama-Modell zurueck (0 EUR). Jeder Call wird als Event protokolliert
+(Grundlage fuer den spaeteren ROI-Tracker).
+"""
+from __future__ import annotations
+
+import datetime
+import os
+import re
+import time
+
+import litellm
+
+from core.config import CONFIG
+from core.kernel import events
+
+# Modellspezifisch nicht unterstuetzte Parameter still ignorieren (z.B. bei Ollama).
+litellm.drop_params = True
+
+# Reasoning-Modelle (Qwythos, Qwen3) denken in <think>...</think>. Das gehoert
+# nicht in die sichtbare Antwort -> wir parsen es raus (Rohtext bleibt im Log).
+_THINK_RE = re.compile(r"<think>.*?</think>", re.DOTALL)
+
+
+def _strip_think(text: str) -> str:
+    cleaned = _THINK_RE.sub("", text).strip()
+    if "<think>" in cleaned:  # offenes Tag ohne Abschluss
+        cleaned = cleaned.split("<think>")[0].strip()
+    cleaned = cleaned.replace("</think>", "").strip()
+    return cleaned or text.strip()
+
+_PROVIDER_KEYS = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
+    "openai": "OPENAI_API_KEY",
+}
+
+
+def _has_key(model: str) -> bool:
+    provider = model.split("/", 1)[0]
+    if provider.startswith("ollama"):
+        return True  # lokal, kein Key noetig
+    env = _PROVIDER_KEYS.get(provider)
+    return bool(env and os.getenv(env))
+
+
+def resolve_model(task_type: str = "default", escalate: bool = False) -> tuple[str, bool]:
+    """Gibt (modell_id, fell_back) zurueck.
+
+    escalate=True -> der Agent haelt die Aufgabe fuer wuerdig: Cloud-Modell, sofern
+    ein Key vorhanden ist. Ohne Key faellt es sauber auf lokal zurueck.
+    """
+    models = CONFIG["models"]
+    if escalate:
+        target = models.get("escalation_model")
+        if target and _has_key(target):
+            return target, False
+        return models["local_fallback"], True
+    routing = models.get("routing", {})
+    chosen = routing.get(task_type, models["default"])
+    if _has_key(chosen):
+        return chosen, False
+    return models["local_fallback"], True
+
+
+def today_spend_usd() -> float:
+    """Summe der LLM-Kosten seit lokaler Mitternacht (Grundlage der Budget-Bremse)."""
+    start = (
+        datetime.datetime.now()
+        .replace(hour=0, minute=0, second=0, microsecond=0)
+        .timestamp()
+    )
+    total = 0.0
+    for e in events.recent(2000):
+        if e["ts"] >= start and e["type"] == "llm_call":
+            total += float(e["payload"].get("cost_usd") or 0.0)
+    return total
+
+
+def complete(
+    messages: list[dict],
+    system: str | None = None,
+    task_type: str = "chat",
+    session_id: str | None = None,
+    escalate: bool = False,
+) -> dict:
+    """Fuehrt einen Chat-Completion-Call aus und protokolliert ihn.
+
+    escalate=True bittet um das Cloud-Modell. Eine harte Tagesbudget-Bremse
+    setzt die Eskalation zurueck auf lokal, sobald das Limit erreicht ist.
+
+    Rueckgabe: {text, model, cost_usd, fell_back, latency_s, escalated}
+    """
+    if escalate:
+        budget = CONFIG.get("governance", {}).get("budget", {}).get("daily_eur")
+        spent = today_spend_usd()
+        if budget is not None and spent >= budget:
+            events.emit(
+                "budget_block",
+                {"reason": "daily_budget_reached", "spent_usd": round(spent, 4), "limit_eur": budget},
+                session_id=session_id,
+            )
+            escalate = False  # zurueck auf lokal -> 0 EUR
+
+    model, fell_back = resolve_model(task_type, escalate=escalate)
+
+    msgs: list[dict] = []
+    if system:
+        msgs.append({"role": "system", "content": system})
+    msgs.extend(messages)
+
+    extra: dict = {}
+    if model.startswith("ollama"):
+        keep_alive = CONFIG["models"].get("keep_alive")
+        if keep_alive is not None:
+            extra["keep_alive"] = keep_alive  # Modell im VRAM halten (Ollama)
+        num_ctx = CONFIG["models"].get("num_ctx")
+        if num_ctx is not None:
+            extra["num_ctx"] = num_ctx  # groesseres Kontextfenster (Ollama)
+
+    t0 = time.time()
+    resp = litellm.completion(
+        model=model,
+        messages=msgs,
+        temperature=CONFIG["models"].get("temperature", 0.7),
+        max_tokens=CONFIG["models"].get("max_tokens", 2048),
+        num_retries=2,
+        **extra,
+    )
+    latency = time.time() - t0
+
+    raw_text = resp.choices[0].message.content or ""
+    text = _strip_think(raw_text)
+    had_think = text != raw_text
+
+    try:
+        cost = float(litellm.completion_cost(completion_response=resp) or 0.0)
+    except Exception:
+        cost = 0.0
+
+    usage = getattr(resp, "usage", None)
+    tokens = None
+    if usage is not None:
+        tokens = {
+            "prompt": getattr(usage, "prompt_tokens", None),
+            "completion": getattr(usage, "completion_tokens", None),
+        }
+
+    events.emit(
+        "llm_call",
+        {
+            "model": model,
+            "task_type": task_type,
+            "escalated": escalate,
+            "fell_back": fell_back,
+            "had_think": had_think,
+            "cost_usd": round(cost, 6),
+            "latency_s": round(latency, 2),
+            "tokens": tokens,
+        },
+        session_id=session_id,
+    )
+
+    return {
+        "text": text,
+        "model": model,
+        "cost_usd": cost,
+        "fell_back": fell_back,
+        "latency_s": latency,
+        "escalated": escalate,
+    }
