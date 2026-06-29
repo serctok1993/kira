@@ -22,7 +22,7 @@ from core.mind.memory import store as memory
 # Frueher von Kira selbst gebaute Werkzeuge wieder verfuegbar machen.
 synthesize.load_synthesized()
 
-_ACT_RE = re.compile(r"^\s*ACT\s+(\w+)\s+(\{.*\})\s*$", re.MULTILINE | re.DOTALL)
+_ACT_RE = re.compile(r"ACT\s+([a-zA-Z_]\w*)\s*\{")
 
 
 def _identity() -> str:
@@ -35,16 +35,20 @@ def _identity() -> str:
 
 
 def _parse_act(text: str):
-    m = _ACT_RE.search(text)
+    """Findet 'ACT <tool> {json}' robust — auch mit Prosa oder Code-Fences drumherum,
+    damit Tool-Aufrufe nie als Antwort durchsickern. JSON wird ab der '{'-Position
+    dekodiert (raw_decode ignoriert nachfolgenden Text)."""
+    t = text.replace("`", " ").replace("*", " ")  # Fences/Deko entschaerfen, Laenge bleibt 1:1
+    m = _ACT_RE.search(t)
     if not m:
         return None
+    name = m.group(1)
+    brace = m.end() - 1  # Index des '{'
     try:
-        args = json.loads(m.group(2))
+        args, _ = json.JSONDecoder().raw_decode(text[brace:])
     except json.JSONDecodeError:
         return None
-    if not isinstance(args, dict):
-        return None
-    return m.group(1), args
+    return (name, args) if isinstance(args, dict) else None
 
 
 def act(task: str, session_id: str | None = None, max_steps: int = 8, escalate: bool = False) -> dict:

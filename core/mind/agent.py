@@ -60,9 +60,9 @@ habe ich Haende: ..."). Antworte immer frisch aus deinem aktuellen Selbstwissen 
 Lebendig, warm, direkt, mit eigener Meinung und Persoenlichkeit — wie ein echter Partner,
 nicht wie ein Hochglanz-Assistent. Kurze, natuerliche Saetze. Nutze passende Emojis fuer
 Waerme und Klarheit (🙂🔥👍💡 — aber nicht uebertreiben). Kein Corporate-Ton, keine Floskeln.
-WICHTIG fuer die Darstellung: Schreibe FLIESSTEXT OHNE Markdown — KEINE Sternchen fuer Fett
-(**...**) und keine Listen-Sternchen; Telegram zeigt sie nur als stoerende Zeichen. Betonung
-machst du mit Worten oder einem Emoji, nicht mit Symbolen."""
+Formatierung: Du darfst SPARSAM **fett** fuer wichtige Begriffe nutzen und `code` fuer Datei-
+oder Befehlsnamen — das wird auf Telegram UND im Cockpit sauber dargestellt. Fuer Listen nimm
+Bindestriche oder Emojis, KEINE Sternchen am Zeilenanfang. Klar und aufgeraeumt, nicht ueberladen."""
 
 
 def build_system_prompt(user_message: str, session_id: str | None = None) -> str:

@@ -39,10 +39,30 @@ def _agent_for(chat_id: int) -> Agent:
     return _agents[chat_id]
 
 
-def _send(client: httpx.Client, chat_id: int, text: str) -> None:
-    # Telegram-Limit: 4096 Zeichen pro Nachricht -> bei Bedarf stueckeln.
-    for i in range(0, len(text) or 1, 4000):
-        client.post(f"{API}/sendMessage", json={"chat_id": chat_id, "text": text[i : i + 4000] or "…"})
+def _tg_html(text: str) -> str:
+    """Leichtes Markdown -> Telegram-HTML (fett/Code), Rest wird escaped (handy-tauglich)."""
+    import html as _h
+
+    t = _h.escape(text or "", quote=False)
+    t = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", t, flags=re.DOTALL)
+    t = re.sub(r"(?<![\w`])`([^`\n]+?)`(?![\w`])", r"<code>\1</code>", t)
+    return t
+
+
+def _send(client: httpx.Client, chat_id: int, text: str, html: bool = True) -> None:
+    # Telegram-Limit ~4096 Zeichen -> stueckeln; HTML-Format mit Plain-Fallback.
+    text = text or "…"
+    for i in range(0, len(text), 3800):
+        chunk = text[i : i + 3800]
+        payload = {"chat_id": chat_id, "text": _tg_html(chunk) if html else chunk}
+        if html:
+            payload["parse_mode"] = "HTML"
+        r = client.post(f"{API}/sendMessage", json=payload)
+        try:
+            if html and not r.json().get("ok"):  # HTML-Parsing gescheitert -> als Plain nachsenden
+                client.post(f"{API}/sendMessage", json={"chat_id": chat_id, "text": chunk})
+        except Exception:
+            pass
 
 
 def _typing(client: httpx.Client, chat_id: int) -> None:
@@ -187,7 +207,7 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
 
     from core.agency.act import act_chat
 
-    answer = _clean(act_chat(text, session_id=session_id, on_event=on_event))
+    answer = act_chat(text, session_id=session_id, on_event=on_event).strip()
 
     # Arbeits-Trace abschliessen: bei Werkzeug-Nutzung eine kompakte Taetigkeits-Zeile,
     # sonst die Trace-Nachricht entfernen (sauberer Chat, kein Transkript-Berg).
