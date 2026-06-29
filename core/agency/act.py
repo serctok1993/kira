@@ -191,6 +191,34 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
     return text
 
 
+def act_chat_stream(user_message: str, session_id: str, escalate: bool = False):
+    """Generator-Variante von act_chat fuers WebSocket-Cockpit.
+
+    yields die Events {kind: 'think'|'tool'|'obs'|'final', ...}. act_chat laeuft in
+    einem Thread; die Events kommen ueber eine Queue an.
+    """
+    import queue as _queue
+    import threading
+
+    out: "_queue.Queue" = _queue.Queue()
+    sentinel = {"kind": "__done__"}
+
+    def run():
+        try:
+            act_chat(user_message, session_id, escalate=escalate, on_event=out.put)
+        except Exception as e:  # noqa: BLE001
+            out.put({"kind": "final", "text": f"(Fehler: {e})"})
+        finally:
+            out.put(sentinel)
+
+    threading.Thread(target=run, daemon=True).start()
+    while True:
+        ev = out.get()
+        if ev is sentinel:
+            break
+        yield ev
+
+
 if __name__ == "__main__":
     import sys
 

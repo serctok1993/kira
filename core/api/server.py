@@ -191,13 +191,17 @@ async def api_kill(body: dict) -> dict:
 # ---------- Chat (Live-Thinking) ----------
 @app.websocket("/ws/chat")
 async def ws_chat(ws: WebSocket) -> None:
+    import uuid
+
+    from core.agency.act import act_chat_stream
+
     await ws.accept()
-    agent = Agent()
-    await ws.send_json({"role": "system", "text": f"Verbunden. Session {agent.session_id[:8]}."})
+    sid = "cockpit-" + uuid.uuid4().hex[:8]
+    await ws.send_json({"role": "system", "text": f"Verbunden. Session {sid[-8:]}."})
     try:
         while True:
             user_text = await ws.receive_text()
-            gen = agent.respond_stream_tagged(user_text)
+            gen = act_chat_stream(user_text, sid)
 
             def next_piece():
                 try:
@@ -415,14 +419,17 @@ function add(t,c){const d=document.createElement("div");d.className="msg "+c;d.t
 const proto=location.protocol==="https:"?"wss":"ws";
 let ws,curBot,curThink,thinkBuf;
 function connect(){ws=new WebSocket(proto+"://"+location.host+"/ws/chat");
+ function ensureTrace(){if(!curThink){thinkBuf="";curThink=document.createElement("div");curThink.className="think show";
+    curThink.innerHTML='<span class="h">💭 Denken &amp; Aktionen (klick zum Ein-/Ausklappen)</span><div class="c"></div>';
+    curThink.querySelector(".h").onclick=()=>curThink.classList.toggle("show");log.appendChild(curThink);}return curThink;}
+ function traceSet(){curThink.querySelector(".c").textContent=thinkBuf;log.scrollTop=log.scrollHeight;}
  ws.onmessage=ev=>{const m=JSON.parse(ev.data);
   if(m.role==="system"){add(m.text,"sys");return;}
   if(m.done){curBot=null;curThink=null;return;}
-  if(m.kind==="think"){if(!curThink){thinkBuf="";curThink=document.createElement("div");curThink.className="think show";
-     curThink.innerHTML='<span class="h">💭 denkt (klick)</span><div class="c"></div>';
-     curThink.querySelector(".h").onclick=()=>curThink.classList.toggle("show");log.appendChild(curThink);}
-   thinkBuf+=m.text;curThink.querySelector(".c").textContent=thinkBuf;log.scrollTop=log.scrollHeight;return;}
-  if(m.kind==="answer"){if(!curBot)curBot=add("","bot");curBot.textContent+=m.text;log.scrollTop=log.scrollHeight;}};
+  if(m.kind==="think"){ensureTrace();thinkBuf+=m.text;traceSet();return;}
+  if(m.kind==="tool"){ensureTrace();thinkBuf+="\\n🔧 "+m.name+" "+JSON.stringify(m.args);traceSet();return;}
+  if(m.kind==="obs"){ensureTrace();thinkBuf+="\\n   ✓ "+(m.text||"").slice(0,120);traceSet();return;}
+  if(m.kind==="final"||m.kind==="answer"){const b=add("","bot");b.textContent=(m.text||"").replace(/\\*\\*/g,"");log.scrollTop=log.scrollHeight;}};
  ws.onclose=()=>setTimeout(connect,1500);}
 connect();
 $("#cform").onsubmit=e=>{e.preventDefault();const t=$("#cin").value.trim();if(!t||ws.readyState!==1)return;
