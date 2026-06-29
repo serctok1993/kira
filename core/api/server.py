@@ -348,6 +348,68 @@ async def api_bg_upload(body: dict) -> dict:
     return {"ok": True, "ext": ext, "bytes": len(raw)}
 
 
+@app.post("/api/transcribe")
+async def api_transcribe(body: dict) -> dict:
+    import base64
+    import re
+
+    m = re.match(r"data:audio/[\w.+-]+;base64,(.+)$", body.get("audio", ""), re.DOTALL)
+    if not m:
+        return {"ok": False, "error": "kein Audio"}
+    raw = base64.b64decode(m.group(1))
+    vdir = ROOT / "data" / "voice"
+    vdir.mkdir(parents=True, exist_ok=True)
+    fp = vdir / f"cockpit-{int(time.time())}.webm"
+    fp.write_bytes(raw)
+
+    def _t():
+        from core.agency.connectors.transcribe import transcribe
+
+        return transcribe(str(fp))
+
+    try:
+        txt = await anyio.to_thread.run_sync(_t)
+    except ImportError:
+        return {"ok": False, "error": "faster-whisper fehlt (uv sync)"}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)}
+    return {"ok": True, "text": txt or ""}
+
+
+@app.post("/api/vision")
+async def api_vision(body: dict) -> dict:
+    img = body.get("image", "")
+    if not img.startswith("data:image"):
+        return {"ok": False, "error": "kein Bild"}
+    prompt = (body.get("prompt") or "").strip() or "Was ist auf diesem Bild? Beschreibe es."
+    model = CONFIG.get("models", {}).get("vision_model") or "openrouter/z-ai/glm-4.6v"
+
+    def _call():
+        import litellm
+
+        litellm.drop_params = True
+        r = litellm.completion(
+            model=model,
+            max_tokens=1000,
+            messages=[
+                {"role": "system", "content": "Du bist Kira (weiblich). Beschreibe und analysiere das "
+                 "Bild knapp, klar und hilfreich auf Deutsch, in der Ich-Form."},
+                {"role": "user", "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": img}},
+                ]},
+            ],
+        )
+        return r.choices[0].message.content
+
+    try:
+        txt = await anyio.to_thread.run_sync(_call)
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": str(e)}
+    events.emit("vision", {"prompt": prompt, "model": model})
+    return {"ok": True, "text": txt}
+
+
 # ---------- Chat (Live-Thinking) ----------
 @app.websocket("/ws/chat")
 async def ws_chat(ws: WebSocket) -> None:
@@ -495,7 +557,12 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
       <small class="muted" id="chat-model-now"></small>
     </div>
     <div id="log"></div>
-    <form id="cform"><input id="cin" placeholder="Schreib Kira…" autocomplete="off" autofocus/><button>Senden</button></form>
+    <form id="cform">
+      <input id="cin" placeholder="Schreib Kira…" autocomplete="off" autofocus/>
+      <button type="button" id="micbtn" class="ghost" title="Sprachmemo aufnehmen">🎤</button>
+      <label id="imgbtn" class="ghost" title="Bild an Kira" style="display:flex;align-items:center;padding:0 14px;border-radius:10px;cursor:pointer">📎<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
+      <button>Senden</button>
+    </form>
   </div>
 
   <div class="view" id="v-files">
@@ -712,6 +779,34 @@ function connect(){ws=new WebSocket(proto+"://"+location.host+"/ws/chat");
 connect();
 $("#cform").onsubmit=e=>{e.preventDefault();const t=$("#cin").value.trim();if(!t||ws.readyState!==1)return;
  add(t,"me");ws.send(t);$("#cin").value="";curBot=null;curThink=null;};
+
+/* ---- Sprachmemo (Aufnahme -> Whisper -> Eingabefeld) ---- */
+let mediaRec=null,chunks=[];
+$("#micbtn")&&($("#micbtn").onclick=async()=>{
+ if(mediaRec&&mediaRec.state==="recording"){mediaRec.stop();return;}
+ try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});chunks=[];mediaRec=new MediaRecorder(stream);
+  mediaRec.ondataavailable=ev=>chunks.push(ev.data);
+  mediaRec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());$("#micbtn").textContent="🎤";
+   const blob=new Blob(chunks,{type:"audio/webm"});const rd=new FileReader();
+   rd.onload=async()=>{$("#cin").value="… transkribiere …";
+    const r=await (await fetch("/api/transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audio:rd.result})})).json();
+    $("#cin").value=r.ok?(r.text||""):("(Audio-Fehler: "+(r.error||"")+")");$("#cin").focus();};
+   rd.readAsDataURL(blob);};
+  mediaRec.start();$("#micbtn").textContent="⏹";
+ }catch(err){add("Mikrofon nicht verfuegbar: "+err,"sys");}});
+
+/* ---- Bild an Kira (Vision) ---- */
+$("#imgfile")&&($("#imgfile").onchange=ev=>{const f=ev.target.files[0];if(!f)return;
+ const rd=new FileReader();rd.onload=async()=>{
+  const im=document.createElement("div");im.className="msg me";
+  im.innerHTML='<img src="'+rd.result+'" style="max-width:240px;border-radius:8px;display:block"/>';log.appendChild(im);log.scrollTop=log.scrollHeight;
+  const prompt=$("#cin").value.trim();$("#cin").value="";
+  const b=add("… Kira betrachtet das Bild …","bot");
+  try{const r=await (await fetch("/api/vision",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:prompt,image:rd.result})})).json();
+   b.textContent=r.ok?(r.text||""):("(Bild-Fehler: "+(r.error||"")+")");}
+  catch(err){b.textContent="(Bild-Fehler: "+err+")";}
+  log.scrollTop=log.scrollHeight;};
+ rd.readAsDataURL(f);ev.target.value="";});
 
 /* ---- Files ---- */
 let fcur=null;
