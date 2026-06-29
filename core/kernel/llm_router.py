@@ -12,6 +12,7 @@ import os
 import re
 import time
 
+import httpx
 import litellm
 
 from core.config import CONFIG
@@ -19,6 +20,7 @@ from core.kernel import events
 
 # Modellspezifisch nicht unterstuetzte Parameter still ignorieren (z.B. bei Ollama).
 litellm.drop_params = True
+litellm.suppress_debug_info = True  # kein "Provider List"-Rauschen
 
 # Reasoning-Modelle (Qwythos, Qwen3) denken in <think>...</think>. Das gehoert
 # nicht in die sichtbare Antwort -> wir parsen es raus (Rohtext bleibt im Log).
@@ -117,6 +119,32 @@ def resolve_model(task_type: str = "default", escalate: bool = False) -> tuple[s
     return models["local_fallback"], True
 
 
+_OR_PRICES: dict | None = None
+
+
+def _openrouter_prices() -> dict:
+    """OpenRouter-Preise (USD pro Token) je Modell, einmal gecacht."""
+    global _OR_PRICES
+    if _OR_PRICES is None:
+        _OR_PRICES = {}
+        try:
+            data = httpx.get("https://openrouter.ai/api/v1/models", timeout=15).json().get("data", [])
+            for m in data:
+                pr = m.get("pricing") or {}
+                _OR_PRICES[m["id"]] = (float(pr.get("prompt", 0) or 0), float(pr.get("completion", 0) or 0))
+        except Exception:
+            _OR_PRICES = {}
+    return _OR_PRICES
+
+
+def _estimate_or_cost(real_model: str, tokens: dict | None) -> float:
+    if not real_model.startswith("openrouter/") or not tokens:
+        return 0.0
+    mid = real_model.split("/", 1)[1]
+    p_in, p_out = _openrouter_prices().get(mid, (0.0, 0.0))
+    return (tokens.get("prompt") or 0) * p_in + (tokens.get("completion") or 0) * p_out
+
+
 def today_spend_usd() -> float:
     """Summe der LLM-Kosten seit lokaler Mitternacht (Grundlage der Budget-Bremse)."""
     start = (
@@ -201,6 +229,9 @@ def complete(
             "prompt": getattr(usage, "prompt_tokens", None),
             "completion": getattr(usage, "completion_tokens", None),
         }
+
+    if cost == 0.0:  # litellm kennt z.B. OpenRouter-Preise oft nicht -> selbst schaetzen
+        cost = _estimate_or_cost(real, tokens)
 
     events.emit(
         "llm_call",
