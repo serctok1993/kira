@@ -127,7 +127,8 @@ def remember_fact(fact: str) -> str:
 
 @tool("self_edit",
       "Bearbeite deinen EIGENEN Code (eine Datei im Projekt, z.B. das Dashboard oder ein Tool). "
-      "Sicher: Python-Syntax-Check + Git-Commit, automatischer Rollback bei Fehler. "
+      "Sicher: Syntax-Check + automatischer SELBST-TEST (Kernmodule muessen importierbar bleiben) "
+      "+ Git-Commit; faellt der Test durch, wird die Aenderung automatisch zurueckgerollt. "
       "Danach muss der betroffene Dienst neu gestartet werden.",
       {"path": "Datei relativ zum Projekt, z.B. core/api/server.py", "instruction": "was genau geaendert werden soll"})
 def self_edit(path: str, instruction: str) -> str:

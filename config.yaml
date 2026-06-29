@@ -24,6 +24,11 @@ models:
   keep_alive: "24h"                         # Modell warm halten -> kein Kaltstart im Dauerbetrieb
   num_ctx: 16384                            # Kontextfenster (Arbeitsgedaechtnis) -> mehr Platz fuer Prompt+Erinnerungen+Verlauf
 
+# Selbst-Entwicklung: nach jedem self_edit laeuft dieser Test; faellt er durch -> Auto-Rollback.
+# Leer = Standard (Import-Smoke der Kernmodule mit dem venv-Python). Beispiel: "uv run pytest -q"
+selfdev:
+  verify_cmd: ""
+
 # Autonomie & Sicherung (greift voll ab Phase 5)
 governance:
   trust_level: 3                  # voll-autonom (Nutzerwahl)
