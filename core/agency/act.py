@@ -114,6 +114,68 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
     return {"text": res["text"].strip(), "steps": max_steps}
 
 
+def _make_plan(task: str, session_id: str | None, escalate: bool = True) -> list[str]:
+    """Zerlegt eine groessere Aufgabe in 3-7 konkrete, ausfuehrbare Schritte (JSON-Array)."""
+    system = _identity() + (
+        "\n\nDu bist im PLANUNGS-Modus. Zerlege die Aufgabe in 3 bis 7 konkrete, ausfuehrbare "
+        "Schritte. Antworte AUSSCHLIESSLICH mit einem JSON-Array kurzer Schritt-Strings, sonst "
+        'nichts. Beispiel: ["Recherchiere X", "Erstelle Datei Y", "Teste Y"].'
+    )
+    res = llm_router.complete([{"role": "user", "content": task}], system=system,
+                              task_type="reason", session_id=session_id, escalate=escalate)
+    m = re.search(r"\[.*\]", res["text"], re.DOTALL)
+    if m:
+        try:
+            steps = [str(s).strip() for s in json.loads(m.group(0)) if str(s).strip()]
+            if steps:
+                return steps[:8]
+        except Exception:  # noqa: BLE001
+            pass
+    return [task]
+
+
+def plan_and_execute(task: str, session_id: str | None = None, on_event=None, escalate: bool = True) -> str:
+    """Plan-&-Execute-Agent: erst einen Plan erstellen, dann Schritt fuer Schritt mit Werkzeugen
+    abarbeiten (inkl. self_edit), am Ende eine Zusammenfassung. Streamt ueber on_event mit denselben
+    Ereignissen wie act_chat (think=Plan, tool/obs=Schritte, final=Ergebnis)."""
+    def emit(ev):
+        if on_event:
+            try:
+                on_event(ev)
+            except Exception:  # noqa: BLE001
+                pass
+
+    events.emit("plan_start", {"task": task}, session_id=session_id)
+    steps = _make_plan(task, session_id, escalate)
+    emit({"kind": "think", "text": "📋 Plan:\n" + "\n".join(f"{i}. {s}" for i, s in enumerate(steps, 1)) + "\n"})
+    events.emit("plan_made", {"steps": steps}, session_id=session_id)
+
+    done: list[str] = []
+    for i, step in enumerate(steps, 1):
+        emit({"kind": "tool", "name": f"Schritt {i}/{len(steps)}", "args": {"ziel": step[:80]}})
+        ctx = ("Bisher erledigt:\n" + "\n".join(f"- {d}" for d in done) + "\n\n") if done else ""
+        step_task = f"{ctx}Gesamtziel: {task}\n\nFuehre jetzt NUR diesen Schritt aus: {step}"
+        try:
+            out = act(step_task, session_id=session_id, max_steps=6, escalate=escalate)["text"].strip()
+        except Exception as e:  # noqa: BLE001
+            out = f"Fehler: {e}"
+        done.append(f"{step} -> {out[:160]}")
+        emit({"kind": "obs", "name": f"Schritt {i}", "text": out[:200]})
+        events.emit("plan_step", {"n": i, "step": step, "result": out[:300]}, session_id=session_id)
+
+    synth = llm_router.complete(
+        [{"role": "user", "content":
+          f"Aufgabe war: {task}\n\nDu hast diese Schritte ausgefuehrt:\n"
+          + "\n".join(f"{i}. {d}" for i, d in enumerate(done, 1))
+          + "\n\nFasse fuer Sergen knapp und konkret zusammen, was du erreicht hast (Ergebnis, nicht der Prozess)."}],
+        system=_identity(), task_type="reason", session_id=session_id, escalate=escalate,
+    )
+    final = synth["text"].strip()
+    events.emit("plan_done", {"task": task, "steps": len(steps)}, session_id=session_id)
+    emit({"kind": "final", "text": final})
+    return final
+
+
 def act_chat(user_message: str, session_id: str, max_steps: int = 6, escalate: bool = False, on_event=None) -> str:
     """Konversationeller, agentischer Chat: Gedaechtnis + Persona + Werkzeuge.
 
@@ -132,6 +194,15 @@ def act_chat(user_message: str, session_id: str, max_steps: int = 6, escalate: b
     events.emit("user_message", {"text": user_message}, session_id=session_id)
     history = memory.recent_dialogue(session_id, limit=10)
     memory.remember(user_message, role="user", session_id=session_id)
+
+    # Plan-Modus: "plan: ..." oder "/plan ..." -> erst Plan, dann Schritt fuer Schritt (wie ein Coding-Agent)
+    _s = user_message.strip()
+    if _s.lower().startswith(("plan:", "/plan")):
+        ptask = _s[5:].lstrip(": ").strip() or "(keine Aufgabe angegeben)"
+        final = plan_and_execute(ptask, session_id=session_id, on_event=on_event, escalate=True)
+        memory.remember(final, role="partner", session_id=session_id)
+        events.emit("partner_message", {"text": final, "plan": True}, session_id=session_id)
+        return final
 
     system = build_system_prompt(user_message, session_id=session_id) + f"""
 

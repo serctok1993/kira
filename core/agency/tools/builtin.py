@@ -219,3 +219,14 @@ def cron_list() -> str:
     if not js:
         return "(keine geplanten Aufgaben)"
     return "\n".join(f"- {j['label']} ({j['schedule_text']}) {'an' if j['enabled'] else 'aus'} (id={j['id']})" for j in js)
+
+
+@tool("plan_and_execute",
+      "Fuer GROSSE, mehrstufige Aufgaben: zerlege sie selbst in einen Plan und arbeite ihn Schritt "
+      "fuer Schritt mit Werkzeugen ab (inkl. self_edit zum Coden). Nutze das, wenn eine Aufgabe "
+      "mehrere Teilschritte braucht.",
+      {"task": "die komplette Gesamtaufgabe in einem Satz"})
+def plan_and_execute(task: str) -> str:
+    from core.agency.act import plan_and_execute as _pe
+
+    return _pe(task, escalate=True)

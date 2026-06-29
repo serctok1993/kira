@@ -215,10 +215,17 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
         _send(client, chat_id,
               "Ich bin Kira. Schreib oder sprich mir einfach.\n"
               "Befehle:\n"
+              "/plan <große aufgabe> – ich erstelle einen Plan und arbeite ihn Schritt fuer Schritt ab\n"
               "/act <aufgabe>  – ich nutze Werkzeuge (z.B. Web), um etwas zu erledigen\n"
               "/build <idee>   – ich baue mir ein neues Werkzeug\n"
               "/stop  – Not-Aus (ich halte sofort an)\n"
               "/go    – Not-Aus aufheben")
+        return
+    if cmd == "plan":
+        if not rest:
+            _send(client, chat_id, "Nutzung: /plan <große, mehrstufige Aufgabe>")
+            return
+        _agentic_reply(client, chat_id, f"telegram-{chat_id}", "plan: " + rest)
         return
     if cmd == "stop":
         kill_switch_path().write_text("stop", encoding="utf-8")

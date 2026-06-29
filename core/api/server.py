@@ -537,7 +537,8 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
   <div class="view" id="v-chat">
     <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:4px 0 8px">
       <small class="muted">Hirn:</small>
-      <select id="chat-model" style="max-width:300px"></select>
+      <select id="chat-model" style="max-width:280px"></select>
+      <label class="muted" title="Plan-Modus: erst Plan, dann Schritt fuer Schritt" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="planmode"/> 🧭 Plan</label>
       <small class="muted" id="chat-model-now"></small>
     </div>
     <div id="log"></div>
@@ -772,8 +773,8 @@ function connect(){ws=new WebSocket(proto+"://"+location.host+"/ws/chat");
   if(m.kind==="final"||m.kind==="answer"){const b=add("","bot");b.textContent=(m.text||"").replace(/\\*\\*/g,"");log.scrollTop=log.scrollHeight;}};
  ws.onclose=()=>setTimeout(connect,1500);}
 connect();
-$("#cform").onsubmit=e=>{e.preventDefault();const t=$("#cin").value.trim();if(!t||ws.readyState!==1)return;
- add(t,"me");ws.send(t);$("#cin").value="";curBot=null;curThink=null;};
+$("#cform").onsubmit=e=>{e.preventDefault();const raw=$("#cin").value.trim();if(!raw||ws.readyState!==1)return;
+ add(raw,"me");const t=($("#planmode")&&$("#planmode").checked?"plan: ":"")+raw;ws.send(t);$("#cin").value="";curBot=null;curThink=null;};
 
 /* ---- Sprachmemo (Aufnahme -> Whisper -> Eingabefeld) ---- */
 let mediaRec=null,chunks=[];
