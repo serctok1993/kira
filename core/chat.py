@@ -5,6 +5,7 @@ Slash-Befehle machen Reflexion, Council und Selbst-Evolution direkt erlebbar.
 from __future__ import annotations
 
 from core.agency.act import act as run_act
+from core.agency.tools import synthesize
 from core.config import CONFIG
 from core.kernel.scheduler import kill_switch_path
 from core.mind import council, evolution, reflection
@@ -22,6 +23,7 @@ HELP = """Befehle:  (ein '!' am Befehlsende eskaliert diese eine Aufgabe in die 
   /evolve <soul|goal> [text]   Vorschlag zur Selbst-Ueberarbeitung erzeugen (+ Verfassungs-Check)
   /apply  <soul|goal> [grund]  letzten Vorschlag uebernehmen (Backup wird angelegt)
   /act <aufgabe>               Aufgabe mit Werkzeugen erledigen (Web etc.)
+  /build <beschreibung>        Kyros baut sich ein NEUES Werkzeug (testet + registriert)
   /stop | /go                  Not-Aus setzen / aufheben
   exit                         beenden
 Beispiele:  /council! Welche Nische zuerst?   (einmalig Cloud)
@@ -101,6 +103,20 @@ def handle_command(line: str) -> None:
         print("...Kyros arbeitet (Werkzeuge)..." + ("  [Cloud]" if escalate else ""))
         r = run_act(rest, escalate=escalate)
         print(f"\n{r['text']}\n[Schritte: {r['steps']}]")
+
+    elif cmd == "/build":
+        if not rest:
+            print("Nutzung: /build <was das Werkzeug koennen soll>")
+            return
+        print("...Kyros baut ein Werkzeug (generieren -> testen -> registrieren)..." + ("  [Cloud]" if escalate else ""))
+        r = synthesize.synthesize(rest, escalate=escalate)
+        if r["ok"]:
+            print(f"✅ Werkzeug '{r['name']}' gebaut, getestet und registriert.")
+            print(f"   Test: {r.get('test_output','')[:200]}")
+        else:
+            print(f"❌ Nicht registriert ({r.get('reason')}).")
+            if r.get("test_output"):
+                print(f"   {r['test_output'][:300]}")
 
     elif cmd == "/stop":
         kill_switch_path().write_text("stop", encoding="utf-8")

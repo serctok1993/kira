@@ -118,6 +118,7 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
               "Ich bin Kyros. Schreib oder sprich mir einfach.\n"
               "Befehle:\n"
               "/act <aufgabe>  – ich nutze Werkzeuge (z.B. Web), um etwas zu erledigen\n"
+              "/build <idee>   – ich baue mir ein neues Werkzeug\n"
               "/stop  – Not-Aus (ich halte sofort an)\n"
               "/go    – Not-Aus aufheben")
         return
@@ -142,6 +143,19 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
 
         result = act(rest, session_id=f"telegram-{chat_id}")
         _send(client, chat_id, result["text"])
+        return
+    if cmd == "build":
+        if not rest:
+            _send(client, chat_id, "Nutzung: /build <was das Werkzeug koennen soll>")
+            return
+        _typing(client, chat_id)
+        from core.agency.tools import synthesize
+
+        r = synthesize.synthesize(rest)
+        if r["ok"]:
+            _send(client, chat_id, f"✅ Werkzeug '{r['name']}' gebaut & registriert.\nTest: {r.get('test_output','')[:200]}")
+        else:
+            _send(client, chat_id, f"❌ Nicht registriert: {r.get('reason')}\n{r.get('test_output','')[:200]}")
         return
     _send(client, chat_id, "Unbekannter Befehl. /help zeigt, was ich kann.")
 

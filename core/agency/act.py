@@ -15,8 +15,11 @@ import re
 
 from core.kernel import events, executor, llm_router
 from core.agency.tools import builtin  # noqa: F401  -> registriert die eingebauten Tools
-from core.agency.tools import registry
+from core.agency.tools import registry, synthesize
 from core.mind.agent import _read
+
+# Frueher von Kyros selbst gebaute Werkzeuge wieder verfuegbar machen.
+synthesize.load_synthesized()
 
 _ACT_RE = re.compile(r"^\s*ACT\s+(\w+)\s+(\{.*\})\s*$", re.MULTILINE | re.DOTALL)
 
