@@ -62,14 +62,6 @@ def run_once(escalate: bool = False) -> dict:
         events.emit("heartbeat_halted", {"reason": "kill_switch"})
         return {"halted": True}
 
-    # Rein lesendes Web-/News-Monitoring (rate-limited pro Quelle) bei jedem Tick.
-    try:
-        from core.agency.connectors import news_monitor
-
-        news_monitor.run_all(force=False, notify=True)
-    except Exception as e:  # noqa: BLE001
-        events.emit("monitor_error", {"error": str(e)})
-
     m = _mission()
     mission = m.get("name", "default")
     goal = m.get("goal") or _read("GOAL.md")
@@ -103,18 +95,33 @@ def run_once(escalate: bool = False) -> dict:
 def run_forever(interval: int | None = None) -> None:
     interval = interval or CONFIG.get("heartbeat", {}).get("interval_seconds", 1800)
     events.init_db()
-    print(f"Mission-Runner laeuft. 24/7-Loop nur aktiv, wenn eingeschaltet (Cockpit/Flag). Takt {interval}s.")
+    print(f"Mission-Runner laeuft. Cron+Monitor laufen immer; 24/7-Missionen nur wenn eingeschaltet. Takt {interval}s.")
     while True:
         try:
             if kill_switch_active():
                 time.sleep(15)  # Not-Aus: pausieren, nach /go weiter
                 continue
+
+            # Immer (unabhaengig vom Missions-Toggle): Monitor + geplante Aufgaben.
+            try:
+                from core.agency.connectors import news_monitor
+
+                news_monitor.run_all(force=False, notify=True)
+            except Exception as e:  # noqa: BLE001
+                events.emit("monitor_error", {"error": str(e)})
+            try:
+                from core.agency.missions import cron
+
+                cron.run_due()
+            except Exception as e:  # noqa: BLE001
+                events.emit("cron_error", {"error": str(e)})
+
             if heartbeat_on():
                 out = run_once()
                 print("tick:", {k: (str(v)[:80]) for k, v in out.items()})
                 time.sleep(interval)
             else:
-                time.sleep(20)  # aus -> schnell wieder pruefen (Live-Toggle aus dem Cockpit)
+                time.sleep(60)  # aus -> Cron/Monitor ~minuetlich pruefen
         except KeyboardInterrupt:
             print("\nGestoppt.")
             break

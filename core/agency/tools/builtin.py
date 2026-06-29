@@ -195,3 +195,27 @@ def set_context(num_ctx: int = 0, max_tokens: int = 0) -> str:
 
     r = models.set_params(num_ctx=int(num_ctx) or None, max_tokens=int(max_tokens) or None)
     return f"Gesetzt: num_ctx={r['num_ctx']}, max_tokens={r['max_tokens']} (laedt beim naechsten Aufruf neu)."
+
+
+@tool("cron_add",
+      "Plant eine WIEDERKEHRENDE Aufgabe (erscheint sofort im Dashboard unter 'Cron'). "
+      "Zeitplan: '30m' oder '2h' (Intervall) ODER '08:00' (taeglich zu der Uhrzeit).",
+      {"label": "kurzer Name", "prompt": "was du dann jeweils tun sollst", "schedule": "z.B. '30m', '2h' oder '08:00'"})
+def cron_add(label: str, prompt: str, schedule: str) -> str:
+    import datetime as _dt
+
+    from core.agency.missions import cron
+
+    j = cron.add_job(label, prompt, schedule)
+    nxt = _dt.datetime.fromtimestamp(j["next_run"]).strftime("%d.%m. %H:%M")
+    return f"Geplant: {j['label']} ({j['schedule_text']}) — naechster Lauf {nxt}."
+
+
+@tool("cron_list", "Zeigt alle geplanten (Cron-)Aufgaben mit Zeitplan und id.", {})
+def cron_list() -> str:
+    from core.agency.missions import cron
+
+    js = cron.list_jobs()
+    if not js:
+        return "(keine geplanten Aufgaben)"
+    return "\n".join(f"- {j['label']} ({j['schedule_text']}) {'an' if j['enabled'] else 'aus'} (id={j['id']})" for j in js)

@@ -269,6 +269,42 @@ async def api_monitor_check(body: dict) -> dict:
     return {"ok": True, **out}
 
 
+@app.get("/api/cron")
+def api_cron() -> dict:
+    from core.agency.missions import cron
+
+    return {"jobs": cron.list_jobs()}
+
+
+@app.post("/api/cron/add")
+async def api_cron_add(body: dict) -> dict:
+    from core.agency.missions import cron
+
+    return {"ok": True, "job": cron.add_job(body.get("label", ""), body.get("prompt", ""), body.get("schedule", "60m"))}
+
+
+@app.post("/api/cron/remove")
+async def api_cron_remove(body: dict) -> dict:
+    from core.agency.missions import cron
+
+    return {"ok": cron.remove_job(body.get("id", ""))}
+
+
+@app.post("/api/cron/toggle")
+async def api_cron_toggle(body: dict) -> dict:
+    from core.agency.missions import cron
+
+    return {"ok": True, "enabled": cron.toggle_job(body.get("id", ""))}
+
+
+@app.post("/api/cron/runnow")
+async def api_cron_runnow(body: dict) -> dict:
+    from core.agency.missions import cron
+
+    out = await anyio.to_thread.run_sync(lambda: cron.run_now(body.get("id", "")))
+    return {"ok": True, "result": out}
+
+
 @app.post("/api/kill")
 async def api_kill(body: dict) -> dict:
     if body.get("on"):
@@ -403,6 +439,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
   <a data-v="gov">› Gewissen</a>
   <a data-v="mission">› Mission</a>
   <a data-v="monitor">› Monitor</a>
+  <a data-v="cron">› Cron</a>
   <a data-v="keys">› Zugaenge</a>
   <a data-v="mem">› Gedaechtnis</a>
   <a data-v="log">› Protokoll</a>
@@ -483,6 +520,20 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
     <div class="card"><h3>Letzte Schritte</h3><div id="ms-recent" class="muted">…</div></div>
   </div>
 
+  <div class="view" id="v-cron">
+    <div class="card"><h3>Geplante Aufgaben (Cron)</h3>
+      <div class="muted">Wiederkehrende Aufgaben fuer Kira. Zeitplan: <b>30m</b>/<b>2h</b> (Intervall) oder <b>08:00</b> (taeglich). Laufen, sobald der Runner aktiv ist.</div>
+      <div class="row" style="margin-top:8px">
+        <input id="cr-label" placeholder="Name" style="max-width:150px"/>
+        <input id="cr-prompt" placeholder="Was Kira jeweils tun soll" style="min-width:260px"/>
+        <input id="cr-sched" placeholder="z.B. 08:00 oder 2h" style="max-width:130px"/>
+        <button id="cr-add">+ Planen</button>
+      </div>
+      <div class="muted" id="cr-hint" style="margin-top:6px"></div>
+    </div>
+    <div class="card"><h3>Aktive Jobs</h3><div id="cr-list" class="muted">…</div></div>
+  </div>
+
   <div class="view" id="v-monitor">
     <div class="card"><h3>Web-/News-Monitor (rein lesend)</h3>
       <div class="muted">Kira ueberwacht Feeds &amp; Themen, fasst Neues zusammen und meldet per Telegram. Nur Lesen — sicher.</div>
@@ -523,7 +574,7 @@ let cur="home";
 $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
 function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");
- if(v==="home")loadHome(); if(v==="chat")loadChatModels(); if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="mission")loadMission(); if(v==="monitor")loadMonitor(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
+ if(v==="home")loadHome(); if(v==="chat")loadChatModels(); if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="mission")loadMission(); if(v==="monitor")loadMonitor(); if(v==="cron")loadCron(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
 
 /* ---- Modell-Umschalter in der Chat-Pane ---- */
 async function loadChatModels(){const s=await (await fetch("/api/status")).json();
@@ -546,6 +597,18 @@ async function loadMonitor(){const m=await (await fetch("/api/monitor")).json();
  $("#mo-recent").innerHTML=m.recent.length?m.recent.map(r=>{const ts=new Date(r.ts*1000).toLocaleString();return '<div style="padding:6px 0;border-bottom:1px solid #1b2a33"><small class=muted>'+ts+'</small> <b>'+(r.label||"")+'</b> ('+r.count+' neu)<br>'+(r.summary||"").slice(0,320).replace(/</g,"&lt;").replace(/\\n/g,"<br>")+'</div>';}).join(""):'<span class=muted>(noch nichts gemeldet)</span>';}
 $("#mo-add").onclick=async()=>{const v=$("#mo-value").value.trim();if(!v)return;await fetch("/api/monitor/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:$("#mo-kind").value,value:v,label:$("#mo-label").value})});$("#mo-value").value="";$("#mo-label").value="";loadMonitor();};
 $("#mo-check").onclick=async()=>{$("#mo-hint").textContent="… prueft alle Beobachtungen (kann etwas dauern) …";const r=await (await fetch("/api/monitor/check",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();$("#mo-hint").textContent="Geprueft: "+r.checked+" Quelle(n) · Neu gemeldet: "+(r.digests?r.digests.length:0);loadMonitor();};
+
+/* ---- Cron / geplante Aufgaben ---- */
+async function loadCron(){const d=await (await fetch("/api/cron")).json();const fmt=ts=>ts?new Date(ts*1000).toLocaleString():"—";
+ $("#cr-list").innerHTML=d.jobs.length?d.jobs.map(j=>{const last=(j.recent_runs&&j.recent_runs.length)?j.recent_runs[j.recent_runs.length-1]:null;
+   return '<div style="padding:8px 0;border-bottom:1px solid #1b2a33"><b>'+(j.label||"").replace(/</g,"&lt;")+'</b> <small class=muted>'+(j.schedule_text||"")+' · '+(j.enabled?"an":"aus")+' · naechster: '+fmt(j.next_run)+'</small>'
+     +'<span style="float:right"><a href="#" data-run="'+j.id+'">jetzt</a> · <a href="#" data-tog="'+j.id+'">'+(j.enabled?"pausieren":"aktivieren")+'</a> · <a href="#" data-rm="'+j.id+'" style="color:#e0a35a">entfernen</a></span>'
+     +'<br><small class=muted>'+(j.prompt||"").slice(0,120).replace(/</g,"&lt;")+'</small>'
+     +(last?('<br><small class=muted>letzter Lauf '+fmt(last.ts)+': '+(last.ok?"✓":"✗")+' '+(last.summary||"").slice(0,140).replace(/</g,"&lt;")+'</small>'):'')+'</div>';}).join(""):'<span class=muted>(keine geplanten Aufgaben)</span>';
+ document.querySelectorAll('#cr-list a[data-rm]').forEach(a=>a.onclick=async e=>{e.preventDefault();await fetch("/api/cron/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.rm})});loadCron();});
+ document.querySelectorAll('#cr-list a[data-tog]').forEach(a=>a.onclick=async e=>{e.preventDefault();await fetch("/api/cron/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.tog})});loadCron();});
+ document.querySelectorAll('#cr-list a[data-run]').forEach(a=>a.onclick=async e=>{e.preventDefault();$("#cr-hint").textContent="… Job laeuft …";await fetch("/api/cron/runnow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.run})});$("#cr-hint").textContent="Lauf fertig.";loadCron();});}
+$("#cr-add").onclick=async()=>{const p=$("#cr-prompt").value.trim();if(!p)return;await fetch("/api/cron/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({label:$("#cr-label").value,prompt:p,schedule:$("#cr-sched").value||"60m"})});$("#cr-label").value="";$("#cr-prompt").value="";$("#cr-sched").value="";loadCron();};
 
 /* ---- Mission (24/7) ---- */
 async function loadMission(){const m=await (await fetch("/api/mission")).json();
