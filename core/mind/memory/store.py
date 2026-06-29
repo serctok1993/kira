@@ -210,6 +210,25 @@ def delete(mem_id: str) -> bool:
     return True
 
 
+def backfill_embeddings(limit: int = 5000) -> int:
+    """Berechnet Embeddings fuer alte Erinnerungen ohne Vektor (macht die Vergangenheit
+    semantisch durchsuchbar). Gibt die Anzahl nachgeruesteter Eintraege zurueck."""
+    import json
+
+    from core.mind.memory.embed import embed
+
+    with _conn() as c:
+        rows = c.execute("SELECT id, text FROM memory WHERE embedding IS NULL LIMIT ?", (limit,)).fetchall()
+    done = 0
+    for mid, text in rows:
+        v = embed(text)
+        if v:
+            with _conn() as c:
+                c.execute("UPDATE memory SET embedding=? WHERE id=?", (json.dumps(v), mid))
+            done += 1
+    return done
+
+
 def recall_lessons(limit: int = 5) -> list[str]:
     """Die juengsten gelernten Lektionen (aus der Reflexion)."""
     with _conn() as c:

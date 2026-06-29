@@ -92,6 +92,37 @@ def add_provider(alias: str, model: str, api_base: str, api_key_env: str) -> dic
     return d["providers"][alias]
 
 
+def set_params(num_ctx: int | None = None, max_tokens: int | None = None) -> dict:
+    """Kontextfenster / max. Ausgabetokens zur Laufzeit setzen (persistiert, sofort live)."""
+    d = _load()
+    if num_ctx is not None:
+        d["num_ctx"] = int(num_ctx)
+    if max_tokens is not None:
+        d["max_tokens"] = int(max_tokens)
+    _save(d)
+    apply_model_overrides(d)
+    return {"num_ctx": CONFIG["models"].get("num_ctx"), "max_tokens": CONFIG["models"].get("max_tokens")}
+
+
+def loaded() -> dict:
+    """Was Ollama gerade geladen hat: Kontext + VRAM-Anteil (best effort, fuer 'passt auf GPU?')."""
+    try:
+        r = httpx.get("http://localhost:11434/api/ps", timeout=5).json()
+        for m in r.get("models", []):
+            size = m.get("size") or 0
+            vram = m.get("size_vram") or 0
+            return {
+                "name": m.get("name"),
+                "context": m.get("context_length") or m.get("context"),
+                "size_gb": round(size / 1e9, 2),
+                "vram_gb": round(vram / 1e9, 2),
+                "gpu_pct": round(vram / size * 100) if size else None,
+            }
+    except Exception:
+        pass
+    return {}
+
+
 def status() -> dict:
     m = CONFIG["models"]
     providers = m.get("providers", {})
@@ -99,6 +130,8 @@ def status() -> dict:
         "default": m.get("default"),
         "routing": m.get("routing", {}),
         "escalation_model": m.get("escalation_model"),
+        "num_ctx": m.get("num_ctx"),
+        "max_tokens": m.get("max_tokens"),
         "providers": {a: {**p, "key_set": bool(os.getenv(p.get("api_key_env", "")))} for a, p in providers.items()},
         "api_keys": {prov: bool(os.getenv(env)) for prov, env in _PROVIDER_KEYS.items()},
         "ollama_local": ollama_models(),

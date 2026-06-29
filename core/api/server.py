@@ -175,6 +175,26 @@ async def api_model_openrouter(body: dict) -> dict:
     return {"ok": True, "active": models.add_openrouter(body.get("model", ""))}
 
 
+@app.get("/api/model/loaded")
+def api_model_loaded() -> dict:
+    return models.loaded()
+
+
+@app.post("/api/model/params")
+async def api_model_params(body: dict) -> dict:
+    p = models.set_params(num_ctx=body.get("num_ctx"), max_tokens=body.get("max_tokens"))
+    # Warmup: Ollama laedt mit neuem Kontext neu -> GPU-Fit sofort sichtbar
+    try:
+        from core.kernel import llm_router
+
+        await anyio.to_thread.run_sync(
+            lambda: llm_router.complete([{"role": "user", "content": "ok"}], task_type="chat")
+        )
+    except Exception:
+        pass
+    return {"ok": True, **p, "loaded": models.loaded()}
+
+
 @app.post("/api/kill")
 async def api_kill(body: dict) -> dict:
     if body.get("on"):
@@ -341,6 +361,20 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 
   <div class="view" id="v-models">
     <div class="card"><h3>Aktives Modell</h3><div id="m-active" class="muted">…</div></div>
+    <div class="card"><h3>Kontext &amp; Parameter</h3>
+      <div id="m-loaded" class="muted">…</div>
+      <div class="row">
+        <input id="m-ctx" type="number" placeholder="num_ctx (z.B. 16384)" style="max-width:190px"/>
+        <input id="m-maxtok" type="number" placeholder="max_tokens" style="max-width:160px"/>
+        <button id="m-paramgo">Setzen</button>
+      </div>
+      <div style="margin-top:8px">Schnell-Kontext:
+        <span class="pill" data-ctx="16384">16K</span>
+        <span class="pill" data-ctx="32768">32K</span>
+        <span class="pill" data-ctx="65536">64K</span>
+        <span class="pill" data-ctx="131072">128K</span></div>
+      <div class="muted" style="margin-top:6px">Größer = mehr VRAM. Nach „Setzen" lädt das Modell neu — bleibt „GPU 100%"? Falls Anteil sinkt (CPU-Spill = langsam), kleiner wählen.</div>
+    </div>
     <div class="card"><h3>Lokal (Ollama) — klicken zum Wechseln</h3><div id="m-ollama"></div></div>
     <div class="card"><h3>OpenRouter — ein Key, alle Modelle</h3>
       <div class="muted" id="m-orkey"></div>
@@ -451,8 +485,19 @@ $("#fsave").onclick=async()=>{if(!fcur)return;
  $("#ftitle").textContent=fcur.label+(r.ok?" — gespeichert ✓":" — Fehler");};
 
 /* ---- Models ---- */
+function showLoaded(el,ld){if(ld&&ld.context){const col=(ld.gpu_pct!=null&&ld.gpu_pct>=99)?"#1fb6a6":"#e0a35a";
+   el.innerHTML="Geladen: <b>"+ld.context+"</b> Kontext · <b style='color:"+col+"'>"+(ld.gpu_pct!=null?ld.gpu_pct+"% GPU":"?")+"</b> · "+(ld.vram_gb||"?")+" GB VRAM"
+    +((ld.gpu_pct!=null&&ld.gpu_pct<99)?" ⚠️ teilweise CPU — kleiner waehlen":"");}
+  else{el.textContent="(Modell noch nicht geladen — wird beim ersten Chat geladen)";}}
 async function loadModels(){const s=await (await fetch("/api/status")).json();
  $("#m-active").innerHTML="<b>"+s.model+"</b> &nbsp; <span class=muted>Eskalation: "+(s.escalation_model||"-")+"</span>";
+ $("#m-ctx").value=s.num_ctx||""; $("#m-maxtok").value=s.max_tokens||"";
+ fetch("/api/model/loaded").then(r=>r.json()).then(ld=>showLoaded($("#m-loaded"),ld));
+ document.querySelectorAll('#v-models .pill[data-ctx]').forEach(p=>p.onclick=()=>{$("#m-ctx").value=p.dataset.ctx;});
+ $("#m-paramgo").onclick=async()=>{const ctx=parseInt($("#m-ctx").value)||null;const mt=parseInt($("#m-maxtok").value)||null;
+  $("#m-loaded").textContent="… lädt mit neuem Kontext (kann ~30 s dauern) …";
+  const r=await (await fetch("/api/model/params",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({num_ctx:ctx,max_tokens:mt})})).json();
+  showLoaded($("#m-loaded"),r.loaded||{});refreshStatus();};
  const ol=$("#m-ollama");ol.innerHTML="";(s.ollama_local||[]).forEach(m=>{const p=document.createElement("span");
   p.className="pill"+(("ollama_chat/"+m)===s.model?" ok":"");p.textContent=m;
   p.onclick=()=>useModel("ollama_chat/"+m);ol.appendChild(p);});
