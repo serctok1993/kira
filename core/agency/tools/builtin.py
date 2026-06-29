@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import html
 import re
+from pathlib import Path
 
 import httpx
 
@@ -52,3 +53,50 @@ def web_search(query: str, max_results: int = 5) -> str:
             href = unquote(m.group(1))
         out.append(f"- {_strip_html(title)}\n  {href}")
     return "\n".join(out) if out else "(keine Ergebnisse)"
+
+
+# --- Datei-Haende: Kyros kann auf dem PC lesen/schreiben/auflisten/Ordner anlegen ---
+@tool("read_file", "Liest eine Datei vom PC und gibt den Textinhalt zurueck.", {"path": "Dateipfad"})
+def read_file(path: str, max_chars: int = 8000) -> str:
+    p = Path(path).expanduser()
+    if not p.exists():
+        return f"(Datei nicht gefunden: {p})"
+    if p.is_dir():
+        return f"(Das ist ein Ordner, keine Datei: {p})"
+    return p.read_text(encoding="utf-8", errors="replace")[:max_chars]
+
+
+@tool("write_file", "Schreibt Text in eine Datei (erstellt sie / ueberschreibt). Legt fehlende Ordner an.",
+      {"path": "Dateipfad", "content": "der Inhalt"})
+def write_file(path: str, content: str) -> str:
+    p = Path(path).expanduser()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(str(content), encoding="utf-8")
+    return f"OK, geschrieben: {p} ({len(str(content))} Zeichen)"
+
+
+@tool("append_file", "Haengt Text an eine Datei an (erstellt sie bei Bedarf).",
+      {"path": "Dateipfad", "content": "anzuhaengender Text"})
+def append_file(path: str, content: str) -> str:
+    p = Path(path).expanduser()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "a", encoding="utf-8") as f:
+        f.write(str(content))
+    return f"OK, angehaengt an {p}"
+
+
+@tool("list_dir", "Listet Dateien und Ordner in einem Verzeichnis.", {"path": "Verzeichnis (Standard: aktuell)"})
+def list_dir(path: str = ".") -> str:
+    p = Path(path).expanduser()
+    if not p.exists():
+        return f"(Verzeichnis nicht gefunden: {p})"
+    items = sorted(p.iterdir(), key=lambda x: (x.is_file(), x.name.lower()))
+    lines = [("[DIR] " if i.is_dir() else "      ") + i.name for i in items[:200]]
+    return "\n".join(lines) if lines else "(leer)"
+
+
+@tool("make_dir", "Erstellt einen Ordner (inklusive Elternordner).", {"path": "Ordnerpfad"})
+def make_dir(path: str) -> str:
+    p = Path(path).expanduser()
+    p.mkdir(parents=True, exist_ok=True)
+    return f"OK, Ordner angelegt: {p}"
