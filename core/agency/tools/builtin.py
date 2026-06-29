@@ -123,3 +123,15 @@ def remember_fact(fact: str) -> str:
     memory.init_memory()
     memory.remember(fact, role="self", kind="fact")
     return f"Dauerhaft gemerkt: {fact[:90]}"
+
+
+@tool("self_edit",
+      "Bearbeite deinen EIGENEN Code (eine Datei im Projekt, z.B. das Dashboard oder ein Tool). "
+      "Sicher: Python-Syntax-Check + Git-Commit, automatischer Rollback bei Fehler. "
+      "Danach muss der betroffene Dienst neu gestartet werden.",
+      {"path": "Datei relativ zum Projekt, z.B. core/api/server.py", "instruction": "was genau geaendert werden soll"})
+def self_edit(path: str, instruction: str) -> str:
+    from core.agency.selfdev import self_edit as _se
+
+    r = _se(path, instruction)
+    return ("OK — " + r.get("note", "")) if r.get("ok") else ("Fehlgeschlagen: " + r.get("error", ""))
