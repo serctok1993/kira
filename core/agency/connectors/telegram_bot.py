@@ -70,6 +70,24 @@ def _transcribe_voice(client: httpx.Client, msg: dict) -> str | None:
         return None
 
 
+def _handle_photo(client: httpx.Client, chat_id: int, msg: dict) -> None:
+    _typing(client, chat_id)
+    try:
+        import base64
+
+        file_id = msg["photo"][-1]["file_id"]  # groesste Aufloesung
+        meta = client.get(f"{API}/getFile", params={"file_id": file_id}).json()
+        data = client.get(f"{FILE_API}/{meta['result']['file_path']}").content
+        dataurl = "data:image/jpeg;base64," + base64.b64encode(data).decode()
+        from core.agency.vision import describe
+
+        answer = _clean(describe(dataurl, msg.get("caption", "") or ""))
+        events.emit("telegram_photo", {"chat_id": chat_id, "caption": msg.get("caption", "")})
+    except Exception as e:  # noqa: BLE001
+        answer = f"Konnte das Bild nicht analysieren: {e}"
+    _send(client, chat_id, answer)
+
+
 def _handle(client: httpx.Client, update: dict) -> None:
     msg = update.get("message") or update.get("edited_message")
     if not msg:
@@ -86,6 +104,11 @@ def _handle(client: httpx.Client, update: dict) -> None:
         return
     if str(chat_id) != str(allowed):
         events.emit("telegram_blocked", {"chat_id": chat_id})
+        return
+
+    # Foto -> Kira "sieht" es (Vision)
+    if "photo" in msg and _cfg().get("vision", True):
+        _handle_photo(client, chat_id, msg)
         return
 
     text = msg.get("text")

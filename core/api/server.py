@@ -381,32 +381,17 @@ async def api_vision(body: dict) -> dict:
     img = body.get("image", "")
     if not img.startswith("data:image"):
         return {"ok": False, "error": "kein Bild"}
-    prompt = (body.get("prompt") or "").strip() or "Was ist auf diesem Bild? Beschreibe es."
-    model = CONFIG.get("models", {}).get("vision_model") or "openrouter/z-ai/glm-4.6v"
+    prompt = (body.get("prompt") or "").strip()
 
     def _call():
-        import litellm
+        from core.agency import vision
 
-        litellm.drop_params = True
-        r = litellm.completion(
-            model=model,
-            max_tokens=1000,
-            messages=[
-                {"role": "system", "content": "Du bist Kira (weiblich). Beschreibe und analysiere das "
-                 "Bild knapp, klar und hilfreich auf Deutsch, in der Ich-Form."},
-                {"role": "user", "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": img}},
-                ]},
-            ],
-        )
-        return r.choices[0].message.content
+        return vision.describe(img, prompt)
 
     try:
         txt = await anyio.to_thread.run_sync(_call)
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "error": str(e)}
-    events.emit("vision", {"prompt": prompt, "model": model})
     return {"ok": True, "text": txt}
 
 
