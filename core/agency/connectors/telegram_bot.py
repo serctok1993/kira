@@ -12,6 +12,7 @@ Vorher: TELEGRAM_BOT_TOKEN in .env setzen (Bot via @BotFather anlegen).
 from __future__ import annotations
 
 import os
+import re
 import time
 
 import httpx
@@ -104,37 +105,73 @@ def _handle(client: httpx.Client, update: dict) -> None:
         return
 
     events.emit("telegram_in", {"chat_id": chat_id, "text": text}, session_id=f"telegram-{chat_id}")
+    _agentic_reply(client, chat_id, f"telegram-{chat_id}", text)
+
+
+def _clean(t: str) -> str:
+    """Markdown-Sternchen raus (Telegram zeigt sie sonst als Zeichen)."""
+    t = re.sub(r"\*\*(.+?)\*\*", r"\1", t, flags=re.DOTALL)
+    return t.replace("**", "").replace("__", "").strip()
+
+
+def _short(args: dict) -> str:
+    s = str(args)
+    return s if len(s) <= 60 else s[:57] + "…"
+
+
+def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: str) -> None:
+    """Agentischer Chat mit Live-Trace (Denken + Werkzeug-Schritte), Antwort als neue Nachricht."""
     _typing(client, chat_id)
-    _stream_reply(client, chat_id, _agent_for(chat_id), text)
-
-
-def _stream_reply(client: httpx.Client, chat_id: int, agent: Agent, text: str) -> None:
-    """Antwort live in EINE Telegram-Nachricht streamen (editMessageText, debounced)."""
     init = client.post(f"{API}/sendMessage", json={"chat_id": chat_id, "text": "💭 …"}).json()
     mid = init.get("result", {}).get("message_id")
-    full = ""
-    last_edit = 0.0
-    last_sent = ""
-    for chunk in agent.respond_stream(text):
-        full += chunk
+    state = {"think": "", "lines": [], "last": 0.0}
+
+    def render() -> str:
+        parts = []
+        if state["think"]:
+            parts.append("💭 " + state["think"][-300:])
+        parts += state["lines"][-8:]
+        return ("\n".join(parts))[:4000] or "💭 …"
+
+    def push(force: bool = False) -> None:
         now = time.time()
-        if mid and now - last_edit > 1.3 and full.strip() and full[:4000] != last_sent:
-            last_sent = full[:4000]
+        if mid and (force or now - state["last"] > 1.3):
             try:
-                client.post(f"{API}/editMessageText",
-                            json={"chat_id": chat_id, "message_id": mid, "text": last_sent})
+                client.post(f"{API}/editMessageText", json={"chat_id": chat_id, "message_id": mid, "text": render()})
             except Exception:
                 pass
-            last_edit = now
-    final = full[:4000] or "(keine Antwort)"
-    if mid and final != last_sent:
+            state["last"] = now
+            _typing(client, chat_id)
+
+    def on_event(ev: dict) -> None:
+        k = ev["kind"]
+        if k == "think":
+            state["think"] += ev["text"]
+            push()
+        elif k == "tool":
+            state["lines"].append(f"🔧 {ev['name']} {_short(ev['args'])}")
+            push(force=True)
+        elif k == "obs":
+            state["lines"].append(f"   ✓ {ev['text'][:70]}")
+            push(force=True)
+
+    from core.agency.act import act_chat
+
+    answer = _clean(act_chat(text, session_id=session_id, on_event=on_event))
+
+    # Arbeits-/Trace-Nachricht abschliessen
+    if mid:
         try:
-            client.post(f"{API}/editMessageText",
-                        json={"chat_id": chat_id, "message_id": mid, "text": final})
+            if state["lines"]:
+                client.post(f"{API}/editMessageText",
+                            json={"chat_id": chat_id, "message_id": mid, "text": "🔧 Schritte:\n" + "\n".join(state["lines"][-8:])[:3800]})
+            else:
+                client.post(f"{API}/deleteMessage", json={"chat_id": chat_id, "message_id": mid})
         except Exception:
             pass
-    elif not mid:
-        _send(client, chat_id, final)
+
+    # Finale Antwort als NEUE Nachricht (erscheint als ungelesen)
+    _send(client, chat_id, answer or "(keine Antwort)")
 
 
 def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:

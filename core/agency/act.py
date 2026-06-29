@@ -16,7 +16,8 @@ import re
 from core.kernel import events, executor, llm_router
 from core.agency.tools import builtin  # noqa: F401  -> registriert die eingebauten Tools
 from core.agency.tools import registry, synthesize
-from core.mind.agent import _read, PERSONA_DIRECTIVE
+from core.mind.agent import _read, PERSONA_DIRECTIVE, build_system_prompt
+from core.mind.memory import store as memory
 
 # Frueher von Kyros selbst gebaute Werkzeuge wieder verfuegbar machen.
 synthesize.load_synthesized()
@@ -111,6 +112,83 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
     res = llm_router.complete(messages, system=system, task_type="reason", session_id=session_id, escalate=escalate)
     events.emit("act_truncated_summary", {"steps": max_steps}, session_id=session_id)
     return {"text": res["text"].strip(), "steps": max_steps}
+
+
+def act_chat(user_message: str, session_id: str, max_steps: int = 6, escalate: bool = False, on_event=None) -> str:
+    """Konversationeller, agentischer Chat: Gedaechtnis + Persona + Werkzeuge.
+
+    Streamt Denken live und meldet Tool-Schritte ueber on_event(dict):
+      {"kind":"think","text":...} | {"kind":"tool","name":...,"args":...}
+      {"kind":"obs","name":...,"text":...} | {"kind":"final","text":...}
+    Gibt die finale Antwort zurueck. Nur die finale Antwort kommt ins Gedaechtnis.
+    """
+    def emit(ev):
+        if on_event:
+            try:
+                on_event(ev)
+            except Exception:
+                pass
+
+    events.emit("user_message", {"text": user_message}, session_id=session_id)
+    history = memory.recent_dialogue(session_id, limit=10)
+    memory.remember(user_message, role="user", session_id=session_id)
+
+    system = build_system_prompt(user_message, session_id=session_id) + f"""
+
+# WERKZEUGE (nutze sie, wenn die Aufgabe es braucht)
+{registry.manifest()}
+
+Brauchst du ein Werkzeug, antworte mit GENAU einer Zeile (sonst nichts):
+ACT <werkzeug_name> {{"argument": "wert"}}
+Beispiel: ACT web_search {{"query": "Wetter Koblenz heute"}}
+Danach bekommst du das ERGEBNIS und kannst weiter ein Werkzeug nutzen oder normal antworten.
+Wenn du etwas Aktuelles nicht sicher weisst (Wetter, Preise, News, Webinhalte): NICHT raten,
+sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und vollstaendig."""
+
+    messages = [
+        {"role": "assistant" if h["role"] == "partner" else "user", "content": h["text"]}
+        for h in history
+    ]
+    messages.append({"role": "user", "content": user_message})
+
+    for step in range(max_steps):
+        parts = []
+        for piece in llm_router.stream_tagged(
+            messages, system=system, task_type="reason", session_id=session_id, escalate=escalate
+        ):
+            if piece["kind"] == "think":
+                emit({"kind": "think", "text": piece["text"]})
+            else:
+                parts.append(piece["text"])
+        text = "".join(parts).strip()
+        call = _parse_act(text)
+        if not call:
+            memory.remember(text, role="partner", session_id=session_id)
+            events.emit("partner_message", {"text": text, "agentic": True}, session_id=session_id)
+            emit({"kind": "final", "text": text})
+            return text
+        name, args = call
+        emit({"kind": "tool", "name": name, "args": args})
+        tool = registry.get(name)
+        if tool is None:
+            obs = f"Fehler: Werkzeug '{name}' existiert nicht."
+        else:
+            try:
+                obs = str(executor.run_tool(name, tool.func, **args))
+            except Exception as e:  # noqa: BLE001
+                obs = f"Fehler bei '{name}': {e}"
+        emit({"kind": "obs", "name": name, "text": obs[:200]})
+        events.emit("act_step", {"step": step, "tool": name, "args": args, "obs_preview": obs[:160]}, session_id=session_id)
+        messages.append({"role": "assistant", "content": text})
+        messages.append({"role": "user", "content": f"ERGEBNIS von {name}:\n{obs}\n\nMach weiter oder gib die finale Antwort."})
+
+    messages.append({"role": "user", "content": "Fasse jetzt final fuer Sergen zusammen — ohne weiteres ACT."})
+    res = llm_router.complete(messages, system=system, task_type="reason", session_id=session_id, escalate=escalate)
+    text = res["text"].strip()
+    memory.remember(text, role="partner", session_id=session_id)
+    events.emit("partner_message", {"text": text, "agentic": True}, session_id=session_id)
+    emit({"kind": "final", "text": text})
+    return text
 
 
 if __name__ == "__main__":
