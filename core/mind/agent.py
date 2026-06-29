@@ -84,3 +84,24 @@ class Agent:
             session_id=self.session_id,
         )
         return result
+
+    def respond_stream(self, user_message: str):
+        """Wie respond(), aber streamt die Antwort als Text-Deltas (Generator)."""
+        events.emit("user_message", {"text": user_message}, session_id=self.session_id)
+        history = memory.recent_dialogue(self.session_id, limit=10)
+        memory.remember(user_message, role="user", session_id=self.session_id)
+
+        system = build_system_prompt(user_message, session_id=self.session_id)
+        messages = [
+            {"role": "assistant" if h["role"] == "partner" else "user", "content": h["text"]}
+            for h in history
+        ]
+        messages.append({"role": "user", "content": user_message})
+
+        full = ""
+        for chunk in llm_router.stream(messages, system=system, task_type="chat", session_id=self.session_id):
+            full += chunk
+            yield chunk
+
+        memory.remember(full, role="partner", session_id=self.session_id)
+        events.emit("partner_message", {"text": full, "streamed": True}, session_id=self.session_id)

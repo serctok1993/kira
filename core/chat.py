@@ -153,9 +153,10 @@ def main() -> None:
             except Exception as e:
                 print(f"Fehler: {e}")
             continue
-        result = agent.respond(user)
-        tag = "  (lokal, 0 EUR)" if result["fell_back"] else f"  ({result['model']})"
-        print(f"\n{PARTNER}{tag}:\n{result['text']}")
+        print(f"\n{PARTNER}: ", end="", flush=True)
+        for chunk in agent.respond_stream(user):
+            print(chunk, end="", flush=True)
+        print()
 
 
 if __name__ == "__main__":

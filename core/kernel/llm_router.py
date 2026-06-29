@@ -32,6 +32,20 @@ def _strip_think(text: str) -> str:
     cleaned = cleaned.replace("</think>", "").strip()
     return cleaned or text.strip()
 
+
+def _visible_from_raw(raw: str) -> str:
+    """Fuer Streaming: sichtbarer Teil aus dem bisherigen Rohtext.
+
+    Vollstaendige <think>-Bloecke werden entfernt; ein noch offenes <think>
+    unterdrueckt alles ab dort (waehrend Kyros 'denkt'). Monoton -> als Prefix
+    nutzbar, um nur das jeweils Neue auszugeben.
+    """
+    s = _THINK_RE.sub("", raw)
+    idx = s.find("<think>")
+    if idx != -1:
+        s = s[:idx]
+    return s
+
 _PROVIDER_KEYS = {
     "anthropic": "ANTHROPIC_API_KEY",
     "deepseek": "DEEPSEEK_API_KEY",
@@ -172,3 +186,77 @@ def complete(
         "latency_s": latency,
         "escalated": escalate,
     }
+
+
+def stream(messages, system=None, task_type="chat", session_id=None, escalate=False):
+    """Streamt die sichtbare Antwort als Text-Deltas (Generator).
+
+    Lokale Modelle werden tokenweise gestreamt, mit Live-<think>-Filter.
+    Cloud-Calls laufen ueber complete() (sauberes Kosten-Logging) und werden als
+    ein Block ausgegeben.
+    """
+    model, fell_back = resolve_model(task_type, escalate=escalate)
+
+    if not model.startswith("ollama"):
+        res = complete(messages, system=system, task_type=task_type, session_id=session_id, escalate=escalate)
+        yield res["text"]
+        return
+
+    msgs: list[dict] = []
+    if system:
+        msgs.append({"role": "system", "content": system})
+    msgs.extend(messages)
+
+    extra: dict = {}
+    if CONFIG["models"].get("keep_alive") is not None:
+        extra["keep_alive"] = CONFIG["models"]["keep_alive"]
+    if CONFIG["models"].get("num_ctx") is not None:
+        extra["num_ctx"] = CONFIG["models"]["num_ctx"]
+
+    t0 = time.time()
+    resp = litellm.completion(
+        model=model,
+        messages=msgs,
+        temperature=CONFIG["models"].get("temperature", 0.7),
+        max_tokens=CONFIG["models"].get("max_tokens", 2048),
+        stream=True,
+        **extra,
+    )
+
+    raw = ""
+    shown = ""
+    for chunk in resp:
+        try:
+            delta = chunk.choices[0].delta.content or ""
+        except (AttributeError, IndexError):
+            delta = ""
+        if not delta:
+            continue
+        raw += delta
+        vis = _visible_from_raw(raw)
+        if len(vis) > len(shown) and vis.startswith(shown):
+            new = vis[len(shown):]
+            shown = vis
+            yield new
+        elif vis != shown:
+            shown = vis  # seltene Divergenz -> still resynchronisieren
+
+    if not shown.strip():  # nur <think> kam, keine Antwort -> Fallback
+        fb = raw.strip()
+        if fb:
+            yield fb
+
+    events.emit(
+        "llm_call",
+        {
+            "model": model,
+            "task_type": task_type,
+            "escalated": False,
+            "fell_back": fell_back,
+            "had_think": "<think>" in raw,
+            "cost_usd": 0.0,
+            "latency_s": round(time.time() - t0, 2),
+            "streamed": True,
+        },
+        session_id=session_id,
+    )

@@ -12,6 +12,7 @@ Vorher: TELEGRAM_BOT_TOKEN in .env setzen (Bot via @BotFather anlegen).
 from __future__ import annotations
 
 import os
+import time
 
 import httpx
 
@@ -104,8 +105,36 @@ def _handle(client: httpx.Client, update: dict) -> None:
 
     events.emit("telegram_in", {"chat_id": chat_id, "text": text}, session_id=f"telegram-{chat_id}")
     _typing(client, chat_id)
-    result = _agent_for(chat_id).respond(text)
-    _send(client, chat_id, result["text"])
+    _stream_reply(client, chat_id, _agent_for(chat_id), text)
+
+
+def _stream_reply(client: httpx.Client, chat_id: int, agent: Agent, text: str) -> None:
+    """Antwort live in EINE Telegram-Nachricht streamen (editMessageText, debounced)."""
+    init = client.post(f"{API}/sendMessage", json={"chat_id": chat_id, "text": "💭 …"}).json()
+    mid = init.get("result", {}).get("message_id")
+    full = ""
+    last_edit = 0.0
+    last_sent = ""
+    for chunk in agent.respond_stream(text):
+        full += chunk
+        now = time.time()
+        if mid and now - last_edit > 1.3 and full.strip() and full[:4000] != last_sent:
+            last_sent = full[:4000]
+            try:
+                client.post(f"{API}/editMessageText",
+                            json={"chat_id": chat_id, "message_id": mid, "text": last_sent})
+            except Exception:
+                pass
+            last_edit = now
+    final = full[:4000] or "(keine Antwort)"
+    if mid and final != last_sent:
+        try:
+            client.post(f"{API}/editMessageText",
+                        json={"chat_id": chat_id, "message_id": mid, "text": final})
+        except Exception:
+            pass
+    elif not mid:
+        _send(client, chat_id, final)
 
 
 def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
