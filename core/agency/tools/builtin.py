@@ -230,3 +230,15 @@ def plan_and_execute(task: str) -> str:
     from core.agency.act import plan_and_execute as _pe
 
     return _pe(task, escalate=True)
+
+
+@tool("run_command",
+      "Fuehre einen Shell-Befehl im Projektordner aus: Code/Tests laufen lassen, git, pip/uv, "
+      "python-Skripte. Du bekommst Exit-Code + Ausgabe (stdout/stderr) zurueck — LIES sie und "
+      "korrigiere dich noetigenfalls selbst (ausfuehren -> pruefen -> fixen). "
+      "Sicher: Not-Aus, Timeout, Projekt-Sandbox, Audit.",
+      {"command": "der Shell-Befehl", "timeout": "Sekunden (optional, Standard 60)"})
+def run_command(command: str, timeout: int = 60) -> str:
+    from core.agency.shelltool import run_shell
+
+    return run_shell(command, timeout=timeout)
