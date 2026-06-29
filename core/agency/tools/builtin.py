@@ -111,3 +111,15 @@ def request_secret(name: str, reason: str = "") -> str:
 
     secrets.request(name, reason)
     return f"Zugang '{name}' angefordert. Sergen traegt ihn im Dashboard unter 'Zugaenge' ein."
+
+
+@tool("remember_fact",
+      "Speichere eine wichtige DAUER-Erinnerung (Fakt ueber Sergen, ein Projekt, eine "
+      "Entscheidung, eine Praeferenz). Wird spaeter bevorzugt wieder erinnert.",
+      {"fact": "die zu merkende Information, knapp formuliert"})
+def remember_fact(fact: str) -> str:
+    from core.mind.memory import store as memory
+
+    memory.init_memory()
+    memory.remember(fact, role="self", kind="fact")
+    return f"Dauerhaft gemerkt: {fact[:90]}"

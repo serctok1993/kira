@@ -39,6 +39,10 @@ def init_memory() -> None:
         )
         c.execute("CREATE INDEX IF NOT EXISTS idx_memory_session ON memory(session_id, ts)")
         try:
+            c.execute("ALTER TABLE memory ADD COLUMN embedding TEXT")  # fuer semantisches Erinnern
+        except sqlite3.OperationalError:
+            pass  # Spalte existiert bereits
+        try:
             c.execute(
                 "CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(mem_id UNINDEXED, text)"
             )
@@ -54,10 +58,20 @@ def remember(
     session_id: str | None = None,
 ) -> str:
     mid = uuid.uuid4().hex
+    emb = None
+    try:
+        import json
+
+        from core.mind.memory.embed import embed
+
+        v = embed(text)
+        emb = json.dumps(v) if v else None
+    except Exception:
+        emb = None
     with _conn() as c:
         c.execute(
-            "INSERT INTO memory (id, ts, session_id, role, kind, text) VALUES (?,?,?,?,?,?)",
-            (mid, time.time(), session_id, role, kind, text),
+            "INSERT INTO memory (id, ts, session_id, role, kind, text, embedding) VALUES (?,?,?,?,?,?,?)",
+            (mid, time.time(), session_id, role, kind, text, emb),
         )
         if _HAS_FTS:
             c.execute("INSERT INTO memory_fts (mem_id, text) VALUES (?,?)", (mid, text))
@@ -70,7 +84,42 @@ def _fts_query(query: str) -> str:
 
 
 def recall(query: str, limit: int = 6, exclude_session: str | None = None) -> list[dict]:
-    """Holt relevante Erinnerungen: erst Keyword-Treffer, dann Recency-Fallback."""
+    """Holt relevante Erinnerungen.
+
+    Zuerst SEMANTISCH (Embeddings/Cosine) — findet Relevantes auch ohne gleiche
+    Woerter. Fallback: Stichwort (FTS) bzw. Recency, wenn keine Embeddings da sind.
+    """
+    try:
+        import json
+
+        from core.mind.memory.embed import cosine, embed
+
+        qv = embed(query)
+        if qv:
+            with _conn() as c:
+                rows = c.execute(
+                    "SELECT ts, role, text, session_id, embedding, kind FROM memory WHERE embedding IS NOT NULL"
+                ).fetchall()
+            scored = []
+            for ts, role, text, sid, emb, kind in rows:
+                if exclude_session and sid == exclude_session:
+                    continue
+                try:
+                    v = json.loads(emb)
+                except Exception:
+                    continue
+                sc = cosine(qv, v)
+                if kind in ("fact", "lesson"):
+                    sc += 0.05  # Wichtiges bevorzugt erinnern
+                scored.append((sc, ts, role, text, sid))
+            scored.sort(key=lambda x: x[0], reverse=True)
+            top = [x for x in scored if x[0] > 0.35][:limit]
+            if top:
+                return [{"ts": t, "role": r, "text": tx, "session_id": s} for _, t, r, tx, s in top]
+    except Exception:
+        pass
+
+    # --- Fallback: Stichwort (FTS) bzw. Recency ---
     results: list[tuple] = []
     with _conn() as c:
         terms = _fts_query(query) if _HAS_FTS else ""
