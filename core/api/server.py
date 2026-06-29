@@ -11,6 +11,9 @@ import anyio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 
+from core.agency.tools import builtin as _builtin  # noqa: F401  (registriert eingebaute Tools)
+from core.agency.tools import registry
+from core.agency.tools import synthesize as _synth
 from core.config import CONFIG, MIND_DIR, ROOT
 from core.governance import audit, secrets, treasury, trust
 from core.kernel import events, models
@@ -22,6 +25,7 @@ from core.mind.memory import store as memory
 app = FastAPI(title="Prometheus Cockpit")
 events.init_db()
 memory.init_memory()
+_synth.load_synthesized()  # selbstgebaute Werkzeuge fuer die Uebersicht verfuegbar machen
 
 # Im Dashboard sichtbare/bearbeitbare Dateien. Alles editierbar — DU bist der Eigentuemer.
 # (Die Verfassung ist nur fuer KYROS gesperrt — via evolution.py; du darfst sie hier aendern.)
@@ -57,6 +61,27 @@ def api_status() -> dict:
         "kill_switch": kill_switch_active(),
         "events": events.counts_by_type(),
         "lessons": memory.recall_lessons(8),
+    }
+
+
+@app.get("/api/overview")
+def api_overview() -> dict:
+    last_mission = None
+    for e in events.recent(300):
+        if e["type"] == "mission_task_done":
+            last_mission = {"ts": e["ts"], "summary": str(e["payload"].get("summary", ""))}
+            break
+    return {
+        "partner": CONFIG["identity"].get("partner_name") or "Partner",
+        "model": models.status()["default"],
+        "kill_switch": kill_switch_active(),
+        "budget": treasury.status(),
+        "trust": {"level": trust.level(), "label": trust.LEVELS.get(trust.level(), "?")},
+        "mission": {"name": CONFIG.get("mission", {}).get("name"), "heartbeat": bool(CONFIG.get("heartbeat", {}).get("enabled"))},
+        "tools": [t.name for t in registry.all_tools()],
+        "lessons": memory.recall_lessons(5),
+        "last_mission": last_mission,
+        "events_total": sum(events.counts_by_type().values()),
     }
 
 
@@ -220,7 +245,8 @@ body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Cod
 #main{flex:1;display:flex;flex-direction:column;min-width:0}
 #bar{padding:9px 18px;border-bottom:1px solid var(--line);display:flex;gap:18px;align-items:center;
  font-size:12px;color:var(--muted);background:var(--panel2)}
-#bar .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);display:inline-block}
+#v-home h2{font-size:18px;letter-spacing:1px}
 #bar b{color:var(--ink)}
 .view{flex:1;overflow:auto;display:none;padding:18px}
 .view.on{display:flex;flex-direction:column}
@@ -272,7 +298,8 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 </style></head><body>
 <div id="side">
   <h1>PROMETHEUS</h1><div class="sub" id="who">cockpit</div>
-  <a data-v="chat" class="on">› Chat</a>
+  <a data-v="home" class="on">› Uebersicht</a>
+  <a data-v="chat">› Chat</a>
   <a data-v="files">› Seele &amp; Dateien</a>
   <a data-v="models">› Modelle</a>
   <a data-v="gov">› Gewissen</a>
@@ -290,7 +317,9 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
     <span id="b-kill"></span>
   </div>
 
-  <div class="view on" id="v-chat">
+  <div class="view on" id="v-home"><div id="home" style="overflow:auto"></div></div>
+
+  <div class="view" id="v-chat">
     <div id="log"></div>
     <form id="cform"><input id="cin" placeholder="Schreib Kyros…" autocomplete="off" autofocus/><button>Senden</button></form>
   </div>
@@ -342,11 +371,32 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 </div>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-let cur="chat";
+let cur="home";
 $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
 function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");
- if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
+ if(v==="home")loadHome(); if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
+
+/* ---- Uebersicht ---- */
+async function loadHome(){const o=await (await fetch("/api/overview")).json();const b=o.budget;
+ const card=(t,c)=>'<div class="card"><h3>'+t+'</h3>'+c+'</div>';
+ const kill=o.kill_switch?'<b style="color:#e0564e">⛔ NOT-AUS aktiv</b>':'<span style="color:#1fb6a6">einsatzbereit</span>';
+ let h='<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><span class="dot"></span>'
+  +'<h2 style="margin:0">'+o.partner+'</h2><span class=muted>'+kill+'</span></div>'
+  +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;max-width:1120px">';
+ h+=card("Modell &amp; Budget","Modell: <b>"+o.model+"</b><br><span class=muted>Heute "+b.day_spent+" / "+(b.day_limit??"-")
+   +" € · Monat "+b.month_spent+" / "+(b.month_limit??"-")+" €</span>");
+ h+=card("Vertrauen","Stufe <b>"+o.trust.level+"</b><br><span class=muted>"+o.trust.label+"</span>");
+ h+=card("Mission","<b>"+(o.mission.name||"-")+"</b><br><span class=muted>24/7-Loop: "
+   +(o.mission.heartbeat?'<b style="color:#1fb6a6">AN</b>':'aus')+"</span>"
+   +(o.last_mission?'<br><span class=muted>Letzter Schritt: '+o.last_mission.summary.slice(0,150).replace(/</g,"&lt;")+'</span>':''));
+ h+=card("Werkzeuge ("+o.tools.length+")", o.tools.map(t=>'<span class="pill">'+t+'</span>').join(" "));
+ h+=card("Letzte Lektionen", o.lessons.length?('<ul style="margin:0;padding-left:18px">'
+   +o.lessons.map(l=>'<li>'+l.slice(0,140).replace(/</g,"&lt;")+'</li>').join("")+'</ul>'):'<span class=muted>(noch keine)</span>');
+ h+=card("Schnellzugriff",'<button class=ghost onclick="nav(\\'chat\\')">Chat</button> '
+   +'<button class=ghost onclick="nav(\\'models\\')">Modelle</button> '
+   +'<button class=ghost onclick="nav(\\'gov\\')">Gewissen</button>');
+ h+='</div>';$("#home").innerHTML=h;}
 
 async function refreshStatus(){const s=await (await fetch("/api/status")).json();
  $("#who").textContent=s.partner.toLowerCase()+" · cockpit";
