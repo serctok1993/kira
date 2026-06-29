@@ -172,6 +172,17 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
     )
     final = synth["text"].strip()
     events.emit("plan_done", {"task": task, "steps": len(steps)}, session_id=session_id)
+
+    # Auto-Reflexion: aus jeder groesseren Aufgabe Lektionen ziehen (lokal, 0 EUR).
+    try:
+        from core.mind.reflection import reflect_on
+
+        refl = reflect_on(task, "\n".join(done), escalate=False)
+        if refl.get("lessons"):
+            emit({"kind": "think", "text": "🧠 Gelernt: " + "; ".join(refl["lessons"][:2]) + "\n"})
+    except Exception:  # noqa: BLE001
+        pass
+
     emit({"kind": "final", "text": final})
     return final
 

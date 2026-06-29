@@ -95,6 +95,33 @@ LEKTIONEN (konkret, umsetzbar, je eine Zeile, hoechstens 3):
     return {"text": text, "lessons": lessons}
 
 
+def reflect_on(task: str, work: str, escalate: bool = False) -> dict:
+    """Fokussierte Reflexion ueber EINE gerade erledigte Aufgabe -> konkrete Lektionen.
+
+    Wird automatisch am Ende von plan_and_execute aufgerufen, damit Kira mit jeder
+    groesseren Aufgabe dazulernt (Lektionen fliessen kuenftig in jeden System-Prompt)."""
+    events.init_db()
+    memory.init_memory()
+    prompt = f"""Ich habe gerade diese Aufgabe bearbeitet:
+{task}
+
+Was ich getan habe (Schritte und Ergebnisse):
+{work[:2500]}
+
+Reflektiere kurz und ehrlich als mein innerer kritischer Beobachter. Halte dich an dieses Format:
+
+LEKTIONEN (konkret, umsetzbar fuer kuenftige aehnliche Aufgaben, je eine Zeile, hoechstens 3):
+- ..."""
+    res = llm_router.complete(
+        [{"role": "user", "content": prompt}], system=REFLECT_SYSTEM, task_type="reason", escalate=escalate
+    )
+    lessons = _extract_lessons(res["text"])
+    for lesson in lessons:
+        memory.remember(lesson, role="self", kind="lesson")
+    events.emit("reflection", {"summary": res["text"][:400], "lessons": lessons, "scope": "task"})
+    return {"text": res["text"], "lessons": lessons}
+
+
 if __name__ == "__main__":
     r = reflect()
     print(r["text"])
