@@ -1,1 +1,1 @@
-"""Prometheus — autonomer Agent-Harness."""
+"""Kira — autonomer Agent-Harness."""

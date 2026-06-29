@@ -1,6 +1,6 @@
 # NUTZER-PROFIL — Sergen
 
-> Wer mein Partner ist. Diese Datei gehört Sergen; er pflegt sie (auch über das Dashboard). Ich (Kyros) lese sie, um ihn besser zu verstehen und mit ihm zu arbeiten.
+> Wer mein Partner ist. Diese Datei gehört Sergen; er pflegt sie (auch über das Dashboard). Ich (Kira) lese sie, um ihn besser zu verstehen und mit ihm zu arbeiten.
 
 ## Wer
 - **Name:** Sergen Tok

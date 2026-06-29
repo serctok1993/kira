@@ -1,7 +1,7 @@
-# Registriert Prometheus als Autostart beim Anmelden (Startup-Ordner, KEIN Admin noetig).
+# Registriert Kira als Autostart beim Anmelden (Startup-Ordner, KEIN Admin noetig).
 # Einmal ausfuehren. Entfernen: .\uninstall-autostart.ps1
 $startup = [Environment]::GetFolderPath("Startup")
-$lnk = Join-Path $startup "Prometheus.lnk"
+$lnk = Join-Path $startup "Kira.lnk"
 $sh = New-Object -ComObject WScript.Shell
 $s = $sh.CreateShortcut($lnk)
 $s.TargetPath = "powershell.exe"

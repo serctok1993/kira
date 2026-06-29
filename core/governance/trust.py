@@ -1,4 +1,4 @@
-"""Trust-Level: wieviel darf Kyros allein entscheiden.
+"""Trust-Level: wieviel darf Kira allein entscheiden.
 
 Stufen 0-3 (Start aus config.yaml: governance.trust_level). Die Policy
 `requires_approval(kind)` sagt, ob eine Aktionsart ein Go von Sergen braucht.

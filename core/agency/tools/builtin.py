@@ -1,6 +1,6 @@
-"""Eingebaute Werkzeuge — Kyros' erste echte Faehigkeiten.
+"""Eingebaute Werkzeuge — Kiras erste echte Faehigkeiten.
 
-Bewusst abhaengigkeitsarm (nur httpx + Regex). Spaeter baut Kyros sich weitere
+Bewusst abhaengigkeitsarm (nur httpx + Regex). Spaeter baut Kira sich weitere
 Werkzeuge selbst (synthesize.py).
 """
 from __future__ import annotations
@@ -13,7 +13,7 @@ import httpx
 
 from core.agency.tools.registry import tool
 
-_UA = {"User-Agent": "Mozilla/5.0 (Prometheus/Kyros)"}
+_UA = {"User-Agent": "Mozilla/5.0 (Kira/Kira)"}
 
 
 def _strip_html(raw: str) -> str:
@@ -55,7 +55,7 @@ def web_search(query: str, max_results: int = 5) -> str:
     return "\n".join(out) if out else "(keine Ergebnisse)"
 
 
-# --- Datei-Haende: Kyros kann auf dem PC lesen/schreiben/auflisten/Ordner anlegen ---
+# --- Datei-Haende: Kira kann auf dem PC lesen/schreiben/auflisten/Ordner anlegen ---
 @tool("read_file", "Liest eine Datei vom PC und gibt den Textinhalt zurueck.", {"path": "Dateipfad"})
 def read_file(path: str, max_chars: int = 8000) -> str:
     p = Path(path).expanduser()

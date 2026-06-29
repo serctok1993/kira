@@ -24,7 +24,7 @@ HELP = """Befehle:  (ein '!' am Befehlsende eskaliert diese eine Aufgabe in die 
   /evolve <soul|goal> [text]   Vorschlag zur Selbst-Ueberarbeitung erzeugen (+ Verfassungs-Check)
   /apply  <soul|goal> [grund]  letzten Vorschlag uebernehmen (Backup wird angelegt)
   /act <aufgabe>               Aufgabe mit Werkzeugen erledigen (Web etc.)
-  /build <beschreibung>        Kyros baut sich ein NEUES Werkzeug (testet + registriert)
+  /build <beschreibung>        Kira baut sich ein NEUES Werkzeug (testet + registriert)
   /model                       Modelle anzeigen (aktiv, lokal, eigene Provider)
   /model use <id>              aktives LLM wechseln (z.B. llama3.1:8b -> ollama_chat/...)
   /model add <alias> <litellm-modell> <api_base> <API_KEY_ENV>   eigenen API-Provider anlegen
@@ -104,7 +104,7 @@ def handle_command(line: str) -> None:
         if not rest:
             print("Nutzung: /act <aufgabe>")
             return
-        print("...Kyros arbeitet (Werkzeuge)..." + ("  [Cloud]" if escalate else ""))
+        print("...Kira arbeitet (Werkzeuge)..." + ("  [Cloud]" if escalate else ""))
         r = run_act(rest, escalate=escalate)
         print(f"\n{r['text']}\n[Schritte: {r['steps']}]")
 
@@ -112,7 +112,7 @@ def handle_command(line: str) -> None:
         if not rest:
             print("Nutzung: /build <was das Werkzeug koennen soll>")
             return
-        print("...Kyros baut ein Werkzeug (generieren -> testen -> registrieren)..." + ("  [Cloud]" if escalate else ""))
+        print("...Kira baut ein Werkzeug (generieren -> testen -> registrieren)..." + ("  [Cloud]" if escalate else ""))
         r = synthesize.synthesize(rest, escalate=escalate)
         if r["ok"]:
             print(f"✅ Werkzeug '{r['name']}' gebaut, getestet und registriert.")
@@ -156,7 +156,7 @@ def handle_command(line: str) -> None:
 
 
 def main() -> None:
-    print(f"Prometheus — Testchat mit {PARTNER}.  (/help fuer Befehle, 'exit' zum Beenden)\n")
+    print(f"Kira — Testchat mit {PARTNER}.  (/help fuer Befehle, 'exit' zum Beenden)\n")
     agent = Agent()
     print(f"[Session {agent.session_id[:8]}]")
     while True:

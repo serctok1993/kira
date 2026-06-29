@@ -1,4 +1,4 @@
-"""Telegram-Connector: Kyros' Draht zu Sergen (Text + Sprachmemo), 24/7 erreichbar.
+"""Telegram-Connector: Kiras Draht zu Sergen (Text + Sprachmemo), 24/7 erreichbar.
 
 - Long-Polling (kein oeffentlicher Webhook noetig) ueber die Telegram-Bot-API.
 - Sprachmemos werden lokal transkribiert (siehe transcribe.py).
@@ -181,7 +181,7 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
 
     if cmd in ("start", "help"):
         _send(client, chat_id,
-              "Ich bin Kyros. Schreib oder sprich mir einfach.\n"
+              "Ich bin Kira. Schreib oder sprich mir einfach.\n"
               "Befehle:\n"
               "/act <aufgabe>  – ich nutze Werkzeuge (z.B. Web), um etwas zu erledigen\n"
               "/build <idee>   – ich baue mir ein neues Werkzeug\n"

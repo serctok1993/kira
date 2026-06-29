@@ -1,4 +1,4 @@
-"""Selbst-Entwicklung: Kyros bearbeitet seinen EIGENEN Code — sicher.
+"""Selbst-Entwicklung: Kira bearbeitet seinen EIGENEN Code — sicher.
 
 Ablauf von apply_edit():
 1. Alte Version sichern (Git ist ohnehin der Sicherheitsnetz).
@@ -7,7 +7,7 @@ Ablauf von apply_edit():
 4. Sonst: git add + commit (revertierbar) und Hinweis, den betroffenen Dienst neu zu starten.
 
 self_edit() laesst ein (vorzugsweise starkes/escaliertes) Modell den neuen Dateiinhalt
-erzeugen und ruft apply_edit(). Die Verfassung bleibt fuer Kyros gesperrt (evolution.py);
+erzeugen und ruft apply_edit(). Die Verfassung bleibt fuer Kira gesperrt (evolution.py);
 hier geht es um Code/Dashboard/Tools — nicht um die Grundregeln.
 """
 from __future__ import annotations

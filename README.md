@@ -1,4 +1,4 @@
-# Prometheus
+# Kira
 
 Ein persönlicher, autonomer Agent-Harness — gebaut als **Partner**, nicht als Werkzeug.
 Privat, ein einziger Nutzer, kein kommerzielles Produkt → maximale Freiheit, keine Hürden.

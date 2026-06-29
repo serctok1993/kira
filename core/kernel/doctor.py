@@ -11,7 +11,7 @@ from core.kernel import events, llm_router
 
 
 def main() -> None:
-    print("=== Prometheus Doctor ===")
+    print("=== Kira Doctor ===")
     models = CONFIG["models"]
     print(f"Default-Modell : {models['default']}")
     print(f"Lokaler Fallback: {models['local_fallback']}")

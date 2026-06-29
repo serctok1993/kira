@@ -1,7 +1,7 @@
-"""Handlungs-Schleife (ReAct-lite): Kyros loest eine Aufgabe mit Werkzeugen.
+"""Handlungs-Schleife (ReAct-lite): Kira loest eine Aufgabe mit Werkzeugen.
 
 Modellunabhaengiges Textprotokoll (robuster als natives Function-Calling bei
-lokalen GGUF-Modellen): Kyros antwortet entweder mit
+lokalen GGUF-Modellen): Kira antwortet entweder mit
 
     ACT <tool_name> {json-argumente}
 
@@ -19,7 +19,7 @@ from core.agency.tools import registry, synthesize
 from core.mind.agent import _read, PERSONA_DIRECTIVE, build_system_prompt
 from core.mind.memory import store as memory
 
-# Frueher von Kyros selbst gebaute Werkzeuge wieder verfuegbar machen.
+# Frueher von Kira selbst gebaute Werkzeuge wieder verfuegbar machen.
 synthesize.load_synthesized()
 
 _ACT_RE = re.compile(r"^\s*ACT\s+(\w+)\s+(\{.*\})\s*$", re.MULTILINE | re.DOTALL)

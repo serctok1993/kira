@@ -8,13 +8,13 @@ def main() -> None:
     events.init_db()
     print("-> Event-Store init OK")
 
-    eid = events.emit("smoke_test", {"hello": "prometheus"})
+    eid = events.emit("smoke_test", {"hello": "kira"})
     print(f"-> Event geschrieben: {eid[:8]}")
 
     print("-> LLM-Call (cloud-first, Fallback lokal) ...")
     result = llm_router.complete(
         [{"role": "user", "content": "Antworte in genau einem kurzen Satz: Bist du bereit, Partner zu sein?"}],
-        system="Du bist Prometheus, ein autonomer Partner-Agent.",
+        system="Du bist Kira, ein autonomer Partner-Agent.",
         task_type="chat",
     )
     where = "LOKAL (Ollama, 0 EUR)" if result["fell_back"] else f"CLOUD ({result['model']})"
@@ -22,7 +22,7 @@ def main() -> None:
     print(f"   {result['text'].strip()}")
     print(f"-> Latenz: {result['latency_s']:.2f}s | Kosten: ${result['cost_usd']:.6f}")
     print(f"-> Events nach Typ: {events.counts_by_type()}")
-    print("\nOK — Smoke-Test bestanden. Prometheus atmet.")
+    print("\nOK — Smoke-Test bestanden. Kira atmet.")
 
 
 if __name__ == "__main__":

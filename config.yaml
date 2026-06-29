@@ -1,7 +1,7 @@
-# Prometheus — Zentrale Konfiguration
+# Kira — Zentrale Konfiguration
 identity:
-  harness_name: Prometheus
-  partner_name: Kyros         # vom Agenten selbst frei gewaehlt (siehe SOUL.md)
+  harness_name: Kira
+  partner_name: Kira         # vom Agenten selbst frei gewaehlt (siehe SOUL.md)
   user: Sergen
 
 # LOKAL-FIRST: Der 24/7-Dauerbetrieb laeuft komplett lokal (0 EUR).
@@ -9,7 +9,7 @@ identity:
 # sie fuer wuerdig haelt -- und nur solange das Tagesbudget (governance) reicht.
 # (Fuer ein reines Cloud-Setup laesst sich 'default' voruebergehend umstellen.)
 models:
-  default: ollama_chat/qwythos              # Kyros' Hirn: Qwythos-9B (Claude-Stil), 0 EUR
+  default: ollama_chat/qwythos              # Kiras Hirn: Qwythos-9B (Claude-Stil), 0 EUR
   routing:
     chat: ollama_chat/qwythos               # Dialog mit Sergen -> Qwythos
     reason: ollama_chat/qwythos             # Reasoning/Council/Reflexion -> Qwythos
@@ -51,10 +51,10 @@ api:
   host: 127.0.0.1
   port: 8000
 
-# Kanaele (Kyros' Draht nach aussen)
+# Kanaele (Kiras Draht nach aussen)
 channels:
   telegram:
     enabled: true
-    allowed_chat_id: 7037806562   # Sergens Chat (nur er darf mit Kyros reden)
+    allowed_chat_id: 7037806562   # Sergens Chat (nur er darf mit Kira reden)
     voice: true               # Sprachmemos lokal transkribieren
     whisper_model: base       # tiny | base | small | medium  (CPU, 0 EUR)

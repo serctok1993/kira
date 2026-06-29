@@ -54,7 +54,7 @@ def status() -> dict:
 
 
 def can_spend(amount: float) -> tuple[bool, str]:
-    """Darf Kyros gerade `amount` ausgeben? (Vor jeder Aussen-Geldaktion fragen.)"""
+    """Darf Kira gerade `amount` ausgeben? (Vor jeder Aussen-Geldaktion fragen.)"""
     b = _budget()
     dl, ml = b.get("daily_eur"), b.get("monthly_eur")
     if dl is not None and today_spend() + amount > dl:

@@ -1,4 +1,4 @@
-"""Tool-Synthese: Kyros schreibt, testet und registriert eigene Werkzeuge.
+"""Tool-Synthese: Kira schreibt, testet und registriert eigene Werkzeuge.
 
 Ablauf:
 1. LLM erzeugt EINE Python-Funktion (delimitiertes Format -> robust auch lokal).
@@ -97,7 +97,7 @@ def _ask_llm(need: str, escalate: bool) -> dict:
 
 def _render(spec: dict) -> str:
     return (
-        "# Auto-synthetisiert von Kyros\n"
+        "# Auto-synthetisiert von Kira\n"
         "from core.agency.tools.registry import tool\n\n"
         f"@tool({spec['name']!r}, {spec['desc']!r}, {spec['params']!r})\n"
         f"{spec['code']}\n"

@@ -39,7 +39,7 @@ def _visible_from_raw(raw: str) -> str:
     """Fuer Streaming: sichtbarer Teil aus dem bisherigen Rohtext.
 
     Vollstaendige <think>-Bloecke werden entfernt; ein noch offenes <think>
-    unterdrueckt alles ab dort (waehrend Kyros 'denkt'). Monoton -> als Prefix
+    unterdrueckt alles ab dort (waehrend Kira 'denkt'). Monoton -> als Prefix
     nutzbar, um nur das jeweils Neue auszugeben.
     """
     s = _THINK_RE.sub("", raw)
@@ -337,7 +337,7 @@ def stream(messages, system=None, task_type="chat", session_id=None, escalate=Fa
 def stream_tagged(messages, system=None, task_type="chat", session_id=None, escalate=False):
     """Wie stream(), aber getaggt: yields {"kind": "think"|"answer", "text": delta}.
 
-    Fuer das Dashboard, das Kyros' Denken live sichtbar machen soll. Lokale Modelle
+    Fuer das Dashboard, das Kiras Denken live sichtbar machen soll. Lokale Modelle
     werden tokenweise getaggt; Cloud/Provider laufen ueber complete() (ein answer-Block).
     """
     model, fell_back = resolve_model(task_type, escalate=escalate)

@@ -22,15 +22,15 @@ from core.kernel.scheduler import heartbeat_on, kill_switch_active, kill_switch_
 from core.mind.agent import Agent
 from core.mind.memory import store as memory
 
-app = FastAPI(title="Prometheus Cockpit")
+app = FastAPI(title="Kira Cockpit")
 events.init_db()
 memory.init_memory()
 _synth.load_synthesized()  # selbstgebaute Werkzeuge fuer die Uebersicht verfuegbar machen
 
 # Im Dashboard sichtbare/bearbeitbare Dateien. Alles editierbar — DU bist der Eigentuemer.
-# (Die Verfassung ist nur fuer KYROS gesperrt — via evolution.py; du darfst sie hier aendern.)
+# (Die Verfassung ist nur fuer KIRA gesperrt — via evolution.py; du darfst sie hier aendern.)
 FILES: dict[str, dict] = {
-    "constitution.md": {"path": MIND_DIR / "constitution.md", "editable": True, "label": "Verfassung (fuer Kyros gesperrt, von dir editierbar)"},
+    "constitution.md": {"path": MIND_DIR / "constitution.md", "editable": True, "label": "Verfassung (fuer Kira gesperrt, von dir editierbar)"},
     "SOUL.md": {"path": MIND_DIR / "SOUL.md", "editable": True, "label": "Seele (SOUL)"},
     "GOAL.md": {"path": MIND_DIR / "GOAL.md", "editable": True, "label": "Ziel (GOAL)"},
     "USER.md": {"path": MIND_DIR / "USER.md", "editable": True, "label": "Nutzer-Profil (Sergen)"},
@@ -283,7 +283,7 @@ def index() -> str:
 DASHBOARD_HTML = """<!doctype html>
 <html lang="de"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Prometheus Cockpit</title>
+<title>Kira Cockpit</title>
 <style>
 :root{--bg:#080c0f;--panel:#0e161b;--panel2:#0b1217;--line:#1b2a33;--ink:#dfeaef;
  --muted:#7791a0;--accent:#1fb6a6;--accent2:#0e7c8c;--amber:#e0a35a;--danger:#e0564e;}
@@ -357,7 +357,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 .muted{color:var(--muted)}
 </style></head><body>
 <div id="side">
-  <h1>PROMETHEUS</h1><div class="sub" id="who">cockpit</div>
+  <h1>KIRA</h1><div class="sub" id="who">cockpit</div>
   <a data-v="home" class="on">› Uebersicht</a>
   <a data-v="chat">› Chat</a>
   <a data-v="files">› Seele &amp; Dateien</a>
@@ -382,7 +382,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 
   <div class="view" id="v-chat">
     <div id="log"></div>
-    <form id="cform"><input id="cin" placeholder="Schreib Kyros…" autocomplete="off" autofocus/><button>Senden</button></form>
+    <form id="cform"><input id="cin" placeholder="Schreib Kira…" autocomplete="off" autofocus/><button>Senden</button></form>
   </div>
 
   <div class="view" id="v-files">
@@ -440,7 +440,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
   </div>
 
   <div class="view" id="v-keys">
-    <div class="card"><h3>Von Kyros angefordert</h3><div id="k-pending" class="muted">…</div></div>
+    <div class="card"><h3>Von Kira angefordert</h3><div id="k-pending" class="muted">…</div></div>
     <div class="card"><h3>Zugang eintragen / aktualisieren</h3>
       <div class="muted">Werte sind write-only — werden nie angezeigt oder protokolliert. NIEMALS im Chat eingeben.</div>
       <div class="row"><input id="k-name" placeholder="Name, z.B. OPENROUTER_API_KEY"/>
@@ -468,11 +468,11 @@ function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset
 /* ---- Mission (24/7) ---- */
 async function loadMission(){const m=await (await fetch("/api/mission")).json();
  $("#ms-status").innerHTML="Mission: <b>"+(m.mission||"-")+"</b> · 24/7: "+(m.enabled?'<b style="color:#1fb6a6">AN</b>':'<span class=muted>aus</span>')+" · Takt "+Math.round(m.interval/60)+" min";
- $("#ms-queue").innerHTML=m.pending.length?m.pending.map(t=>"• "+(t.description||"").replace(/</g,"&lt;")).join("<br>"):'<span class=muted>(leer — beim naechsten Lauf plant Kyros neue)</span>';
+ $("#ms-queue").innerHTML=m.pending.length?m.pending.map(t=>"• "+(t.description||"").replace(/</g,"&lt;")).join("<br>"):'<span class=muted>(leer — beim naechsten Lauf plant Kira neue)</span>';
  $("#ms-recent").innerHTML=m.recent.length?m.recent.map(r=>{const ts=new Date(r.ts*1000).toLocaleString();return '<div style="padding:6px 0;border-bottom:1px solid #1b2a33"><small class=muted>'+ts+'</small><br>'+(r.summary||"").slice(0,220).replace(/</g,"&lt;")+'</div>';}).join(""):'<span class=muted>(noch keine)</span>';}
 $("#ms-toggle").onclick=async()=>{const m=await (await fetch("/api/mission")).json();
  await fetch("/api/mission/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({on:!m.enabled})});loadMission();};
-$("#ms-once").onclick=async()=>{$("#ms-hint").textContent="… Kyros macht einen autonomen Schritt (kann ~1 min dauern) …";
+$("#ms-once").onclick=async()=>{$("#ms-hint").textContent="… Kira macht einen autonomen Schritt (kann ~1 min dauern) …";
  const r=await (await fetch("/api/mission/runonce",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();
  $("#ms-hint").textContent="Fertig.";loadMission();};
 
