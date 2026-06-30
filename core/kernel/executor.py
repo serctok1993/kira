@@ -33,7 +33,7 @@ def reset(name: str | None = None) -> None:
         _failures.pop(name, None)
 
 
-def run_tool(name: str, func: Callable, *args, retries: int = 3, base_delay: float = 1.0, **kwargs):
+def run_tool(name: str, func: Callable, /, *args, retries: int = 3, base_delay: float = 1.0, **kwargs):
     if kill_switch_active():
         events.emit("executor_blocked", {"tool": name, "reason": "kill_switch"})
         raise KillSwitchActive("Kill-Switch aktiv — Aktion abgebrochen.")
