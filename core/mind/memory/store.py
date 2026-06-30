@@ -237,3 +237,20 @@ def recall_lessons(limit: int = 5) -> list[str]:
             (limit,),
         ).fetchall()
     return [r[0] for r in rows]
+
+
+def recall_skills(limit: int = 6) -> list[str]:
+    """Gelernte, wiederverwendbare Faehigkeiten (kind='skill')."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT text FROM memory WHERE kind = 'skill' ORDER BY ts DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+    return [r[0] for r in rows]
+
+
+def all_skills() -> list[dict]:
+    """Alle Skills (id + text) — fuer den Curator."""
+    with _conn() as c:
+        rows = c.execute("SELECT id, text FROM memory WHERE kind = 'skill' ORDER BY ts DESC").fetchall()
+    return [{"id": r[0], "text": r[1]} for r in rows]

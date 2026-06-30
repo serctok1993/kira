@@ -243,3 +243,34 @@ def run_command(command: str, timeout: int = 60) -> str:
     from core.agency.shelltool import run_shell
 
     return run_shell(command, timeout=timeout)
+
+
+# --- Skills: Kira lernt wiederverwendbare Faehigkeiten und pflegt sie selbst ---
+@tool("learn_skill",
+      "Speichere eine wiederverwendbare FAEHIGKEIT (Skill): wie man eine bestimmte Art Aufgabe "
+      "loest — knappe Schritte/Befehle/Stolperfallen. Wird kuenftig automatisch erinnert und genutzt.",
+      {"name": "kurzer Skill-Name", "steps": "die Anleitung, knapp und konkret"})
+def learn_skill(name: str, steps: str) -> str:
+    from core.mind.memory import store as memory
+
+    memory.init_memory()
+    memory.remember(f"SKILL [{name}]: {steps}", role="self", kind="skill")
+    return f"Skill '{name}' gelernt und gespeichert."
+
+
+@tool("list_skills", "Zeigt die gelernten Skills (wiederverwendbare Faehigkeiten).", {})
+def list_skills() -> str:
+    from core.mind.memory import store as memory
+
+    sk = memory.recall_skills(limit=30)
+    return "\n".join(f"- {s}" for s in sk) if sk else "(noch keine Skills)"
+
+
+@tool("curate_skills",
+      "Raeumt deine Skill-Bibliothek auf (Aehnliches zusammenfassen, Veraltetes/Triviales entfernen). "
+      "Gut als regelmaessige Pflege (z.B. per Cron).", {})
+def curate_skills() -> str:
+    from core.mind.curator import curate_skills as _cs
+
+    r = _cs()
+    return f"Skills aufgeraeumt: {r['before']} -> {r['after']}." if "before" in r else r.get("note", "ok")

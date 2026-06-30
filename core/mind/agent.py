@@ -79,6 +79,9 @@ def build_system_prompt(user_message: str, session_id: str | None = None) -> str
     lessons = memory.recall_lessons(limit=5)
     lessons_block = "\n".join(f"- {l}" for l in lessons) if lessons else "(noch keine Lektionen)"
 
+    skills = memory.recall_skills(limit=6)
+    skills_block = "\n".join(f"- {s}" for s in skills) if skills else "(noch keine Skills)"
+
     return f"""# DEINE VERFASSUNG (unveraenderlich, hoechste Prioritaet)
 {constitution}
 
@@ -93,6 +96,9 @@ def build_system_prompt(user_message: str, session_id: str | None = None) -> str
 
 # DEINE GELERNTEN LEKTIONEN (aus eigener Reflexion)
 {lessons_block}
+
+# DEINE SKILLS (wiederverwendbare Faehigkeiten — nutze sie, wenn passend)
+{skills_block}
 
 # FRUEHERE ERINNERUNGEN (nur Hintergrund-Kontext, teils VERALTET — NICHT abschreiben!)
 # Bei Widerspruch zu "WAS DU WIRKLICH KANNST" gilt immer dein aktuelles Selbstwissen.
