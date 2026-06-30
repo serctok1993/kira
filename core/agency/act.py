@@ -51,7 +51,73 @@ def _parse_act(text: str):
     return (name, args) if isinstance(args, dict) else None
 
 
+_NATIVE_TOOLS_HINT = """
+
+# WERKZEUGE
+Du hast Werkzeuge (Web suchen/lesen, Dateien lesen/schreiben, Befehle ausfuehren, dich selbst
+bearbeiten, Gedaechtnis, Monitor/Cron ...). Nutze sie bei Bedarf ueber die bereitgestellten
+Funktionen. Wenn du etwas Aktuelles nicht sicher weisst (Wetter/News/Preise/Webinhalte) oder
+Dateiinhalte brauchst: RATE NICHT — hol es dir mit dem passenden Werkzeug. Wenn du genug weisst,
+antworte normal, natuerlich und vollstaendig fuer Sergen (ohne weiteren Werkzeug-Aufruf)."""
+
+
+def _cloud(escalate: bool, task_type: str = "reason") -> bool:
+    """True, wenn das aufzurufende Modell ein Cloud-/Provider-Modell ist (nicht lokal Ollama)."""
+    model, _ = llm_router.resolve_model(task_type, escalate=escalate)
+    real, _ab, _ke = llm_router._provider_config(model)
+    return not real.startswith("ollama")
+
+
+def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, emit, max_steps: int = 8) -> str:
+    """Nativer Function-Calling-Loop fuer Cloud-Modelle: strukturierte tool_calls statt
+    ACT-Text — robust, kein Leak. Streamt Schritte ueber emit({'kind':'tool'|'obs'|...})."""
+    schemas = registry.tool_schemas()
+    for step in range(max_steps):
+        res = llm_router.complete(messages, system=system, task_type="reason",
+                                  session_id=session_id, escalate=escalate, tools=schemas)
+        calls = res.get("tool_calls") or []
+        if not calls:
+            return res["text"].strip()
+        messages.append({
+            "role": "assistant",
+            "content": res["text"] or None,
+            "tool_calls": [
+                {"id": c["id"] or f"call_{step}_{i}", "type": "function",
+                 "function": {"name": c["name"], "arguments": json.dumps(c["args"], ensure_ascii=False)}}
+                for i, c in enumerate(calls)
+            ],
+        })
+        for i, c in enumerate(calls):
+            name, args, cid = c["name"], c["args"], (c["id"] or f"call_{step}_{i}")
+            emit({"kind": "tool", "name": name, "args": args})
+            tool = registry.get(name)
+            if tool is None:
+                obs = f"Fehler: Werkzeug '{name}' existiert nicht."
+            else:
+                try:
+                    obs = str(executor.run_tool(name, tool.func, **args))
+                except Exception as e:  # noqa: BLE001
+                    obs = f"Fehler bei '{name}': {e}"
+            emit({"kind": "obs", "name": name, "text": obs[:200]})
+            events.emit("act_step", {"step": step, "tool": name, "args": args, "obs_preview": obs[:160]}, session_id=session_id)
+            messages.append({"role": "tool", "tool_call_id": cid, "content": obs[:6000]})
+    res = llm_router.complete(
+        messages + [{"role": "user", "content": "Fasse jetzt final fuer Sergen zusammen — ohne weitere Werkzeuge."}],
+        system=system, task_type="reason", session_id=session_id, escalate=escalate)
+    return res["text"].strip()
+
+
 def act(task: str, session_id: str | None = None, max_steps: int = 8, escalate: bool = False) -> dict:
+    events.emit("act_start", {"task": task}, session_id=session_id)
+
+    # Cloud-Modelle: natives Function-Calling (robust, kein ACT-Text-Leak)
+    if _cloud(escalate):
+        text = _native_loop([{"role": "user", "content": task}], _identity() + _NATIVE_TOOLS_HINT,
+                            session_id, escalate, emit=lambda ev: None, max_steps=max_steps)
+        events.emit("act_done", {"native": True}, session_id=session_id)
+        return {"text": text, "steps": max_steps}
+
+    # Lokale Modelle: bewaehrtes Text-Protokoll (ACT <tool> {json})
     system = _identity() + f"""
 
 # WERKZEUGE
@@ -74,7 +140,6 @@ fehlen, BENUTZE web_search (Stichworte) und danach web_fetch auf die besten Link
 um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort."""
 
     messages: list[dict] = [{"role": "user", "content": task}]
-    events.emit("act_start", {"task": task}, session_id=session_id)
 
     for step in range(max_steps):
         res = llm_router.complete(
@@ -219,6 +284,22 @@ def act_chat(user_message: str, session_id: str, max_steps: int = 6, escalate: b
         events.emit("partner_message", {"text": final, "plan": True}, session_id=session_id)
         return final
 
+    messages = [
+        {"role": "assistant" if h["role"] == "partner" else "user", "content": h["text"]}
+        for h in history
+    ]
+    messages.append({"role": "user", "content": user_message})
+
+    # Cloud-Modelle: natives Function-Calling (robust, kein ACT-Text-Leak)
+    if _cloud(escalate):
+        system = build_system_prompt(user_message, session_id=session_id) + _NATIVE_TOOLS_HINT
+        text = _native_loop(messages, system, session_id, escalate, emit, max_steps=max(max_steps, 8))
+        memory.remember(text, role="partner", session_id=session_id)
+        events.emit("partner_message", {"text": text, "agentic": True}, session_id=session_id)
+        emit({"kind": "final", "text": text})
+        return text
+
+    # Lokale Modelle: bewaehrtes Text-Protokoll (ACT <tool> {json}) mit Streaming
     system = build_system_prompt(user_message, session_id=session_id) + f"""
 
 # WERKZEUGE (nutze sie, wenn die Aufgabe es braucht)
@@ -230,12 +311,6 @@ Beispiel: ACT web_search {{"query": "Wetter Koblenz heute"}}
 Danach bekommst du das ERGEBNIS und kannst weiter ein Werkzeug nutzen oder normal antworten.
 Wenn du etwas Aktuelles nicht sicher weisst (Wetter, Preise, News, Webinhalte): NICHT raten,
 sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und vollstaendig."""
-
-    messages = [
-        {"role": "assistant" if h["role"] == "partner" else "user", "content": h["text"]}
-        for h in history
-    ]
-    messages.append({"role": "user", "content": user_message})
 
     for step in range(max_steps):
         parts = []

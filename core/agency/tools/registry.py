@@ -49,3 +49,24 @@ def manifest() -> str:
         params = ", ".join(f'"{k}": {v}' for k, v in t.params.items()) or "keine"
         lines.append(f"- {t.name} (Argumente: {params}): {t.description}")
     return "\n".join(lines)
+
+
+def tool_schemas() -> list[dict]:
+    """OpenAI-Function-Calling-Schema fuer alle Werkzeuge (natives Tool-Calling).
+
+    Alle Argumente als String (die Tool-Funktionen casten selbst). 'required' ohne
+    als optional markierte Parameter (Beschreibung enthaelt 'optional'/'Standard')."""
+    schemas: list[dict] = []
+    for t in _REGISTRY.values():
+        props = {k: {"type": "string", "description": v} for k, v in t.params.items()}
+        required = [k for k, v in t.params.items()
+                    if "optional" not in v.lower() and "standard" not in v.lower()]
+        schemas.append({
+            "type": "function",
+            "function": {
+                "name": t.name,
+                "description": t.description,
+                "parameters": {"type": "object", "properties": props, "required": required},
+            },
+        })
+    return schemas

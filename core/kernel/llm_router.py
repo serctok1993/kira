@@ -8,6 +8,7 @@ Ollama-Modell zurueck (0 EUR). Jeder Call wird als Event protokolliert
 from __future__ import annotations
 
 import datetime
+import json
 import os
 import re
 import time
@@ -165,6 +166,7 @@ def complete(
     task_type: str = "chat",
     session_id: str | None = None,
     escalate: bool = False,
+    tools: list | None = None,
 ) -> dict:
     """Fuehrt einen Chat-Completion-Call aus und protokolliert ihn.
 
@@ -201,6 +203,8 @@ def complete(
         extra["api_base"] = api_base
     if key_env:
         extra["api_key"] = os.getenv(key_env)
+    if tools:
+        extra["tools"] = tools
 
     t0 = time.time()
     resp = litellm.completion(
@@ -213,9 +217,19 @@ def complete(
     )
     latency = time.time() - t0
 
-    raw_text = resp.choices[0].message.content or ""
+    message = resp.choices[0].message
+    raw_text = message.content or ""
     text = _strip_think(raw_text)
     had_think = text != raw_text
+
+    tool_calls: list[dict] = []
+    for c in (getattr(message, "tool_calls", None) or []):
+        try:
+            args = json.loads(c.function.arguments or "{}")
+        except Exception:  # noqa: BLE001
+            args = {}
+        tool_calls.append({"id": getattr(c, "id", None), "name": c.function.name,
+                           "args": args if isinstance(args, dict) else {}})
 
     try:
         cost = float(litellm.completion_cost(completion_response=resp) or 0.0)
@@ -255,6 +269,7 @@ def complete(
         "fell_back": fell_back,
         "latency_s": latency,
         "escalated": escalate,
+        "tool_calls": tool_calls,
     }
 
 
