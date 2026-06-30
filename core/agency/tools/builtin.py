@@ -339,6 +339,61 @@ def health() -> str:
     return "🩺 Mein Zustand:\n" + "\n".join(lines)
 
 
+# --- Echter Browser (Chromium via Playwright): sehen + lesen, was web_fetch nicht laedt ---
+@tool("screenshot_url",
+      "Oeffnet eine Webseite in einem ECHTEN Browser (Chromium) und macht einen ganzseitigen "
+      "Screenshot — fuer Seiten, die web_fetch nicht sauber laedt, oder wenn du sie visuell sehen "
+      "willst. Gibt den Datei-Pfad zum Bild zurueck.",
+      {"url": "die vollstaendige URL inkl. https://"})
+def screenshot_url(url: str) -> str:
+    from pathlib import Path
+
+    out_dir = Path.home() / "Desktop" / "kira-screenshots"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    name = re.sub(r"[^\w.-]+", "_", url.replace("https://", "").replace("http://", ""))[:60] or "page"
+    img = out_dir / f"{name}.png"
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return "Playwright ist nicht installiert."
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch()
+            page = browser.new_page(viewport={"width": 1366, "height": 900})
+            page.goto(url, timeout=30000, wait_until="domcontentloaded")
+            page.wait_for_timeout(1500)
+            title = page.title()
+            page.screenshot(path=str(img), full_page=True)
+            browser.close()
+        return f"Screenshot gemacht: {img}  (Titel: {title})"
+    except Exception as e:  # noqa: BLE001
+        return f"Screenshot fehlgeschlagen: {e}"
+
+
+@tool("browse",
+      "Oeffnet eine Seite in einem echten Browser (Chromium, MIT JavaScript) und gibt den sichtbaren "
+      "TEXT zurueck — fuer moderne/JS-Seiten, die web_fetch nicht lesen kann. Erst web_fetch versuchen, "
+      "bei Bedarf hierauf ausweichen.",
+      {"url": "die vollstaendige URL inkl. https://"})
+def browse(url: str) -> str:
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return "Playwright ist nicht installiert."
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch()
+            page = browser.new_page()
+            page.goto(url, timeout=30000, wait_until="domcontentloaded")
+            page.wait_for_timeout(1500)
+            title = page.title()
+            text = page.inner_text("body")
+            browser.close()
+        return f"Titel: {title}\n\n{text[:6000]}"
+    except Exception as e:  # noqa: BLE001
+        return f"Browse fehlgeschlagen: {e}"
+
+
 @tool("jetzt", "Gibt aktuelles Datum, Uhrzeit und Wochentag auf Deutsch zurueck (z.B. 'Montag, 30.06.2025, 18:52 Uhr').", {})
 def jetzt() -> str:
     tage = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
