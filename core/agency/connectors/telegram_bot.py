@@ -15,6 +15,7 @@ import os
 import re
 import threading
 import time
+from collections import deque
 
 import httpx
 
@@ -407,6 +408,51 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
     _send(client, chat_id, "Unbekannter Befehl. /help zeigt, was ich kann.")
 
 
+# --- Nebenlaeufigkeit: pro Chat genau EINE aktive Aufgabe + kurze Warteschlange (kein Thread-Stau) ---
+_chat_busy: dict[int, bool] = {}
+_chat_queue: dict[int, deque] = {}
+_chat_lock = threading.Lock()
+
+
+def _worker(client: httpx.Client, chat_id: int, update: dict) -> None:
+    cur = update
+    while cur is not None:
+        try:
+            _handle(client, cur)
+        except Exception as e:  # eine kaputte Nachricht darf den Worker nicht killen
+            events.emit("telegram_handle_error", {"error": str(e)})
+        with _chat_lock:
+            q = _chat_queue.get(chat_id)
+            cur = q.popleft() if (q and len(q)) else None
+            if cur is None:
+                _chat_busy[chat_id] = False
+
+
+def _dispatch(client: httpx.Client, update: dict) -> None:
+    """Eine Aufgabe pro Chat gleichzeitig; weitere Nachrichten kommen kurz in die Queue
+    (max 3) und werden danach der Reihe nach abgearbeitet -> keine Thread-Flut, keine
+    verlorenen Antworten durch Telegram-Rate-Limit."""
+    msg = update.get("message") or update.get("edited_message")
+    if not msg:
+        return
+    chat_id = msg["chat"]["id"]
+    with _chat_lock:
+        if _chat_busy.get(chat_id):
+            _chat_queue.setdefault(chat_id, deque(maxlen=3)).append(update)
+            busy = True
+        else:
+            _chat_busy[chat_id] = True
+            busy = False
+    if busy:
+        try:
+            client.post(f"{API}/sendMessage",
+                        json={"chat_id": chat_id, "text": "⏳ Bin noch an der vorigen Aufgabe — ich nehm das gleich mit. 💜"})
+        except Exception:
+            pass
+        return
+    threading.Thread(target=_worker, args=(client, chat_id, update), daemon=True).start()
+
+
 def run() -> None:
     if not TOKEN:
         print("TELEGRAM_BOT_TOKEN fehlt in .env — Bot via @BotFather anlegen und Token eintragen.")
@@ -423,15 +469,7 @@ def run() -> None:
                 resp = client.get(f"{API}/getUpdates", params={"timeout": 60, "offset": offset})
                 for update in resp.json().get("result", []):
                     offset = update["update_id"] + 1
-
-                    def _threaded(u=update):
-                        try:
-                            _handle(client, u)
-                        except Exception as e:  # eine kaputte Nachricht darf den Loop nicht killen
-                            events.emit("telegram_handle_error", {"error": str(e)})
-
-                    # nebenlaeufig: eine lange Aufgabe (oder Transkription) blockiert nichts mehr
-                    threading.Thread(target=_threaded, daemon=True).start()
+                    _dispatch(client, update)
             except httpx.ReadTimeout:
                 continue
             except KeyboardInterrupt:
