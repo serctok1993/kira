@@ -131,7 +131,8 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
     res = llm_router.complete(
         messages + [{"role": "user", "content": "Fasse jetzt final fuer Sergen zusammen — ohne weitere Werkzeuge."}],
         system=system, task_type="reason", session_id=session_id, escalate=escalate)
-    return res["text"].strip()
+    return (res["text"].strip()
+            or "Ich habe die Werkzeuge genutzt, aber keine saubere Schluss-Antwort hinbekommen — frag mich gern konkret nach, dann liefere ich dir das Ergebnis.")
 
 
 def act(task: str, session_id: str | None = None, max_steps: int = 8, escalate: bool = False) -> dict:
@@ -267,6 +268,9 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
         system=_identity(), task_type="reason", session_id=session_id, escalate=escalate,
     )
     final = synth["text"].strip()
+    if not final:  # Synthese leer (Modell-Haenger/Timeout) -> NIE leer: aus den Schritten zusammenbauen
+        final = ("Ich habe die Aufgabe abgearbeitet — die Abschluss-Zusammenfassung kam leer zurueck, "
+                 "darum hier die Ergebnisse der Schritte direkt:\n" + "\n".join(f"• {d}" for d in done))
     events.emit("plan_done", {"task": task, "steps": len(steps)}, session_id=session_id)
 
     # Auto-Reflexion: aus jeder groesseren Aufgabe Lektionen ziehen (lokal, 0 EUR).
