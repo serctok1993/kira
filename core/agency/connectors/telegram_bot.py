@@ -162,6 +162,42 @@ def _short(args: dict) -> str:
     return s if len(s) <= 60 else s[:57] + "…"
 
 
+def _action_label(name: str, args: dict | None) -> str:
+    """Freundliches, interaktives Aktions-Label (Hermes-Stil) statt rohem Tool+JSON."""
+    a = args or {}
+
+    def pick(*keys: str) -> str:
+        for k in keys:
+            if a.get(k):
+                return str(a[k])
+        return ""
+
+    table = {
+        "read_file": ("📖", "liest", pick("path")),
+        "write_file": ("✍️", "schreibt", pick("path")),
+        "append_file": ("✍️", "ergänzt", pick("path")),
+        "list_dir": ("📂", "schaut in", pick("path")),
+        "make_dir": ("📁", "legt Ordner an", pick("path")),
+        "run_command": ("⚙️", "führt aus", pick("command")),
+        "web_search": ("🌐", "sucht", pick("query")),
+        "web_fetch": ("🌐", "liest Seite", pick("url")),
+        "self_edit": ("🔧", "baut an sich selbst", pick("path")),
+        "remember_fact": ("🧠", "merkt sich etwas", ""),
+        "watch_add": ("📰", "beobachtet", pick("value", "label")),
+        "watch_list": ("📰", "schaut in den Monitor", ""),
+        "cron_add": ("⏰", "plant eine Aufgabe", pick("label", "prompt")),
+        "switch_model": ("🔀", "wechselt das Modell", pick("model")),
+        "set_context": ("🧩", "stellt den Kontext ein", ""),
+        "plan_and_execute": ("🧭", "plant & arbeitet", pick("task")),
+        "request_secret": ("🔑", "fragt einen Zugang an", pick("name")),
+    }
+    emoji, verb, arg = table.get(name, ("🔧", name, _short(a)))
+    arg = arg.replace("\n", " ").strip()
+    if len(arg) > 56:
+        arg = arg[:55] + "…"
+    return f"{emoji} {verb}" + (f": {arg}" if arg else "")
+
+
 _SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 
 
@@ -246,11 +282,13 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
                 edit()
             elif k == "tool":
                 state["tools"].append(ev["name"])
-                state["lines"].append(f"🔧 {ev['name']} {_short(ev['args'])}")
+                state["lines"].append(_action_label(ev["name"], ev.get("args")))
                 edit()
             elif k == "obs":
-                state["lines"].append(f"   ✓ {ev['text'][:60]}")
-                edit()
+                # Ergebnis nur bei Fehlern zeigen, sonst sauber halten
+                if "Fehler" in (ev.get("text") or ""):
+                    state["lines"].append("   ⚠️ " + ev["text"][:60])
+                    edit()
 
     from core.agency.act import act_chat
 
@@ -266,9 +304,9 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
     if mid:
         try:
             if state["tools"]:
-                uniq = list(dict.fromkeys(state["tools"]))
+                done = "\n".join(state["lines"][-6:]) + f"\n✅ erledigt ({len(state['tools'])} Schritte)"
                 client.post(f"{API}/editMessageText",
-                            json={"chat_id": chat_id, "message_id": mid, "text": "🔧 erledigt: " + ", ".join(uniq)})
+                            json={"chat_id": chat_id, "message_id": mid, "text": done[:4000]})
             else:
                 client.post(f"{API}/deleteMessage", json={"chat_id": chat_id, "message_id": mid})
         except Exception:
