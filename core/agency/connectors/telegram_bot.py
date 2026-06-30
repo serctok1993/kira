@@ -292,7 +292,11 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
 
     from core.agency.act import act_chat
 
-    answer = act_chat(text, session_id=session_id, on_event=on_event).strip()
+    try:
+        answer = act_chat(text, session_id=session_id, on_event=on_event).strip()
+    except Exception as e:  # noqa: BLE001  -> niemals stilles Verschlucken
+        events.emit("agentic_reply_error", {"error": str(e)})
+        answer = f"⚠️ Ich bin auf einen Fehler gestossen: {str(e)[:300]}"
 
     # Typewriter zu Ende spielen bevor done
     with lock:

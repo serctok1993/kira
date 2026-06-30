@@ -274,3 +274,27 @@ def curate_skills() -> str:
 
     r = _cs()
     return f"Skills aufgeraeumt: {r['before']} -> {r['after']}." if "before" in r else r.get("note", "ok")
+
+
+@tool("read_logs",
+      "Liest die letzten Zeilen eines Dienst-Logs (cockpit/bot/runner) — zum Debuggen, wenn etwas "
+      "haengt, abbricht oder du wissen willst, was zuletzt passiert ist.",
+      {"name": "cockpit, bot oder runner (Standard: bot)", "lines": "Anzahl Zeilen (Standard 80)"})
+def read_logs(name: str = "bot", lines: int = 80) -> str:
+    from core.config import ROOT
+
+    nm = (name or "bot").strip().lower()
+    if nm not in ("cockpit", "bot", "runner"):
+        nm = "bot"
+    p = ROOT / "data" / "logs" / f"{nm}.log"
+    if not p.exists():
+        return f"(noch kein Log fuer '{nm}' — laeuft der Supervisor mit Logging?)"
+    try:
+        content = p.read_text(encoding="utf-8", errors="replace").splitlines()
+    except Exception as e:  # noqa: BLE001
+        return f"(Log-Lesefehler: {e})"
+    try:
+        n = max(1, int(lines))
+    except Exception:  # noqa: BLE001
+        n = 80
+    return "\n".join(content[-n:]) or "(Log leer)"

@@ -10,6 +10,8 @@ Start:  uv run python -m core.kernel.supervisor   (oder via start-all.ps1 / Auto
 """
 from __future__ import annotations
 
+import datetime
+import os
 import socket
 import subprocess
 import sys
@@ -36,7 +38,14 @@ def _port_in_use(port: int = 8000) -> bool:
 
 
 def _launch(name: str) -> subprocess.Popen:
-    return subprocess.Popen(COMPONENTS[name], cwd=str(ROOT), creationflags=_NO_WINDOW)
+    log = ROOT / "data" / "logs" / f"{name}.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    f = open(log, "a", encoding="utf-8", errors="replace")  # noqa: SIM115 (lebt mit dem Prozess)
+    f.write(f"\n===== {name} gestartet {datetime.datetime.now():%Y-%m-%d %H:%M:%S} =====\n")
+    f.flush()
+    env = {**os.environ, "PYTHONUNBUFFERED": "1"}  # Logs sofort sichtbar (kein Puffer)
+    return subprocess.Popen(COMPONENTS[name], cwd=str(ROOT), creationflags=_NO_WINDOW,
+                            stdout=f, stderr=subprocess.STDOUT, env=env)
 
 
 def main() -> None:
