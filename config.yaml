@@ -20,7 +20,8 @@ models:
   vision_model: openrouter/z-ai/glm-4.6v         # fuer Bild-Erkennung im Chat (/api/vision)
   embeddings: ollama/nomic-embed-text       # 0 EUR Gedaechtnis (optional)
   temperature: 0.7
-  max_tokens: 8192                          # Ausgabe-Grenze pro Antwort (ink-Phase)
+  request_timeout: 120                      # hartes Timeout pro LLM-Call (Sek.) -> kein Einfrieren
+  max_tokens: 8192                          # Ausgabe-Grenze pro Antwort (inkl. think-Phase)
   keep_alive: "24h"                         # Modell warm halten -> kein Kaltstart im Dauerbetrieb
   num_ctx: 65536                            # Kontextfenster (Arbeitsgedaechtnis) -> mehr Platz fuer Prompt+Erinnerungen+Verlauf
 

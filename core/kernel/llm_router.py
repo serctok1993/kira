@@ -213,6 +213,7 @@ def complete(
         temperature=CONFIG["models"].get("temperature", 0.7),
         max_tokens=CONFIG["models"].get("max_tokens", 2048),
         num_retries=2,
+        timeout=CONFIG["models"].get("request_timeout", 120),  # hartes Timeout -> kein Einfrieren
         **extra,
     )
     latency = time.time() - t0

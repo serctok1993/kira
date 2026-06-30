@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import re
+import threading
 import time
 
 import httpx
@@ -415,10 +416,15 @@ def run() -> None:
                 resp = client.get(f"{API}/getUpdates", params={"timeout": 60, "offset": offset})
                 for update in resp.json().get("result", []):
                     offset = update["update_id"] + 1
-                    try:
-                        _handle(client, update)
-                    except Exception as e:  # eine kaputte Nachricht darf den Loop nicht killen
-                        events.emit("telegram_handle_error", {"error": str(e)})
+
+                    def _threaded(u=update):
+                        try:
+                            _handle(client, u)
+                        except Exception as e:  # eine kaputte Nachricht darf den Loop nicht killen
+                            events.emit("telegram_handle_error", {"error": str(e)})
+
+                    # nebenlaeufig: eine lange Aufgabe (oder Transkription) blockiert nichts mehr
+                    threading.Thread(target=_threaded, daemon=True).start()
             except httpx.ReadTimeout:
                 continue
             except KeyboardInterrupt:
