@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import html
 import re
+from datetime import datetime
 from pathlib import Path
 
 import httpx
@@ -298,3 +299,11 @@ def read_logs(name: str = "bot", lines: int = 80) -> str:
     except Exception:  # noqa: BLE001
         n = 80
     return "\n".join(content[-n:]) or "(Log leer)"
+
+
+@tool("jetzt", "Gibt aktuelles Datum, Uhrzeit und Wochentag auf Deutsch zurueck (z.B. 'Montag, 30.06.2025, 18:52 Uhr').", {})
+def jetzt() -> str:
+    tage = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+    jetzt = datetime.now()
+    wochentag = tage[jetzt.weekday()]
+    return f"{wochentag}, {jetzt.strftime('%d.%m.%Y')}, {jetzt.strftime('%H:%M')} Uhr"
