@@ -82,7 +82,7 @@ def main() -> None:
                     want = "all"
                 targets = (list(COMPONENTS) if want in ("", "all")
                            else [w.strip() for w in want.split(",") if w.strip() in COMPONENTS])
-                time.sleep(3)  # laufende Antwort kurz fertig werden lassen
+                time.sleep(20)  # laufende Antwort fertig + Bericht senden lassen, dann erst bouncen
                 for name in targets:
                     try:
                         procs[name].terminate()
