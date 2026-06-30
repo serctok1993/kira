@@ -51,6 +51,16 @@ def _verify() -> tuple[bool, str]:
     return out.startswith("[exit 0]"), out
 
 
+def _request_restart(which: str = "all") -> None:
+    """Bittet den Supervisor um einen SICHEREN Neustart (statt Selbst-Kill via taskkill)."""
+    try:
+        flag = ROOT / "data" / "restart.flag"
+        flag.parent.mkdir(parents=True, exist_ok=True)
+        flag.write_text(which, encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def apply_edit(rel_path: str, new_content: str, reason: str = "", verify: bool = True) -> dict:
     p = (ROOT / rel_path).resolve()
     # Sicherheit: nur innerhalb des Projekts
@@ -89,8 +99,9 @@ def apply_edit(rel_path: str, new_content: str, reason: str = "", verify: bool =
             return {"ok": False, "error": "Verifizierung fehlgeschlagen -> zurueckgerollt.",
                     "verify": out_v[:1500]}
         events.emit("selfdev_applied", {"file": rel_path, "reason": reason, "verified": True})
+        _request_restart()  # Supervisor laedt die Aenderung sicher neu (kein Selbst-Kill)
         return {"ok": True, "file": rel_path, "verified": True,
-                "note": "Angewendet, Selbst-Test gruen, committet. Betroffenen Dienst neu starten."}
+                "note": "Angewendet, Selbst-Test gruen, committet. Wird automatisch neu geladen (Supervisor)."}
 
     events.emit("selfdev_applied", {"file": rel_path, "reason": reason})
     return {"ok": True, "file": rel_path, "note": "Angewendet + committet. Betroffenen Dienst (Cockpit/Bot) neu starten."}

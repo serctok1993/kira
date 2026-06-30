@@ -15,8 +15,8 @@ if (-not $ollamaUp) {
   }
 }
 
-# 1) Kira-Oekosystem
-Start-Process -WindowStyle Minimized -FilePath "uv" -ArgumentList "run","uvicorn","core.api.server:app","--host","127.0.0.1","--port","8000"
-Start-Process -WindowStyle Minimized -FilePath "uv" -ArgumentList "run","python","-m","core.agency.connectors.telegram_bot"
-Start-Process -WindowStyle Minimized -FilePath "uv" -ArgumentList "run","python","-m","core.agency.missions.runner"
-Write-Host "Kira gestartet -> Cockpit: http://127.0.0.1:8000"
+# 1) Kira ueber den Supervisor (haelt Cockpit/Bot/Runner am Leben; auto-restart; Singleton ueber Port 8000)
+$py = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
+if (-not (Test-Path $py)) { $py = "python" }
+Start-Process -WindowStyle Minimized -FilePath $py -ArgumentList "-m","core.kernel.supervisor" -WorkingDirectory $PSScriptRoot
+Write-Host "Kira (Supervisor) gestartet -> Cockpit: http://127.0.0.1:8000"
