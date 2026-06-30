@@ -14,7 +14,8 @@ import httpx
 
 from core.agency.tools.registry import tool
 
-_UA = {"User-Agent": "Mozilla/5.0 (Kira/Kira)"}
+_UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
 
 
 def _strip_html(raw: str) -> str:
@@ -299,6 +300,43 @@ def read_logs(name: str = "bot", lines: int = 80) -> str:
     except Exception:  # noqa: BLE001
         n = 80
     return "\n".join(content[-n:]) or "(Log leer)"
+
+
+@tool("health",
+      "Pruefe deinen eigenen Laufzeit-Zustand: laeuft das Cockpit, gab es zuletzt Fehler, sind "
+      "Werkzeuge gesperrt/degradiert (Circuit), wie viel Budget ist heute verbraucht. Nutze das, "
+      "wenn etwas klemmt oder du wissen willst, ob alles gesund laeuft.", {})
+def health() -> str:
+    import socket
+    import time
+    from collections import Counter
+
+    from core.kernel import events, executor
+
+    lines = []
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(1)
+    cockpit_ok = s.connect_ex(("127.0.0.1", 8000)) == 0
+    s.close()
+    lines.append(("✅" if cockpit_ok else "❌") + " Cockpit (Port 8000)")
+
+    degraded = {k: v for k, v in executor._failures.items() if v > 0}
+    lines.append("🔧 Werkzeuge: " + (", ".join(f"{k} ({v}x Fehler)" for k, v in degraded.items()) if degraded else "alle frei"))
+
+    now = time.time()
+    errs = [e for e in events.recent(300)
+            if now - e["ts"] < 3600 and any(x in e["type"] for x in ("error", "fail", "timeout", "circuit_open"))]
+    c = Counter(e["type"] for e in errs)
+    lines.append("⚠️ Fehler (letzte 60 min): " + (", ".join(f"{t} x{n}" for t, n in c.most_common(6)) if c else "keine"))
+
+    try:
+        from core.governance import treasury
+
+        lines.append(f"💶 Heute ausgegeben: {treasury.today_spend():.3f} EUR")
+    except Exception:  # noqa: BLE001
+        pass
+
+    return "🩺 Mein Zustand:\n" + "\n".join(lines)
 
 
 @tool("jetzt", "Gibt aktuelles Datum, Uhrzeit und Wochentag auf Deutsch zurueck (z.B. 'Montag, 30.06.2025, 18:52 Uhr').", {})

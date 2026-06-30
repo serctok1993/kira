@@ -15,7 +15,9 @@ from core.kernel import events
 from core.kernel.scheduler import kill_switch_active
 
 _OPEN_THRESHOLD = 3          # so viele Fehler in Folge -> Circuit offen
+_COOLDOWN_S = 60.0           # danach EIN neuer Versuch erlaubt (half-open) -> kein Dauer-Lock
 _failures: dict[str, int] = {}
+_opened_at: dict[str, float] = {}
 
 
 class KillSwitchActive(RuntimeError):
@@ -39,8 +41,13 @@ def run_tool(name: str, func: Callable, /, *args, retries: int = 3, base_delay: 
         raise KillSwitchActive("Kill-Switch aktiv — Aktion abgebrochen.")
 
     if _failures.get(name, 0) >= _OPEN_THRESHOLD:
-        events.emit("circuit_open", {"tool": name})
-        raise CircuitOpen(f"Circuit offen fuer '{name}' (zu viele Fehler). Mit executor.reset() loesen.")
+        # Erholung: nach dem Cooldown EINEN Versuch wieder zulassen (half-open) statt dauerhaft sperren
+        if time.time() - _opened_at.get(name, 0.0) >= _COOLDOWN_S:
+            _failures[name] = _OPEN_THRESHOLD - 1
+            events.emit("circuit_half_open", {"tool": name})
+        else:
+            events.emit("circuit_open", {"tool": name})
+            raise CircuitOpen(f"Circuit offen fuer '{name}' — erholt sich automatisch in Kuerze.")
 
     last_err: Exception | None = None
     for attempt in range(1, retries + 1):
@@ -60,4 +67,6 @@ def run_tool(name: str, func: Callable, /, *args, retries: int = 3, base_delay: 
                 time.sleep(base_delay * (2 ** (attempt - 1)))
 
     _failures[name] = _failures.get(name, 0) + 1
+    if _failures[name] >= _OPEN_THRESHOLD:
+        _opened_at[name] = time.time()  # Cooldown-Uhr starten
     raise last_err  # type: ignore[misc]

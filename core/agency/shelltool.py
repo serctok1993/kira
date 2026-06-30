@@ -49,12 +49,13 @@ def run_shell(command: str, cwd: str | None = None, timeout: int = 60) -> str:
         events.emit("shell_blocked", {"command": command[:200]})
         return "Blockiert: dieser Befehl wirkt potenziell zerstoererisch. Ausfuehrung verweigert."
 
-    base = str(ROOT)
+    # erlaubte Arbeitsverzeichnisse: ihr Repo + Desktop (fuer Kundenprojekte) - Gefahren-Filter bleibt
+    allowed = (str(ROOT), str(ROOT.home() / "Desktop"))
     wd = ROOT
     if cwd:
         cand = (ROOT / cwd).resolve()
-        if not str(cand).startswith(base):
-            return f"Arbeitsverzeichnis ausserhalb des Projekts ist nicht erlaubt: {cwd}"
+        if not any(str(cand).startswith(b) for b in allowed):
+            return f"Arbeitsverzeichnis nur im Repo oder auf dem Desktop erlaubt: {cwd}"
         wd = cand
 
     try:
