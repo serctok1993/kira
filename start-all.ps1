@@ -18,5 +18,8 @@ if (-not $ollamaUp) {
 # 1) Kira ueber den Supervisor (haelt Cockpit/Bot/Runner am Leben; auto-restart; Singleton ueber Port 8000)
 $py = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
 if (-not (Test-Path $py)) { $py = "python" }
-Start-Process -WindowStyle Minimized -FilePath $py -ArgumentList "-m","core.kernel.supervisor" -WorkingDirectory $PSScriptRoot
+$logs = Join-Path $PSScriptRoot "data\logs"
+New-Item -ItemType Directory -Force -Path $logs | Out-Null
+# stderr/stdout des Supervisors mitschreiben -> ein Crash beim Start (z.B. kaputte config) ist sichtbar
+Start-Process -WindowStyle Minimized -FilePath $py -ArgumentList "-m","core.kernel.supervisor" -WorkingDirectory $PSScriptRoot -RedirectStandardError (Join-Path $logs "supervisor.err.log") -RedirectStandardOutput (Join-Path $logs "supervisor.out.log")
 Write-Host "Kira (Supervisor) gestartet -> Cockpit: http://127.0.0.1:8000"

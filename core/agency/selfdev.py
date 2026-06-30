@@ -85,8 +85,9 @@ def apply_edit(rel_path: str, new_content: str, reason: str = "", verify: bool =
     _git("add", rel_path)
     _git("commit", "-m", f"selfdev: {reason or rel_path}")
 
-    # Selbst-Test-Disziplin: nur .py-Aenderungen verifizieren (HTML/JS in .py inklusive Import-Smoke).
-    if verify and p.suffix == ".py":
+    # Selbst-Test-Disziplin: Code UND Konfig pruefen (pytest importiert core.config -> faengt
+    # auch kaputtes YAML/JSON ab, das sonst das ganze System beim Start crashen wuerde).
+    if verify and p.suffix in (".py", ".yaml", ".yml", ".json", ".toml"):
         ok_v, out_v = _verify()
         if not ok_v:
             if prev_head:
