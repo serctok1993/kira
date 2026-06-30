@@ -29,6 +29,7 @@ _BLOCKED = [
     r"\b(rd|rmdir)\s+/s",            # Verzeichnisbaum loeschen (cmd)
     r"Remove-Item.*-Recurse.*[A-Za-z]:\\\s*['\"]?\s*$",  # PS: Laufwerk-Root rekursiv
     r"\b(shutdown|reboot)\b",        # System runterfahren/neustarten
+    r"\btaskkill\b", r"\bStop-Process\b", r"\bkill\s+-?\d",  # keine Prozesse killen (auch nicht sich selbst!)
     r"\bdiskpart\b", r">\s*/dev/sd",  # Datentraeger
     r"\|\s*(sh|bash|iex)\b", r"iex\s*\(",  # Pipe-to-Shell aus dem Netz
 ]
