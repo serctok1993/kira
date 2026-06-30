@@ -58,7 +58,23 @@ Du hast Werkzeuge (Web suchen/lesen, Dateien lesen/schreiben, Befehle ausfuehren
 bearbeiten, Gedaechtnis, Monitor/Cron ...). Nutze sie bei Bedarf ueber die bereitgestellten
 Funktionen. Wenn du etwas Aktuelles nicht sicher weisst (Wetter/News/Preise/Webinhalte) oder
 Dateiinhalte brauchst: RATE NICHT — hol es dir mit dem passenden Werkzeug. Wenn du genug weisst,
-antworte normal, natuerlich und vollstaendig fuer Sergen (ohne weiteren Werkzeug-Aufruf)."""
+antworte normal, natuerlich und vollstaendig fuer Sergen (ohne weiteren Werkzeug-Aufruf).
+WICHTIG: Kuendige Aktionen NICHT nur an, um dann aufzuhoeren. Wenn du etwas nachsehen oder tun
+willst, RUF die Werkzeuge SOFORT in DIESEM Zug auf und antworte erst mit dem Ergebnis. Eine
+Antwort wie "lass mich kurz schauen ..." OHNE einen Werkzeug-Aufruf ist verboten."""
+
+
+_PROMISE_RE = re.compile(
+    r"(lass mich|ich schau|ich sehe nach|ich pruef|ich check|moment\b|kurz schauen|"
+    r"schau(e)?\s+(mal|kurz)|sehe (mal )?nach|melde mich gleich)", re.IGNORECASE)
+
+
+def _looks_like_promise(text: str) -> bool:
+    """Erkennt eine 'ich tu gleich was'-Antwort ohne tatsaechliche Handlung (Heuristik)."""
+    t = (text or "").strip()
+    if not t:
+        return True
+    return len(t) <= 400 and (t.endswith(":") or bool(_PROMISE_RE.search(t)))
 
 
 def _cloud(escalate: bool, task_type: str = "reason") -> bool:
@@ -72,12 +88,23 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
     """Nativer Function-Calling-Loop fuer Cloud-Modelle: strukturierte tool_calls statt
     ACT-Text — robust, kein Leak. Streamt Schritte ueber emit({'kind':'tool'|'obs'|...})."""
     schemas = registry.tool_schemas()
+    used_tools = False
+    nudged = False
     for step in range(max_steps):
         res = llm_router.complete(messages, system=system, task_type="reason",
                                   session_id=session_id, escalate=escalate, tools=schemas)
         calls = res.get("tool_calls") or []
         if not calls:
-            return res["text"].strip()
+            text = res["text"].strip()
+            # "Promise statt Action": etwas angekuendigt, aber kein Werkzeug genutzt -> einmal anschubsen
+            if not used_tools and not nudged and _looks_like_promise(text):
+                nudged = True
+                messages.append({"role": "assistant", "content": text})
+                messages.append({"role": "user", "content": "Tu es JETZT in diesem Zug: nutze die "
+                                 "passenden Werkzeuge und antworte erst mit dem Ergebnis — nicht nur ankuendigen."})
+                continue
+            return text
+        used_tools = True
         messages.append({
             "role": "assistant",
             "content": res["text"] or None,
