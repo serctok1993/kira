@@ -176,18 +176,36 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
     head = ("🎙️ «" + voice_text[:200] + "»\n") if voice_text else ""
     init = client.post(f"{API}/sendMessage", json={"chat_id": chat_id, "text": head + "💭 Kira denkt ⠋"}).json()
     mid = init.get("result", {}).get("message_id")
-    state = {"think": "", "lines": [], "tools": [], "done": False, "tick": 0, "last_render": ""}
+    state = {
+        "think_target": "",   # der volle think-Text (wächst durch Events)
+        "think_shown": "",    # was bereits im Typewriter angezeigt wird
+        "lines": [],
+        "tools": [],
+        "done": False,
+        "tick": 0,
+        "last_render": "",
+    }
     lock = threading.Lock()
 
     def render() -> str:
         parts = []
         if voice_text:
             parts.append("🎙️ «" + voice_text[:160] + "»")
-        parts += state["lines"][-6:]
-        spin = _SPINNER[state["tick"] % len(_SPINNER)]
-        if state["think"]:
-            parts.append("💭 " + state["think"][-200:])
-        if not state["done"]:
+        # Think mit Cursor (Typewriter-Effekt)
+        if state["think_shown"]:
+            shown = state["think_shown"][-220:]
+            cursor = "" if state["done"] else "▌"
+            parts.append("💭 " + shown + cursor)
+        elif not state["done"]:
+            spin = _SPINNER[state["tick"] % len(_SPINNER)]
+            parts.append(spin + " Kira denkt")
+        # Trennlinie zwischen Denken und Werkzeugen
+        if state["think_shown"] and state["lines"]:
+            parts.append("─" * 20)
+        # Werkzeug-/Ergebnis-Zeilen
+        parts += state["lines"][-10:]
+        if not state["done"] and (state["think_shown"] or state["lines"]):
+            spin = _SPINNER[state["tick"] % len(_SPINNER)]
             parts.append(spin + " Kira arbeitet")
         return ("\n".join(parts))[:4000] or "💭 …"
 
@@ -196,7 +214,7 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
             return
         txt = render()
         if txt == state["last_render"]:
-            return  # nichts geaendert -> kein API-Call
+            return
         state["last_render"] = txt
         try:
             client.post(f"{API}/editMessageText", json={"chat_id": chat_id, "message_id": mid, "text": txt})
@@ -205,11 +223,16 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
 
     def animate() -> None:
         while not state["done"]:
-            time.sleep(0.7)
+            time.sleep(0.35)
             with lock:
                 if state["done"]:
                     break
                 state["tick"] += 1
+                # Typewriter: think_shown um 4 Zeichen erweitern
+                target = state["think_target"]
+                shown = state["think_shown"]
+                if len(shown) < len(target):
+                    state["think_shown"] = target[:len(shown) + 4]
                 edit()
             _typing(client, chat_id)
 
@@ -219,7 +242,7 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
         with lock:
             k = ev["kind"]
             if k == "think":
-                state["think"] += ev["text"]
+                state["think_target"] += ev["text"]
                 edit()
             elif k == "tool":
                 state["tools"].append(ev["name"])
@@ -232,6 +255,10 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
     from core.agency.act import act_chat
 
     answer = act_chat(text, session_id=session_id, on_event=on_event).strip()
+
+    # Typewriter zu Ende spielen bevor done
+    with lock:
+        state["think_shown"] = state["think_target"]
     state["done"] = True
 
     # Arbeits-Trace abschliessen: bei Werkzeug-Nutzung eine kompakte Taetigkeits-Zeile,
