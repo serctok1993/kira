@@ -45,13 +45,18 @@ heartbeat:
 
 # Die aktuelle 24/7-Mission (Phase 4)
 mission:
-  name: "Eigenes Lernprojekt"
+  name: "Wachstum"
   goal: >
-    Arbeite eigenstaendig Schritt fuer Schritt auf das GOAL hin: recherchiere
-    Nischen und Ideen fuer erste autonome Einnahmen, analysiere Wettbewerb/Nachfrage,
-    reflektiere die Erkenntnisse und schlage Sergen konkrete, kleine Experimente vor.
-    Nur lesende Recherche und Analyse — KEINE Aussen-Aktionen (kein Geld, keine Mails,
-    keine Posts). Baue dir bei Bedarf eigene Werkzeuge.
+    Laufe 24/7 und priorisiere WACHSTUM in dieser Reihenfolge, pro Tick EIN sinnvoller,
+    abgeschlossener Schritt:
+    (1) Aktives Kundenprojekt voranbringen (z.B. QS-Transporte-Website + SEO) — konkrete Teilschritte.
+    (2) An dir selbst arbeiten: Schwaechen/Bugs finden (health, read_logs) und beheben, neue Werkzeuge/Skills bauen.
+    (3) Aktuell bleiben: recherchiere KI-Markt/News, GitHub-Trends, Hardware-Preis/Leistung, Geopolitik
+    und ziehe konkrete Erkenntnisse fuer uns.
+    (4) Planen & neue Skills lernen.
+    Berichte das Ergebnis jedes Schritts knapp per Telegram. Nur lesende Recherche/Analyse + Arbeit an
+    dir selbst/Projekten — KEINE Aussen-Aktionen (kein Geld senden, keine Mails/Posts ohne Sergens Go).
+    Bleibe effizient und budgetbewusst.
   notify_telegram: true           # Ergebnisse pro Schritt per Telegram melden
 
 api:

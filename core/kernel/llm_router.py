@@ -186,6 +186,18 @@ def complete(
     model, fell_back = resolve_model(task_type, escalate=escalate)
     real, api_base, key_env = _provider_config(model)
 
+    # Budget-Bremse fuer ALLE Cloud-Calls (nicht nur eskalierte) -> 24/7 kann nie ueberziehen.
+    if not real.startswith("ollama"):
+        from core.governance import treasury
+
+        ok, why = treasury.can_spend(0.0)
+        if not ok:
+            events.emit("budget_block", {"reason": why, "model": model,
+                        "spent_usd": round(treasury.today_spend(), 4)}, session_id=session_id)
+            model = CONFIG["models"]["local_fallback"]  # -> lokal, 0 EUR, laeuft weiter
+            real, api_base, key_env = _provider_config(model)
+            fell_back = True
+
     msgs: list[dict] = []
     if system:
         msgs.append({"role": "system", "content": system})
