@@ -164,7 +164,7 @@ def _short(args: dict) -> str:
 
 
 def _action_label(name: str, args: dict | None) -> str:
-    """Freundliches, interaktives Aktions-Label (Hermes-Stil) statt rohem Tool+JSON."""
+    """Warmes, persoenliches Aktions-Label in Ich-Form (sie erzaehlt, was sie tut)."""
     a = args or {}
 
     def pick(*keys: str) -> str:
@@ -174,25 +174,32 @@ def _action_label(name: str, args: dict | None) -> str:
         return ""
 
     table = {
-        "read_file": ("📖", "liest", pick("path")),
-        "write_file": ("✍️", "schreibt", pick("path")),
-        "append_file": ("✍️", "ergänzt", pick("path")),
-        "list_dir": ("📂", "schaut in", pick("path")),
-        "make_dir": ("📁", "legt Ordner an", pick("path")),
-        "run_command": ("⚙️", "führt aus", pick("command")),
-        "web_search": ("🌐", "sucht", pick("query")),
-        "web_fetch": ("🌐", "liest Seite", pick("url")),
-        "self_edit": ("🔧", "baut an sich selbst", pick("path")),
-        "remember_fact": ("🧠", "merkt sich etwas", ""),
-        "watch_add": ("📰", "beobachtet", pick("value", "label")),
-        "watch_list": ("📰", "schaut in den Monitor", ""),
-        "cron_add": ("⏰", "plant eine Aufgabe", pick("label", "prompt")),
-        "switch_model": ("🔀", "wechselt das Modell", pick("model")),
-        "set_context": ("🧩", "stellt den Kontext ein", ""),
-        "plan_and_execute": ("🧭", "plant & arbeitet", pick("task")),
-        "request_secret": ("🔑", "fragt einen Zugang an", pick("name")),
+        "read_file": ("📖", "lese", pick("path")),
+        "write_file": ("✍️", "schreibe", pick("path")),
+        "append_file": ("✍️", "ergänze", pick("path")),
+        "list_dir": ("📂", "schaue in", pick("path")),
+        "make_dir": ("📁", "lege einen Ordner an", pick("path")),
+        "run_command": ("⚡", "führe aus", pick("command")),
+        "web_search": ("🌐", "suche", pick("query")),
+        "web_fetch": ("🌐", "lese die Seite", pick("url")),
+        "self_edit": ("🔧", "baue an mir selbst", pick("path")),
+        "remember_fact": ("🧠", "merke mir das", ""),
+        "learn_skill": ("🎓", "lerne einen Skill", pick("name")),
+        "list_skills": ("🎓", "gehe meine Skills durch", ""),
+        "curate_skills": ("🧹", "räume meine Skills auf", ""),
+        "read_logs": ("📋", "lese mein Log", ""),
+        "watch_add": ("📡", "beobachte", pick("value", "label")),
+        "watch_list": ("📡", "schaue in meinen Monitor", ""),
+        "cron_add": ("⏰", "plane eine Aufgabe", pick("label", "prompt")),
+        "cron_list": ("⏰", "schaue meine Termine an", ""),
+        "switch_model": ("🔀", "wechsle mein Hirn zu", pick("model")),
+        "list_models": ("🧠", "prüfe meine Modelle", ""),
+        "set_context": ("🧩", "stelle mein Kontextfenster ein", ""),
+        "plan_and_execute": ("🧭", "plane & arbeite ab", pick("task")),
+        "request_secret": ("🔑", "frage einen Zugang an", pick("name")),
+        "jetzt": ("🕐", "schaue auf die Uhr", ""),
     }
-    emoji, verb, arg = table.get(name, ("🔧", name, _short(a)))
+    emoji, verb, arg = table.get(name, ("✨", name, _short(a)))
     arg = arg.replace("\n", " ").strip()
     if len(arg) > 56:
         arg = arg[:55] + "…"
