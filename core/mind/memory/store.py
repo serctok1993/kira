@@ -176,6 +176,33 @@ def clear_session(session_id: str) -> int:
     return int(n)
 
 
+def sessions(limit: int = 25) -> list[dict]:
+    """Konversationen (Cockpit + Telegram) fuer die Chat-Session-Liste, neueste zuerst."""
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT session_id, MAX(ts) AS last, COUNT(*) AS n FROM memory "
+            "WHERE kind='episodic' AND session_id IS NOT NULL AND role IN ('user','partner') "
+            "GROUP BY session_id ORDER BY last DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        out = []
+        for sid, last, n in rows:
+            tr = c.execute(
+                "SELECT text FROM memory WHERE session_id=? AND role='user' AND kind='episodic' "
+                "ORDER BY ts ASC LIMIT 1",
+                (sid,),
+            ).fetchone()
+            title = ((tr[0].strip() if tr and tr[0] else "") or "(neue Unterhaltung)")[:60]
+            out.append({
+                "session_id": sid,
+                "last": last,
+                "count": n,
+                "title": title,
+                "channel": "telegram" if str(sid).startswith("telegram-") else "cockpit",
+            })
+    return out
+
+
 def forget_matching(substrings: list[str], role: str | None = None) -> int:
     """Loescht Erinnerungen, deren Text einen der Teilstrings enthaelt (z.B. Fehlaussagen)."""
     deleted = 0

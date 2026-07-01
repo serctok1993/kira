@@ -596,6 +596,21 @@ async def api_vision(body: dict) -> dict:
     return {"ok": True, "text": txt}
 
 
+@app.get("/api/chat/sessions")
+def api_chat_sessions() -> dict:
+    return {"sessions": memory.sessions()}
+
+
+@app.get("/api/chat/history")
+def api_chat_history(sid: str = "") -> dict:
+    return {"messages": memory.recent_dialogue(sid, limit=200) if sid else []}
+
+
+@app.post("/api/chat/delete")
+async def api_chat_delete(body: dict) -> dict:
+    return {"ok": True, "deleted": memory.clear_session(body.get("sid", ""))}
+
+
 # ---------- Chat (Live-Thinking) ----------
 @app.websocket("/ws/chat")
 async def ws_chat(ws: WebSocket) -> None:
@@ -604,7 +619,7 @@ async def ws_chat(ws: WebSocket) -> None:
     from core.agency.act import act_chat_stream
 
     await ws.accept()
-    sid = "cockpit-" + uuid.uuid4().hex[:8]
+    sid = ws.query_params.get("sid") or ("cockpit-" + uuid.uuid4().hex[:8])
     await ws.send_json({"role": "system", "text": f"Verbunden. Session {sid[-8:]}."})
     try:
         while True:
@@ -793,9 +808,13 @@ textarea.k:focus{border-color:var(--accent2)}
   </div>
 
   <div class="view" id="v-chat">
-    <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:4px 0 8px">
+    <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:4px 0 8px;flex-wrap:wrap">
+      <select id="sess-list" style="max-width:300px" title="Unterhaltung waehlen"></select>
+      <button type="button" class="ghost" id="sess-new" title="Neue Unterhaltung" style="padding:6px 10px">＋ Neu</button>
+      <button type="button" class="ghost" id="sess-del" title="Diese Unterhaltung loeschen" style="padding:6px 10px">🗑</button>
+      <span style="flex:1"></span>
       <small class="muted">Hirn:</small>
-      <select id="chat-model" style="max-width:280px"></select>
+      <select id="chat-model" style="max-width:200px"></select>
       <label class="muted" title="Plan-Modus: erst Plan, dann Schritt fuer Schritt" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="planmode"/> 🧭 Plan</label>
       <small class="muted" id="chat-model-now"></small>
     </div>
@@ -989,7 +1008,7 @@ let cur="home";
 $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
 function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");
- if(v==="home")loadHome(); if(v==="chat")loadChatModels(); if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="mission")loadMission(); if(v==="monitor")loadMonitor(); if(v==="cron")loadCron(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
+ if(v==="home")loadHome(); if(v==="chat"){loadChatModels();loadChatSessions();} if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="mission")loadMission(); if(v==="monitor")loadMonitor(); if(v==="cron")loadCron(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
 
 /* ---- Modell-Umschalter in der Chat-Pane ---- */
 async function loadChatModels(){const s=await (await fetch("/api/status")).json();
@@ -1108,22 +1127,39 @@ $("#kill").onclick=async()=>{const on=!$("#kill").classList.contains("active");
 const log=$("#log");
 function add(t,c){const d=document.createElement("div");d.className="msg "+c;d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight;return d;}
 const proto=location.protocol==="https:"?"wss":"ws";
-let ws,curBot,curThink,thinkBuf;
-function connect(){ws=new WebSocket(proto+"://"+location.host+"/ws/chat");
+let ws,curBot,curThink,thinkBuf,curSid=null,wsIntentional=false;
+function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/chat"+(curSid?("?sid="+encodeURIComponent(curSid)):"");ws=new WebSocket(url);
  function ensureTrace(){if(!curThink){thinkBuf="";curThink=document.createElement("div");curThink.className="think show";
     curThink.innerHTML='<span class="h">💭 Denken &amp; Aktionen (klick zum Ein-/Ausklappen)</span><div class="c"></div>';
     curThink.querySelector(".h").onclick=()=>curThink.classList.toggle("show");log.appendChild(curThink);}return curThink;}
  function traceSet(){curThink.querySelector(".c").textContent=thinkBuf;log.scrollTop=log.scrollHeight;}
  ws.onmessage=ev=>{const m=JSON.parse(ev.data);
   if(m.role==="system"){add(m.text,"sys");return;}
-  if(m.done){curBot=null;curThink=null;return;}
+  if(m.done){curBot=null;curThink=null;loadChatSessions();return;}
   if(m.kind==="think"){ensureTrace();thinkBuf+=m.text;traceSet();return;}
   if(m.kind==="tool"){ensureTrace();thinkBuf+="\\n🔧 "+m.name+" "+JSON.stringify(m.args);traceSet();return;}
   if(m.kind==="obs"){ensureTrace();thinkBuf+="\\n   ✓ "+(m.text||"").slice(0,120);traceSet();return;}
   if(m.kind==="final"||m.kind==="answer"){const b=add("","bot");b.textContent=(m.text||"").replace(/\\*\\*/g,"");log.scrollTop=log.scrollHeight;}};
- ws.onclose=()=>setTimeout(connect,1500);}
-connect();
-$("#cform").onsubmit=e=>{e.preventDefault();const raw=$("#cin").value.trim();if(!raw||ws.readyState!==1)return;
+ ws.onclose=()=>{if(!wsIntentional)setTimeout(connect,1500);};}
+function reconnect(){wsIntentional=true;if(ws){try{ws.close();}catch(e){}}connect();}
+function relTime(ts){const s=Date.now()/1000-ts;if(s<90)return "gerade";if(s<3600)return Math.round(s/60)+" Min";if(s<86400)return Math.round(s/3600)+" Std";return Math.round(s/86400)+" Tg";}
+async function loadChatSessions(){const sel=$("#sess-list");if(!sel)return;
+ const d=await (await fetch("/api/chat/sessions")).json();const ss=d.sessions||[];
+ sel.innerHTML=ss.map(s=>'<option value="'+s.session_id+'">'+(s.channel==="telegram"?"✈️ ":"💬 ")+((s.title||s.session_id).replace(/</g,"&lt;"))+' · vor '+relTime(s.last)+'</option>').join("");
+ if(!curSid){if(ss.length){await openSession(ss[0].session_id);}else{newSession();}}
+ else{sel.value=curSid;}}
+async function openSession(sid){curSid=sid;log.innerHTML="";curBot=null;curThink=null;
+ try{const h=await (await fetch("/api/chat/history?sid="+encodeURIComponent(sid))).json();
+  (h.messages||[]).forEach(m=>add((m.text||"").replace(/\\*\\*/g,""),m.role==="user"?"me":"bot"));}catch(e){}
+ const sel=$("#sess-list");if(sel)sel.value=sid;reconnect();}
+function newSession(){curSid="cockpit-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;reconnect();}
+async function deleteSession(){if(!curSid)return;if(!confirm("Diese Unterhaltung wirklich loeschen?"))return;
+ await fetch("/api/chat/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sid:curSid})});
+ curSid=null;log.innerHTML="";loadChatSessions();}
+$("#sess-list")&&($("#sess-list").onchange=e=>openSession(e.target.value));
+$("#sess-new")&&($("#sess-new").onclick=()=>newSession());
+$("#sess-del")&&($("#sess-del").onclick=()=>deleteSession());
+$("#cform").onsubmit=e=>{e.preventDefault();const raw=$("#cin").value.trim();if(!raw||!ws||ws.readyState!==1)return;
  add(raw,"me");const t=($("#planmode")&&$("#planmode").checked?"plan: ":"")+raw;ws.send(t);$("#cin").value="";curBot=null;curThink=null;};
 
 /* ---- Sprachmemo (Aufnahme -> Whisper -> Eingabefeld) ---- */
