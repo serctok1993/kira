@@ -55,6 +55,12 @@ def api_status() -> dict:
         "providers": m["providers"],
         "ollama_local": m["ollama_local"],
         "escalation_model": m["escalation_model"],
+        "num_ctx": m.get("num_ctx"),
+        "max_tokens": m.get("max_tokens"),
+        "temperature": CONFIG["models"].get("temperature"),
+        "keep_alive": CONFIG["models"].get("keep_alive"),
+        "voice": CONFIG.get("channels", {}).get("telegram", {}).get("voice"),
+        "whisper": CONFIG.get("channels", {}).get("telegram", {}).get("whisper_model"),
         "spend_usd_today": round(today_spend_usd(), 4),
         "budget": treasury.status(),
         "trust_level": trust.level(),
@@ -214,6 +220,7 @@ def api_mission() -> dict:
         "enabled": heartbeat_on(),
         "interval": CONFIG.get("heartbeat", {}).get("interval_seconds", 1800),
         "mission": m.get("name"),
+        "goal": m.get("goal", ""),
         "pending": mqueue.pending(m.get("name", "default")),
         "recent": recent,
     }
@@ -345,6 +352,151 @@ async def api_restart(body: dict) -> dict:
     return {"ok": True, "which": which}
 
 
+# ---------- Steuerung: Direktive, Config, Mission-Ziel, Queue, Gedaechtnis ----------
+_CONFIG_WHITELIST = {
+    "models.temperature", "models.max_tokens", "models.num_ctx", "models.keep_alive", "models.request_timeout",
+    "governance.budget.daily_eur", "governance.budget.monthly_eur", "governance.trust_level",
+    "mission.goal", "heartbeat.interval_seconds",
+    "channels.telegram.voice", "channels.telegram.whisper_model",
+}
+_MODEL_LIVE = {"models.temperature": "temperature", "models.max_tokens": "max_tokens",
+               "models.num_ctx": "num_ctx", "models.keep_alive": "keep_alive"}  # live, kein Neustart
+
+
+@app.post("/api/config/set")
+async def api_config_set(body: dict) -> dict:
+    from core.config import set_override
+
+    path = (body.get("path") or "").strip()
+    if path not in _CONFIG_WHITELIST:
+        return {"ok": False, "error": "Schluessel nicht erlaubt"}
+    value = body.get("value")
+    live = path in _MODEL_LIVE
+    if live:
+        models.set_params(**{_MODEL_LIVE[path]: value})
+    else:
+        set_override(path, value)
+    events.emit("config_set", {"path": path, "live": live, "via": "dashboard"})
+    return {"ok": True, "path": path, "value": value, "live": live}
+
+
+def _focus_path():
+    return ROOT / "data" / "focus.json"
+
+
+@app.get("/api/direktive")
+def api_direktive() -> dict:
+    import json as _j
+
+    try:
+        d = _j.loads(_focus_path().read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        d = {}
+    return {"focus": d.get("focus", ""), "ts": d.get("ts", 0)}
+
+
+@app.post("/api/direktive")
+async def api_direktive_set(body: dict) -> dict:
+    import json as _j
+
+    from core.agency.missions import queue as mqueue
+
+    focus = (body.get("focus") or "").strip()
+    _focus_path().write_text(_j.dumps({"focus": focus, "ts": time.time()}, ensure_ascii=False), encoding="utf-8")
+    try:  # offene Queue leeren -> naechster Tick plant um den neuen Fokus herum
+        mqueue.init_queue()
+        mqueue.clear(CONFIG.get("mission", {}).get("name", "default"))
+    except Exception:  # noqa: BLE001
+        pass
+    events.emit("focus_set", {"focus": focus[:200], "via": "dashboard"})
+    return {"ok": True, "focus": focus}
+
+
+@app.post("/api/direktive/now")
+async def api_direktive_now(body: dict) -> dict:
+    from core.agency.act import act
+
+    prompt = (body.get("prompt") or "").strip()
+    if not prompt:
+        return {"ok": False, "error": "leer"}
+    events.emit("direktive_now", {"prompt": prompt[:200], "via": "dashboard"})
+    out = await anyio.to_thread.run_sync(lambda: act(prompt, session_id="direktive", escalate=bool(body.get("escalate"))))
+    text = (out.get("text") or "").strip()
+    try:
+        import os as _os
+
+        import httpx as _hx
+
+        tok = _os.getenv("TELEGRAM_BOT_TOKEN")
+        chat = CONFIG.get("channels", {}).get("telegram", {}).get("allowed_chat_id")
+        if tok and chat:
+            _hx.post(f"https://api.telegram.org/bot{tok}/sendMessage",
+                     json={"chat_id": chat, "text": ("🎯 Direktive erledigt:\n" + text)[:4000]}, timeout=15)
+    except Exception:  # noqa: BLE001
+        pass
+    return {"ok": True, "result": text}
+
+
+@app.post("/api/mission/config")
+async def api_mission_config(body: dict) -> dict:
+    from core.config import set_override
+
+    if body.get("goal") is not None:
+        set_override("mission.goal", str(body.get("goal")))
+    if body.get("interval") is not None:
+        try:
+            set_override("heartbeat.interval_seconds", int(body.get("interval")))
+        except Exception:  # noqa: BLE001
+            pass
+    events.emit("mission_config", {"via": "dashboard"})
+    (ROOT / "data" / "restart.flag").write_text("runner", encoding="utf-8")  # Ziel greift nach Runner-Bounce
+    return {"ok": True}
+
+
+@app.post("/api/mission/queue/add")
+async def api_queue_add(body: dict) -> dict:
+    from core.agency.missions import queue as mqueue
+
+    desc = (body.get("description") or "").strip()
+    if not desc:
+        return {"ok": False, "error": "leer"}
+    mqueue.init_queue()
+    tid = mqueue.add(desc, mission=CONFIG.get("mission", {}).get("name", "default"), priority=int(body.get("priority", 1)))
+    return {"ok": True, "id": tid}
+
+
+@app.post("/api/mission/queue/remove")
+async def api_queue_remove(body: dict) -> dict:
+    from core.agency.missions import queue as mqueue
+
+    return {"ok": mqueue.remove(body.get("id", ""))}
+
+
+@app.post("/api/mission/queue/clear")
+async def api_queue_clear(body: dict) -> dict:
+    from core.agency.missions import queue as mqueue
+
+    mqueue.init_queue()
+    return {"ok": True, "cleared": mqueue.clear(CONFIG.get("mission", {}).get("name", "default"))}
+
+
+@app.post("/api/memory/update")
+async def api_memory_update(body: dict) -> dict:
+    ok = memory.update_text(body.get("id", ""), body.get("text", ""))
+    events.emit("memory_updated", {"id": body.get("id", ""), "via": "dashboard"})
+    return {"ok": ok}
+
+
+@app.post("/api/memory/add")
+async def api_memory_add(body: dict) -> dict:
+    text = (body.get("text") or "").strip()
+    if not text:
+        return {"ok": False, "error": "leer"}
+    mid = memory.remember(text, role=body.get("role", "user"), kind=body.get("kind", "semantic"))
+    events.emit("memory_added", {"id": mid, "via": "dashboard"})
+    return {"ok": True, "id": mid}
+
+
 @app.post("/api/kill")
 async def api_kill(body: dict) -> dict:
     if body.get("on"):
@@ -386,6 +538,15 @@ async def api_bg_upload(body: dict) -> dict:
     (data_dir / f"background.{ext}").write_bytes(raw)
     events.emit("background_set", {"ext": ext, "bytes": len(raw)})
     return {"ok": True, "ext": ext, "bytes": len(raw)}
+
+
+@app.post("/api/bg/clear")
+async def api_bg_clear(body: dict) -> dict:
+    for e in ("jpg", "jpeg", "png", "webp", "gif"):
+        p = ROOT / "data" / f"background.{e}"
+        if p.exists():
+            p.unlink()
+    return {"ok": True}
 
 
 @app.post("/api/transcribe")
@@ -477,7 +638,7 @@ DASHBOARD_HTML = """<!doctype html>
 <title>Kira Cockpit</title>
 <style>
 :root{--bg:#0a0710;--panel:#150f20;--panel2:#100b18;--line:#2a1f3a;--ink:#f3eef9;
- --muted:#9a8fb0;--accent:#a855f7;--accent2:#7c3aed;--amber:#c4b5fd;--danger:#f0596a;}
+ --muted:#9a8fb0;--accent:#a855f7;--accent2:#7c3aed;--amber:#c4b5fd;--danger:#f0596a;--ok:#5eead4;--warn:#e879f9;}
 *{box-sizing:border-box}
 body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Code",Consolas,monospace;
  background:#000;color:var(--ink)}
@@ -552,6 +713,20 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 .e.chat .t{color:#67e8c9}
 .e.info .t{color:var(--muted)}
 .pill.on{color:#fff;border-color:var(--accent);background:rgba(168,85,247,.14)}
+.card{box-shadow:0 0 22px rgba(124,58,237,.10),inset 0 0 0 1px rgba(168,85,247,.06)}
+.card h3{text-shadow:0 0 10px rgba(168,85,247,.35)}
+#side{background:linear-gradient(180deg,rgba(20,10,30,.88),rgba(10,7,16,.82))}
+.ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--danger)}
+.look{display:flex;gap:10px;align-items:center;justify-content:center;padding:8px 12px;
+ margin:0 12px 6px;border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:12px}
+.look label,.look a{cursor:pointer;color:var(--muted);text-decoration:none}
+.look label:hover,.look a:hover{color:var(--accent)}
+.direktive{max-width:1120px;margin:0 0 16px;border:1px solid rgba(168,85,247,.30);border-radius:14px;
+ padding:14px;background:linear-gradient(135deg,rgba(124,58,237,.16),rgba(21,15,32,.66));box-shadow:0 0 26px rgba(168,85,247,.14)}
+.direktive h3{margin:0 0 8px;color:var(--amber);text-shadow:0 0 10px rgba(168,85,247,.4)}
+textarea.k{width:100%;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;
+ padding:10px;font-family:inherit;font-size:13px;resize:vertical;outline:none;min-height:52px}
+textarea.k:focus{border-color:var(--accent2)}
 .muted{color:var(--muted)}
 </style></head><body>
 <div id="side">
@@ -568,6 +743,10 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
   <a data-v="mem">› Gedaechtnis</a>
   <a data-v="log">› Protokoll</a>
   <div class="spacer"></div>
+  <div class="look">
+    <label title="Kira-Bild als Hintergrund waehlen">🎨 Look<input id="bgquick" type="file" accept="image/*" style="display:none"/></label>
+    <a href="#" id="bgclear" title="Hintergrund entfernen">kein Bild</a>
+  </div>
   <div class="kill" id="kill">Not-Aus: aus</div>
 </div>
 <div id="main">
@@ -578,7 +757,20 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
     <span id="b-kill"></span>
   </div>
 
-  <div class="view on" id="v-home"><div id="home" style="overflow:auto"></div></div>
+  <div class="view on" id="v-home">
+    <div class="direktive">
+      <h3>🎯 Direktive an Kira</h3>
+      <textarea id="dir-text" class="k" placeholder="Sag Kira, worauf sie sich konzentrieren soll — oder gib ihr einen Sofort-Auftrag…"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button id="dir-now">⚡ Sofort ausfuehren</button>
+        <button class="ghost" id="dir-focus">🧭 Als Fokus setzen</button>
+        <button class="ghost" id="dir-clear" title="Fokus loeschen">Fokus loeschen</button>
+        <span class="muted" id="dir-hint" style="align-self:center"></span>
+      </div>
+      <div id="dir-result" style="margin-top:8px;white-space:pre-wrap;display:none;border-top:1px solid var(--line);padding-top:8px"></div>
+    </div>
+    <div id="home" style="overflow:auto"></div>
+  </div>
 
   <div class="view" id="v-chat">
     <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:4px 0 8px">
@@ -623,6 +815,23 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
         <span class="pill" data-ctx="131072">128K</span></div>
       <div class="muted" style="margin-top:6px">Größer = mehr VRAM. Nach „Setzen" lädt das Modell neu — bleibt „GPU 100%"? Falls Anteil sinkt (CPU-Spill = langsam), kleiner wählen.</div>
     </div>
+    <div class="card"><h3>Verhalten &amp; System</h3>
+      <div class="muted">Feineinstellungen. Temperatur/keep_alive wirken sofort; Sprache/Voice brauchen einen Neustart.</div>
+      <div class="row" style="margin-top:8px;flex-wrap:wrap">
+        <label class="muted" style="align-self:center">Temperatur</label>
+        <input id="s-temp" type="number" step="0.1" min="0" max="2" style="max-width:100px"/>
+        <label class="muted" style="align-self:center">keep_alive</label>
+        <input id="s-keep" placeholder="z.B. 24h" style="max-width:100px"/>
+        <button id="s-behav-save">Setzen (live)</button>
+      </div>
+      <div class="row" style="margin-top:8px;flex-wrap:wrap">
+        <label class="muted" style="cursor:pointer;align-self:center"><input type="checkbox" id="s-voice"/> Sprachmemos transkribieren</label>
+        <label class="muted" style="align-self:center">Whisper</label>
+        <select id="s-whisper"><option>tiny</option><option>base</option><option>small</option><option>medium</option></select>
+        <button id="s-sys-save">Speichern (Neustart)</button>
+        <span class="muted" id="s-sys-hint" style="align-self:center"></span>
+      </div>
+    </div>
     <div class="card"><h3>Lokal (Ollama) — klicken zum Wechseln</h3><div id="m-ollama"></div></div>
     <div class="card"><h3>OpenRouter — ein Key, alle Modelle</h3>
       <div class="muted" id="m-orkey"></div>
@@ -641,8 +850,28 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
   </div>
 
   <div class="view" id="v-gov">
-    <div class="card"><h3>Budget (Treasury)</h3><div id="g-budget" class="muted">…</div></div>
-    <div class="card"><h3>Vertrauen (Trust-Level)</h3><div id="g-trust" class="muted">…</div></div>
+    <div class="card"><h3>Was ist das „Gewissen"?</h3>
+      <div class="muted">Kiras <b>Leitplanken</b> — womit du steuerst, wie weit sie gehen darf:
+      <b class="ok">Budget</b> = wie viel Geld sie pro Tag/Monat ausgeben darf (danach faellt sie automatisch auf lokal/0&nbsp;€).
+      <b class="ok">Vertrauen</b> = wie autonom sie handeln darf. <b class="ok">Audit</b> = Protokoll ihrer Aussen-Aktionen.</div></div>
+    <div class="card"><h3>Budget (Treasury)</h3><div id="g-budget" class="muted">…</div>
+      <div class="row" style="margin-top:10px">
+        <input id="g-day" type="number" step="0.5" placeholder="Tag €" style="max-width:120px"/>
+        <input id="g-month" type="number" step="1" placeholder="Monat €" style="max-width:120px"/>
+        <button id="g-budget-save">Speichern</button>
+        <span class="muted" id="g-budget-hint" style="align-self:center"></span>
+      </div></div>
+    <div class="card"><h3>Vertrauen (Trust-Level)</h3><div id="g-trust" class="muted">…</div>
+      <div class="row" style="margin-top:10px">
+        <select id="g-trust-sel">
+          <option value="0">0 — alles vorlegen</option>
+          <option value="1">1 — Reversibles autonom</option>
+          <option value="2">2 — meiste autonom, Geld/Posts vorlegen</option>
+          <option value="3">3 — voll-autonom (nur Budget begrenzt)</option>
+        </select>
+        <button id="g-trust-save">Speichern</button>
+        <span class="muted" id="g-trust-hint" style="align-self:center"></span>
+      </div></div>
     <div class="card"><h3>Audit — protokollierte Aussen-Aktionen</h3><div id="g-audit" class="muted">…</div></div>
   </div>
 
@@ -653,9 +882,24 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
         <button id="ms-toggle">24/7 an/aus</button>
         <button class="ghost" id="ms-once">Jetzt ein Schritt</button>
       </div>
-      <div class="muted" style="margin-top:6px" id="ms-hint">Ziel der Mission setzt du in „Seele &amp; Dateien → config.yaml" (mission.goal).</div>
     </div>
-    <div class="card"><h3>Offene Aufgaben</h3><div id="ms-queue" class="muted">…</div></div>
+    <div class="card"><h3>Ziel &amp; Takt</h3>
+      <div class="muted">Kiras langfristiger Auftrag fuer den 24/7-Loop. Fuer schnelle Lenkung nutze die <b>Direktive</b> auf der Startseite.</div>
+      <textarea id="ms-goal" class="k" style="margin-top:8px;min-height:90px" placeholder="Missions-Ziel…"></textarea>
+      <div class="row" style="margin-top:8px">
+        <input id="ms-interval" type="number" placeholder="Takt (Minuten)" style="max-width:160px"/>
+        <button id="ms-goal-save">Speichern</button>
+        <span class="muted" id="ms-goal-hint" style="align-self:center"></span>
+      </div>
+    </div>
+    <div class="card"><h3>Offene Aufgaben</h3>
+      <div id="ms-queue" class="muted">…</div>
+      <div class="row" style="margin-top:8px">
+        <input id="ms-qadd" placeholder="Aufgabe hinzufuegen (kommt als naechstes dran)" style="min-width:280px"/>
+        <button id="ms-qadd-btn">+ Aufgabe</button>
+        <button class="ghost" id="ms-qclear">Queue leeren</button>
+      </div>
+    </div>
     <div class="card"><h3>Letzte Schritte</h3><div id="ms-recent" class="muted">…</div></div>
   </div>
 
@@ -701,7 +945,12 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
   </div>
 
   <div class="view" id="v-mem">
-    <div class="muted" style="margin-bottom:8px;max-width:980px">Juengste Erinnerungen — mit ✕ loeschen. (Verfassung/Seele/Ziel sind Dateien und bleiben unberuehrt.)</div>
+    <div class="card"><h3>Erinnerung hinzufuegen</h3>
+      <div class="muted">Gib Kira gezielt Wissen mit (semantisch = dauerhaftes Faktenwissen).</div>
+      <textarea id="mem-new" class="k" style="margin-top:8px" placeholder="z.B. Sergen bevorzugt kurze, direkte Antworten."></textarea>
+      <div class="row" style="margin-top:8px"><button id="mem-add">+ Merken</button><span class="muted" id="mem-hint" style="align-self:center"></span></div>
+    </div>
+    <div class="muted" style="margin:6px 0 8px;max-width:980px">Juengste Erinnerungen — ✎ bearbeiten, ✕ loeschen. (Verfassung/Seele/Ziel sind Dateien und bleiben unberuehrt.)</div>
     <div id="memlist"></div>
   </div>
 
@@ -748,9 +997,9 @@ $("#bgfile")&&($("#bgfile").onchange=(e)=>{const f=e.target.files[0];if(!f)retur
 
 /* ---- Monitor ---- */
 async function loadMonitor(){const m=await (await fetch("/api/monitor")).json();
- $("#mo-list").innerHTML=m.watches.length?m.watches.map(w=>'<div style="padding:6px 0;border-bottom:1px solid #1b2a33"><b>'+(w.label||"").replace(/</g,"&lt;")+'</b> <small class=muted>['+w.kind+']</small> <a href="#" data-rm="'+w.id+'" style="float:right;color:#e0a35a">entfernen</a><br><small class=muted>'+(w.value||"").replace(/</g,"&lt;")+'</small></div>').join(""):'<span class=muted>(noch keine — oben hinzufuegen)</span>';
+ $("#mo-list").innerHTML=m.watches.length?m.watches.map(w=>'<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>'+(w.label||"").replace(/</g,"&lt;")+'</b> <small class=muted>['+w.kind+']</small> <a href="#" data-rm="'+w.id+'" style="float:right;color:var(--warn)">entfernen</a><br><small class=muted>'+(w.value||"").replace(/</g,"&lt;")+'</small></div>').join(""):'<span class=muted>(noch keine — oben hinzufuegen)</span>';
  document.querySelectorAll('#mo-list a[data-rm]').forEach(a=>a.onclick=async(e)=>{e.preventDefault();await fetch("/api/monitor/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.rm})});loadMonitor();});
- $("#mo-recent").innerHTML=m.recent.length?m.recent.map(r=>{const ts=new Date(r.ts*1000).toLocaleString();return '<div style="padding:6px 0;border-bottom:1px solid #1b2a33"><small class=muted>'+ts+'</small> <b>'+(r.label||"")+'</b> ('+r.count+' neu)<br>'+(r.summary||"").slice(0,320).replace(/</g,"&lt;").replace(/\\n/g,"<br>")+'</div>';}).join(""):'<span class=muted>(noch nichts gemeldet)</span>';}
+ $("#mo-recent").innerHTML=m.recent.length?m.recent.map(r=>{const ts=new Date(r.ts*1000).toLocaleString();return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><small class=muted>'+ts+'</small> <b>'+(r.label||"")+'</b> ('+r.count+' neu)<br>'+(r.summary||"").slice(0,320).replace(/</g,"&lt;").replace(/\\n/g,"<br>")+'</div>';}).join(""):'<span class=muted>(noch nichts gemeldet)</span>';}
 $("#mo-add").onclick=async()=>{const v=$("#mo-value").value.trim();if(!v)return;await fetch("/api/monitor/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:$("#mo-kind").value,value:v,label:$("#mo-label").value})});$("#mo-value").value="";$("#mo-label").value="";loadMonitor();};
 $("#mo-check").onclick=async()=>{$("#mo-hint").textContent="… prueft alle Beobachtungen (kann etwas dauern) …";const r=await (await fetch("/api/monitor/check",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();$("#mo-hint").textContent="Geprueft: "+r.checked+" Quelle(n) · Neu gemeldet: "+(r.digests?r.digests.length:0);loadMonitor();};
 
@@ -758,8 +1007,8 @@ $("#mo-check").onclick=async()=>{$("#mo-hint").textContent="… prueft alle Beob
 let cronJobs=[], cronEdit=null;
 async function loadCron(){const d=await (await fetch("/api/cron")).json();cronJobs=d.jobs;const fmt=ts=>ts?new Date(ts*1000).toLocaleString():"—";
  $("#cr-list").innerHTML=d.jobs.length?d.jobs.map(j=>{const last=(j.recent_runs&&j.recent_runs.length)?j.recent_runs[j.recent_runs.length-1]:null;
-   return '<div style="padding:8px 0;border-bottom:1px solid #1b2a33"><b>'+(j.label||"").replace(/</g,"&lt;")+'</b> <small class=muted>'+(j.schedule_text||"")+' · '+(j.enabled?"an":"aus")+' · naechster: '+fmt(j.next_run)+'</small>'
-     +'<span style="float:right"><a href="#" data-run="'+j.id+'">jetzt</a> · <a href="#" data-edit="'+j.id+'">bearbeiten</a> · <a href="#" data-tog="'+j.id+'">'+(j.enabled?"pausieren":"aktivieren")+'</a> · <a href="#" data-rm="'+j.id+'" style="color:#e0a35a">entfernen</a></span>'
+   return '<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>'+(j.label||"").replace(/</g,"&lt;")+'</b> <small class=muted>'+(j.schedule_text||"")+' · '+(j.enabled?"an":"aus")+' · naechster: '+fmt(j.next_run)+'</small>'
+     +'<span style="float:right"><a href="#" data-run="'+j.id+'">jetzt</a> · <a href="#" data-edit="'+j.id+'">bearbeiten</a> · <a href="#" data-tog="'+j.id+'">'+(j.enabled?"pausieren":"aktivieren")+'</a> · <a href="#" data-rm="'+j.id+'" style="color:var(--warn)">entfernen</a></span>'
      +'<br><small class=muted>'+(j.prompt||"").slice(0,120).replace(/</g,"&lt;")+'</small>'
      +(last?('<br><small class=muted>letzter Lauf '+fmt(last.ts)+': '+(last.ok?"✓":"✗")+' '+(last.summary||"").slice(0,140).replace(/</g,"&lt;")+'</small>'):'')+'</div>';}).join(""):'<span class=muted>(keine geplanten Aufgaben)</span>';
  document.querySelectorAll('#cr-list a[data-rm]').forEach(a=>a.onclick=async e=>{e.preventDefault();await fetch("/api/cron/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.rm})});loadCron();});
@@ -779,34 +1028,43 @@ $("#cr-add").onclick=async()=>{const p=$("#cr-prompt").value.trim();if(!p)return
 
 /* ---- Mission (24/7) ---- */
 async function loadMission(){const m=await (await fetch("/api/mission")).json();
- $("#ms-status").innerHTML="Mission: <b>"+(m.mission||"-")+"</b> · 24/7: "+(m.enabled?'<b style="color:#1fb6a6">AN</b>':'<span class=muted>aus</span>')+" · Takt "+Math.round(m.interval/60)+" min";
- $("#ms-queue").innerHTML=m.pending.length?m.pending.map(t=>"• "+(t.description||"").replace(/</g,"&lt;")).join("<br>"):'<span class=muted>(leer — beim naechsten Lauf plant Kira neue)</span>';
- $("#ms-recent").innerHTML=m.recent.length?m.recent.map(r=>{const ts=new Date(r.ts*1000).toLocaleString();return '<div style="padding:6px 0;border-bottom:1px solid #1b2a33"><small class=muted>'+ts+'</small><br>'+(r.summary||"").slice(0,220).replace(/</g,"&lt;")+'</div>';}).join(""):'<span class=muted>(noch keine)</span>';}
+ $("#ms-status").innerHTML="Mission: <b>"+(m.mission||"-")+"</b> · 24/7: "+(m.enabled?'<b class="ok">AN</b>':'<span class=muted>aus</span>')+" · Takt "+Math.round(m.interval/60)+" min";
+ if($("#ms-goal")&&document.activeElement!==$("#ms-goal"))$("#ms-goal").value=m.goal||"";
+ if($("#ms-interval")&&document.activeElement!==$("#ms-interval"))$("#ms-interval").value=Math.round((m.interval||1800)/60);
+ $("#ms-queue").innerHTML=m.pending.length?m.pending.map(t=>'<div style="padding:5px 0;border-bottom:1px solid var(--line)">• '+(t.description||"").replace(/</g,"&lt;")+' <a href="#" data-qrm="'+t.id+'" class="warn" style="float:right">entfernen</a></div>').join(""):'<span class=muted>(leer — beim naechsten Lauf plant Kira neue)</span>';
+ document.querySelectorAll('#ms-queue a[data-qrm]').forEach(a=>a.onclick=async e=>{e.preventDefault();await fetch("/api/mission/queue/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.qrm})});loadMission();});
+ $("#ms-recent").innerHTML=m.recent.length?m.recent.map(r=>{const ts=new Date(r.ts*1000).toLocaleString();return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><small class=muted>'+ts+'</small><br>'+(r.summary||"").slice(0,220).replace(/</g,"&lt;")+'</div>';}).join(""):'<span class=muted>(noch keine)</span>';}
 $("#ms-toggle").onclick=async()=>{const m=await (await fetch("/api/mission")).json();
  await fetch("/api/mission/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({on:!m.enabled})});loadMission();};
-$("#ms-once").onclick=async()=>{$("#ms-hint").textContent="… Kira macht einen autonomen Schritt (kann ~1 min dauern) …";
- const r=await (await fetch("/api/mission/runonce",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();
- $("#ms-hint").textContent="Fertig.";loadMission();};
+$("#ms-once").onclick=async()=>{$("#ms-goal-hint")&&($("#ms-goal-hint").textContent="… ein Schritt laeuft (~1 min) …");
+ await fetch("/api/mission/runonce",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});$("#ms-goal-hint")&&($("#ms-goal-hint").textContent="");loadMission();};
+$("#ms-goal-save")&&($("#ms-goal-save").onclick=async()=>{
+ await fetch("/api/mission/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({goal:$("#ms-goal").value,interval:(parseInt($("#ms-interval").value)||30)*60})});
+ $("#ms-goal-hint").textContent="gespeichert — Runner startet neu (~20s), dann greift das neue Ziel.";});
+$("#ms-qadd-btn")&&($("#ms-qadd-btn").onclick=async()=>{const d=$("#ms-qadd").value.trim();if(!d)return;
+ await fetch("/api/mission/queue/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({description:d})});$("#ms-qadd").value="";loadMission();});
+$("#ms-qclear")&&($("#ms-qclear").onclick=async()=>{if(!confirm("Alle offenen Aufgaben verwerfen?"))return;await fetch("/api/mission/queue/clear",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});loadMission();});
 
 /* ---- Uebersicht ---- */
 async function loadHome(){const o=await (await fetch("/api/overview")).json();const b=o.budget;
  const sv=await (await fetch("/api/services")).json();
+ try{const dz=await (await fetch("/api/direktive")).json();const dh=$("#dir-hint");if(dh&&dz.focus)dh.textContent="🧭 Aktueller Fokus: "+dz.focus.slice(0,140);}catch(e){}
  const card=(t,c)=>'<div class="card"><h3>'+t+'</h3>'+c+'</div>';
- const kill=o.kill_switch?'<b style="color:#e0564e">⛔ NOT-AUS aktiv</b>':'<span style="color:#1fb6a6">einsatzbereit</span>';
+ const kill=o.kill_switch?'<b style="color:var(--danger)">⛔ NOT-AUS aktiv</b>':'<span style="color:var(--ok)">einsatzbereit</span>';
  let h='<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><span class="dot"></span>'
   +'<h2 style="margin:0">'+o.partner+'</h2><span class=muted>'+kill+'</span></div>'
   +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;max-width:1120px">';
- const sdot=(ok)=>'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle;background:'+(ok?'#1fb6a6':'#e0564e')+';margin-right:5px"></span>';
+ const sdot=(ok)=>'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle;background:'+(ok?'var(--ok)':'var(--danger)')+';margin-right:5px"></span>';
  const svc=sv.services||{};
  h+=card("❤ System",sdot(sv.supervisor)+'Supervisor '+sdot(svc.cockpit!==false)+'Cockpit '+sdot(svc.bot)+'Bot '+sdot(svc.runner)+'Runner '+sdot(sv.ollama)+'Ollama'
-   +'<br><span class=muted style="display:inline-block;margin-top:6px">24/7-Loop: '+(sv.heartbeat?'<b style="color:#1fb6a6">AN</b>':'aus')+'</span>'
+   +'<br><span class=muted style="display:inline-block;margin-top:6px">24/7-Loop: '+(sv.heartbeat?'<b style="color:var(--ok)">AN</b>':'aus')+'</span>'
    +'<div style="margin-top:10px;display:flex;gap:8px"><button class=ghost id="sys-restart">↻ Neustart</button>'
    +'<button class=ghost onclick="nav(\\'mission\\')">24/7 steuern</button></div>');
  h+=card("Modell &amp; Budget","Modell: <b>"+o.model+"</b><br><span class=muted>Heute "+b.day_spent+" / "+(b.day_limit??"-")
    +" € · Monat "+b.month_spent+" / "+(b.month_limit??"-")+" €</span>");
  h+=card("Vertrauen","Stufe <b>"+o.trust.level+"</b><br><span class=muted>"+o.trust.label+"</span>");
  h+=card("Mission","<b>"+(o.mission.name||"-")+"</b><br><span class=muted>24/7-Loop: "
-   +(o.mission.heartbeat?'<b style="color:#1fb6a6">AN</b>':'aus')+"</span>"
+   +(o.mission.heartbeat?'<b style="color:var(--ok)">AN</b>':'aus')+"</span>"
    +(o.last_mission?'<br><span class=muted>Letzter Schritt: '+o.last_mission.summary.slice(0,150).replace(/</g,"&lt;")+'</span>':''));
  h+=card("Werkzeuge ("+o.tools.length+")", o.tools.map(t=>'<span class="pill">'+t+'</span>').join(" "));
  h+=card("Letzte Lektionen", o.lessons.length?('<ul style="margin:0;padding-left:18px">'
@@ -823,7 +1081,7 @@ async function refreshStatus(){const s=await (await fetch("/api/status")).json()
  $("#b-spend").textContent="$"+s.spend_usd_today+((s.budget&&s.budget.day_limit!=null)?(" / "+s.budget.day_limit+"€"):"");
  const k=$("#kill"); k.classList.toggle("active",s.kill_switch);
  k.textContent="Not-Aus: "+(s.kill_switch?"AKTIV":"aus");
- $("#b-kill").innerHTML=s.kill_switch?'<b style="color:#e0564e">⛔ NOT-AUS</b>':'';
+ $("#b-kill").innerHTML=s.kill_switch?'<b style="color:var(--danger)">⛔ NOT-AUS</b>':'';
  return s;}
 $("#kill").onclick=async()=>{const on=!$("#kill").classList.contains("active");
  await fetch("/api/kill",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({on})});refreshStatus();};
@@ -894,13 +1152,17 @@ $("#fsave").onclick=async()=>{if(!fcur)return;
  $("#ftitle").textContent=fcur.label+(r.ok?" — gespeichert ✓":" — Fehler");};
 
 /* ---- Models ---- */
-function showLoaded(el,ld){if(ld&&ld.context){const col=(ld.gpu_pct!=null&&ld.gpu_pct>=99)?"#1fb6a6":"#e0a35a";
+function showLoaded(el,ld){if(ld&&ld.context){const col=(ld.gpu_pct!=null&&ld.gpu_pct>=99)?"var(--ok)":"var(--warn)";
    el.innerHTML="Geladen: <b>"+ld.context+"</b> Kontext · <b style='color:"+col+"'>"+(ld.gpu_pct!=null?ld.gpu_pct+"% GPU":"?")+"</b> · "+(ld.vram_gb||"?")+" GB VRAM"
     +((ld.gpu_pct!=null&&ld.gpu_pct<99)?" ⚠️ teilweise CPU — kleiner waehlen":"");}
   else{el.textContent="(Modell noch nicht geladen — wird beim ersten Chat geladen)";}}
 async function loadModels(){const s=await (await fetch("/api/status")).json();
  $("#m-active").innerHTML="<b>"+s.model+"</b> &nbsp; <span class=muted>Eskalation: "+(s.escalation_model||"-")+"</span>";
  $("#m-ctx").value=s.num_ctx||""; $("#m-maxtok").value=s.max_tokens||"";
+ if($("#s-temp")&&document.activeElement!==$("#s-temp"))$("#s-temp").value=s.temperature!=null?s.temperature:"";
+ if($("#s-keep")&&document.activeElement!==$("#s-keep"))$("#s-keep").value=s.keep_alive||"";
+ if($("#s-voice"))$("#s-voice").checked=!!s.voice;
+ if($("#s-whisper")&&s.whisper)$("#s-whisper").value=s.whisper;
  fetch("/api/model/loaded").then(r=>r.json()).then(ld=>showLoaded($("#m-loaded"),ld));
  document.querySelectorAll('#v-models .pill[data-ctx]').forEach(p=>p.onclick=()=>{$("#m-ctx").value=p.dataset.ctx;});
  document.querySelectorAll('#v-models .pill[data-or]').forEach(p=>p.onclick=()=>{$("#m-or").value=p.dataset.or;});
@@ -922,6 +1184,13 @@ async function useModel(id){await fetch("/api/model/use",{method:"POST",headers:
 $("#m-orgo").onclick=async()=>{const m=$("#m-or").value.trim();if(!m)return;
  await fetch("/api/model/openrouter",{method:"POST",headers:{"Content-Type":"application/json"},
   body:JSON.stringify({model:m})});$("#m-or").value="";loadModels();refreshStatus();};
+$("#s-behav-save")&&($("#s-behav-save").onclick=async()=>{const tp=parseFloat($("#s-temp").value);
+ if(!isNaN(tp))await cfgSet("models.temperature",tp);
+ if($("#s-keep").value.trim())await cfgSet("models.keep_alive",$("#s-keep").value.trim());
+ $("#s-sys-hint")&&($("#s-sys-hint").textContent="live gesetzt ✓");});
+$("#s-sys-save")&&($("#s-sys-save").onclick=async()=>{await cfgSet("channels.telegram.voice",$("#s-voice").checked);
+ await cfgSet("channels.telegram.whisper_model",$("#s-whisper").value);
+ $("#s-sys-hint").innerHTML='gespeichert · <a href="#" onclick="doRestart(event)">Neustart</a>';});
 
 /* ---- Protokoll / Puls: Live-Aktivitaet + Fehler ---- */
 let logFilter="all", logOldest=null, logRaw=[];
@@ -944,19 +1213,29 @@ $("#log-more")&&($("#log-more").onclick=()=>loadEvents(false));
 
 /* ---- Gewissen ---- */
 function bar(spent,limit){if(limit==null)return '<span class=muted>kein Limit</span>';
- const pct=Math.min(100,Math.round(spent/limit*100));const col=pct>90?'#e0564e':pct>70?'#e0a35a':'#1fb6a6';
- return '<div style="background:#0b1217;border:1px solid #1b2a33;border-radius:6px;height:16px;overflow:hidden">'
+ const pct=Math.min(100,Math.round(spent/limit*100));const col=pct>90?'var(--danger)':pct>70?'var(--warn)':'var(--ok)';
+ return '<div style="background:var(--panel2);border:1px solid var(--line);border-radius:6px;height:16px;overflow:hidden">'
   +'<div style="height:100%;width:'+pct+'%;background:'+col+'"></div></div>'
   +'<small class=muted>'+spent.toFixed(4)+' / '+limit+' € ('+pct+'%)</small>';}
+async function cfgSet(path,value){return (await fetch("/api/config/set",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path,value})})).json();}
+async function doRestart(e){if(e&&e.preventDefault)e.preventDefault();await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});alert("Neustart angefordert — Dienste bouncen in ~20s.");}
 async function loadGov(){const g=await (await fetch("/api/governance")).json();const t=g.treasury;
  $("#g-budget").innerHTML="Heute:<br>"+bar(t.day_spent,t.day_limit)+"<br><br>Diesen Monat:<br>"+bar(t.month_spent,t.month_limit);
+ if($("#g-day")&&document.activeElement!==$("#g-day"))$("#g-day").value=t.day_limit!=null?t.day_limit:"";
+ if($("#g-month")&&document.activeElement!==$("#g-month"))$("#g-month").value=t.month_limit!=null?t.month_limit:"";
  $("#g-trust").innerHTML="Stufe <b>"+g.trust.level+"</b> — "+g.trust.label
   +'<br><span class=muted>Erfolge: '+g.trust.success+' · Fehlschlaege: '+g.trust.fail+'</span>'
   +'<br><span class=muted>Bei Stufe 3 begrenzt nur das Budget; Außen-Aktionen brauchen kein Go.</span>';
- const a=$("#g-audit");if(!g.audit.length){a.innerHTML='<span class=muted>(noch keine Außen-Aktionen protokolliert)</span>';return;}
- a.innerHTML=g.audit.map(e=>{const ts=new Date(e.ts*1000).toLocaleString();const p=e.payload;
-  return '<div style="padding:6px 0;border-bottom:1px solid #1b2a33"><b>'+p.action+'</b> '+(p.target||'')
-   +' <small class=muted>'+ts+(p.reversible?' · rückrollbar':'')+'</small></div>';}).join("");}
+ if($("#g-trust-sel"))$("#g-trust-sel").value=String(g.trust.level);
+ const a=$("#g-audit");a.innerHTML=g.audit.length?g.audit.map(e=>{const ts=new Date(e.ts*1000).toLocaleString();const p=e.payload;
+   return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>'+p.action+'</b> '+(p.target||'')
+    +' <small class=muted>'+ts+(p.reversible?' · rückrollbar':'')+'</small></div>';}).join(""):'<span class=muted>(noch keine Außen-Aktionen protokolliert)</span>';}
+$("#g-budget-save")&&($("#g-budget-save").onclick=async()=>{const d=parseFloat($("#g-day").value),mo=parseFloat($("#g-month").value);
+ if(!isNaN(d))await cfgSet("governance.budget.daily_eur",d);
+ if(!isNaN(mo))await cfgSet("governance.budget.monthly_eur",mo);
+ $("#g-budget-hint").innerHTML='gespeichert · <a href="#" onclick="doRestart(event)">Neustart, damit es ueberall greift</a>';});
+$("#g-trust-save")&&($("#g-trust-save").onclick=async()=>{await cfgSet("governance.trust_level",parseInt($("#g-trust-sel").value));
+ $("#g-trust-hint").innerHTML='gespeichert · <a href="#" onclick="doRestart(event)">Neustart</a>';});
 
 /* ---- Zugaenge ---- */
 async function loadKeys(){const s=await (await fetch("/api/secrets")).json();
@@ -976,14 +1255,40 @@ $("#k-save").onclick=async()=>{const name=$("#k-name").value.trim();if(!name)ret
 
 /* ---- Gedaechtnis ---- */
 async function loadMem(){const ms=await (await fetch("/api/memory?limit=100")).json();const el=$("#memlist");el.innerHTML="";
- if(!ms.length){el.innerHTML='<span class=muted>(noch keine Erinnerungen)</span>';return;}
+ if(!ms.length){el.innerHTML='<span class=muted>(noch keine Erinnerungen)</span>';}
  ms.forEach(m=>{const d=document.createElement("div");d.className="e";const ts=new Date(m.ts*1000).toLocaleString();
-  const esc=(m.text||"").slice(0,400).replace(/&/g,"&amp;").replace(/</g,"&lt;");
   d.innerHTML='<span class="t">'+m.role+'/'+m.kind+'<br><small class=muted>'+ts+'</small></span>'
-   +'<span class="m">'+esc+'</span><button class="ghost" title="loeschen" style="padding:2px 9px">✕</button>';
-  d.querySelector("button").onclick=async()=>{await fetch("/api/memory/delete",{method:"POST",
-    headers:{"Content-Type":"application/json"},body:JSON.stringify({id:m.id})});loadMem();};
+   +'<span class="m" data-txt></span>'
+   +'<button class="ghost" data-edit title="bearbeiten" style="padding:2px 9px">✎</button>'
+   +'<button class="ghost" data-del title="loeschen" style="padding:2px 9px">✕</button>';
+  d.querySelector('[data-txt]').textContent=(m.text||"").slice(0,600);
+  d.querySelector('[data-del]').onclick=async()=>{await fetch("/api/memory/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:m.id})});loadMem();};
+  d.querySelector('[data-edit]').onclick=()=>{const sp=d.querySelector('[data-txt]');
+   const ta=document.createElement("textarea");ta.className="k";ta.value=m.text||"";ta.style.flex="1";sp.replaceWith(ta);
+   const eb=d.querySelector('[data-edit]');eb.textContent="💾";
+   eb.onclick=async()=>{await fetch("/api/memory/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:m.id,text:ta.value})});loadMem();};};
   el.appendChild(d);});}
+$("#mem-add")&&($("#mem-add").onclick=async()=>{const t=$("#mem-new").value.trim();if(!t)return;
+ await fetch("/api/memory/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:t,kind:"semantic"})});
+ $("#mem-new").value="";$("#mem-hint").textContent="gemerkt ✓";loadMem();});
+
+/* ---- Hintergrund beim Laden + Sidebar Look-Umschalter ---- */
+function applyBg(){document.body.style.backgroundImage="linear-gradient(rgba(10,7,16,.82),rgba(10,7,16,.94)),url('/api/bg?t="+Date.now()+"')";
+ document.body.style.backgroundSize="cover";document.body.style.backgroundPosition="center";document.body.style.backgroundAttachment="fixed";}
+applyBg();
+function bgUpload(f){const rd=new FileReader();rd.onload=async()=>{await fetch("/api/bg/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dataurl:rd.result})});applyBg();};rd.readAsDataURL(f);}
+$("#bgquick")&&($("#bgquick").onchange=e=>{const f=e.target.files[0];if(f)bgUpload(f);});
+$("#bgclear")&&($("#bgclear").onclick=async e=>{e.preventDefault();await fetch("/api/bg/clear",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});document.body.style.backgroundImage="none";});
+
+/* ---- Direktive (Startseite) ---- */
+$("#dir-now")&&($("#dir-now").onclick=async()=>{const p=$("#dir-text").value.trim();if(!p)return;
+ $("#dir-hint").textContent="… Kira arbeitet daran (kann ~1 min dauern) …";
+ const r=await (await fetch("/api/direktive/now",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:p})})).json();
+ $("#dir-hint").textContent="✓ erledigt";const rr=$("#dir-result");rr.style.display="block";rr.textContent=(r.result||"(keine Antwort)");});
+$("#dir-focus")&&($("#dir-focus").onclick=async()=>{const p=$("#dir-text").value.trim();
+ await fetch("/api/direktive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({focus:p})});
+ $("#dir-hint").textContent="🧭 Fokus gesetzt — Kira zieht ihn in den naechsten Schritt.";loadHome();});
+$("#dir-clear")&&($("#dir-clear").onclick=async()=>{await fetch("/api/direktive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({focus:""})});$("#dir-text").value="";$("#dir-hint").textContent="Fokus geloescht.";loadHome();});
 
 refreshStatus();setInterval(()=>{refreshStatus();if(cur==="log"&&logRaw.length<=100)loadEvents();if(cur==="gov")loadGov();},5000);
 </script></body></html>"""
