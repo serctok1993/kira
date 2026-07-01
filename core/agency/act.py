@@ -130,6 +130,32 @@ def _degrade_text(messages: list[dict], err: Exception) -> str:
             "Sag 'weiter', dann nehme ich den Faden wieder auf.")
 
 
+# Manche guenstige Modelle (z.B. DeepSeek V4 Flash) liefern Tool-Calls unzuverlaessig: mal als
+# strukturierte tool_calls, mal als TEXT im XML-/DSML-Format (mit fullwidth-Pipe ｜). Dann saehe der
+# Loop keine tool_calls und wuerde das Markup als "Antwort" ausgeben. Diese Helfer holen die Calls
+# aus dem Text -> billige Modelle bleiben nutzbar, der Loop wird robust gegen den Leak.
+_LEAK_INVOKE_RE = re.compile(r"invoke\s+name=\"([^\"]+)\"[^>]*>(.*?)</[^>]*invoke\s*>", re.DOTALL)
+_LEAK_PARAM_RE = re.compile(r"parameter\s+name=\"([^\"]+)\"[^>]*>(.*?)</[^>]*parameter\s*>", re.DOTALL)
+
+
+def _parse_leaked_tool_calls(text: str) -> list[dict]:
+    """Holt als TEXT geleakte Tool-Calls (DeepSeek-DSML / Claude-XML-Stil) heraus."""
+    if not text or "invoke" not in text:
+        return []
+    out: list[dict] = []
+    for m in _LEAK_INVOKE_RE.finditer(text):
+        args: dict = {}
+        for pm in _LEAK_PARAM_RE.finditer(m.group(2)):
+            raw = pm.group(2).strip()
+            try:
+                val = json.loads(raw)      # Zahlen/Bools/JSON sauber typisieren ...
+            except Exception:  # noqa: BLE001
+                val = raw                  # ... sonst als String (z.B. SQL/Pfad)
+            args[pm.group(1)] = val
+        out.append({"id": None, "name": m.group(1), "args": args})
+    return out
+
+
 def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, emit, max_steps: int = _MAX_STEPS, task_type: str = "reason") -> str:
     """Nativer Function-Calling-Loop fuer Cloud-Modelle: strukturierte tool_calls statt
     ACT-Text — robust, kein Leak. Streamt Schritte ueber emit({'kind':'tool'|'obs'|...})."""
@@ -144,6 +170,14 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
             events.emit("act_degraded", {"step": step, "error": str(e)[:300]}, session_id=session_id)
             return _degrade_text(messages, e)
         calls = res.get("tool_calls") or []
+        recovered = False
+        if not calls:  # kein strukturierter Call -> evtl. als Text geleakt (DeepSeek)? rausparsen
+            leaked = _parse_leaked_tool_calls(res.get("text") or "")
+            if leaked:
+                calls, recovered = leaked, True
+                events.emit("tool_calls_recovered",
+                            {"count": len(leaked), "names": [c["name"] for c in leaked][:8]},
+                            session_id=session_id)
         if not calls:
             text = res["text"].strip()
             # "Promise statt Action": etwas angekuendigt, aber kein Werkzeug genutzt -> einmal anschubsen
@@ -157,7 +191,7 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
         used_tools = True
         messages.append({
             "role": "assistant",
-            "content": res["text"] or None,
+            "content": None if recovered else (res["text"] or None),
             "tool_calls": [
                 {"id": c["id"] or f"call_{step}_{i}", "type": "function",
                  "function": {"name": c["name"], "arguments": json.dumps(c["args"], ensure_ascii=False)}}
