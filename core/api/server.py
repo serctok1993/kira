@@ -639,6 +639,14 @@ DASHBOARD_HTML = """<!doctype html>
 <style>
 :root{--bg:#0a0710;--panel:#150f20;--panel2:#100b18;--line:#2a1f3a;--ink:#f3eef9;
  --muted:#9a8fb0;--accent:#a855f7;--accent2:#7c3aed;--amber:#c4b5fd;--danger:#f0596a;--ok:#5eead4;--warn:#e879f9;}
+html[data-theme="blutmond"]{--bg:#0a0406;--panel:#1a0d10;--panel2:#140a0c;--line:#3a1f26;--accent:#f0596a;--accent2:#b3243a;--amber:#ffb3c1;--ok:#f0a35e;--warn:#ff7ab0;}
+html[data-theme="abyss"]{--bg:#03080a;--panel:#0b1518;--panel2:#081114;--line:#123038;--accent:#22d3ee;--accent2:#0e7490;--amber:#a5f3fc;--ok:#5eead4;--warn:#67a3f9;}
+html[data-theme="asche"]{--bg:#0a0a0c;--panel:#16161a;--panel2:#101014;--line:#2a2a32;--accent:#c8c8d4;--accent2:#8a8a99;--amber:#e6e6ee;--ok:#9adcc4;--warn:#d0a0d8;}
+.look .sw{width:16px;height:16px;border-radius:50%;cursor:pointer;border:2px solid transparent;box-shadow:0 0 6px rgba(0,0,0,.6)}
+.look .sw.on{border-color:#fff}
+.heart{filter:drop-shadow(0 0 6px var(--accent));animation:beat 1.7s ease-in-out infinite}
+@keyframes beat{0%,100%{transform:scale(1)}12%{transform:scale(1.25)}24%{transform:scale(1)}36%{transform:scale(1.18)}}
+.pulse{color:var(--accent);text-shadow:0 0 12px rgba(168,85,247,.55);font-weight:600;letter-spacing:.3px}
 *{box-sizing:border-box}
 body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Code",Consolas,monospace;
  background:#000;color:var(--ink)}
@@ -731,36 +739,42 @@ textarea.k:focus{border-color:var(--accent2)}
 </style></head><body>
 <div id="side">
   <h1>KIRA</h1><div class="sub" id="who">cockpit</div>
-  <a data-v="home" class="on">› Uebersicht</a>
-  <a data-v="chat">› Chat</a>
-  <a data-v="files">› Seele &amp; Dateien</a>
-  <a data-v="models">⚙ Einstellungen</a>
-  <a data-v="gov">› Gewissen</a>
-  <a data-v="mission">› Mission</a>
-  <a data-v="monitor">› Monitor</a>
-  <a data-v="cron">› Cron</a>
-  <a data-v="keys">› Zugaenge</a>
-  <a data-v="mem">› Gedaechtnis</a>
-  <a data-v="log">› Protokoll</a>
+  <a data-v="home" class="on" title="Steuern, Live-Puls, Kernzustand">› Uebersicht</a>
+  <a data-v="chat" title="Mit mir reden">› Chat</a>
+  <a data-v="files" title="Wer ich bin: Verfassung, Seele, Ziel, dein Profil">› Seele &amp; Dateien</a>
+  <a data-v="gov" title="Meine Leitplanken: Budget, Vertrauen, Audit">› Gewissen</a>
+  <a data-v="mission" title="Mein Dauerauftrag: 24/7-Ziel + Aufgaben">› Mission</a>
+  <a data-v="monitor" title="Was ich draussen beobachte">› Monitor</a>
+  <a data-v="cron" title="Feste Termine (wiederkehrende Aufgaben)">› Cron</a>
+  <a data-v="keys" title="Schluessel &amp; Passwoerter">› Zugaenge</a>
+  <a data-v="mem" title="Was ich mir merke">› Gedaechtnis</a>
+  <a data-v="models" title="Mein Gehirn &amp; System: Modell, Parameter, Verhalten">⚙ Einstellungen</a>
+  <a data-v="log" title="Alles was ich tue (Live-Log)">› Protokoll</a>
   <div class="spacer"></div>
   <div class="look">
-    <label title="Kira-Bild als Hintergrund waehlen">🎨 Look<input id="bgquick" type="file" accept="image/*" style="display:none"/></label>
-    <a href="#" id="bgclear" title="Hintergrund entfernen">kein Bild</a>
+    <span title="Kira (Standard)" class="sw on" data-theme="" style="background:#a855f7"></span>
+    <span title="Blutmond" class="sw" data-theme="blutmond" style="background:#f0596a"></span>
+    <span title="Abyss" class="sw" data-theme="abyss" style="background:#22d3ee"></span>
+    <span title="Asche" class="sw" data-theme="asche" style="background:#c8c8d4"></span>
+    <label title="Hintergrundbild waehlen" style="margin-left:4px;cursor:pointer">🎨<input id="bgquick" type="file" accept="image/*" style="display:none"/></label>
+    <a href="#" id="bgclear" title="Hintergrund entfernen">✕</a>
   </div>
   <div class="kill" id="kill">Not-Aus: aus</div>
 </div>
 <div id="main">
   <div id="bar">
-    <span class="dot"></span><span>ONLINE</span>
-    <span>Modell: <b id="b-model">…</b></span>
-    <span>Heute: <b id="b-spend">…</b></span>
+    <span class="heart">🖤</span>
+    <span id="pulse" class="pulse">…</span>
+    <span style="flex:1"></span>
+    <span class="muted"><b id="b-model">…</b></span>
+    <span class="muted">heute <b id="b-spend">…</b></span>
     <span id="b-kill"></span>
   </div>
 
   <div class="view on" id="v-home">
     <div class="direktive">
-      <h3>🎯 Direktive an Kira</h3>
-      <textarea id="dir-text" class="k" placeholder="Sag Kira, worauf sie sich konzentrieren soll — oder gib ihr einen Sofort-Auftrag…"></textarea>
+      <h3>🎯 Sag mir, was ich tun soll</h3>
+      <textarea id="dir-text" class="k" placeholder="Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…"></textarea>
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
         <button id="dir-now">⚡ Sofort ausfuehren</button>
         <button class="ghost" id="dir-focus">🧭 Als Fokus setzen</button>
@@ -781,7 +795,7 @@ textarea.k:focus{border-color:var(--accent2)}
     </div>
     <div id="log"></div>
     <form id="cform">
-      <input id="cin" placeholder="Schreib Kira…" autocomplete="off" autofocus/>
+      <input id="cin" placeholder="Schreib mir…" autocomplete="off" autofocus/>
       <button type="button" id="micbtn" class="ghost" title="Sprachmemo aufnehmen">🎤</button>
       <label id="imgbtn" class="ghost" title="Bild an Kira" style="display:flex;align-items:center;padding:0 14px;border-radius:10px;cursor:pointer">📎<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
       <button>Senden</button>
@@ -843,15 +857,13 @@ textarea.k:focus{border-color:var(--accent2)}
         <span class="pill" data-or="google/gemini-2.5-pro">Gemini 2.5 Pro</span>
         <span class="pill" data-or="deepseek/deepseek-chat">DeepSeek</span></div>
       <div class="muted" style="margin-top:6px">Modell-ID eintippen (oder Pill klicken) → „Aktivieren" macht es zu Kiras Hirn. Volle Liste: openrouter.ai/models</div></div>
-    <div class="card"><h3>Hintergrundbild</h3>
-      <div class="muted">Lade dein Kira-Bild als Cockpit-Hintergrund hoch (ein dunkler Verlauf bleibt drueber, damit die Schrift lesbar bleibt).</div>
-      <div class="row"><label class="ghost" style="display:inline-flex;align-items:center;padding:9px 14px;border-radius:8px;cursor:pointer">Bild waehlen…<input id="bgfile" type="file" accept="image/*" style="display:none"/></label></div></div>
-    <div class="card"><h3>API-Schluessel (in .env)</h3><div id="m-keys"></div></div>
+    <div class="card"><h3>Hintergrund &amp; Farbthema</h3>
+      <div class="muted">Beides schaltest du links unten in der Leiste um (🎨): 4 Farbthemen (Kira = Standard) und dein eigenes Hintergrundbild. Schluessel/Passwoerter liegen unter <b>Zugaenge</b>.</div></div>
   </div>
 
   <div class="view" id="v-gov">
     <div class="card"><h3>Was ist das „Gewissen"?</h3>
-      <div class="muted">Kiras <b>Leitplanken</b> — womit du steuerst, wie weit sie gehen darf:
+      <div class="muted">Meine <b>Leitplanken</b> — womit du steuerst, wie weit ich gehen darf:
       <b class="ok">Budget</b> = wie viel Geld sie pro Tag/Monat ausgeben darf (danach faellt sie automatisch auf lokal/0&nbsp;€).
       <b class="ok">Vertrauen</b> = wie autonom sie handeln darf. <b class="ok">Audit</b> = Protokoll ihrer Aussen-Aktionen.</div></div>
     <div class="card"><h3>Budget (Treasury)</h3><div id="g-budget" class="muted">…</div>
@@ -884,7 +896,7 @@ textarea.k:focus{border-color:var(--accent2)}
       </div>
     </div>
     <div class="card"><h3>Ziel &amp; Takt</h3>
-      <div class="muted">Kiras langfristiger Auftrag fuer den 24/7-Loop. Fuer schnelle Lenkung nutze die <b>Direktive</b> auf der Startseite.</div>
+      <div class="muted">Mein langfristiger Auftrag fuer den 24/7-Loop. Fuer schnelle Lenkung nutze die <b>Direktive</b> auf der Startseite.</div>
       <textarea id="ms-goal" class="k" style="margin-top:8px;min-height:90px" placeholder="Missions-Ziel…"></textarea>
       <div class="row" style="margin-top:8px">
         <input id="ms-interval" type="number" placeholder="Takt (Minuten)" style="max-width:160px"/>
@@ -905,7 +917,7 @@ textarea.k:focus{border-color:var(--accent2)}
 
   <div class="view" id="v-cron">
     <div class="card"><h3>Geplante Aufgaben (Cron)</h3>
-      <div class="muted">Wiederkehrende Aufgaben fuer Kira. Zeitplan: <b>30m</b>/<b>2h</b> (Intervall) oder <b>08:00</b> (taeglich) · zum Aendern auf <b>bearbeiten</b> beim Job klicken. Laufen, sobald der Runner aktiv ist.</div>
+      <div class="muted">Meine wiederkehrenden Aufgaben. Zeitplan: <b>30m</b>/<b>2h</b> (Intervall) oder <b>08:00</b> (taeglich) · zum Aendern auf <b>bearbeiten</b> beim Job klicken. Laufen, sobald der Runner aktiv ist.</div>
       <div class="row" style="margin-top:8px">
         <input id="cr-label" placeholder="Name" style="max-width:150px"/>
         <input id="cr-prompt" placeholder="Was Kira jeweils tun soll" style="min-width:260px"/>
@@ -919,7 +931,7 @@ textarea.k:focus{border-color:var(--accent2)}
 
   <div class="view" id="v-monitor">
     <div class="card"><h3>Web-/News-Monitor (rein lesend)</h3>
-      <div class="muted">Kira ueberwacht Feeds &amp; Themen, fasst Neues zusammen und meldet per Telegram. Nur Lesen — sicher.</div>
+      <div class="muted">Ich ueberwache Feeds &amp; Themen, fasse Neues zusammen und melde dir's per Telegram. Nur Lesen — sicher.</div>
       <div class="row" style="margin-top:8px">
         <select id="mo-kind"><option value="feed">RSS-Feed</option><option value="search">Web-Thema</option></select>
         <input id="mo-value" placeholder="RSS-URL  oder  Suchbegriff" style="min-width:240px"/>
@@ -946,7 +958,7 @@ textarea.k:focus{border-color:var(--accent2)}
 
   <div class="view" id="v-mem">
     <div class="card"><h3>Erinnerung hinzufuegen</h3>
-      <div class="muted">Gib Kira gezielt Wissen mit (semantisch = dauerhaftes Faktenwissen).</div>
+      <div class="muted">Gib mir gezielt Wissen mit (semantisch = dauerhaftes Faktenwissen).</div>
       <textarea id="mem-new" class="k" style="margin-top:8px" placeholder="z.B. Sergen bevorzugt kurze, direkte Antworten."></textarea>
       <div class="row" style="margin-top:8px"><button id="mem-add">+ Merken</button><span class="muted" id="mem-hint" style="align-self:center"></span></div>
     </div>
@@ -1177,8 +1189,8 @@ async function loadModels(){const s=await (await fetch("/api/status")).json();
   p.onclick=()=>useModel(id);ol.appendChild(p);});
  if(!$("#m-ollama").children.length)ol.innerHTML='<span class=muted>(keine nutzbaren lokalen Modelle)</span>';
  $("#m-orkey").textContent=s.api_keys.openrouter?"OPENROUTER_API_KEY gesetzt ✓":"OPENROUTER_API_KEY fehlt — in .env eintragen (openrouter.ai/keys)";
- const ks=$("#m-keys");ks.innerHTML="";Object.entries(s.api_keys).forEach(([k,v])=>{const p=document.createElement("span");
-  p.className="pill "+(v?"ok":"no");p.textContent=k+(v?" ✓":" ✗");ks.appendChild(p);});}
+ const ks=$("#m-keys");if(ks){ks.innerHTML="";Object.entries(s.api_keys).forEach(([k,v])=>{const p=document.createElement("span");
+  p.className="pill "+(v?"ok":"no");p.textContent=k+(v?" ✓":" ✗");ks.appendChild(p);});}}
 async function useModel(id){await fetch("/api/model/use",{method:"POST",headers:{"Content-Type":"application/json"},
   body:JSON.stringify({id})});loadModels();refreshStatus();}
 $("#m-orgo").onclick=async()=>{const m=$("#m-or").value.trim();if(!m)return;
@@ -1280,6 +1292,33 @@ function bgUpload(f){const rd=new FileReader();rd.onload=async()=>{await fetch("
 $("#bgquick")&&($("#bgquick").onchange=e=>{const f=e.target.files[0];if(f)bgUpload(f);});
 $("#bgclear")&&($("#bgclear").onclick=async e=>{e.preventDefault();await fetch("/api/bg/clear",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});document.body.style.backgroundImage="none";});
 
+/* ---- Farb-Themes (Kira = Standard) ---- */
+function setTheme(t){if(t)document.documentElement.setAttribute("data-theme",t);else document.documentElement.removeAttribute("data-theme");
+ try{localStorage.setItem("kira-theme",t||"");}catch(e){}
+ $$(".look .sw").forEach(s=>s.classList.toggle("on",(s.dataset.theme||"")===(t||"")));}
+$$(".look .sw").forEach(s=>s.onclick=()=>setTheme(s.dataset.theme||""));
+try{setTheme(localStorage.getItem("kira-theme")||"");}catch(e){}
+
+/* ---- Live-Puls: was ich gerade tue (Einblick in mein Herz) ---- */
+const PULSE={read_file:"📖 Ich lese eine Datei",write_file:"✍️ Ich schreibe Code",edit_file:"✍️ Ich baue an Code",run_command:"⚙️ Ich fuehre etwas aus",run_shell:"⚙️ Ich fuehre etwas aus",web_fetch:"🌐 Ich lese eine Seite",web_search:"🔍 Ich recherchiere",browse:"🧭 Ich schaue mir eine Seite an",screenshot_url:"📸 Ich mache ein Bild",read_logs:"🩺 Ich pruefe mein Log",health:"🩺 Ich checke meinen Zustand",learn_skill:"🧠 Ich lerne etwas Neues",curate_skills:"🧠 Ich ordne meine Faehigkeiten",restart_self:"🔄 Ich starte mich neu",jetzt:"🕒 Ich schaue auf die Uhr"};
+function pulsePhrase(e){const p=e.payload||{},t=e.type,tool=p.tool||"";
+ if(t==="tool_call"||t==="act_step"){const a=p.args||{};let x=a.path||a.file||a.url||a.command||a.query||"";x=(""+x).replace(/^https?:\/\//,"").slice(0,46);
+  return (PULSE[tool]||("⚡ "+(tool||"Ich arbeite")))+(x?(" — "+x):"");}
+ if(t==="partner_message")return "💬 Ich hab dir gerade geantwortet";
+ if(t==="user_message"||t==="telegram_in")return "👂 Ich hoere dir zu";
+ if(t==="mission_task_start")return "🎯 Ich arbeite an: "+(""+(p.desc||"")).slice(0,56);
+ if(t==="mission_task_done")return "✅ Schritt fertig: "+(""+(p.summary||"")).slice(0,52);
+ if(t==="plan_made"||t==="plan_start"||t==="plan_step")return "🗺️ Ich mache mir einen Plan";
+ if(t==="reflection")return "🪞 Ich denke ueber mich nach";
+ if(t==="service_crash")return "⚠️ Ein Dienst kam gerade zurueck";
+ if(t==="focus_set")return "🧭 Du hast mir eine Richtung gegeben";
+ return "💜 Ich bin da";}
+async function updatePulse(){try{const es=await (await fetch("/api/events?limit=6")).json();const el=$("#pulse");if(!el)return;
+  if(!es.length){el.textContent="😴 Ich warte auf dich…";return;}
+  const fresh=(Date.now()/1000 - es[0].ts) < 50;
+  el.textContent=fresh?pulsePhrase(es[0]):"💜 Bereit, wenn du mich brauchst.";}catch(e){}}
+updatePulse();setInterval(updatePulse,3500);
+
 /* ---- Direktive (Startseite) ---- */
 $("#dir-now")&&($("#dir-now").onclick=async()=>{const p=$("#dir-text").value.trim();if(!p)return;
  $("#dir-hint").textContent="… Kira arbeitet daran (kann ~1 min dauern) …";
@@ -1287,7 +1326,7 @@ $("#dir-now")&&($("#dir-now").onclick=async()=>{const p=$("#dir-text").value.tri
  $("#dir-hint").textContent="✓ erledigt";const rr=$("#dir-result");rr.style.display="block";rr.textContent=(r.result||"(keine Antwort)");});
 $("#dir-focus")&&($("#dir-focus").onclick=async()=>{const p=$("#dir-text").value.trim();
  await fetch("/api/direktive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({focus:p})});
- $("#dir-hint").textContent="🧭 Fokus gesetzt — Kira zieht ihn in den naechsten Schritt.";loadHome();});
+ $("#dir-hint").textContent="🧭 Fokus gesetzt — ich ziehe ihn in meinen naechsten Schritt.";loadHome();});
 $("#dir-clear")&&($("#dir-clear").onclick=async()=>{await fetch("/api/direktive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({focus:""})});$("#dir-text").value="";$("#dir-hint").textContent="Fokus geloescht.";loadHome();});
 
 refreshStatus();setInterval(()=>{refreshStatus();if(cur==="log"&&logRaw.length<=100)loadEvents();if(cur==="gov")loadGov();},5000);
