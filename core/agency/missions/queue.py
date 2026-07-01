@@ -36,25 +36,111 @@ def init_queue() -> None:
             """
         )
         # Nachtraegliche Ergaenzung fuer bereits existierende DBs (Spalten fehlen ggf. noch).
-        try:
-            c.execute("ALTER TABLE tasks ADD COLUMN retry_count INTEGER DEFAULT 0")
-        except sqlite3.OperationalError:
-            pass
-        try:
-            c.execute("ALTER TABLE tasks ADD COLUMN updated_ts REAL")
-        except sqlite3.OperationalError:
-            pass
+        for ddl in (
+            "ALTER TABLE tasks ADD COLUMN retry_count INTEGER DEFAULT 0",
+            "ALTER TABLE tasks ADD COLUMN updated_ts REAL",
+            "ALTER TABLE tasks ADD COLUMN objective_id TEXT",     # Verknuepfung zum Ziel/Projekt
+            "ALTER TABLE tasks ADD COLUMN due_date TEXT",         # ISO 'YYYY-MM-DD' oder NULL
+            "ALTER TABLE tasks ADD COLUMN deferred_until TEXT",   # aufgeschoben bis ISO-Datum
+            "ALTER TABLE tasks ADD COLUMN kind TEXT DEFAULT 'research'",  # research | produce | publish
+            "ALTER TABLE tasks ADD COLUMN artifact_path TEXT",    # erzeugtes Artefakt (P2)
+        ):
+            try:
+                c.execute(ddl)
+            except sqlite3.OperationalError:
+                pass
         c.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(mission, status, priority, ts)")
 
 
-def add(description: str, mission: str = "default", priority: int = 5) -> str:
+def add(description: str, mission: str = "default", priority: int = 5,
+        objective_id: str | None = None, due_date: str | None = None,
+        kind: str = "research") -> str:
     tid = uuid.uuid4().hex
     with _conn() as c:
         c.execute(
-            "INSERT INTO tasks (id, ts, mission, description, status, priority) VALUES (?,?,?,?, 'pending', ?)",
-            (tid, time.time(), mission, description, priority),
+            "INSERT INTO tasks (id, ts, mission, description, status, priority, objective_id, due_date, kind) "
+            "VALUES (?,?,?,?, 'pending', ?, ?, ?, ?)",
+            (tid, time.time(), mission, description, priority, objective_id, due_date, kind),
         )
     return tid
+
+
+_TASK_COLS = ["id", "ts", "mission", "description", "status", "priority", "result",
+              "objective_id", "due_date", "deferred_until", "kind", "artifact_path", "updated_ts"]
+
+
+def all_tasks(mission: str | None = None, limit: int = 200) -> list[dict]:
+    """Alle Aufgaben (fuer Board/Backlog), sinnvoll sortiert."""
+    order = ("CASE status WHEN 'running' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END, "
+             "priority ASC, ts ASC")
+    sel = ", ".join(_TASK_COLS)
+    with _conn() as c:
+        if mission:
+            rows = c.execute(f"SELECT {sel} FROM tasks WHERE mission=? ORDER BY {order} LIMIT ?",
+                             (mission, limit)).fetchall()
+        else:
+            rows = c.execute(f"SELECT {sel} FROM tasks ORDER BY {order} LIMIT ?", (limit,)).fetchall()
+    return [dict(zip(_TASK_COLS, r)) for r in rows]
+
+
+def update_task(task_id: str, **fields) -> bool:
+    allowed = {"description", "priority", "status", "objective_id", "due_date",
+               "deferred_until", "kind", "result"}
+    sets, params = [], []
+    for k, v in fields.items():
+        if k in allowed:
+            sets.append(f"{k}=?")
+            params.append(v)
+    if not sets:
+        return False
+    sets.append("updated_ts=?")
+    params.append(time.time())
+    params.append(task_id)
+    with _conn() as c:
+        cur = c.execute(f"UPDATE tasks SET {', '.join(sets)} WHERE id=?", params)
+    return cur.rowcount > 0
+
+
+def defer(task_id: str, until_date: str) -> bool:
+    """Aufgabe aufschieben bis ISO-Datum 'YYYY-MM-DD'."""
+    return update_task(task_id, deferred_until=until_date)
+
+
+def board(mission: str | None = None, limit: int = 200) -> dict:
+    """Aufgaben fuer das Cockpit-Board gruppieren:
+    laeuft / heute (faellig+ueberfaellig) / woche / spaeter / aufgeschoben / erledigt."""
+    import datetime as _dt
+
+    today = _dt.date.today()
+
+    def _iso(s):
+        try:
+            return _dt.date.fromisoformat(str(s)[:10])
+        except Exception:
+            return None
+
+    def _bucket(t: dict) -> str:
+        if t["status"] == "running":
+            return "running"
+        if t["status"] in ("done", "failed"):
+            return "done"
+        dfr = _iso(t.get("deferred_until"))
+        if dfr and dfr > today:
+            return "deferred"
+        due = _iso(t.get("due_date"))
+        if due:
+            if due <= today:
+                return "today"
+            if (due - today).days <= 7:
+                return "week"
+            return "later"
+        return "later"
+
+    groups: dict[str, list] = {"running": [], "today": [], "week": [], "later": [], "deferred": [], "done": []}
+    for t in all_tasks(mission, limit=limit):
+        groups[_bucket(t)].append(t)
+    groups["done"] = groups["done"][:8]
+    return groups
 
 
 def pending(mission: str | None = None, limit: int = 20) -> list[dict]:

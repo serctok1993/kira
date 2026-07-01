@@ -27,6 +27,12 @@ from core.mind.memory import store as memory
 app = FastAPI(title="Kira Cockpit")
 events.init_db()
 memory.init_memory()
+try:  # Workspace-Tabellen (Ziele + Task-Felder) sicherstellen
+    from core.agency.missions import objectives as _objectives, queue as _queue0
+    _objectives.init_objectives()
+    _queue0.init_queue()
+except Exception:  # noqa: BLE001
+    pass
 _synth.load_synthesized()  # selbstgebaute Werkzeuge fuer die Uebersicht verfuegbar machen
 
 # Im Dashboard sichtbare/bearbeitbare Dateien. Alles editierbar — DU bist der Eigentuemer.
@@ -503,7 +509,11 @@ async def api_queue_add(body: dict) -> dict:
     if not desc:
         return {"ok": False, "error": "leer"}
     mqueue.init_queue()
-    tid = mqueue.add(desc, mission=CONFIG.get("mission", {}).get("name", "default"), priority=int(body.get("priority", 1)))
+    tid = mqueue.add(desc, mission=CONFIG.get("mission", {}).get("name", "default"),
+                     priority=int(body.get("priority", 3)),
+                     objective_id=body.get("objective_id") or None,
+                     due_date=(body.get("due_date") or None),
+                     kind=body.get("kind", "research"))
     return {"ok": True, "id": tid}
 
 
@@ -520,6 +530,101 @@ async def api_queue_clear(body: dict) -> dict:
 
     mqueue.init_queue()
     return {"ok": True, "cleared": mqueue.clear(CONFIG.get("mission", {}).get("name", "default"))}
+
+
+# ---------- Workspace: Ziele/Projekte + To-Do-Board (Phase 1) ----------
+def _mission_name() -> str:
+    return CONFIG.get("mission", {}).get("name", "default")
+
+
+@app.get("/api/mission/board")
+def api_mission_board() -> dict:
+    from core.agency.missions import objectives, queue as mqueue
+
+    objectives.init_objectives()
+    mqueue.init_queue()
+    return {"objectives": objectives.list_all(), "board": mqueue.board(_mission_name())}
+
+
+@app.post("/api/mission/task/update")
+async def api_task_update(body: dict) -> dict:
+    from core.agency.missions import queue as mqueue
+
+    tid = body.get("id", "")
+    fields = {k: body[k] for k in ("priority", "status", "objective_id", "due_date",
+                                   "deferred_until", "kind", "description") if k in body}
+    if "priority" in fields:
+        try:
+            fields["priority"] = int(fields["priority"])
+        except Exception:  # noqa: BLE001
+            fields.pop("priority")
+    return {"ok": mqueue.update_task(tid, **fields)}
+
+
+@app.get("/api/objectives")
+def api_objectives() -> list[dict]:
+    from core.agency.missions import objectives
+
+    objectives.init_objectives()
+    return objectives.list_all()
+
+
+@app.post("/api/objectives")
+async def api_objectives_add(body: dict) -> dict:
+    from core.agency.missions import objectives
+
+    title = (body.get("title") or "").strip()
+    if not title:
+        return {"ok": False, "error": "leer"}
+    objectives.init_objectives()
+    oid = objectives.add(title, kind=body.get("kind", "weekly"),
+                         parent_id=body.get("parent_id") or None,
+                         target_date=body.get("target_date") or None,
+                         notes=body.get("notes") or None)
+    events.emit("objective_add", {"id": oid, "title": title, "kind": body.get("kind", "weekly"), "via": "dashboard"})
+    return {"ok": True, "id": oid}
+
+
+@app.post("/api/objectives/update")
+async def api_objectives_update(body: dict) -> dict:
+    from core.agency.missions import objectives
+
+    oid = body.get("id", "")
+    fields = {k: body[k] for k in ("title", "kind", "status", "progress", "target_date", "notes", "parent_id") if k in body}
+    if "progress" in fields and fields["progress"] is not None:
+        try:
+            fields["progress"] = max(0, min(100, int(fields["progress"])))
+        except Exception:  # noqa: BLE001
+            fields.pop("progress")
+    return {"ok": objectives.update(oid, **fields)}
+
+
+@app.post("/api/objectives/delete")
+async def api_objectives_delete(body: dict) -> dict:
+    from core.agency.missions import objectives
+
+    return {"ok": objectives.delete(body.get("id", ""))}
+
+
+@app.post("/api/objectives/plan")
+async def api_objectives_plan(body: dict) -> dict:
+    """Ein Ziel per Planner in konkrete To-Dos zerlegen (LLM) und der Queue hinzufuegen."""
+    from core.agency.missions import objectives, planner, queue as mqueue
+
+    oid = body.get("id", "")
+    objectives.init_objectives()
+    mqueue.init_queue()
+    obj = next((o for o in objectives.list_all() if o["id"] == oid), None)
+    if not obj:
+        return {"ok": False, "error": "Ziel nicht gefunden"}
+    goal = obj["title"] + (("\n" + obj["notes"]) if obj.get("notes") else "")
+    existing = [t["description"] for t in mqueue.all_tasks(_mission_name()) if t.get("objective_id") == oid]
+    context = "Bereits geplant:\n" + "\n".join(existing) if existing else "(noch nichts geplant)"
+    tasks = await anyio.to_thread.run_sync(lambda: planner.generate_tasks(goal, context, n=int(body.get("n", 3))))
+    for t in tasks:
+        mqueue.add(t, mission=_mission_name(), priority=int(body.get("priority", 3)), objective_id=oid)
+    events.emit("objective_planned", {"id": oid, "tasks": tasks})
+    return {"ok": True, "tasks": tasks}
 
 
 @app.post("/api/memory/update")
@@ -913,6 +1018,7 @@ button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(139,92,2
 <div id="side">
   <h1>KIRA</h1><div class="sub" id="who">cockpit</div>
   <a data-v="home" class="on" title="Steuern, Live-Puls, Kernzustand">› Uebersicht</a>
+  <a data-v="mission" title="Ziele, Projekte, To-Dos — dein Fahrplan">◈ Mission</a>
   <a data-v="chat" title="Mit mir reden">› Chat</a>
   <a data-v="files" title="Wer ich bin: Verfassung, Seele, Ziel, dein Profil">› Seele &amp; Dateien</a>
   <a data-v="gov" title="Meine Leitplanken: Budget, Vertrauen, Audit">› Gewissen</a>
@@ -971,6 +1077,40 @@ button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(139,92,2
           <div id="news-list" class="panel-b"><span class="muted">…</span></div>
         </div>
         <div class="home-side" id="home"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="view" id="v-mission">
+    <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;max-width:1520px">
+      <div class="cmd-main">
+        <div class="panel">
+          <div class="panel-h">◈ Ziele / Projekte <span class="sp"></span><a id="obj-new-btn" class="muted" style="cursor:pointer;font-size:10px">+ Ziel</a></div>
+          <div class="panel-b" id="obj-form" style="display:none">
+            <div class="row" style="flex-wrap:wrap">
+              <input id="obj-title" placeholder="Ziel/Projekt-Titel" style="flex:1;min-width:180px"/>
+              <select id="obj-kind"><option value="big">Big Project</option><option value="monthly">Monatsziel</option><option value="weekly" selected>Wochenziel</option></select>
+              <input id="obj-date" type="date" title="Zieldatum"/>
+              <button id="obj-add">Anlegen</button>
+            </div>
+          </div>
+          <div id="obj-list" class="panel-b"><span class="muted">…</span></div>
+        </div>
+      </div>
+      <div class="cmd-side" style="flex:1 1 440px">
+        <div class="panel">
+          <div class="panel-h">◈ To-Do / Backlog <span class="sp"></span><a id="todo-new-btn" class="muted" style="cursor:pointer;font-size:10px">+ To-Do</a></div>
+          <div class="panel-b" id="todo-form" style="display:none">
+            <div class="row" style="flex-wrap:wrap">
+              <input id="todo-desc" placeholder="Was zu tun ist" style="flex:1;min-width:170px"/>
+              <select id="todo-prio"><option value="1">P1</option><option value="2">P2</option><option value="3" selected>P3</option><option value="4">P4</option></select>
+              <input id="todo-due" type="date" title="faellig"/>
+              <button id="todo-add">+</button>
+            </div>
+            <div class="muted" style="margin-top:5px;font-size:11px">Ziel zuordnen (optional): <select id="todo-obj"><option value="">— keins —</option></select></div>
+          </div>
+          <div id="todo-board" class="panel-b"><span class="muted">…</span></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1166,7 +1306,7 @@ let cur="home";
 $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
 function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");
- if(v==="home")loadCommand(); if(v==="chat"){loadChatModels();loadChatSessions();} if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="monitor")loadMonitor(); if(v==="cron")loadCron(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
+ if(v==="home")loadCommand(); if(v==="mission")loadMission(); if(v==="chat"){loadChatModels();loadChatSessions();} if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="monitor")loadMonitor(); if(v==="cron")loadCron(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
 
 /* ---- Modell-Umschalter in der Chat-Pane ---- */
 async function loadChatModels(){const s=await (await fetch("/api/status")).json();
@@ -1289,6 +1429,65 @@ function bindNewsSeed(){const s=$("#news-seed");if(!s)return;s.onclick=async()=>
   s.textContent="✓ hinzugefuegt";loadNews();};}
 function bindOpsFilter(){$$("#ops-filter a").forEach(a=>a.onclick=()=>{opsFilter=a.dataset.of;$$("#ops-filter a").forEach(x=>x.classList.toggle("on",x===a));loadOps();});}
 function loadCommand(){loadHud();loadOps();loadNews();loadHome();bindNewsSeed();bindOpsFilter();}
+
+/* ---- Mission-Workspace (Ziele + To-Do-Board) ---- */
+const KIND_LABEL={big:"BIG",monthly:"MONAT",weekly:"WOCHE"};
+let missionObjs=[];
+async function loadMission(){
+ const d=await (await fetch("/api/mission/board")).json();
+ missionObjs=d.objectives||[];
+ const ol=$("#obj-list");
+ if(!missionObjs.length){ol.innerHTML='<span class="muted">Noch keine Ziele. Oben „+ Ziel" klicken.</span>';}
+ else ol.innerHTML=missionObjs.map(o=>{
+   const due=o.target_date?('⏰ '+o.target_date):'';
+   return '<div class="memrow"><div class="mh"><span class="badge kind">'+(KIND_LABEL[o.kind]||o.kind)+'</span>'
+    +'<b style="color:var(--ink)">'+(o.title||"").replace(/</g,"&lt;")+'</b>'
+    +'<span style="flex:1"></span><span class="muted">'+o.progress+'% · '+o.tasks_done+'/'+o.tasks_total+' '+due+'</span> '
+    +'<a data-plan="'+o.id+'" title="in To-Dos zerlegen" style="cursor:pointer;color:var(--hud)">⚙ zerlegen</a> '
+    +'<a data-odel="'+o.id+'" title="loeschen" style="cursor:pointer;color:var(--muted)">✕</a></div>'
+    +'<div class="mini-bar" style="min-width:140px"><i style="width:'+(o.progress||0)+'%"></i></div>'
+    +'<div class="row" style="margin-top:6px;align-items:center"><input type="range" min="0" max="100" value="'+(o.progress||0)+'" data-oprog="'+o.id+'" style="flex:1"><span class="muted" style="font-size:11px;margin-left:8px">Fortschritt</span></div></div>';
+ }).join("");
+ const sel=$("#todo-obj");if(sel)sel.innerHTML='<option value="">— keins —</option>'+missionObjs.map(o=>'<option value="'+o.id+'">'+(o.title||"").replace(/</g,"&lt;").slice(0,40)+'</option>').join("");
+ renderBoard(d.board||{});
+ bindMissionForms();
+ $$('#obj-list [data-plan]').forEach(a=>a.onclick=async()=>{a.textContent="⚙ zerlege…";await fetch("/api/objectives/plan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.plan})});loadMission();});
+ $$('#obj-list [data-odel]').forEach(a=>a.onclick=async()=>{if(!confirm("Ziel loeschen? (To-Dos bleiben, werden entkoppelt)"))return;await fetch("/api/objectives/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.odel})});loadMission();});
+ $$('#obj-list [data-oprog]').forEach(r=>r.onchange=async()=>{await fetch("/api/objectives/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:r.dataset.oprog,progress:r.value})});loadMission();});
+}
+const BOARD_GROUPS=[["running","▶ laeuft"],["today","⏰ heute / ueberfaellig"],["week","diese Woche"],["later","spaeter"],["deferred","aufgeschoben"],["done","erledigt"]];
+function taskRow(t){
+ const objT=(missionObjs.find(o=>o.id===t.objective_id)||{}).title;
+ const due=t.due_date?('⏰'+t.due_date):'';
+ const p='P'+(t.priority||3);
+ let act="";
+ if(t.status==="pending")act='<a data-done="'+t.id+'" title="erledigt" style="cursor:pointer;color:var(--ok)">✓</a> '
+   +'<a data-defer="'+t.id+'" title="+7 Tage aufschieben" style="cursor:pointer;color:var(--muted)">⏭</a> '
+   +'<a data-tdel="'+t.id+'" title="loeschen" style="cursor:pointer;color:var(--muted)">✕</a>';
+ return '<div class="op" style="border-radius:8px;margin-bottom:3px"><span class="od"></span>'
+  +'<span class="opx"><b>'+p+'</b> '+(t.description||"").replace(/</g,"&lt;").slice(0,150)
+  +' <span class="muted">'+due+(objT?(' · '+objT.replace(/</g,"&lt;").slice(0,24)):"")+'</span></span>'+act+'</div>';
+}
+function renderBoard(b){
+ const el=$("#todo-board");let h="";
+ BOARD_GROUPS.forEach(([k,label])=>{const arr=b[k]||[];if(!arr.length)return;
+  h+='<div style="margin:9px 0 4px;font-size:11px;letter-spacing:1px;color:var(--hud);text-transform:uppercase">'+label+' ('+arr.length+')</div>'+arr.map(taskRow).join("");});
+ el.innerHTML=h||'<span class="muted">Keine Aufgaben. „+ To-Do" — oder ein Ziel „zerlegen".</span>';
+ $$('#todo-board [data-done]').forEach(a=>a.onclick=async()=>{await fetch("/api/mission/task/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.done,status:"done"})});loadMission();});
+ $$('#todo-board [data-defer]').forEach(a=>a.onclick=async()=>{const d=new Date();d.setDate(d.getDate()+7);await fetch("/api/mission/task/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.defer,deferred_until:d.toISOString().slice(0,10)})});loadMission();});
+ $$('#todo-board [data-tdel]').forEach(a=>a.onclick=async()=>{await fetch("/api/mission/queue/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.tdel})});loadMission();});
+}
+let missionFormsBound=false;
+function bindMissionForms(){if(missionFormsBound)return;missionFormsBound=true;
+ $("#obj-new-btn")&&($("#obj-new-btn").onclick=()=>{const f=$("#obj-form");f.style.display=(f.style.display==="none")?"block":"none";});
+ $("#todo-new-btn")&&($("#todo-new-btn").onclick=()=>{const f=$("#todo-form");f.style.display=(f.style.display==="none")?"block":"none";});
+ $("#obj-add")&&($("#obj-add").onclick=async()=>{const t=$("#obj-title").value.trim();if(!t)return;
+   await fetch("/api/objectives",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:t,kind:$("#obj-kind").value,target_date:$("#obj-date").value||null})});
+   $("#obj-title").value="";loadMission();});
+ $("#todo-add")&&($("#todo-add").onclick=async()=>{const t=$("#todo-desc").value.trim();if(!t)return;
+   await fetch("/api/mission/queue/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({description:t,priority:$("#todo-prio").value,due_date:$("#todo-due").value||null,objective_id:$("#todo-obj").value||null})});
+   $("#todo-desc").value="";loadMission();});
+}
 
 async function refreshStatus(){const s=await (await fetch("/api/status")).json();
  $("#who").textContent=s.partner.toLowerCase()+" · cockpit";
