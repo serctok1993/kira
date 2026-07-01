@@ -25,6 +25,15 @@ models:
   keep_alive: "24h"                         # Modell warm halten -> kein Kaltstart im Dauerbetrieb
   num_ctx: 65536                            # Kontextfenster (Arbeitsgedaechtnis) -> mehr Platz fuer Prompt+Erinnerungen+Verlauf
 
+# Agentische Ausdauer — wie lang Kira an EINEM Task dranbleibt (Claude-Code-artig).
+# Die Handlungs-Schleife endet automatisch frueh, sobald Kira fertig ist; diese Werte
+# sind nur das Sicherheitsnetz gegen Endlosschleifen. Hoeher = laengere Tasks moeglich,
+# Kosten sind durch governance.budget gedeckelt.
+agency:
+  max_steps: 40             # Werkzeug-Runden pro Task (vorher hart verdrahtet: 8)
+  max_steps_plan_step: 12   # Werkzeug-Runden pro Teilschritt im Plan-Modus (vorher: 6)
+  obs_max_chars: 16000      # wie viel eines Werkzeug-Ergebnisses das Modell sieht (vorher: 6000)
+
 # Selbst-Entwicklung: nach jedem self_edit laeuft dieser Test; faellt er durch -> Auto-Rollback.
 # Leer = Standard (Import-Smoke der Kernmodule mit dem venv-Python). Beispiel: "uv run pytest -q"
 selfdev:
@@ -34,8 +43,8 @@ selfdev:
 governance:
   trust_level: 3                  # voll-autonom (Nutzerwahl)
   budget:
-    daily_eur: 5.0                # klein starten, waechst mit nachgewiesenem ROI
-    monthly_eur: 50.0
+    daily_eur: 50.0               # Sonnet-5-Aufbauphase (Live-Override in data/overrides.json = ebenfalls 50) — im Gov-Tab anpassbar
+    monthly_eur: 200.0            # harter Monatsdeckel — DIE eigentliche Kostenbremse
   kill_switch_file: data/STOP     # existiert diese Datei -> Heartbeat haelt sofort
 
 # Heartbeat / autonomer Takt
@@ -57,7 +66,7 @@ mission:
     Berichte das Ergebnis jedes Schritts knapp per Telegram. Nur lesende Recherche/Analyse + Arbeit an
     dir selbst/Projekten — KEINE Aussen-Aktionen (kein Geld senden, keine Mails/Posts ohne Sergens Go).
     Bleibe effizient und budgetbewusst.
-  notify_telegram: true           # Ergebnisse pro Schritt per Telegram melden
+  notify_telegram: false          # AUS: keine unaufgeforderten Mission-Reports per Telegram (im Dashboard/Mission-Tab umschaltbar)
 
 api:
   host: 127.0.0.1

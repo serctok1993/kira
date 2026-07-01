@@ -5,6 +5,7 @@ description = "Persönlicher autonomer Agent-Harness — ein Partner, kein Werkz
 requires-python = ">=3.11"
 dependencies = [
     "litellm>=1.55",
+    "tenacity>=8.0",  # litellm-Retry-Pfad (num_retries) importiert tenacity lazy — ohne = harter Fehler statt Retry
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "pyyaml>=6.0",

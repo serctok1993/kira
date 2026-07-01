@@ -18,9 +18,20 @@ from core.agency.tools import builtin  # noqa: F401  -> registriert die eingebau
 from core.agency.tools import registry, synthesize
 from core.mind.agent import _read, PERSONA_DIRECTIVE, build_system_prompt
 from core.mind.memory import store as memory
+from core.config import CONFIG
 
 # Frueher von Kira selbst gebaute Werkzeuge wieder verfuegbar machen.
 synthesize.load_synthesized()
+
+# --- Agentische Ausdauer (Claude-Code-artig) ---------------------------------
+# Hohe Decken, damit ein langer Task DURCHLAEUFT statt nach wenigen Runden zwangs-
+# weise abzubrechen. Die Schleife endet ohnehin frueh, sobald Kira fertig ist (keine
+# tool_calls mehr) -- diese Decken sind nur das Sicherheitsnetz gegen Endlosschleifen,
+# NICHT der Normal-Ausstieg. Alle drei ueber config.yaml (Sektion 'agency') justierbar.
+_AG = CONFIG.get("agency", {}) if isinstance(CONFIG.get("agency"), dict) else {}
+_MAX_STEPS = int(_AG.get("max_steps", 40))                 # Werkzeug-Runden pro Task (vorher hart 8)
+_MAX_STEPS_PLAN = int(_AG.get("max_steps_plan_step", 12))  # Runden pro Plan-Teilschritt (vorher hart 6)
+_OBS_MAX = int(_AG.get("obs_max_chars", 16000))            # wie viel Werkzeug-Ergebnis das Modell sieht (vorher 6000)
 
 _ACT_RE = re.compile(r"ACT\s+([a-zA-Z_]\w*)\s*\{")
 
@@ -86,7 +97,7 @@ def _cloud(escalate: bool, task_type: str = "reason") -> bool:
     return not real.startswith("ollama")
 
 
-def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, emit, max_steps: int = 8, task_type: str = "reason") -> str:
+def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, emit, max_steps: int = _MAX_STEPS, task_type: str = "reason") -> str:
     """Nativer Function-Calling-Loop fuer Cloud-Modelle: strukturierte tool_calls statt
     ACT-Text — robust, kein Leak. Streamt Schritte ueber emit({'kind':'tool'|'obs'|...})."""
     schemas = registry.tool_schemas()
@@ -129,7 +140,7 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
                     obs = f"Fehler bei '{name}': {e}"
             emit({"kind": "obs", "name": name, "text": obs[:200]})
             events.emit("act_step", {"step": step, "tool": name, "args": args, "obs_preview": obs[:160]}, session_id=session_id)
-            messages.append({"role": "tool", "tool_call_id": cid, "content": obs[:6000]})
+            messages.append({"role": "tool", "tool_call_id": cid, "content": obs[:_OBS_MAX]})
     res = llm_router.complete(
         messages + [{"role": "user", "content": "Fasse jetzt final fuer Sergen zusammen — ohne weitere Werkzeuge."}],
         system=system, task_type=task_type, session_id=session_id, escalate=escalate)
@@ -137,7 +148,7 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
             or "Ich habe die Werkzeuge genutzt, aber keine saubere Schluss-Antwort hinbekommen — frag mich gern konkret nach, dann liefere ich dir das Ergebnis.")
 
 
-def act(task: str, session_id: str | None = None, max_steps: int = 8, escalate: bool = False, task_type: str = "reason") -> dict:
+def act(task: str, session_id: str | None = None, max_steps: int = _MAX_STEPS, escalate: bool = False, task_type: str = "reason") -> dict:
     events.emit("act_start", {"task": task}, session_id=session_id)
 
     # Cloud-Modelle: natives Function-Calling (robust, kein ACT-Text-Leak)
@@ -255,7 +266,7 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
         ctx = ("Bisher erledigt:\n" + "\n".join(f"- {d}" for d in done) + "\n\n") if done else ""
         step_task = f"{ctx}Gesamtziel: {task}\n\nFuehre jetzt NUR diesen Schritt aus: {step}"
         try:
-            out = act(step_task, session_id=session_id, max_steps=6, escalate=escalate)["text"].strip()
+            out = act(step_task, session_id=session_id, max_steps=_MAX_STEPS_PLAN, escalate=escalate)["text"].strip()
         except Exception as e:  # noqa: BLE001
             out = f"Fehler: {e}"
         done.append(f"{step} -> {out[:160]}")
@@ -289,7 +300,7 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
     return final
 
 
-def act_chat(user_message: str, session_id: str, max_steps: int = 6, escalate: bool = False, on_event=None) -> str:
+def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, escalate: bool = False, on_event=None) -> str:
     """Konversationeller, agentischer Chat: Gedaechtnis + Persona + Werkzeuge.
 
     Streamt Denken live und meldet Tool-Schritte ueber on_event(dict):

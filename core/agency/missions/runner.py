@@ -146,7 +146,13 @@ def run_forever(interval: int | None = None) -> None:
             if heartbeat_on():
                 out = run_once()
                 print("tick:", {k: (str(v)[:80]) for k, v in out.items()})
-                time.sleep(interval)
+                # Unterbrechbarer Schlaf: reagiert binnen ~15s auf Abschalten (Dashboard-
+                # Toggle) oder Kill-Switch, statt stur bis zu 'interval' Sek. weiterzulaufen.
+                slept = 0
+                while slept < interval and heartbeat_on() and not kill_switch_active():
+                    step = min(15, interval - slept)
+                    time.sleep(step)
+                    slept += step
             else:
                 time.sleep(60)  # aus -> Cron/Monitor ~minuetlich pruefen
         except KeyboardInterrupt:

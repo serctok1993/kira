@@ -234,6 +234,7 @@ def api_mission() -> dict:
                 break
     return {
         "enabled": heartbeat_on(),
+        "notify": bool(m.get("notify_telegram")),
         "interval": CONFIG.get("heartbeat", {}).get("interval_seconds", 1800),
         "mission": m.get("name"),
         "goal": m.get("goal", ""),
@@ -372,7 +373,7 @@ async def api_restart(body: dict) -> dict:
 _CONFIG_WHITELIST = {
     "models.temperature", "models.max_tokens", "models.num_ctx", "models.keep_alive", "models.request_timeout",
     "governance.budget.daily_eur", "governance.budget.monthly_eur", "governance.trust_level",
-    "mission.goal", "heartbeat.interval_seconds",
+    "mission.goal", "mission.notify_telegram", "heartbeat.interval_seconds",
     "channels.telegram.voice", "channels.telegram.whisper_model",
 }
 _MODEL_LIVE = {"models.temperature": "temperature", "models.max_tokens": "max_tokens",
@@ -464,6 +465,8 @@ async def api_mission_config(body: dict) -> dict:
             set_override("heartbeat.interval_seconds", int(body.get("interval")))
         except Exception:  # noqa: BLE001
             pass
+    if body.get("notify") is not None:
+        set_override("mission.notify_telegram", bool(body.get("notify")))
     events.emit("mission_config", {"via": "dashboard"})
     (ROOT / "data" / "restart.flag").write_text("runner", encoding="utf-8")  # Ziel greift nach Runner-Bounce
     return {"ok": True}
@@ -789,7 +792,6 @@ textarea.k:focus{border-color:var(--accent2)}
   <a data-v="chat" title="Mit mir reden">› Chat</a>
   <a data-v="files" title="Wer ich bin: Verfassung, Seele, Ziel, dein Profil">› Seele &amp; Dateien</a>
   <a data-v="gov" title="Meine Leitplanken: Budget, Vertrauen, Audit">› Gewissen</a>
-  <a data-v="mission" title="Mein Dauerauftrag: 24/7-Ziel + Aufgaben">› Mission</a>
   <a data-v="monitor" title="Was ich draussen beobachte">› Monitor</a>
   <a data-v="cron" title="Feste Termine (wiederkehrende Aufgaben)">› Cron</a>
   <a data-v="keys" title="Schluessel &amp; Passwoerter">› Zugaenge</a>
@@ -947,34 +949,6 @@ textarea.k:focus{border-color:var(--accent2)}
     <div class="card"><h3>Audit — protokollierte Aussen-Aktionen</h3><div id="g-audit" class="muted">…</div></div>
   </div>
 
-  <div class="view" id="v-mission">
-    <div class="card"><h3>24/7-Mission</h3>
-      <div id="ms-status" class="muted">…</div>
-      <div class="row" style="margin-top:8px">
-        <button id="ms-toggle">24/7 an/aus</button>
-        <button class="ghost" id="ms-once">Jetzt ein Schritt</button>
-      </div>
-    </div>
-    <div class="card"><h3>Ziel &amp; Takt</h3>
-      <div class="muted">Mein langfristiger Auftrag fuer den 24/7-Loop. Fuer schnelle Lenkung nutze die <b>Direktive</b> auf der Startseite.</div>
-      <textarea id="ms-goal" class="k" style="margin-top:8px;min-height:90px" placeholder="Missions-Ziel…"></textarea>
-      <div class="row" style="margin-top:8px">
-        <input id="ms-interval" type="number" placeholder="Takt (Minuten)" style="max-width:160px"/>
-        <button id="ms-goal-save">Speichern</button>
-        <span class="muted" id="ms-goal-hint" style="align-self:center"></span>
-      </div>
-    </div>
-    <div class="card"><h3>Offene Aufgaben</h3>
-      <div id="ms-queue" class="muted">…</div>
-      <div class="row" style="margin-top:8px">
-        <input id="ms-qadd" placeholder="Aufgabe hinzufuegen (kommt als naechstes dran)" style="min-width:280px"/>
-        <button id="ms-qadd-btn">+ Aufgabe</button>
-        <button class="ghost" id="ms-qclear">Queue leeren</button>
-      </div>
-    </div>
-    <div class="card"><h3>Letzte Schritte</h3><div id="ms-recent" class="muted">…</div></div>
-  </div>
-
   <div class="view" id="v-cron">
     <div class="card"><h3>Geplante Aufgaben (Cron)</h3>
       <div class="muted">Meine wiederkehrenden Aufgaben. Zeitplan: <b>30m</b>/<b>2h</b> (Intervall) oder <b>08:00</b> (taeglich) · zum Aendern auf <b>bearbeiten</b> beim Job klicken. Laufen, sobald der Runner aktiv ist.</div>
@@ -1043,7 +1017,7 @@ let cur="home";
 $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
 function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");
- if(v==="home")loadHome(); if(v==="chat"){loadChatModels();loadChatSessions();} if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="mission")loadMission(); if(v==="monitor")loadMonitor(); if(v==="cron")loadCron(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
+ if(v==="home")loadHome(); if(v==="chat"){loadChatModels();loadChatSessions();} if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="monitor")loadMonitor(); if(v==="cron")loadCron(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
 
 /* ---- Modell-Umschalter in der Chat-Pane ---- */
 async function loadChatModels(){const s=await (await fetch("/api/status")).json();
@@ -1097,25 +1071,6 @@ $("#cr-add").onclick=async()=>{const p=$("#cr-prompt").value.trim();if(!p)return
  else{await fetch("/api/cron/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}
  cancelEditCron();loadCron();};
 
-/* ---- Mission (24/7) ---- */
-async function loadMission(){const m=await (await fetch("/api/mission")).json();
- $("#ms-status").innerHTML="Mission: <b>"+(m.mission||"-")+"</b> · 24/7: "+(m.enabled?'<b class="ok">AN</b>':'<span class=muted>aus</span>')+" · Takt "+Math.round(m.interval/60)+" min";
- if($("#ms-goal")&&document.activeElement!==$("#ms-goal"))$("#ms-goal").value=m.goal||"";
- if($("#ms-interval")&&document.activeElement!==$("#ms-interval"))$("#ms-interval").value=Math.round((m.interval||1800)/60);
- $("#ms-queue").innerHTML=m.pending.length?m.pending.map(t=>'<div style="padding:5px 0;border-bottom:1px solid var(--line)">• '+(t.description||"").replace(/</g,"&lt;")+' <a href="#" data-qrm="'+t.id+'" class="warn" style="float:right">entfernen</a></div>').join(""):'<span class=muted>(leer — beim naechsten Lauf plant Kira neue)</span>';
- document.querySelectorAll('#ms-queue a[data-qrm]').forEach(a=>a.onclick=async e=>{e.preventDefault();await fetch("/api/mission/queue/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.qrm})});loadMission();});
- $("#ms-recent").innerHTML=m.recent.length?m.recent.map(r=>{const ts=new Date(r.ts*1000).toLocaleString();return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><small class=muted>'+ts+'</small><br>'+(r.summary||"").slice(0,220).replace(/</g,"&lt;")+'</div>';}).join(""):'<span class=muted>(noch keine)</span>';}
-$("#ms-toggle").onclick=async()=>{const m=await (await fetch("/api/mission")).json();
- await fetch("/api/mission/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({on:!m.enabled})});loadMission();};
-$("#ms-once").onclick=async()=>{$("#ms-goal-hint")&&($("#ms-goal-hint").textContent="… ein Schritt laeuft (~1 min) …");
- await fetch("/api/mission/runonce",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});$("#ms-goal-hint")&&($("#ms-goal-hint").textContent="");loadMission();};
-$("#ms-goal-save")&&($("#ms-goal-save").onclick=async()=>{
- await fetch("/api/mission/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({goal:$("#ms-goal").value,interval:(parseInt($("#ms-interval").value)||30)*60})});
- $("#ms-goal-hint").textContent="gespeichert — Runner startet neu (~20s), dann greift das neue Ziel.";});
-$("#ms-qadd-btn")&&($("#ms-qadd-btn").onclick=async()=>{const d=$("#ms-qadd").value.trim();if(!d)return;
- await fetch("/api/mission/queue/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({description:d})});$("#ms-qadd").value="";loadMission();});
-$("#ms-qclear")&&($("#ms-qclear").onclick=async()=>{if(!confirm("Alle offenen Aufgaben verwerfen?"))return;await fetch("/api/mission/queue/clear",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});loadMission();});
-
 /* ---- Uebersicht ---- */
 async function loadHome(){const o=await (await fetch("/api/overview")).json();const b=o.budget;
  const sv=await (await fetch("/api/services")).json();
@@ -1128,15 +1083,10 @@ async function loadHome(){const o=await (await fetch("/api/overview")).json();co
  const sdot=(ok)=>'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle;background:'+(ok?'var(--ok)':'var(--danger)')+';margin-right:5px"></span>';
  const svc=sv.services||{};
  h+=card("System",sdot(sv.supervisor)+'Supervisor '+sdot(svc.cockpit!==false)+'Cockpit '+sdot(svc.bot)+'Bot '+sdot(svc.runner)+'Runner '+sdot(sv.ollama)+'Ollama'
-   +'<br><span class=muted style="display:inline-block;margin-top:6px">24/7-Loop: '+(sv.heartbeat?'<b style="color:var(--ok)">AN</b>':'aus')+'</span>'
-   +'<div style="margin-top:10px;display:flex;gap:8px"><button class=ghost id="sys-restart">↻ Neustart</button>'
-   +'<button class=ghost onclick="nav(\\'mission\\')">24/7 steuern</button></div>');
+   +'<div style="margin-top:10px;display:flex;gap:8px"><button class=ghost id="sys-restart">↻ Neustart</button></div>');
  h+=card("Modell &amp; Budget","Modell: <b>"+o.model+"</b><br><span class=muted>Heute "+b.day_spent+" / "+(b.day_limit??"-")
    +" € · Monat "+b.month_spent+" / "+(b.month_limit??"-")+" €</span>");
  h+=card("Vertrauen","Stufe <b>"+o.trust.level+"</b><br><span class=muted>"+o.trust.label+"</span>");
- h+=card("Mission","<b>"+(o.mission.name||"-")+"</b><br><span class=muted>24/7-Loop: "
-   +(o.mission.heartbeat?'<b style="color:var(--ok)">AN</b>':'aus')+"</span>"
-   +(o.last_mission?'<br><span class=muted>Letzter Schritt: '+o.last_mission.summary.slice(0,150).replace(/</g,"&lt;")+'</span>':''));
  h+=card("Werkzeuge ("+o.tools.length+")", o.tools.map(t=>'<span class="pill">'+t+'</span>').join(" "));
  h+=card("Letzte Lektionen", o.lessons.length?('<ul style="margin:0;padding-left:18px">'
    +o.lessons.map(l=>'<li>'+l.slice(0,140).replace(/</g,"&lt;")+'</li>').join("")+'</ul>'):'<span class=muted>(noch keine)</span>');
