@@ -281,6 +281,16 @@ def run_forever(interval: int | None = None) -> None:
                 cron.run_due()
             except Exception as e:  # noqa: BLE001
                 events.emit("cron_error", {"error": str(e)})
+            try:
+                # Taegliche Pflege: Skill-Bibliothek entduplizieren (gebaut, jetzt verdrahtet).
+                from core.agency.missions import maintenance
+
+                if maintenance.maybe_run("curate_skills"):
+                    from core.mind import curator
+
+                    curator.curate_skills()
+            except Exception as e:  # noqa: BLE001
+                events.emit("maintenance_error", {"error": str(e)})
 
             if heartbeat_on():
                 out = run_once()
