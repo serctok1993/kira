@@ -161,7 +161,7 @@ def api_secrets() -> dict:
     return {
         "set": secrets.names_status(),
         "pending": secrets.pending(),
-        "suggested": list(_PROVIDER_KEYS.values()) + ["TELEGRAM_BOT_TOKEN"],
+        "suggested": list(_PROVIDER_KEYS.values()) + ["TELEGRAM_BOT_TOKEN", "BRAVE_API_KEY"],
     }
 
 

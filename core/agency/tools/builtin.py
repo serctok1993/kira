@@ -34,17 +34,44 @@ def web_fetch(url: str, limit: int = 3000) -> str:
     return text[:limit] if text else "(kein Textinhalt gefunden)"
 
 
-@tool("web_search", "Sucht im Web (DuckDuckGo) und liefert die Top-Treffer (Titel + URL).",
+@tool("web_search",
+      "Sucht im Web und liefert Top-Treffer (Titel + URL + kurzer Snippet). Nutzt Brave Search "
+      "(zuverlaessig), wenn BRAVE_API_KEY gesetzt ist — sonst DuckDuckGo als Fallback.",
       {"query": "die Suchanfrage"})
 def web_search(query: str, max_results: int = 5) -> str:
-    r = httpx.get(
-        "https://html.duckduckgo.com/html/",
-        params={"q": query},
-        timeout=20,
-        headers=_UA,
-        follow_redirects=True,
-    )
-    r.raise_for_status()
+    import os
+
+    key = os.getenv("BRAVE_API_KEY")
+    if key:
+        try:
+            r = httpx.get(
+                "https://api.search.brave.com/res/v1/web/search",
+                params={"q": query, "count": max_results},
+                headers={"X-Subscription-Token": key, "Accept": "application/json"},
+                timeout=20,
+            )
+            if r.status_code == 200:
+                res = (r.json().get("web") or {}).get("results", [])[:max_results]
+                if res:
+                    return "\n".join(
+                        f"- {x.get('title', '')}\n  {x.get('url', '')}\n  {_strip_html(x.get('description', ''))[:180]}"
+                        for x in res
+                    )
+                return "(keine Treffer fuer diese Anfrage)"
+            return f"(Brave-Suche Fehler {r.status_code} — BRAVE_API_KEY unter 'Zugaenge' pruefen)"
+        except Exception as e:  # noqa: BLE001
+            return f"(Brave-Suche fehlgeschlagen: {e})"
+
+    # Fallback: DuckDuckGo — kann bei Burst-Nutzung geblockt sein -> Fehler SICHTBAR machen, nicht verschlucken
+    try:
+        r = httpx.post("https://html.duckduckgo.com/html/", data={"q": query},
+                       timeout=20, headers=_UA, follow_redirects=True)
+    except Exception as e:  # noqa: BLE001
+        return f"(Suche fehlgeschlagen: {e})"
+    if r.status_code == 202 or "anomaly" in r.text.lower():
+        return ("(Suche gerade BLOCKIERT — DuckDuckGo drosselt die IP. Trage einen kostenlosen "
+                "BRAVE_API_KEY unter 'Zugaenge' ein fuer zuverlaessige Suche, oder warte kurz und versuch es erneut. "
+                "Fuer eine bestimmte Seite geht auch das echte Browser-Werkzeug 'browse'.)")
     hits = re.findall(r'class="result__a"[^>]*href="([^"]+)".*?>(.*?)</a>', r.text, flags=re.DOTALL)
     out = []
     for href, title in hits[:max_results]:
@@ -54,7 +81,7 @@ def web_search(query: str, max_results: int = 5) -> str:
 
             href = unquote(m.group(1))
         out.append(f"- {_strip_html(title)}\n  {href}")
-    return "\n".join(out) if out else "(keine Ergebnisse)"
+    return "\n".join(out) if out else "(keine Ergebnisse — evtl. Formatwechsel bei DuckDuckGo; BRAVE_API_KEY empfohlen)"
 
 
 # --- Datei-Haende: Kira kann auf dem PC lesen/schreiben/auflisten/Ordner anlegen ---
