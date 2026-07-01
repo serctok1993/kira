@@ -37,6 +37,24 @@ def _port_in_use(port: int = 8000) -> bool:
         return s.connect_ex(("127.0.0.1", port)) == 0
 
 
+_LOCK_PORT = 8009  # fixer Loopback-Port NUR als Singleton-Lock (nichts lauscht inhaltlich darauf)
+
+
+def _acquire_lock(port: int = _LOCK_PORT):
+    """Exklusiver Singleton-Lock OHNE Race: bindet SOFORT einen Loopback-Port und haelt
+    ihn fuer die Lebenszeit des Supervisors. Ein zweiter Supervisor (Autostart + manueller
+    Start) scheitert beim bind -> beendet sich. Schliesst die Luecke, dass frueher erst das
+    Cockpit-Kind Port 8000 band (Sekunden spaeter -> zwei Bots gleichzeitig -> Telegram-409)."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind(("127.0.0.1", port))
+        s.listen(1)
+        return s  # offen halten -> Lock bleibt aktiv, solange der Supervisor lebt
+    except OSError:
+        s.close()
+        return None
+
+
 def _launch(name: str) -> subprocess.Popen:
     log = ROOT / "data" / "logs" / f"{name}.log"
     log.parent.mkdir(parents=True, exist_ok=True)
@@ -49,9 +67,11 @@ def _launch(name: str) -> subprocess.Popen:
 
 
 def main() -> None:
-    if _port_in_use(8000):
-        print("Port 8000 belegt -> es laeuft bereits ein Kira-System. Supervisor beendet sich.")
+    lock = _acquire_lock()
+    if lock is None:
+        print("Ein Kira-Supervisor laeuft bereits -> dieser beendet sich (Singleton-Lock 8009).")
         return
+    # 'lock' bleibt als lokale Variable offen -> haelt den Singleton fuer die Lebenszeit des Supervisors
 
     RESTART_FLAG.parent.mkdir(parents=True, exist_ok=True)
     if RESTART_FLAG.exists():
