@@ -111,12 +111,23 @@ def run_once(escalate: bool = False) -> dict:
 def run_forever(interval: int | None = None) -> None:
     interval = interval or CONFIG.get("heartbeat", {}).get("interval_seconds", 1800)
     events.init_db()
+    last_stuck_check = 0.0
     print(f"Mission-Runner laeuft. Cron+Monitor laufen immer; 24/7-Missionen nur wenn eingeschaltet. Takt {interval}s.")
     while True:
         try:
             if kill_switch_active():
                 time.sleep(15)  # Not-Aus: pausieren, nach /go weiter
                 continue
+
+            # Durable Execution: haengengebliebene Tasks periodisch wiederbeleben.
+            try:
+                if time.time() - last_stuck_check >= 600:
+                    reset_result = queue.reset_stuck(timeout_seconds=1800, max_retries=3)
+                    last_stuck_check = time.time()
+                    if reset_result.get("requeued", 0) > 0 or reset_result.get("failed", 0) > 0:
+                        events.emit("mission_stuck_reset", reset_result)
+            except Exception as e:  # noqa: BLE001
+                events.emit("stuck_reset_error", {"error": str(e)})
 
             # Immer (unabhaengig vom Missions-Toggle): Monitor + geplante Aufgaben.
             try:
