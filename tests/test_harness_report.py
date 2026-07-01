@@ -7,6 +7,10 @@ def test_harness_report_nonempty():
     assert isinstance(out, str) and out.strip()
     assert "Harness-Report" in out
     assert "EUR" in out
+    assert "Neustart-Signale" in out
+    assert "restart_deferred_fired" in out
+    assert "turn_timeout" in out
+    assert "tool_calls_recovered" in out
 
 
 def test_harness_report_all_windows_no_crash():
