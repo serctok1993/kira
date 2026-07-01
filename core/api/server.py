@@ -77,7 +77,7 @@ def api_overview() -> dict:
         "kill_switch": kill_switch_active(),
         "budget": treasury.status(),
         "trust": {"level": trust.level(), "label": trust.LEVELS.get(trust.level(), "?")},
-        "mission": {"name": CONFIG.get("mission", {}).get("name"), "heartbeat": bool(CONFIG.get("heartbeat", {}).get("enabled"))},
+        "mission": {"name": CONFIG.get("mission", {}).get("name"), "heartbeat": heartbeat_on()},
         "tools": [t.name for t in registry.all_tools()],
         "lessons": memory.recall_lessons(5),
         "last_mission": last_mission,
@@ -314,6 +314,35 @@ async def api_cron_update(body: dict) -> dict:
 
     ok = cron.update_job(body.get("id", ""), body.get("label"), body.get("prompt"), body.get("schedule"))
     return {"ok": ok}
+
+
+@app.get("/api/services")
+def api_services() -> dict:
+    import json as _json
+    import socket as _sock
+
+    try:
+        d = _json.loads((ROOT / "data" / "services.json").read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        d = {"ts": 0, "services": {}}
+    fresh = (time.time() - float(d.get("ts", 0))) < 20  # Supervisor-Herzschlag frisch?
+
+    def _up(port: int) -> bool:
+        with _sock.socket(_sock.AF_INET, _sock.SOCK_STREAM) as so:
+            so.settimeout(0.6)
+            return so.connect_ex(("127.0.0.1", port)) == 0
+
+    return {"supervisor": fresh, "services": d.get("services", {}), "ollama": _up(11434), "heartbeat": heartbeat_on()}
+
+
+@app.post("/api/restart")
+async def api_restart(body: dict) -> dict:
+    which = (body.get("which") or "all").strip().lower() or "all"
+    flag = ROOT / "data" / "restart.flag"
+    flag.parent.mkdir(parents=True, exist_ok=True)
+    flag.write_text(which, encoding="utf-8")
+    events.emit("restart_requested", {"which": which, "via": "dashboard"})
+    return {"ok": True, "which": which}
 
 
 @app.post("/api/kill")
@@ -761,11 +790,18 @@ $("#ms-once").onclick=async()=>{$("#ms-hint").textContent="… Kira macht einen 
 
 /* ---- Uebersicht ---- */
 async function loadHome(){const o=await (await fetch("/api/overview")).json();const b=o.budget;
+ const sv=await (await fetch("/api/services")).json();
  const card=(t,c)=>'<div class="card"><h3>'+t+'</h3>'+c+'</div>';
  const kill=o.kill_switch?'<b style="color:#e0564e">⛔ NOT-AUS aktiv</b>':'<span style="color:#1fb6a6">einsatzbereit</span>';
  let h='<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><span class="dot"></span>'
   +'<h2 style="margin:0">'+o.partner+'</h2><span class=muted>'+kill+'</span></div>'
   +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;max-width:1120px">';
+ const sdot=(ok)=>'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle;background:'+(ok?'#1fb6a6':'#e0564e')+';margin-right:5px"></span>';
+ const svc=sv.services||{};
+ h+=card("❤ System",sdot(sv.supervisor)+'Supervisor '+sdot(svc.cockpit!==false)+'Cockpit '+sdot(svc.bot)+'Bot '+sdot(svc.runner)+'Runner '+sdot(sv.ollama)+'Ollama'
+   +'<br><span class=muted style="display:inline-block;margin-top:6px">24/7-Loop: '+(sv.heartbeat?'<b style="color:#1fb6a6">AN</b>':'aus')+'</span>'
+   +'<div style="margin-top:10px;display:flex;gap:8px"><button class=ghost id="sys-restart">↻ Neustart</button>'
+   +'<button class=ghost onclick="nav(\\'mission\\')">24/7 steuern</button></div>');
  h+=card("Modell &amp; Budget","Modell: <b>"+o.model+"</b><br><span class=muted>Heute "+b.day_spent+" / "+(b.day_limit??"-")
    +" € · Monat "+b.month_spent+" / "+(b.month_limit??"-")+" €</span>");
  h+=card("Vertrauen","Stufe <b>"+o.trust.level+"</b><br><span class=muted>"+o.trust.label+"</span>");
@@ -778,7 +814,8 @@ async function loadHome(){const o=await (await fetch("/api/overview")).json();co
  h+=card("Schnellzugriff",'<button class=ghost onclick="nav(\\'chat\\')">Chat</button> '
    +'<button class=ghost onclick="nav(\\'models\\')">Modelle</button> '
    +'<button class=ghost onclick="nav(\\'gov\\')">Gewissen</button>');
- h+='</div>';$("#home").innerHTML=h;}
+ h+='</div>';$("#home").innerHTML=h;
+ const rb=$("#sys-restart"); if(rb) rb.onclick=async()=>{if(!confirm("Kira neu starten? Dienste bouncen in ~20s."))return;await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});rb.textContent="↻ Neustart angefordert …";};}
 
 async function refreshStatus(){const s=await (await fetch("/api/status")).json();
  $("#who").textContent=s.partner.toLowerCase()+" · cockpit";

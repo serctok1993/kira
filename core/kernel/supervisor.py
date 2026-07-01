@@ -11,6 +11,7 @@ Start:  uv run python -m core.kernel.supervisor   (oder via start-all.ps1 / Auto
 from __future__ import annotations
 
 import datetime
+import json
 import os
 import socket
 import subprocess
@@ -108,6 +109,15 @@ def main() -> None:
                     except Exception:  # noqa: BLE001
                         pass
                     procs[name] = _launch(name)
+
+            # 1b) Herzschlag fuers Dashboard: welche Dienste leben gerade?
+            try:
+                alive = {n: (pp.poll() is None) for n, pp in procs.items()}
+                (ROOT / "data" / "services.json").write_text(
+                    json.dumps({"ts": time.time(), "services": alive}, ensure_ascii=False),
+                    encoding="utf-8")
+            except Exception:  # noqa: BLE001
+                pass
 
             # 2) Restart-Flag (z.B. nach self_edit): sicherer Bounce der genannten Dienste
             if RESTART_FLAG.exists():
