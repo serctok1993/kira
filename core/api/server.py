@@ -437,7 +437,12 @@ async def api_direktive_now(body: dict) -> dict:
     if not prompt:
         return {"ok": False, "error": "leer"}
     events.emit("direktive_now", {"prompt": prompt[:200], "via": "dashboard"})
-    out = await anyio.to_thread.run_sync(lambda: act(prompt, session_id="direktive", escalate=bool(body.get("escalate"))))
+    from core.kernel import runstate
+    runstate.enter_turn()  # aktiver Cockpit-Zug -> Neustart wartet bis danach
+    try:
+        out = await anyio.to_thread.run_sync(lambda: act(prompt, session_id="direktive", escalate=bool(body.get("escalate"))))
+    finally:
+        runstate.exit_turn()
     text = (out.get("text") or "").strip()
     try:
         import os as _os
@@ -637,26 +642,32 @@ async def ws_chat(ws: WebSocket) -> None:
 
     from core.agency.act import act_chat_stream
 
+    from core.kernel import runstate
+
     await ws.accept()
     sid = ws.query_params.get("sid") or ("cockpit-" + uuid.uuid4().hex[:8])
     await ws.send_json({"role": "system", "text": f"Verbunden. Session {sid[-8:]}."})
     try:
         while True:
             user_text = await ws.receive_text()
-            gen = act_chat_stream(user_text, sid)
+            runstate.enter_turn()  # aktiver Cockpit-Zug -> Neustart (self_edit/restart_self) wartet bis danach
+            try:
+                gen = act_chat_stream(user_text, sid)
 
-            def next_piece():
-                try:
-                    return next(gen)
-                except StopIteration:
-                    return None
+                def next_piece():
+                    try:
+                        return next(gen)
+                    except StopIteration:
+                        return None
 
-            while True:
-                piece = await anyio.to_thread.run_sync(next_piece)
-                if piece is None:
-                    break
-                await ws.send_json({"role": "partner", **piece})
-            await ws.send_json({"role": "partner", "done": True})
+                while True:
+                    piece = await anyio.to_thread.run_sync(next_piece)
+                    if piece is None:
+                        break
+                    await ws.send_json({"role": "partner", **piece})
+                await ws.send_json({"role": "partner", "done": True})
+            finally:
+                runstate.exit_turn()  # idle -> ein aufgeschobener Neustart wird jetzt ausgeloest (nach der Antwort)
     except WebSocketDisconnect:
         pass
 
