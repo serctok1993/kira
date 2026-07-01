@@ -18,7 +18,7 @@ import time
 
 from core.agency import outcomes, verifier
 from core.agency.act import act
-from core.agency.missions import planner, queue
+from core.agency.missions import planner, queue, workingset
 from core.config import CONFIG
 from core.kernel import events
 from core.kernel.scheduler import heartbeat_on, kill_switch_active
@@ -101,7 +101,12 @@ def _attempt_prompt(task: dict, criteria: list[dict], attempt: int) -> str:
 
     Die description in der DB bleibt UNVERAENDERT (Board + stabile Kriterien) —
     nur der Arbeits-Prompt des Versuchs traegt die Zusaetze."""
-    parts = [task["description"]]
+    parts = []
+    if task.get("objective_id"):
+        ws = workingset.render(task["objective_id"])
+        if ws:
+            parts.append("ARBEITSSTAND ZUM ZIEL (darauf aufbauen, nichts wiederholen):\n" + ws + "\n---")
+    parts.append(task["description"])
     if criteria:
         parts.append("\nAKZEPTANZKRITERIEN (dein Ergebnis wird unabhaengig dagegen geprueft):\n"
                      + "\n".join(f"- {c['text']}" for c in criteria))
@@ -148,6 +153,14 @@ def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
                     cost_usd=out["cost_usd"], duration_s=time.time() - t0)
     events.emit("task_scored", {"id": full["id"], "attempt": attempt, "score": out["score"],
                                 "verdict": out["verdict"], "strategy": strategy}, session_id=sid)
+    if full.get("objective_id"):
+        try:
+            takeaway = (out["feedback"] or "").strip() if out["verdict"] != "pass" \
+                else (text.strip().splitlines() or [""])[0]
+            workingset.append(full["objective_id"],
+                              f"[{out['score']}/{out['verdict']}] {full['description'][:80]} -> {takeaway[:120]}")
+        except Exception as e:  # noqa: BLE001
+            events.emit("workingset_error", {"error": str(e)[:200]})
 
     if out["verdict"] == "pass":
         queue.complete(full["id"], text)
@@ -222,6 +235,9 @@ def run_once(escalate: bool = False) -> dict:
                          + (f"\n{target['notes']}" if target.get("notes") else "")
                          + f"\n\nUEBERGEORDNETE MISSION:\n{goal}")
             oid = target["id"]
+            ws = workingset.render(oid)
+            if ws:  # Plaene bauen auf dem Stand auf, statt Erledigtes neu zu planen
+                plan_goal += f"\n\nARBEITSSTAND ZUM ZIEL (nichts davon wiederholen):\n{ws}"
         else:
             plan_goal, oid = goal, None
         tasks = planner.generate_tasks(plan_goal, _context(), escalate=escalate)
