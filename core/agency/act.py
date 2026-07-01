@@ -84,14 +84,14 @@ def _cloud(escalate: bool, task_type: str = "reason") -> bool:
     return not real.startswith("ollama")
 
 
-def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, emit, max_steps: int = 8) -> str:
+def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, emit, max_steps: int = 8, task_type: str = "reason") -> str:
     """Nativer Function-Calling-Loop fuer Cloud-Modelle: strukturierte tool_calls statt
     ACT-Text — robust, kein Leak. Streamt Schritte ueber emit({'kind':'tool'|'obs'|...})."""
     schemas = registry.tool_schemas()
     used_tools = False
     nudged = False
     for step in range(max_steps):
-        res = llm_router.complete(messages, system=system, task_type="reason",
+        res = llm_router.complete(messages, system=system, task_type=task_type,
                                   session_id=session_id, escalate=escalate, tools=schemas)
         calls = res.get("tool_calls") or []
         if not calls:
@@ -130,18 +130,18 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
             messages.append({"role": "tool", "tool_call_id": cid, "content": obs[:6000]})
     res = llm_router.complete(
         messages + [{"role": "user", "content": "Fasse jetzt final fuer Sergen zusammen — ohne weitere Werkzeuge."}],
-        system=system, task_type="reason", session_id=session_id, escalate=escalate)
+        system=system, task_type=task_type, session_id=session_id, escalate=escalate)
     return (res["text"].strip()
             or "Ich habe die Werkzeuge genutzt, aber keine saubere Schluss-Antwort hinbekommen — frag mich gern konkret nach, dann liefere ich dir das Ergebnis.")
 
 
-def act(task: str, session_id: str | None = None, max_steps: int = 8, escalate: bool = False) -> dict:
+def act(task: str, session_id: str | None = None, max_steps: int = 8, escalate: bool = False, task_type: str = "reason") -> dict:
     events.emit("act_start", {"task": task}, session_id=session_id)
 
     # Cloud-Modelle: natives Function-Calling (robust, kein ACT-Text-Leak)
-    if _cloud(escalate):
+    if _cloud(escalate, task_type):
         text = _native_loop([{"role": "user", "content": task}], _identity() + _NATIVE_TOOLS_HINT,
-                            session_id, escalate, emit=lambda ev: None, max_steps=max_steps)
+                            session_id, escalate, emit=lambda ev: None, max_steps=max_steps, task_type=task_type)
         events.emit("act_done", {"native": True}, session_id=session_id)
         return {"text": text, "steps": max_steps}
 
@@ -171,7 +171,7 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
 
     for step in range(max_steps):
         res = llm_router.complete(
-            messages, system=system, task_type="reason", session_id=session_id, escalate=escalate
+            messages, system=system, task_type=task_type, session_id=session_id, escalate=escalate
         )
         text = res["text"].strip()
         call = _parse_act(text)
@@ -322,9 +322,9 @@ def act_chat(user_message: str, session_id: str, max_steps: int = 6, escalate: b
     messages.append({"role": "user", "content": user_message})
 
     # Cloud-Modelle: natives Function-Calling (robust, kein ACT-Text-Leak)
-    if _cloud(escalate):
+    if _cloud(escalate, "chat"):
         system = build_system_prompt(user_message, session_id=session_id) + _NATIVE_TOOLS_HINT
-        text = _native_loop(messages, system, session_id, escalate, emit, max_steps=max(max_steps, 8))
+        text = _native_loop(messages, system, session_id, escalate, emit, max_steps=max(max_steps, 8), task_type="chat")
         memory.remember(text, role="partner", session_id=session_id)
         events.emit("partner_message", {"text": text, "agentic": True}, session_id=session_id)
         emit({"kind": "final", "text": text})
@@ -346,7 +346,7 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
     for step in range(max_steps):
         parts = []
         for piece in llm_router.stream_tagged(
-            messages, system=system, task_type="reason", session_id=session_id, escalate=escalate
+            messages, system=system, task_type="chat", session_id=session_id, escalate=escalate
         ):
             if piece["kind"] == "think":
                 emit({"kind": "think", "text": piece["text"]})
@@ -375,7 +375,7 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
         messages.append({"role": "user", "content": f"ERGEBNIS von {name}:\n{obs}\n\nMach weiter oder gib die finale Antwort."})
 
     messages.append({"role": "user", "content": "Fasse jetzt final fuer Sergen zusammen — ohne weiteres ACT."})
-    res = llm_router.complete(messages, system=system, task_type="reason", session_id=session_id, escalate=escalate)
+    res = llm_router.complete(messages, system=system, task_type="chat", session_id=session_id, escalate=escalate)
     text = res["text"].strip()
     memory.remember(text, role="partner", session_id=session_id)
     events.emit("partner_message", {"text": text, "agentic": True}, session_id=session_id)

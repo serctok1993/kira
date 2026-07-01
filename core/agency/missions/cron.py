@@ -158,7 +158,8 @@ def run_job(job: dict, notify: bool = True) -> dict:
     from core.agency.act import act
 
     try:
-        r = act(job["prompt"], session_id=f"cron-{job['id']}", escalate=job.get("escalate", False))
+        r = act(job["prompt"], session_id=f"cron-{job['id']}", escalate=job.get("escalate", False),
+                task_type="bulk")  # einfache Crons -> lokal (0 EUR); escalate-Crons gehen weiter zu GLM
         summary = (r.get("text") or "").strip()[:300]
         ok = True
     except Exception as e:  # noqa: BLE001
