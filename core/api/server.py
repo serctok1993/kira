@@ -509,6 +509,12 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 .e{padding:6px 10px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
 .e .t{color:var(--accent);min-width:150px}
 .e .m{color:var(--muted);white-space:pre-wrap;flex:1}
+.e.error{background:rgba(240,89,106,.09);border-left:3px solid var(--danger)}
+.e.error .t{color:var(--danger)}
+.e.action .t{color:var(--accent)}
+.e.chat .t{color:#67e8c9}
+.e.info .t{color:var(--muted)}
+.pill.on{color:#fff;border-color:var(--accent);background:rgba(168,85,247,.14)}
 .muted{color:var(--muted)}
 </style></head><body>
 <div id="side">
@@ -662,7 +668,16 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
     <div id="memlist"></div>
   </div>
 
-  <div class="view" id="v-log"><div id="evlog"></div></div>
+  <div class="view" id="v-log">
+    <div id="log-filters" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+      <a href="#" data-f="all" class="pill on">Alles</a>
+      <a href="#" data-f="error" class="pill">⚠ Fehler</a>
+      <a href="#" data-f="action" class="pill">⚡ Aktionen</a>
+      <a href="#" data-f="chat" class="pill">💬 Chat</a>
+    </div>
+    <div id="evlog"></div>
+    <div style="text-align:center;margin-top:12px"><button class="ghost" id="log-more">mehr laden ↓</button></div>
+  </div>
 </div>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -852,10 +867,24 @@ $("#m-orgo").onclick=async()=>{const m=$("#m-or").value.trim();if(!m)return;
  await fetch("/api/model/openrouter",{method:"POST",headers:{"Content-Type":"application/json"},
   body:JSON.stringify({model:m})});$("#m-or").value="";loadModels();refreshStatus();};
 
-/* ---- Protokoll ---- */
-async function loadEvents(){const es=await (await fetch("/api/events?limit=80")).json();const el=$("#evlog");el.innerHTML="";
- es.forEach(e=>{const d=document.createElement("div");d.className="e";const t=new Date(e.ts*1000).toLocaleTimeString();
-  d.innerHTML='<span class="t">'+t+" · "+e.type+'</span><span class="m">'+JSON.stringify(e.payload).slice(0,180)+"</span>";el.appendChild(d);});}
+/* ---- Protokoll / Puls: Live-Aktivitaet + Fehler ---- */
+let logFilter="all", logOldest=null, logRaw=[];
+function renderLog(){const el=$("#evlog");
+ const show=logRaw.filter(e=>logFilter==="all"||e.sev===logFilter);
+ el.innerHTML=show.length?show.map(e=>{const t=new Date(e.ts*1000).toLocaleTimeString();
+   const pay=(e.payload&&typeof e.payload==="object")?JSON.stringify(e.payload):String(e.payload);
+   const esc=pay.slice(0,400).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+   return '<div class="e '+(e.sev||"info")+'"><span class="t">'+t+' · '+e.type+'</span><span class="m">'+esc+'</span></div>';
+  }).join(""):'<span class=muted>(nichts in diesem Filter)</span>';}
+async function loadEvents(reset=true){
+ if(reset){logOldest=null;logRaw=[];}
+ const url="/api/events?limit=100"+(logOldest?"&before="+logOldest:"");
+ const es=await (await fetch(url)).json();
+ if(es.length){logRaw=logRaw.concat(es);logOldest=es[es.length-1].ts;}
+ renderLog();}
+$$("#log-filters a").forEach(a=>a.onclick=e=>{e.preventDefault();logFilter=a.dataset.f;
+ $$("#log-filters a").forEach(x=>x.classList.toggle("on",x===a));renderLog();});
+$("#log-more")&&($("#log-more").onclick=()=>loadEvents(false));
 
 /* ---- Gewissen ---- */
 function bar(spent,limit){if(limit==null)return '<span class=muted>kein Limit</span>';
@@ -900,5 +929,5 @@ async function loadMem(){const ms=await (await fetch("/api/memory?limit=100")).j
     headers:{"Content-Type":"application/json"},body:JSON.stringify({id:m.id})});loadMem();};
   el.appendChild(d);});}
 
-refreshStatus();setInterval(()=>{refreshStatus();if(cur==="log")loadEvents();if(cur==="gov")loadGov();},5000);
+refreshStatus();setInterval(()=>{refreshStatus();if(cur==="log"&&logRaw.length<=100)loadEvents();if(cur==="gov")loadGov();},5000);
 </script></body></html>"""
