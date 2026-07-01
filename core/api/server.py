@@ -654,11 +654,14 @@ DASHBOARD_HTML = """<!doctype html>
 <style>
 :root{--bg:#07070a;--panel:#101014;--panel2:#0b0b0f;--line:#20202a;--ink:#eceef4;
  --muted:#8a8a99;--accent:#8b5cf6;--accent2:#6d28d9;--amber:#c4b5fd;--danger:#f0596a;--ok:#34d399;--warn:#f59e0b;}
-html[data-theme="blutmond"]{--bg:#0a0406;--panel:#1a0d10;--panel2:#140a0c;--line:#3a1f26;--accent:#f0596a;--accent2:#b3243a;--amber:#ffb3c1;--ok:#f0a35e;--warn:#ff7ab0;}
-html[data-theme="abyss"]{--bg:#03080a;--panel:#0b1518;--panel2:#081114;--line:#123038;--accent:#22d3ee;--accent2:#0e7490;--amber:#a5f3fc;--ok:#5eead4;--warn:#67a3f9;}
-html[data-theme="asche"]{--bg:#0a0a0c;--panel:#16161a;--panel2:#101014;--line:#2a2a32;--accent:#c8c8d4;--accent2:#8a8a99;--amber:#e6e6ee;--ok:#9adcc4;--warn:#d0a0d8;}
-.look .sw{width:16px;height:16px;border-radius:50%;cursor:pointer;border:2px solid transparent;box-shadow:0 0 6px rgba(0,0,0,.6)}
-.look .sw.on{border-color:#fff}
+html[data-theme="gruen"]{--accent:#22c55e;--accent2:#15803d;--amber:#86efac;--ok:#34d399;--warn:#f59e0b;}
+html[data-theme="blau"]{--accent:#3b82f6;--accent2:#1d4ed8;--amber:#93c5fd;--ok:#34d399;--warn:#f59e0b;}
+.thm{width:30px;height:30px;border-radius:8px;cursor:pointer;padding:0;border:2px solid var(--line);background:var(--panel);
+ display:inline-flex;align-items:center;justify-content:center;background-size:cover;background-position:center}
+.thm:hover{border-color:var(--accent)}
+.thm.on{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.16)}
+.thm .td{width:15px;height:15px;border-radius:50%;display:inline-block}
+.thm.kira{background:linear-gradient(135deg,#3a2150,#0a0410)}
 .live{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block;animation:ping 2.4s ease-out infinite}
 @keyframes ping{0%{box-shadow:0 0 0 0 rgba(52,211,153,.5)}70%,100%{box-shadow:0 0 0 7px rgba(52,211,153,0)}}
 .pulse{color:var(--muted);font-weight:500;letter-spacing:.2px}
@@ -772,12 +775,11 @@ textarea.k:focus{border-color:var(--accent2)}
   <a data-v="log" title="Alles was ich tue (Live-Log)">› Protokoll</a>
   <div class="spacer"></div>
   <div class="look">
-    <span title="Kira (Standard)" class="sw on" data-theme="" style="background:#8b5cf6"></span>
-    <span title="Blutmond" class="sw" data-theme="blutmond" style="background:#f0596a"></span>
-    <span title="Abyss" class="sw" data-theme="abyss" style="background:#22d3ee"></span>
-    <span title="Asche" class="sw" data-theme="asche" style="background:#c8c8d4"></span>
-    <label title="Hintergrundbild waehlen" style="margin-left:4px;cursor:pointer">🎨<input id="bgquick" type="file" accept="image/*" style="display:none"/></label>
-    <a href="#" id="bgclear" title="Hintergrund entfernen">✕</a>
+    <button class="thm on" data-theme="" title="Schwarz / Lila (Standard)"><span class="td" style="background:#8b5cf6"></span></button>
+    <button class="thm" data-theme="gruen" title="Schwarz / Gruen"><span class="td" style="background:#22c55e"></span></button>
+    <button class="thm" data-theme="blau" title="Schwarz / Blau"><span class="td" style="background:#3b82f6"></span></button>
+    <button class="thm kira" id="thm-kira" data-theme="kira" title="Kira-Modus (Bild-Hintergrund)"></button>
+    <label id="bgup" title="Kira-Bild waehlen / aendern" style="cursor:pointer;color:var(--muted);margin-left:2px;font-size:15px">📷<input id="bgquick" type="file" accept="image/*" style="display:none"/></label>
   </div>
   <div class="kill" id="kill">Not-Aus: aus</div>
 </div>
@@ -816,7 +818,6 @@ textarea.k:focus{border-color:var(--accent2)}
       <small class="muted">Hirn:</small>
       <select id="chat-model" style="max-width:200px"></select>
       <label class="muted" title="Plan-Modus: erst Plan, dann Schritt fuer Schritt" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="planmode"/> 🧭 Plan</label>
-      <small class="muted" id="chat-model-now"></small>
     </div>
     <div id="log"></div>
     <form id="cform">
@@ -882,8 +883,6 @@ textarea.k:focus{border-color:var(--accent2)}
         <span class="pill" data-or="google/gemini-2.5-pro">Gemini 2.5 Pro</span>
         <span class="pill" data-or="deepseek/deepseek-chat">DeepSeek</span></div>
       <div class="muted" style="margin-top:6px">Modell-ID eintippen (oder Pill klicken) → „Aktivieren" macht es zu Kiras Hirn. Volle Liste: openrouter.ai/models</div></div>
-    <div class="card"><h3>Hintergrund &amp; Farbthema</h3>
-      <div class="muted">Beides schaltest du links unten in der Leiste um (🎨): 4 Farbthemen (Kira = Standard) und dein eigenes Hintergrundbild. Schluessel/Passwoerter liegen unter <b>Zugaenge</b>.</div></div>
   </div>
 
   <div class="view" id="v-gov">
@@ -1015,16 +1014,15 @@ async function loadChatModels(){const s=await (await fetch("/api/status")).json(
  const sel=$("#chat-model"); if(!sel) return;
  const opts=[]; const seen={};
  const add=(id,lbl)=>{ if(id && !seen[id]){ seen[id]=1; opts.push('<option value="'+id+'"'+(id===s.model?' selected':'')+'>'+lbl+'</option>'); } };
- add(s.model, s.model+" (aktiv)");
+ add(s.model, s.model.split("/").pop()+" (aktiv)");
  (s.ollama_local||[]).forEach(n=>{const low=n.toLowerCase();
    if(low.includes("embed")||low.includes("hf.co")||low.includes("gguf")) return;  // Embedding/roher GGUF-Name raus
    add("ollama_chat/"+n.replace(/:latest$/,""), n.replace(/:latest$/,"")+" (lokal, 0€)");});
  if(s.api_keys&&s.api_keys.openrouter){ add("openrouter/z-ai/glm-5.2","GLM 5.2 (Cloud, stark)"); }
- sel.innerHTML=opts.join("");
- $("#chat-model-now").textContent="aktiv: "+(s.model||"?");}
+ sel.innerHTML=opts.join("");}
 $("#chat-model")&&($("#chat-model").onchange=async(e)=>{const id=e.target.value;
  await fetch("/api/model/use",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
- $("#chat-model-now").textContent="gewechselt zu: "+id; refreshStatus();});
+ refreshStatus();});
 
 /* ---- Hintergrundbild hochladen ---- */
 $("#bgfile")&&($("#bgfile").onchange=(e)=>{const f=e.target.files[0];if(!f)return;
@@ -1329,19 +1327,22 @@ $("#mem-add")&&($("#mem-add").onclick=async()=>{const t=$("#mem-new").value.trim
  $("#mem-new").value="";$("#mem-hint").textContent="gemerkt ✓";loadMem();});
 
 /* ---- Hintergrund beim Laden + Sidebar Look-Umschalter ---- */
-const BGBASE="radial-gradient(1100px 620px at 78% -12%, rgba(90,60,150,.18), #07070a 62%)";
-function applyBg(){document.body.style.backgroundImage="linear-gradient(rgba(7,7,10,.80),rgba(7,7,10,.94)),url('/api/bg?t="+Date.now()+"'),"+BGBASE;
+const BGBASE="radial-gradient(1100px 620px at 78% -12%, rgba(90,60,150,.13), #07070a 62%)";
+function applyBgFor(t){
+ if(t==="kira"){document.body.style.backgroundImage="linear-gradient(rgba(7,7,10,.72),rgba(7,7,10,.90)),url('/api/bg?t="+Date.now()+"'),"+BGBASE;}
+ else{document.body.style.backgroundImage=BGBASE;}
  document.body.style.backgroundSize="cover";document.body.style.backgroundPosition="center";document.body.style.backgroundAttachment="fixed";}
-applyBg();
-function bgUpload(f){const rd=new FileReader();rd.onload=async()=>{await fetch("/api/bg/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dataurl:rd.result})});applyBg();};rd.readAsDataURL(f);}
+function refreshKiraThumb(){const b=$("#thm-kira");if(b)b.style.backgroundImage="url('/api/bg?t="+Date.now()+"'),linear-gradient(135deg,#3a2150,#0a0410)";}
+/* ---- Farb-Themes: Standard (Schwarz/Lila) · Gruen · Blau · Kira (Bild) ---- */
+function setTheme(t){t=t||"";
+ if(t==="gruen"||t==="blau")document.documentElement.setAttribute("data-theme",t);else document.documentElement.removeAttribute("data-theme");
+ try{localStorage.setItem("kira-theme",t);}catch(e){}
+ $$(".look .thm").forEach(s=>s.classList.toggle("on",(s.dataset.theme||"")===t));
+ applyBgFor(t);}
+$$(".look .thm").forEach(s=>s.onclick=()=>setTheme(s.dataset.theme||""));
+function bgUpload(f){const rd=new FileReader();rd.onload=async()=>{await fetch("/api/bg/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dataurl:rd.result})});refreshKiraThumb();setTheme("kira");};rd.readAsDataURL(f);}
 $("#bgquick")&&($("#bgquick").onchange=e=>{const f=e.target.files[0];if(f)bgUpload(f);});
-$("#bgclear")&&($("#bgclear").onclick=async e=>{e.preventDefault();await fetch("/api/bg/clear",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});document.body.style.backgroundImage=BGBASE;});
-
-/* ---- Farb-Themes (Kira = Standard) ---- */
-function setTheme(t){if(t)document.documentElement.setAttribute("data-theme",t);else document.documentElement.removeAttribute("data-theme");
- try{localStorage.setItem("kira-theme",t||"");}catch(e){}
- $$(".look .sw").forEach(s=>s.classList.toggle("on",(s.dataset.theme||"")===(t||"")));}
-$$(".look .sw").forEach(s=>s.onclick=()=>setTheme(s.dataset.theme||""));
+refreshKiraThumb();
 try{setTheme(localStorage.getItem("kira-theme")||"");}catch(e){}
 
 /* ---- Live-Puls: was ich gerade tue (Einblick in mein Herz) ---- */
