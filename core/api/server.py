@@ -755,6 +755,45 @@ def api_costs() -> dict:
             "budget": treasury.status()}
 
 
+_NEWS_CACHE: dict = {"ts": 0.0, "data": None}
+_NEWS_FEEDS = [
+    ("HN", "https://hnrss.org/frontpage"),
+    ("HN·AI", "https://hnrss.org/newest?q=AI+OR+LLM+OR+agent"),
+]
+
+
+@app.get("/api/news")
+def api_news() -> dict:
+    """KI/Tech-News aus Default-RSS-Feeds (serverseitig, 15-min-Cache) — laeuft
+    unabhaengig vom manuellen Monitor, damit der Ticker sofort lebt."""
+    import time as _t
+    import xml.etree.ElementTree as ET
+
+    import httpx as _hx
+
+    if _NEWS_CACHE["data"] and (_t.time() - _NEWS_CACHE["ts"]) < 900:
+        return _NEWS_CACHE["data"]
+    items: list[dict] = []
+    for label, url in _NEWS_FEEDS:
+        try:
+            r = _hx.get(url, timeout=8, headers={"User-Agent": "KiraCockpit/1.0"})
+            root = ET.fromstring(r.text)
+            cnt = 0
+            for it in root.iter("item"):
+                title = (it.findtext("title") or "").strip()
+                link = (it.findtext("link") or "").strip()
+                if title:
+                    items.append({"source": label, "title": title[:160], "link": link})
+                    cnt += 1
+                if cnt >= 7:
+                    break
+        except Exception:  # noqa: BLE001
+            continue
+    out = {"items": items[:16], "ts": _t.time()}
+    _NEWS_CACHE.update(ts=_t.time(), data=out)
+    return out
+
+
 @app.post("/api/memory/update")
 async def api_memory_update(body: dict) -> dict:
     ok = memory.update_text(body.get("id", ""), body.get("text", ""))
@@ -937,14 +976,15 @@ DASHBOARD_HTML = """<!doctype html>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Kira Cockpit</title>
 <style>
-:root{--bg:#07070a;--panel:#101014;--panel2:#0b0b0f;--line:#20202a;--ink:#eceef4;
- --muted:#8a8a99;--accent:#8b5cf6;--accent2:#6d28d9;--amber:#c4b5fd;--danger:#f0596a;--ok:#34d399;--warn:#f59e0b;}
-html[data-theme="gruen"]{--accent:#22c55e;--accent2:#15803d;--amber:#86efac;--ok:#34d399;--warn:#f59e0b;}
-html[data-theme="blau"]{--accent:#3b82f6;--accent2:#1d4ed8;--amber:#93c5fd;--ok:#34d399;--warn:#f59e0b;}
+:root{--bg:#04040a;--panel:#0d0d16;--panel2:#08080f;--line:#241b3a;--ink:#eceef4;
+ --muted:#8a86a0;--accent:#b026ff;--accent2:#7c3aed;--hud:#22d3ee;--glow:#b026ff;
+ --amber:#d8b4fe;--danger:#ff3d68;--ok:#34ff9e;--warn:#f5a623;}
+html[data-theme="gruen"]{--accent:#39ff14;--accent2:#16a34a;--hud:#adff2f;--glow:#39ff14;--amber:#bbf7d0;}
+html[data-theme="blau"]{--accent:#22d3ee;--accent2:#0891b2;--hud:#38bdf8;--glow:#22d3ee;--amber:#a5f3fc;}
 .thm{width:30px;height:30px;border-radius:8px;cursor:pointer;padding:0;border:2px solid var(--line);background:var(--panel);
  display:inline-flex;align-items:center;justify-content:center;background-size:cover;background-position:center}
 .thm:hover{border-color:var(--accent)}
-.thm.on{border-color:#fff;box-shadow:0 0 0 2px rgba(255,255,255,.16)}
+.thm.on{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent),0 0 14px var(--glow)}
 .thm .td{width:15px;height:15px;border-radius:50%;display:inline-block}
 .thm.kira{background:linear-gradient(135deg,#3a2150,#0a0410)}
 .live{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block;animation:ping 2.4s ease-out infinite}
@@ -1055,20 +1095,21 @@ textarea.k:focus{border-color:var(--accent2)}
 :root{--mono:ui-monospace,"Cascadia Code",Consolas,monospace}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,"Helvetica Neue",Arial,sans-serif}
 .think,#farea,#evlog,#memlist,#feed-list,.e{font-family:var(--mono)}
-/* HUD: dezentes Grid + EIN ruhiger Eckglow statt driftender Aura (weniger Kitsch) */
-body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.8;
+/* NEON-BG: kein Grid mehr -> theme-farbiger Glow + dezente STATISCHE Scanline (kein Flackern) */
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
  background:
-  linear-gradient(rgba(94,234,212,.035) 1px, transparent 1px) 0 0/100% 36px,
-  linear-gradient(90deg, rgba(94,234,212,.035) 1px, transparent 1px) 0 0/36px 100%,
-  radial-gradient(1100px 720px at 84% -12%, rgba(139,92,246,.10), transparent 60%)}
-#side h1{text-shadow:0 0 10px rgba(139,92,246,.28)}
+  radial-gradient(1200px 800px at 82% -14%, color-mix(in srgb, var(--glow) 16%, transparent), transparent 60%),
+  radial-gradient(900px 700px at 10% 110%, color-mix(in srgb, var(--hud) 9%, transparent), transparent 60%),
+  repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 3px)}
+#side h1{font-size:24px;letter-spacing:6px;text-shadow:0 0 18px var(--glow),0 0 42px var(--glow);animation:flickerin 1.3s ease both}
+@keyframes flickerin{0%{opacity:0}10%{opacity:.6}13%{opacity:.2}22%{opacity:.95}27%{opacity:.4}33%,100%{opacity:1}}
 #side a{transition:background .18s ease,border-color .18s ease,color .18s ease}
-#side a.on{box-shadow:inset 0 0 20px rgba(139,92,246,.10)}
-button{transition:transform .12s ease,box-shadow .2s ease,filter .2s ease;box-shadow:0 2px 10px rgba(0,0,0,.35)}
-button:hover{filter:brightness(1.08);transform:translateY(-1px)}
+#side a.on{box-shadow:inset 3px 0 0 var(--accent),inset 0 0 22px color-mix(in srgb,var(--glow) 14%,transparent)}
+button{transition:transform .12s ease,box-shadow .2s ease,filter .2s ease;box-shadow:0 0 14px color-mix(in srgb,var(--glow) 28%,transparent)}
+button:hover{filter:brightness(1.12);transform:translateY(-1px);box-shadow:0 0 20px var(--glow)}
 button:active{transform:translateY(0)}
 button.ghost{box-shadow:none}
-button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(139,92,246,.25)}
+button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 0 12px color-mix(in srgb,var(--glow) 30%,transparent)}
 .card{transition:border-color .2s ease,transform .2s ease,box-shadow .2s ease}
 .card:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .pill{transition:border-color .15s ease,color .15s ease,background .15s ease}
@@ -1089,7 +1130,7 @@ button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(139,92,2
 @keyframes shimmer{to{background-position:-220% 0}}
 @keyframes spin{to{transform:rotate(360deg)}}
 /* ===== HUD-Kommandozentrale ===== */
-:root{--hud:#5eead4}
+/* --hud kommt jetzt pro Theme aus dem :root/data-theme oben (faerbt beim Wechsel mit) */
 .hud-strip{display:flex;flex-wrap:wrap;align-items:stretch;margin-bottom:14px;border:1px solid var(--line);
  border-radius:10px;overflow:hidden;background:rgba(10,12,16,.7);font-family:var(--mono)}
 .hud-cell{padding:8px 14px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:3px;min-width:118px}
@@ -1138,6 +1179,33 @@ button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(139,92,2
 .seg a:last-child{border-right:none}
 .seg a.on{background:rgba(94,234,212,.12);color:var(--hud)}
 .thinking .tx{color:var(--hud)}
+/* ===== NEON v2: Scrollbars + Panel-Glow + Theme-follow + Mission-Grid ===== */
+*{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--accent) 45%,#2a2440) transparent}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--accent) 34%,transparent);border-radius:8px;border:2px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,var(--glow) 70%,transparent);box-shadow:0 0 8px var(--glow)}
+::-webkit-scrollbar-corner{background:transparent}
+/* vorher hartkodierte Tuerkis-Werte -> folgen jetzt dem Theme */
+.badge.you{border-color:color-mix(in srgb,var(--hud) 50%,transparent)}
+.seg a.on{background:color-mix(in srgb,var(--hud) 16%,transparent)}
+/* Panels: staerkerer Neon-Rahmen + leuchtende Ecken + Header-Glow */
+.panel{border-color:color-mix(in srgb,var(--hud) 22%,var(--line));box-shadow:0 0 0 1px color-mix(in srgb,var(--hud) 8%,transparent),0 10px 34px rgba(0,0,0,.55)}
+.panel::before,.panel::after{width:12px;height:12px;border-color:var(--hud);opacity:.9;filter:drop-shadow(0 0 4px var(--hud))}
+.panel-h{color:var(--hud);text-shadow:0 0 10px color-mix(in srgb,var(--hud) 60%,transparent);border-bottom-color:color-mix(in srgb,var(--hud) 20%,var(--line))}
+.card{border-color:color-mix(in srgb,var(--accent) 16%,var(--line))}
+.card h3{color:var(--accent);text-shadow:0 0 10px color-mix(in srgb,var(--glow) 45%,transparent)}
+h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
+.ticker>span{color:var(--hud);text-shadow:0 0 8px color-mix(in srgb,var(--hud) 55%,transparent)}
+.live{box-shadow:0 0 9px var(--ok)}
+.pill.ok,.pill.on{box-shadow:0 0 10px color-mix(in srgb,var(--glow) 30%,transparent)}
+/* Mission: ausgewogenes 2-Spalten-Grid (kein Stranden), gleiche Hoehen */
+.mgrid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;max-width:1560px;margin-bottom:14px}
+.mgrid>.panel{min-height:210px;display:flex;flex-direction:column}
+.mgrid>.panel>.panel-b,.mgrid>.panel>[class*="-list"],.mgrid>.panel>#todo-board,.mgrid>.panel>#obj-list{flex:1}
+@media(max-width:1000px){.mgrid{grid-template-columns:1fr}}
+.emptybox{display:flex;align-items:center;justify-content:center;min-height:150px;color:var(--muted);
+ border:1px dashed color-mix(in srgb,var(--hud) 30%,var(--line));border-radius:10px;font-family:var(--mono);text-align:center;padding:16px}
 @media (prefers-reduced-motion: reduce){
  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
  body::after{animation:none}
@@ -1210,49 +1278,41 @@ button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(139,92,2
   </div>
 
   <div class="view" id="v-mission">
-    <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;max-width:1520px">
-      <div class="cmd-main">
-        <div class="panel">
-          <div class="panel-h">◈ Ziele / Projekte <span class="sp"></span><a id="obj-new-btn" class="muted" style="cursor:pointer;font-size:10px">+ Ziel</a></div>
-          <div class="panel-b" id="obj-form" style="display:none">
-            <div class="row" style="flex-wrap:wrap">
-              <input id="obj-title" placeholder="Ziel/Projekt-Titel" style="flex:1;min-width:180px"/>
-              <select id="obj-kind"><option value="big">Big Project</option><option value="monthly">Monatsziel</option><option value="weekly" selected>Wochenziel</option></select>
-              <input id="obj-date" type="date" title="Zieldatum"/>
-              <button id="obj-add">Anlegen</button>
-            </div>
+    <div class="mgrid">
+      <div class="panel">
+        <div class="panel-h">◈ ZIELE / PROJEKTE <span class="sp"></span><a id="obj-new-btn" class="muted" style="cursor:pointer;font-size:11px">+ ZIEL</a></div>
+        <div class="panel-b" id="obj-form" style="display:none">
+          <div class="row" style="flex-wrap:wrap">
+            <input id="obj-title" placeholder="Ziel/Projekt-Titel" style="flex:1;min-width:180px"/>
+            <select id="obj-kind"><option value="big">Big Project</option><option value="monthly">Monatsziel</option><option value="weekly" selected>Wochenziel</option></select>
+            <input id="obj-date" type="date" title="Zieldatum"/>
+            <button id="obj-add">Anlegen</button>
           </div>
-          <div id="obj-list" class="panel-b"><span class="muted">…</span></div>
         </div>
+        <div id="obj-list" class="panel-b"><span class="muted">…</span></div>
       </div>
-      <div class="cmd-side" style="flex:1 1 440px">
-        <div class="panel">
-          <div class="panel-h">◈ To-Do / Backlog <span class="sp"></span><a id="todo-new-btn" class="muted" style="cursor:pointer;font-size:10px">+ To-Do</a></div>
-          <div class="panel-b" id="todo-form" style="display:none">
-            <div class="row" style="flex-wrap:wrap">
-              <input id="todo-desc" placeholder="Was zu tun ist" style="flex:1;min-width:170px"/>
-              <select id="todo-prio"><option value="1">P1</option><option value="2">P2</option><option value="3" selected>P3</option><option value="4">P4</option></select>
-              <input id="todo-due" type="date" title="faellig"/>
-              <button id="todo-add">+</button>
-            </div>
-            <div class="muted" style="margin-top:5px;font-size:11px">Ziel zuordnen (optional): <select id="todo-obj"><option value="">— keins —</option></select></div>
+      <div class="panel">
+        <div class="panel-h">◈ TO-DO / BACKLOG <span class="sp"></span><a id="todo-new-btn" class="muted" style="cursor:pointer;font-size:11px">+ TO-DO</a></div>
+        <div class="panel-b" id="todo-form" style="display:none">
+          <div class="row" style="flex-wrap:wrap">
+            <input id="todo-desc" placeholder="Was zu tun ist" style="flex:1;min-width:170px"/>
+            <select id="todo-prio"><option value="1">P1</option><option value="2">P2</option><option value="3" selected>P3</option><option value="4">P4</option></select>
+            <input id="todo-due" type="date" title="faellig"/>
+            <button id="todo-add">+</button>
           </div>
-          <div id="todo-board" class="panel-b"><span class="muted">…</span></div>
+          <div class="muted" style="margin-top:5px;font-size:11px">Ziel zuordnen (optional): <select id="todo-obj"><option value="">— keins —</option></select></div>
         </div>
+        <div id="todo-board" class="panel-b"><span class="muted">…</span></div>
       </div>
     </div>
-    <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;max-width:1520px;margin-top:14px">
-      <div class="cmd-main">
-        <div class="panel">
-          <div class="panel-h">◈ Freigabe-Inbox <span class="live"></span><span class="sp"></span><span class="muted" id="inbox-count" style="font-size:11px"></span></div>
-          <div id="inbox-list" class="panel-b"><span class="muted">…</span></div>
-        </div>
+    <div class="mgrid">
+      <div class="panel">
+        <div class="panel-h">◈ FREIGABE-INBOX <span class="live"></span><span class="sp"></span><span class="muted" id="inbox-count" style="font-size:11px"></span></div>
+        <div id="inbox-list" class="panel-b"><span class="muted">…</span></div>
       </div>
-      <div class="cmd-side" style="flex:1 1 440px">
-        <div class="panel">
-          <div class="panel-h">◈ Tages-Digest</div>
-          <div id="digest" class="panel-b"><span class="muted">…</span></div>
-        </div>
+      <div class="panel">
+        <div class="panel-h">◈ TAGES-DIGEST</div>
+        <div id="digest" class="panel-b"><span class="muted">…</span></div>
       </div>
     </div>
   </div>
@@ -1555,13 +1615,12 @@ async function loadOps(){const el=$("#ops-feed");if(!el)return;
    return '<div class="op '+(e.sev||"info")+'"><span class="od"></span><span class="opt">'+t+'</span><span class="opx">'+pulsePhrase(e).replace(/</g,"&lt;")+'</span></div>';}).join(""):'<span class="muted" style="padding:10px 13px;display:block">(ruhig — keine Aktivitaet)</span>';
  }catch(e){}}
 async function loadNews(){const tk=$("#news-ticker"),ls=$("#news-list");if(!ls)return;
- try{const m=await (await fetch("/api/monitor")).json();const rec=m.recent||[];
-  if(!rec.length){if(tk)tk.innerHTML='<span>Keine Quellen — oben „+ Quellen" klicken, dann meldet Kira Neues aus der KI-Welt.</span>';
-   ls.innerHTML='<span class="muted">Noch keine Intel. Quellen hinzufuegen (oder im Monitor-Tab).</span>';return;}
-  const head=rec.slice(0,10).map(r=>(r.label||"Intel")+": "+(""+(r.summary||"")).slice(0,90).replace(/\\n/g," ")).join("   •   ").replace(/</g,"&lt;");
-  if(tk)tk.innerHTML='<span>'+head+'   •   '+head+'</span>';
-  ls.innerHTML=rec.slice(0,8).map(r=>{const t=new Date(r.ts*1000).toLocaleString();
-   return '<div class="news-item"><small>'+t+'</small> <b>'+(""+(r.label||"")).replace(/</g,"&lt;")+'</b> ('+r.count+' neu)<br>'+(""+(r.summary||"")).slice(0,220).replace(/</g,"&lt;").replace(/\\n/g,"<br>")+'</div>';}).join("");
+ try{const d=await (await fetch("/api/news")).json();const it=d.items||[];
+  if(!it.length){if(tk)tk.innerHTML='<span>… Feeds nicht erreichbar …</span>';ls.innerHTML='<span class="muted">Keine News geladen.</span>';return;}
+  const head=it.map(x=>'▟ '+x.source+': '+x.title).join('    ◆    ').replace(/</g,"&lt;");
+  if(tk)tk.innerHTML='<span>'+head+'    ◆    '+head+'</span>';
+  ls.innerHTML=it.slice(0,10).map(x=>{const t=(""+x.title).replace(/</g,"&lt;");const s=(""+x.source).replace(/</g,"&lt;");
+   return '<div class="news-item"><small>'+s+'</small> '+(x.link?'<a href="'+x.link+'" target="_blank" rel="noopener" style="color:var(--ink);text-decoration:none">'+t+'</a>':'<b>'+t+'</b>')+'</div>';}).join("");
  }catch(e){}}
 const DEFAULT_FEEDS=[{kind:"feed",value:"https://hnrss.org/frontpage",label:"Hacker News"},
  {kind:"feed",value:"https://www.theverge.com/rss/index.xml",label:"The Verge"},
@@ -1580,7 +1639,7 @@ async function loadMission(){
  const d=await (await fetch("/api/mission/board")).json();
  missionObjs=d.objectives||[];
  const ol=$("#obj-list");
- if(!missionObjs.length){ol.innerHTML='<span class="muted">Noch keine Ziele. Oben „+ Ziel" klicken.</span>';}
+ if(!missionObjs.length){ol.innerHTML='<div class="emptybox">▸ Noch keine Ziele<br>Oben „+ ZIEL" klicken</div>';}
  else ol.innerHTML=missionObjs.map(o=>{
    const due=o.target_date?('⏰ '+o.target_date):'';
    return '<div class="memrow"><div class="mh"><span class="badge kind">'+(KIND_LABEL[o.kind]||o.kind)+'</span>'
@@ -1616,15 +1675,15 @@ function renderBoard(b){
  const el=$("#todo-board");let h="";
  BOARD_GROUPS.forEach(([k,label])=>{const arr=b[k]||[];if(!arr.length)return;
   h+='<div style="margin:9px 0 4px;font-size:11px;letter-spacing:1px;color:var(--hud);text-transform:uppercase">'+label+' ('+arr.length+')</div>'+arr.map(taskRow).join("");});
- el.innerHTML=h||'<span class="muted">Keine Aufgaben. „+ To-Do" — oder ein Ziel „zerlegen".</span>';
+ el.innerHTML=h||'<div class="emptybox">Keine Aufgaben<br>„+ TO-DO" — oder ein Ziel „zerlegen"</div>';
  $$('#todo-board [data-done]').forEach(a=>a.onclick=async()=>{await fetch("/api/mission/task/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.done,status:"done"})});loadMission();});
  $$('#todo-board [data-defer]').forEach(a=>a.onclick=async()=>{const d=new Date();d.setDate(d.getDate()+7);await fetch("/api/mission/task/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.defer,deferred_until:d.toISOString().slice(0,10)})});loadMission();});
  $$('#todo-board [data-tdel]').forEach(a=>a.onclick=async()=>{await fetch("/api/mission/queue/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.tdel})});loadMission();});
 }
-let missionFormsBound=false;
-function bindMissionForms(){if(missionFormsBound)return;missionFormsBound=true;
- $("#obj-new-btn")&&($("#obj-new-btn").onclick=()=>{const f=$("#obj-form");f.style.display=(f.style.display==="none")?"block":"none";});
- $("#todo-new-btn")&&($("#todo-new-btn").onclick=()=>{const f=$("#todo-form");f.style.display=(f.style.display==="none")?"block":"none";});
+function bindMissionForms(){
+ const tog=id=>{const f=$(id);if(f)f.style.display=(getComputedStyle(f).display==="none")?"block":"none";};
+ $("#obj-new-btn")&&($("#obj-new-btn").onclick=e=>{e.preventDefault();tog("#obj-form");});
+ $("#todo-new-btn")&&($("#todo-new-btn").onclick=e=>{e.preventDefault();tog("#todo-form");});
  $("#obj-add")&&($("#obj-add").onclick=async()=>{const t=$("#obj-title").value.trim();if(!t)return;
    await fetch("/api/objectives",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:t,kind:$("#obj-kind").value,target_date:$("#obj-date").value||null})});
    $("#obj-title").value="";loadMission();});
