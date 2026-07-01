@@ -719,7 +719,8 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 #evlog,#memlist{font-size:12px;max-width:980px}
 .e{padding:6px 10px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
 .e .t{color:var(--accent);min-width:150px}
-.e .m{color:var(--muted);white-space:pre-wrap;flex:1}
+.e .m{color:var(--muted);white-space:pre-wrap;flex:1;cursor:pointer}
+.e .m.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .e.error{background:rgba(240,89,106,.09);border-left:3px solid var(--danger)}
 .e.error .t{color:var(--danger)}
 .e.action .t{color:var(--accent)}
@@ -1210,14 +1211,16 @@ $("#s-sys-save")&&($("#s-sys-save").onclick=async()=>{await cfgSet("channels.tel
  $("#s-sys-hint").innerHTML='gespeichert · <a href="#" onclick="doRestart(event)">Neustart</a>';});
 
 /* ---- Protokoll / Puls: Live-Aktivitaet + Fehler ---- */
-let logFilter="all", logOldest=null, logRaw=[];
+let logFilter="all", logOldest=null, logRaw=[], logOpen=new Set();
 function renderLog(){const el=$("#evlog");
  const show=logRaw.filter(e=>logFilter==="all"||e.sev===logFilter);
- el.innerHTML=show.length?show.map(e=>{const t=new Date(e.ts*1000).toLocaleTimeString();
-   const pay=(e.payload&&typeof e.payload==="object")?JSON.stringify(e.payload):String(e.payload);
-   const esc=pay.slice(0,400).replace(/&/g,"&amp;").replace(/</g,"&lt;");
-   return '<div class="e '+(e.sev||"info")+'"><span class="t">'+t+' · '+e.type+'</span><span class="m">'+esc+'</span></div>';
-  }).join(""):'<span class=muted>(nichts in diesem Filter)</span>';}
+ el.innerHTML=show.length?show.map(e=>{const t=new Date(e.ts*1000).toLocaleTimeString();const p=e.payload||{};
+   const full=(p&&typeof p==="object")?(p.text||p.summary||p.error||p.desc||p.command||JSON.stringify(p)):String(p);
+   const esc=(""+full).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+   const open=logOpen.has(e.id);
+   return '<div class="e '+(e.sev||"info")+'"><span class="t">'+t+' · '+e.type+'</span><span class="m'+(open?'':' clamp')+'" data-id="'+e.id+'" title="klicken zum Auf-/Zuklappen">'+esc+'</span></div>';
+  }).join(""):'<span class=muted>(nichts in diesem Filter)</span>';
+ el.querySelectorAll('.e .m[data-id]').forEach(m=>m.onclick=()=>{const id=m.dataset.id;if(logOpen.has(id))logOpen.delete(id);else logOpen.add(id);m.classList.toggle('clamp');});}
 async function loadEvents(reset=true){
  if(reset){logOldest=null;logRaw=[];}
  const url="/api/events?limit=100"+(logOldest?"&before="+logOldest:"");
