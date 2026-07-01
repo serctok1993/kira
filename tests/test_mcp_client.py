@@ -45,6 +45,14 @@ class FakeInitializeResult:
         self.protocolVersion = "2024-11-05"
         self.capabilities = MagicMock()
 
+# ---------------------------------------------------------------------------
+# Hängende Session für Timeout-Tests
+# ---------------------------------------------------------------------------
+
+async def _never_completes() -> None:
+    """Blockierende Coroutine, die niemals zurückkehrt."""
+    await asyncio.Event().wait()
+
 
 class FakeClientSession:
     """Simuliert eine mcp.ClientSession mit vorbereiteten Antworten."""
@@ -67,6 +75,70 @@ class FakeClientSession:
 
     async def __aexit__(self, *args):
         pass
+
+
+class HangingClientSession:
+    """Simuliert einen MCP-Server, der bei einem bestimmten Vorgang hängt.
+
+    Ermöglicht gezielte Timeout-Tests für initialize / list_tools / call_tool.
+    """
+
+    def __init__(self, hang_on: str = "initialize"):
+        self._hang_on = hang_on
+
+        if hang_on == "initialize":
+            self.initialize = _never_completes
+        else:
+            self.initialize = AsyncMock(return_value=FakeInitializeResult())
+
+    async def list_tools(self, cursor=None, *, params=None):
+        if self._hang_on == "list_tools":
+            await _never_completes()
+        return FakeListToolsResult([])
+
+    async def call_tool(self, name: str, arguments=None, **kwargs):
+        if self._hang_on == "call_tool":
+            await _never_completes()
+        return FakeCallToolResult(is_error=False, content=[FakeToolContent(text="never")])
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        pass
+
+
+# ---------------------------------------------------------------------------
+# Hilfsfunktion: McpServer starten mit gemockten Streams
+# ---------------------------------------------------------------------------
+
+def _make_server_with_session(
+    session: Any,
+    command: str = "dummy",
+    args: list[str] | None = None,
+    timeout: float = 15.0,
+) -> Any:
+    """Erzeuge einen McpServer, dessen stdio_client + ClientSession gemockt sind."""
+    from core.agency.mcp.client import McpServer
+
+    srv = McpServer(command=command, args=args or [], timeout=timeout)
+
+    mock_streams = (AsyncMock(), AsyncMock())
+
+    patcher_stdio = patch("core.agency.mcp.client.stdio_client")
+    patcher_session = patch("core.agency.mcp.client.ClientSession", return_value=session)
+
+    mock_stdio = patcher_stdio.start()
+    mock_stdio.return_value.__aenter__ = AsyncMock(return_value=mock_streams)
+    mock_stdio.return_value.__aexit__ = AsyncMock(return_value=None)
+
+    patcher_session.start()
+
+    def cleanup():
+        patcher_stdio.stop()
+        patcher_session.stop()
+
+    return srv, cleanup
 
 
 # ---------------------------------------------------------------------------
@@ -197,6 +269,52 @@ class TestMcpServerUnit:
             # Verify cleanup was called
             mock_stdio.return_value.__aexit__.assert_called()
             mock_session_cls.return_value.__aexit__.assert_called()
+
+    # ------------------------------------------------------------------
+    # Timeout-Tests
+    # ------------------------------------------------------------------
+
+    def test_initialize_timeout_raises_mcp_timeout_error(self):
+        """Wenn initialize nicht antwortet, muss McpTimeoutError fliegen."""
+        from core.agency.mcp.client import McpTimeoutError
+
+        hanging = HangingClientSession(hang_on="initialize")
+        srv, cleanup = _make_server_with_session(hanging, timeout=0.1)
+
+        try:
+            with pytest.raises(McpTimeoutError) as exc_info:
+                asyncio.run(srv.start())
+            assert "initialize" in str(exc_info.value)
+        finally:
+            cleanup()
+
+    def test_list_tools_timeout_raises_mcp_timeout_error(self, fake_session):
+        """Wenn list_tools nicht antwortet, muss McpTimeoutError fliegen."""
+        from core.agency.mcp.client import McpTimeoutError, McpServer
+
+        hanging = HangingClientSession(hang_on="list_tools")
+        srv = McpServer(command="dummy", args=[], timeout=0.1)
+        srv._session = hanging
+        srv._session_ctx = MagicMock()
+        srv._session_ctx.__aexit__ = AsyncMock()
+
+        with pytest.raises(McpTimeoutError) as exc_info:
+            asyncio.run(srv.list_tools())
+        assert "list_tools" in str(exc_info.value)
+
+    def test_call_tool_timeout_raises_mcp_timeout_error(self, fake_session):
+        """Wenn call_tool nicht antwortet, muss McpTimeoutError fliegen."""
+        from core.agency.mcp.client import McpTimeoutError, McpServer
+
+        hanging = HangingClientSession(hang_on="call_tool")
+        srv = McpServer(command="dummy", args=[], timeout=0.1)
+        srv._session = hanging
+        srv._session_ctx = MagicMock()
+        srv._session_ctx.__aexit__ = AsyncMock()
+
+        with pytest.raises(McpTimeoutError) as exc_info:
+            asyncio.run(srv.call_tool("some_tool"))
+        assert "call_tool" in str(exc_info.value)
 
 
 class TestQuickCall:

@@ -6,6 +6,9 @@ via stdio, statt rohem Protokoll-Gefrickel.
 Bietet zwei Interfaces:
 - ``McpServer`` — asynchroner Kontextmanager für dauerhaften Betrieb
 - ``quick_call()`` — One-Shot: Start → List → (optional) Call → Stop
+
+Jede Netzwerk-/Prozess-Kommunikation ist mit einem konfigurierbaren Timeout
+abgesichert (Default 15 s). Bei Überschreitung wird ``McpTimeoutError`` geworfen.
 """
 
 from __future__ import annotations
@@ -16,6 +19,33 @@ from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+
+
+# ---------------------------------------------------------------------------
+# Custom Errors
+# ---------------------------------------------------------------------------
+
+class McpTimeoutError(asyncio.TimeoutError):
+    """Wird geworfen, wenn eine MCP-Operation (z.B. Handshake, tools/list) das
+    konfigurierte Zeitlimit überschreitet."""
+
+    def __init__(self, operation: str, timeout: float) -> None:
+        self.operation = operation
+        self.timeout = timeout
+        super().__init__(f"MCP-Timeout nach {timeout}s bei '{operation}'")
+
+
+# ---------------------------------------------------------------------------
+# Helfer
+# ---------------------------------------------------------------------------
+
+async def _with_timeout(coro: Any, operation: str, timeout: float) -> Any:
+    """Wickle eine awaitable in ``asyncio.wait_for`` und wandle TimeoutError
+    in ``McpTimeoutError`` um."""
+    try:
+        return await asyncio.wait_for(coro, timeout=timeout)
+    except asyncio.TimeoutError:
+        raise McpTimeoutError(operation=operation, timeout=timeout) from None
 
 
 # ---------------------------------------------------------------------------
@@ -37,6 +67,7 @@ class McpServer:
     args: list[str] = field(default_factory=list)
     env: dict[str, str] | None = None
     cwd: str | None = None
+    timeout: float = 15.0       # Sekunden — gilt für initialize, list_tools, call_tool
 
     # interne Laufzeit-Felder (nicht im Konstruktor)
     _session: ClientSession | None = field(default=None, repr=False, init=False)
@@ -65,8 +96,12 @@ class McpServer:
         self._session_ctx = ClientSession(self._read, self._write)
         self._session = await self._session_ctx.__aenter__()
 
-        # Handshake
-        await self._session.initialize()
+        # Handshake — mit Timeout
+        await _with_timeout(
+            self._session.initialize(),
+            operation="initialize",
+            timeout=self.timeout,
+        )
 
     async def stop(self) -> None:
         """Fahre den Subprozess sauber herunter."""
@@ -89,7 +124,7 @@ class McpServer:
         await self.stop()
 
     # ------------------------------------------------------------------
-    # MCP-Operationen
+    # MCP-Operationen (alle mit Timeout)
     # ------------------------------------------------------------------
 
     async def list_tools(self) -> list[dict[str, Any]]:
@@ -99,7 +134,11 @@ class McpServer:
         """
         if self._session is None:
             raise RuntimeError("Server nicht gestartet — ruf start() oder das async-with auf.")
-        result = await self._session.list_tools()
+        result = await _with_timeout(
+            self._session.list_tools(),
+            operation="list_tools",
+            timeout=self.timeout,
+        )
         return [
             {
                 "name": t.name,
@@ -120,7 +159,11 @@ class McpServer:
         """
         if self._session is None:
             raise RuntimeError("Server nicht gestartet — ruf start() oder das async-with auf.")
-        result = await self._session.call_tool(name, arguments)
+        result = await _with_timeout(
+            self._session.call_tool(name, arguments),
+            operation=f"call_tool({name})",
+            timeout=self.timeout,
+        )
 
         # Content-Blöcke in einfache Dicts umwandeln
         contents: list[dict[str, Any]] = []
@@ -146,6 +189,7 @@ async def quick_call(
     tool_args: dict[str, Any] | None = None,
     env: dict[str, str] | None = None,
     cwd: str | None = None,
+    timeout: float = 15.0,
 ) -> dict[str, Any]:
     """One-Shot: Server starten, Tools listen, optional ein Tool aufrufen, stoppen.
 
@@ -157,6 +201,7 @@ async def quick_call(
         args=args or [],
         env=env,
         cwd=cwd,
+        timeout=timeout,
     ) as server:
         tools = await server.list_tools()
         result: dict[str, Any] = {"tools": tools, "call": None}
