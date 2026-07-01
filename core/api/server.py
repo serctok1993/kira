@@ -149,6 +149,22 @@ def api_memory(limit: int = 80) -> list[dict]:
     return memory.recent(limit)
 
 
+@app.get("/api/memory/history")
+def api_memory_history(limit: int = 60) -> list[dict]:
+    """Chronik der Gedaechtnis-Aenderungen (add/update/delete) — vorher/nachher
+    nachvollziehbar, aus dem append-only Event-Log."""
+    out: list[dict] = []
+    for e in events.recent(500):
+        if e["type"] in ("memory_add", "memory_update", "memory_delete"):
+            p = e.get("payload") or {}
+            out.append({"ts": e["ts"], "action": e["type"], "role": p.get("role"),
+                        "kind": p.get("kind"), "old": p.get("old"), "new": p.get("new"),
+                        "text": p.get("text"), "mem_id": p.get("mem_id")})
+            if len(out) >= limit:
+                break
+    return out
+
+
 @app.post("/api/memory/delete")
 async def api_memory_delete(body: dict) -> dict:
     memory.delete(body.get("id", ""))
@@ -806,17 +822,16 @@ textarea.k:focus{border-color:var(--accent2)}
 :root{--mono:ui-monospace,"Cascadia Code",Consolas,monospace}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,"Helvetica Neue",Arial,sans-serif}
 .think,#farea,#evlog,#memlist,#feed-list,.e{font-family:var(--mono)}
-body::after{content:"";position:fixed;inset:-20% -10% -10% -10%;z-index:-1;pointer-events:none;
+/* HUD: dezentes Grid + EIN ruhiger Eckglow statt driftender Aura (weniger Kitsch) */
+body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.8;
  background:
-  radial-gradient(760px 520px at 15% -8%, rgba(139,92,246,.20), transparent 60%),
-  radial-gradient(680px 520px at 90% 2%, rgba(109,40,217,.15), transparent 62%),
-  radial-gradient(900px 720px at 60% 120%, rgba(90,45,150,.12), transparent 60%);
- animation:aura 26s ease-in-out infinite alternate}
-@keyframes aura{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(0,-2.4%,0) scale(1.06)}}
-#side h1{text-shadow:0 0 18px rgba(139,92,246,.45),0 0 3px rgba(139,92,246,.35)}
+  linear-gradient(rgba(94,234,212,.035) 1px, transparent 1px) 0 0/100% 36px,
+  linear-gradient(90deg, rgba(94,234,212,.035) 1px, transparent 1px) 0 0/36px 100%,
+  radial-gradient(1100px 720px at 84% -12%, rgba(139,92,246,.10), transparent 60%)}
+#side h1{text-shadow:0 0 10px rgba(139,92,246,.28)}
 #side a{transition:background .18s ease,border-color .18s ease,color .18s ease}
-#side a.on{box-shadow:inset 0 0 26px rgba(139,92,246,.14)}
-button{transition:transform .15s ease,box-shadow .2s ease,filter .2s ease;box-shadow:0 6px 20px rgba(124,58,237,.26)}
+#side a.on{box-shadow:inset 0 0 20px rgba(139,92,246,.10)}
+button{transition:transform .12s ease,box-shadow .2s ease,filter .2s ease;box-shadow:0 2px 10px rgba(0,0,0,.35)}
 button:hover{filter:brightness(1.08);transform:translateY(-1px)}
 button:active{transform:translateY(0)}
 button.ghost{box-shadow:none}
@@ -840,6 +855,56 @@ button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(139,92,2
  animation:shimmer 2.7s linear infinite}
 @keyframes shimmer{to{background-position:-220% 0}}
 @keyframes spin{to{transform:rotate(360deg)}}
+/* ===== HUD-Kommandozentrale ===== */
+:root{--hud:#5eead4}
+.hud-strip{display:flex;flex-wrap:wrap;align-items:stretch;margin-bottom:14px;border:1px solid var(--line);
+ border-radius:10px;overflow:hidden;background:rgba(10,12,16,.7);font-family:var(--mono)}
+.hud-cell{padding:8px 14px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:3px;min-width:118px}
+.hud-cell:last-child{border-right:none}
+.hud-cell .k{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
+.hud-cell .val{font-size:13px;color:var(--ink)}
+.hud-cell.spacer{flex:1;min-width:0}
+.mini-bar{height:5px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:5px;min-width:96px}
+.mini-bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--hud),var(--accent))}
+.mini-bar.warn>i{background:linear-gradient(90deg,var(--warn),var(--danger))}
+.cmd-grid{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;max-width:1500px}
+.cmd-main{flex:2 1 520px;min-width:0;display:flex;flex-direction:column;gap:14px}
+.cmd-side{flex:1 1 320px;min-width:300px;display:flex;flex-direction:column;gap:14px}
+.panel{position:relative;border:1px solid var(--line);border-radius:10px;background:rgba(12,14,18,.66);backdrop-filter:blur(4px)}
+.panel::before,.panel::after{content:"";position:absolute;width:9px;height:9px;border:1px solid var(--hud);opacity:.5}
+.panel::before{top:-1px;left:-1px;border-right:none;border-bottom:none}
+.panel::after{bottom:-1px;right:-1px;border-left:none;border-top:none}
+.panel-h{display:flex;align-items:center;gap:8px;padding:9px 13px;border-bottom:1px solid var(--line);
+ font-family:var(--mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--hud)}
+.panel-h .sp{flex:1}
+.panel-b{padding:10px 13px}
+#ops-feed{max-height:52vh;overflow:auto;font-family:var(--mono);font-size:12px}
+.op{display:flex;gap:10px;padding:5px 13px;border-bottom:1px solid rgba(255,255,255,.04);align-items:flex-start}
+.op .opt{color:var(--muted);min-width:62px;font-variant-numeric:tabular-nums}
+.op .opx{flex:1;color:var(--ink);word-break:break-word}
+.op.error{background:rgba(240,89,106,.08)} .op.error .opx{color:var(--danger)}
+.op.action .opx{color:var(--hud)} .op.chat .opx{color:var(--accent)} .op.info .opx{color:var(--muted)}
+.op .od{width:6px;height:6px;border-radius:50%;margin-top:6px;background:var(--muted);flex-shrink:0}
+.op.action .od{background:var(--hud)} .op.error .od{background:var(--danger)} .op.chat .od{background:var(--accent)}
+.ticker{overflow:hidden;white-space:nowrap;border-bottom:1px solid var(--line);background:rgba(0,0,0,.25)}
+.ticker>span{display:inline-block;padding:7px 0;font-family:var(--mono);font-size:12px;color:var(--hud);animation:tick 42s linear infinite}
+@keyframes tick{from{transform:translateX(100%)}to{transform:translateX(-100%)}}
+.ticker:hover>span{animation-play-state:paused}
+.news-item{padding:8px 13px;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px}
+.news-item b{color:var(--ink)} .news-item small{color:var(--muted)}
+.badge{display:inline-block;font-size:10px;padding:1px 7px;border-radius:10px;letter-spacing:.5px;border:1px solid var(--line);font-family:var(--mono)}
+.badge.kira{color:var(--accent);border-color:var(--accent2)}
+.badge.you{color:var(--hud);border-color:rgba(94,234,212,.4)}
+.badge.kind{color:var(--muted)}
+.memrow{border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px;background:rgba(16,16,20,.5)}
+.memrow .mh{display:flex;gap:7px;align-items:center;margin-bottom:5px;font-size:11px;color:var(--muted);flex-wrap:wrap}
+.hist .old{color:var(--danger);text-decoration:line-through;opacity:.75}
+.hist .new{color:var(--ok)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;font-family:var(--mono);font-size:11px}
+.seg a{padding:5px 10px;color:var(--muted);cursor:pointer;border-right:1px solid var(--line)}
+.seg a:last-child{border-right:none}
+.seg a.on{background:rgba(94,234,212,.12);color:var(--hud)}
+.thinking .tx{color:var(--hud)}
 @media (prefers-reduced-motion: reduce){
  *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
  body::after{animation:none}
@@ -878,22 +943,35 @@ button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(139,92,2
   </div>
 
   <div class="view on" id="v-home">
-    <div class="home-cols">
-      <div class="home-main">
-        <div class="direktive">
-          <h3>🎯 Sag mir, was ich tun soll</h3>
-          <textarea id="dir-text" class="k" placeholder="Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…"></textarea>
-          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-            <button id="dir-now">⚡ Sofort ausfuehren</button>
-            <button class="ghost" id="dir-focus">🧭 Als Fokus setzen</button>
-            <button class="ghost" id="dir-clear" title="Fokus loeschen">Fokus loeschen</button>
-            <span class="muted" id="dir-hint" style="align-self:center"></span>
-          </div>
-          <div id="dir-result" style="margin-top:8px;white-space:pre-wrap;display:none;border-top:1px solid var(--line);padding-top:8px"></div>
-        </div>
-        <div class="card home-feed"><h3><span class="live"></span> Live-Feed</h3><div id="feed-list" class="muted">…</div></div>
+    <div class="hud-strip" id="hud-strip"></div>
+    <div class="direktive">
+      <h3>🎯 Befehl an Kira</h3>
+      <textarea id="dir-text" class="k" placeholder="Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button id="dir-now">⚡ Sofort ausfuehren</button>
+        <button class="ghost" id="dir-focus">🧭 Als Fokus setzen</button>
+        <button class="ghost" id="dir-clear" title="Fokus loeschen">Fokus loeschen</button>
+        <span class="muted" id="dir-hint" style="align-self:center"></span>
       </div>
-      <div class="home-side" id="home"></div>
+      <div id="dir-result" style="margin-top:8px;white-space:pre-wrap;display:none;border-top:1px solid var(--line);padding-top:8px"></div>
+    </div>
+    <div class="cmd-grid">
+      <div class="cmd-main">
+        <div class="panel">
+          <div class="panel-h">◈ Live-Ops <span class="live"></span><span class="sp"></span>
+            <span class="seg" id="ops-filter"><a data-of="all" class="on">alle</a><a data-of="action">aktionen</a><a data-of="chat">chat</a><a data-of="error">fehler</a></span>
+          </div>
+          <div id="ops-feed"><span class="muted" style="padding:10px 13px;display:block">…</span></div>
+        </div>
+      </div>
+      <div class="cmd-side">
+        <div class="panel">
+          <div class="panel-h">◈ Intel · KI-News <span class="sp"></span><a id="news-seed" class="muted" style="cursor:pointer;font-size:10px">+ Quellen</a></div>
+          <div class="ticker" id="news-ticker"><span>… Intel wird geladen …</span></div>
+          <div id="news-list" class="panel-b"><span class="muted">…</span></div>
+        </div>
+        <div class="home-side" id="home"></div>
+      </div>
     </div>
   </div>
 
@@ -1055,8 +1133,13 @@ button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(139,92,2
       <textarea id="mem-new" class="k" style="margin-top:8px" placeholder="z.B. Sergen bevorzugt kurze, direkte Antworten."></textarea>
       <div class="row" style="margin-top:8px"><button id="mem-add">+ Merken</button><span class="muted" id="mem-hint" style="align-self:center"></span></div>
     </div>
-    <div class="muted" style="margin:6px 0 8px;max-width:980px">Juengste Erinnerungen — ✎ bearbeiten, ✕ loeschen. (Verfassung/Seele/Ziel sind Dateien und bleiben unberuehrt.)</div>
-    <div id="memlist"></div>
+    <div class="muted" style="margin:6px 0 8px;max-width:980px">Was Kira sich merkt — 🧠 = sie selbst, 👤 = du. ✎ bearbeiten, ✕ loeschen. (Verfassung/Seele/Ziel sind Dateien und bleiben unberuehrt.)</div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:4px 0 12px;max-width:980px">
+      <span class="seg" id="mem-filter"><a data-mf="all" class="on">alle</a><a data-mf="partner">🧠 Kira</a><a data-mf="user">👤 Du</a><a data-mf="fact">facts</a><a data-mf="lesson">lessons</a><a data-mf="skill">skills</a></span>
+      <input id="mem-search" placeholder="🔍 suchen…" style="flex:1;min-width:150px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);outline:none"/>
+    </div>
+    <div id="memlist" style="max-width:980px"></div>
+    <div class="panel" style="margin-top:16px;max-width:980px"><div class="panel-h">◈ Verlauf · Aenderungen (vorher → nachher)</div><div id="memhist" class="panel-b"><span class="muted">…</span></div></div>
   </div>
 
   <div class="view" id="v-log">
@@ -1083,7 +1166,7 @@ let cur="home";
 $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
 function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");
- if(v==="home")loadHome(); if(v==="chat"){loadChatModels();loadChatSessions();} if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="monitor")loadMonitor(); if(v==="cron")loadCron(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
+ if(v==="home")loadCommand(); if(v==="chat"){loadChatModels();loadChatSessions();} if(v==="files")loadFiles(); if(v==="models")loadModels(); if(v==="gov")loadGov(); if(v==="monitor")loadMonitor(); if(v==="cron")loadCron(); if(v==="keys")loadKeys(); if(v==="mem")loadMem(); if(v==="log")loadEvents();}
 
 /* ---- Modell-Umschalter in der Chat-Pane ---- */
 async function loadChatModels(){const s=await (await fetch("/api/status")).json();
@@ -1162,6 +1245,51 @@ async function loadHome(){const o=await (await fetch("/api/overview")).json();co
  h+='</div>';$("#home").innerHTML=h;
  const rb=$("#sys-restart"); if(rb) rb.onclick=async()=>{if(!confirm("Kira neu starten? Dienste bouncen in ~20s."))return;await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});rb.textContent="↻ Neustart angefordert …";};}
 
+/* ---- Kommandozentrale (HUD) ---- */
+let opsFilter="all";
+async function loadHud(){const el=$("#hud-strip");if(!el)return;
+ try{const o=await (await fetch("/api/overview")).json();const st=await (await fetch("/api/status")).json();
+  const b=o.budget||{};const ec=st.events||{};
+  const errs=(ec.turn_timeout||0)+(ec.llm_call_timeout||0)+(ec.service_crash||0)+(ec.act_degraded||0);
+  const dayPct=b.day_limit?Math.min(100,Math.round(100*(b.day_spent||0)/b.day_limit)):0;
+  const warn=dayPct>=85?" warn":"";
+  const kill=o.kill_switch?'<span style="color:var(--danger)">⛔ NOT-AUS</span>':'<span style="color:var(--ok)">● bereit</span>';
+  const model=(""+(o.model||"")).split("/").pop();
+  el.innerHTML='<div class="hud-cell"><span class="k">Status</span><span class="val">'+kill+'</span></div>'
+   +'<div class="hud-cell"><span class="k">Hirn</span><span class="val">'+model+'</span></div>'
+   +'<div class="hud-cell"><span class="k">Budget heute</span><span class="val">'+(b.day_spent||0)+' / '+(b.day_limit==null?"-":b.day_limit)+' €</span><div class="mini-bar'+warn+'"><i style="width:'+dayPct+'%"></i></div></div>'
+   +'<div class="hud-cell"><span class="k">Monat</span><span class="val">'+(b.month_spent||0)+' / '+(b.month_limit==null?"-":b.month_limit)+' €</span></div>'
+   +'<div class="hud-cell"><span class="k">Vertrauen</span><span class="val">Stufe '+((o.trust||{}).level==null?"-":o.trust.level)+'</span></div>'
+   +'<div class="hud-cell"><span class="k">Fehler-Signale</span><span class="val" style="color:'+(errs?"var(--warn)":"var(--ok)")+'">'+errs+'</span></div>'
+   +'<div class="hud-cell spacer"></div>'
+   +'<div class="hud-cell"><span class="k">Aktion</span><span class="val"><a id="hud-restart" style="cursor:pointer;color:var(--hud)">↻ Neustart</a></span></div>';
+  const rb=$("#hud-restart");if(rb)rb.onclick=async()=>{if(!confirm("Kira neu starten? Dienste bouncen in ~20s."))return;await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});rb.textContent="↻ …";};
+ }catch(e){}}
+async function loadOps(){const el=$("#ops-feed");if(!el)return;
+ try{const es=await (await fetch("/api/events?limit=70")).json();
+  const keep=es.filter(e=>opsFilter==="all"||(e.sev||"info")===opsFilter);
+  el.innerHTML=keep.length?keep.map(e=>{const t=new Date(e.ts*1000).toLocaleTimeString();
+   return '<div class="op '+(e.sev||"info")+'"><span class="od"></span><span class="opt">'+t+'</span><span class="opx">'+pulsePhrase(e).replace(/</g,"&lt;")+'</span></div>';}).join(""):'<span class="muted" style="padding:10px 13px;display:block">(ruhig — keine Aktivitaet)</span>';
+ }catch(e){}}
+async function loadNews(){const tk=$("#news-ticker"),ls=$("#news-list");if(!ls)return;
+ try{const m=await (await fetch("/api/monitor")).json();const rec=m.recent||[];
+  if(!rec.length){if(tk)tk.innerHTML='<span>Keine Quellen — oben „+ Quellen" klicken, dann meldet Kira Neues aus der KI-Welt.</span>';
+   ls.innerHTML='<span class="muted">Noch keine Intel. Quellen hinzufuegen (oder im Monitor-Tab).</span>';return;}
+  const head=rec.slice(0,10).map(r=>(r.label||"Intel")+": "+(""+(r.summary||"")).slice(0,90).replace(/\\n/g," ")).join("   •   ").replace(/</g,"&lt;");
+  if(tk)tk.innerHTML='<span>'+head+'   •   '+head+'</span>';
+  ls.innerHTML=rec.slice(0,8).map(r=>{const t=new Date(r.ts*1000).toLocaleString();
+   return '<div class="news-item"><small>'+t+'</small> <b>'+(""+(r.label||"")).replace(/</g,"&lt;")+'</b> ('+r.count+' neu)<br>'+(""+(r.summary||"")).slice(0,220).replace(/</g,"&lt;").replace(/\\n/g,"<br>")+'</div>';}).join("");
+ }catch(e){}}
+const DEFAULT_FEEDS=[{kind:"feed",value:"https://hnrss.org/frontpage",label:"Hacker News"},
+ {kind:"feed",value:"https://www.theverge.com/rss/index.xml",label:"The Verge"},
+ {kind:"search",value:"KI Modell Release news",label:"KI-Releases"},
+ {kind:"search",value:"AI agents open source",label:"Agents"}];
+function bindNewsSeed(){const s=$("#news-seed");if(!s)return;s.onclick=async()=>{s.textContent="… fuege hinzu";
+  for(const f of DEFAULT_FEEDS){try{await fetch("/api/monitor/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(f)});}catch(e){}}
+  s.textContent="✓ hinzugefuegt";loadNews();};}
+function bindOpsFilter(){$$("#ops-filter a").forEach(a=>a.onclick=()=>{opsFilter=a.dataset.of;$$("#ops-filter a").forEach(x=>x.classList.toggle("on",x===a));loadOps();});}
+function loadCommand(){loadHud();loadOps();loadNews();loadHome();bindNewsSeed();bindOpsFilter();}
+
 async function refreshStatus(){const s=await (await fetch("/api/status")).json();
  $("#who").textContent=s.partner.toLowerCase()+" · cockpit";
  $("#b-model").textContent=s.model;
@@ -1180,7 +1308,7 @@ function add(t,c){const d=document.createElement("div");d.className="msg "+c;d.t
 let thinkTimer=null,thinkEl=null;
 function startThinking(){stopThinking();thinkEl=document.createElement("div");thinkEl.className="thinking";
  thinkEl.innerHTML='<span class="sh">✦</span><span class="tx"></span>';
- const setp=()=>{const t=thinkEl&&thinkEl.querySelector(".tx");if(t)t.textContent=rndPhrase();};
+ const setp=()=>{const t=thinkEl&&thinkEl.querySelector(".tx");if(t)t.textContent=rndPhrase()+"…";};
  setp();log.appendChild(thinkEl);log.scrollTop=log.scrollHeight;
  thinkTimer=setInterval(setp,3500);}
 function stopThinking(){if(thinkTimer){clearInterval(thinkTimer);thinkTimer=null;}
@@ -1385,20 +1513,44 @@ $("#k-save").onclick=async()=>{const name=$("#k-name").value.trim();if(!name)ret
  $("#k-val").value="";$("#k-name").value="";loadKeys();refreshStatus();};
 
 /* ---- Gedaechtnis ---- */
-async function loadMem(){const ms=await (await fetch("/api/memory?limit=100")).json();const el=$("#memlist");el.innerHTML="";
- if(!ms.length){el.innerHTML='<span class=muted>(noch keine Erinnerungen)</span>';}
- ms.forEach(m=>{const d=document.createElement("div");d.className="e";const ts=new Date(m.ts*1000).toLocaleString();
-  d.innerHTML='<span class="t">'+m.role+'/'+m.kind+'<br><small class=muted>'+ts+'</small></span>'
-   +'<span class="m" data-txt></span>'
-   +'<button class="ghost" data-edit title="bearbeiten" style="padding:2px 9px">✎</button>'
-   +'<button class="ghost" data-del title="loeschen" style="padding:2px 9px">✕</button>';
-  d.querySelector('[data-txt]').textContent=(m.text||"").slice(0,600);
-  d.querySelector('[data-del]').onclick=async()=>{await fetch("/api/memory/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:m.id})});loadMem();};
+let memFilter="all",memQuery="",memBound=false;
+function memBadge(role){return role==="partner"?'<span class="badge kira">🧠 Kira</span>':'<span class="badge you">👤 Du</span>';}
+async function loadMem(){bindMemFilter();const ms=await (await fetch("/api/memory?limit=150")).json();const el=$("#memlist");el.innerHTML="";
+ const q=memQuery.toLowerCase();
+ const rows=ms.filter(m=>{
+   if(memFilter==="partner"||memFilter==="user"){if(m.role!==memFilter)return false;}
+   else if(memFilter!=="all"){if((m.kind||"")!==memFilter)return false;}
+   if(q&&!(""+(m.text||"")).toLowerCase().includes(q))return false;
+   return true;});
+ if(!rows.length){el.innerHTML='<span class=muted>(keine passenden Erinnerungen)</span>';}
+ rows.forEach(m=>{const d=document.createElement("div");d.className="memrow";const ts=new Date(m.ts*1000).toLocaleString();
+  d.innerHTML='<div class="mh">'+memBadge(m.role)+'<span class="badge kind">'+(m.kind||"")+'</span><span>'+ts+'</span><span style="flex:1"></span>'
+   +'<button class="ghost" data-edit title="bearbeiten" style="padding:1px 8px">✎</button>'
+   +'<button class="ghost" data-del title="loeschen" style="padding:1px 8px">✕</button></div>'
+   +'<div data-txt style="white-space:pre-wrap"></div>';
+  d.querySelector('[data-txt]').textContent=(m.text||"").slice(0,800);
+  d.querySelector('[data-del]').onclick=async()=>{if(!confirm("Diese Erinnerung loeschen?"))return;await fetch("/api/memory/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:m.id})});loadMem();};
   d.querySelector('[data-edit]').onclick=()=>{const sp=d.querySelector('[data-txt]');
-   const ta=document.createElement("textarea");ta.className="k";ta.value=m.text||"";ta.style.flex="1";sp.replaceWith(ta);
+   const ta=document.createElement("textarea");ta.className="k";ta.value=m.text||"";sp.replaceWith(ta);
    const eb=d.querySelector('[data-edit]');eb.textContent="💾";
    eb.onclick=async()=>{await fetch("/api/memory/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:m.id,text:ta.value})});loadMem();};};
-  el.appendChild(d);});}
+  el.appendChild(d);});
+ loadMemHist();}
+async function loadMemHist(){const el=$("#memhist");if(!el)return;
+ try{const hs=await (await fetch("/api/memory/history?limit=40")).json();
+  if(!hs.length){el.innerHTML='<span class="muted">(noch keine Aenderungen aufgezeichnet)</span>';return;}
+  el.className="panel-b hist";
+  el.innerHTML=hs.map(h=>{const ts=new Date(h.ts*1000).toLocaleString();
+   const who=h.role==="partner"?'🧠 Kira':(h.role==="user"?'👤 Du':'•');
+   let body="";
+   if(h.action==="memory_add")body='<span class="new">＋ '+(""+(h.text||"")).slice(0,180).replace(/</g,"&lt;")+'</span>';
+   else if(h.action==="memory_delete")body='<span class="old">✕ '+(""+(h.text||"")).slice(0,180).replace(/</g,"&lt;")+'</span>';
+   else body='<span class="old">'+(""+(h.old||"")).slice(0,140).replace(/</g,"&lt;")+'</span> → <span class="new">'+(""+(h.new||"")).slice(0,140).replace(/</g,"&lt;")+'</span>';
+   return '<div style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px"><small class="muted">'+ts+' · '+who+'</small><br>'+body+'</div>';}).join("");
+ }catch(e){}}
+function bindMemFilter(){if(memBound)return;memBound=true;
+ $$("#mem-filter a").forEach(a=>a.onclick=()=>{memFilter=a.dataset.mf;$$("#mem-filter a").forEach(x=>x.classList.toggle("on",x===a));loadMem();});
+ const s=$("#mem-search");if(s)s.oninput=()=>{memQuery=s.value.trim();loadMem();};}
 $("#mem-add")&&($("#mem-add").onclick=async()=>{const t=$("#mem-new").value.trim();if(!t)return;
  await fetch("/api/memory/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:t,kind:"semantic"})});
  $("#mem-new").value="";$("#mem-hint").textContent="gemerkt ✓";loadMem();});
@@ -1461,5 +1613,7 @@ $("#dir-focus")&&($("#dir-focus").onclick=async()=>{const p=$("#dir-text").value
  $("#dir-hint").textContent="🧭 Fokus gesetzt — ich ziehe ihn in meinen naechsten Schritt.";loadHome();});
 $("#dir-clear")&&($("#dir-clear").onclick=async()=>{await fetch("/api/direktive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({focus:""})});$("#dir-text").value="";$("#dir-hint").textContent="Fokus geloescht.";loadHome();});
 
-refreshStatus();setInterval(()=>{refreshStatus();if(cur==="log"&&logRaw.length<=100)loadEvents();if(cur==="gov")loadGov();},5000);
+refreshStatus();loadCommand();
+setInterval(()=>{refreshStatus();if(cur==="log"&&logRaw.length<=100)loadEvents();if(cur==="gov")loadGov();if(cur==="home"){loadHud();loadOps();}},5000);
+setInterval(()=>{if(cur==="home")loadNews();},30000);
 </script></body></html>"""

@@ -7,6 +7,7 @@ Ollama-Modell zurueck (0 EUR). Jeder Call wird als Event protokolliert
 """
 from __future__ import annotations
 
+import concurrent.futures as _futures
 import datetime
 import json
 import os
@@ -22,6 +23,32 @@ from core.kernel import events
 # Modellspezifisch nicht unterstuetzte Parameter still ignorieren (z.B. bei Ollama).
 litellm.drop_params = True
 litellm.suppress_debug_info = True  # kein "Provider List"-Rauschen
+
+# --- Harte Wall-Clock-Wache um jeden LLM-Call ---------------------------------
+# litellm's eigenes `timeout` beisst bei haengenden Provider-Sockets nicht immer
+# hart (beobachtet: ein Cloud-Call hing ~8 Min, num_retries*timeout half nicht).
+# Diese Wache fuehrt den Call in einem Thread aus und gibt nach einer harten
+# Grenze die Kontrolle zurueck -> der Turn friert NICHT ein, sondern degradiert
+# sauber. Der Turn-Watchdog bleibt nur letzter Rettungsanker.
+_LLM_POOL = _futures.ThreadPoolExecutor(max_workers=6, thread_name_prefix="llm")
+
+
+def _hard_cap_seconds() -> float:
+    base = float(CONFIG["models"].get("request_timeout", 120))
+    return float(CONFIG["models"].get("hard_call_timeout", base + 30))
+
+
+def _completion(**kwargs):
+    """litellm.completion mit harter Wall-Clock-Grenze. Wirft TimeoutError statt
+    einen Turn minutenlang einzufrieren (der aufgegebene Call laeuft ggf. im
+    Hintergrund aus, blockiert aber den Turn nicht mehr)."""
+    cap = _hard_cap_seconds()
+    fut = _LLM_POOL.submit(litellm.completion, **kwargs)
+    try:
+        return fut.result(timeout=cap)
+    except _futures.TimeoutError:
+        fut.cancel()
+        raise TimeoutError(f"LLM-Call ueberschritt harte Wall-Clock-Grenze ({cap:.0f}s)") from None
 
 # Reasoning-Modelle (Qwythos, Qwen3) denken in <think>...</think>. Das gehoert
 # nicht in die sichtbare Antwort -> wir parsen es raus (Rohtext bleibt im Log).
@@ -226,7 +253,7 @@ def complete(
 
     t0 = time.time()
     try:
-        resp = litellm.completion(
+        resp = _completion(
             model=real,
             messages=msgs,
             temperature=CONFIG["models"].get("temperature", 0.7),
@@ -245,7 +272,7 @@ def complete(
             affordable = max(256, int(m.group(1)) - 50)
             retry_max_tokens = min(want_max_tokens, affordable)
             try:
-                resp = litellm.completion(
+                resp = _completion(
                     model=real,
                     messages=msgs,
                     temperature=CONFIG["models"].get("temperature", 0.7),
@@ -261,7 +288,8 @@ def complete(
                 events.emit("llm_call_error", {"error": str(e2)[:300], "model": model}, session_id=session_id)
                 raise
         else:
-            events.emit("llm_call_error", {"error": msg[:300], "model": model}, session_id=session_id)
+            kind = "llm_call_timeout" if isinstance(e, TimeoutError) else "llm_call_error"
+            events.emit(kind, {"error": msg[:300], "model": model}, session_id=session_id)
             raise
     latency = time.time() - t0
 

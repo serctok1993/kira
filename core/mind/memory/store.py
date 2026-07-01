@@ -12,6 +12,7 @@ import time
 import uuid
 
 from core.config import DB_PATH
+from core.kernel import events
 
 _HAS_FTS: bool | None = None
 
@@ -75,6 +76,11 @@ def remember(
         )
         if _HAS_FTS:
             c.execute("INSERT INTO memory_fts (mem_id, text) VALUES (?,?)", (mid, text))
+    try:  # Verlauf mitschreiben (fuer die Gedaechtnis-Historie im Cockpit)
+        events.emit("memory_add", {"mem_id": mid, "role": role, "kind": kind,
+                                   "text": (text or "")[:500]}, session_id=session_id)
+    except Exception:  # noqa: BLE001
+        pass
     return mid
 
 
@@ -228,12 +234,20 @@ def recent(limit: int = 60) -> list[dict]:
 
 
 def delete(mem_id: str) -> bool:
+    old = role = None
     with _conn() as c:
+        row = c.execute("SELECT text, role FROM memory WHERE id=?", (mem_id,)).fetchone()
+        if row:
+            old, role = row[0], row[1]
         c.execute("DELETE FROM memory WHERE id=?", (mem_id,))
         try:
             c.execute("DELETE FROM memory_fts WHERE mem_id=?", (mem_id,))
         except sqlite3.OperationalError:
             pass
+    try:
+        events.emit("memory_delete", {"mem_id": mem_id, "role": role, "text": (old or "")[:500]})
+    except Exception:  # noqa: BLE001
+        pass
     return True
 
 
@@ -249,7 +263,11 @@ def update_text(mem_id: str, text: str) -> bool:
         emb = _j.dumps(v) if v else None
     except Exception:
         emb = None
+    old = role = None
     with _conn() as c:
+        row = c.execute("SELECT text, role FROM memory WHERE id=?", (mem_id,)).fetchone()
+        if row:
+            old, role = row[0], row[1]
         c.execute("UPDATE memory SET text=?, embedding=? WHERE id=?", (text, emb, mem_id))
         if _HAS_FTS:
             try:
@@ -257,6 +275,11 @@ def update_text(mem_id: str, text: str) -> bool:
                 c.execute("INSERT INTO memory_fts (mem_id, text) VALUES (?,?)", (mem_id, text))
             except sqlite3.OperationalError:
                 pass
+    try:  # Verlauf: alt -> neu (vorher/nachher nachvollziehbar)
+        events.emit("memory_update", {"mem_id": mem_id, "role": role,
+                    "old": (old or "")[:500], "new": (text or "")[:500]})
+    except Exception:  # noqa: BLE001
+        pass
     return True
 
 

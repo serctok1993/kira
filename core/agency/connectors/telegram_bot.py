@@ -269,13 +269,14 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
         running = not stop.is_set()
         pulse = _PULSE[state["tick"] % len(_PULSE)]
         if state["think"]:
-            # Ganzen Denk-Strom als geglaetteten Tail zeigen -> waechst ruhig im Takt,
-            # kein zitternder Zeichen-Cursor (kein Puls hier -> nur EIN bewegtes Element).
-            tail = re.sub(r"\s+", " ", state["think"]).strip()[-240:]
+            # VOLLER Denk-Strom (Debug-Sicht) mit Struktur — waechst mit. Bei Abschluss
+            # faellt der Trace ohnehin zu einer schlanken Zeile zusammen -> Verlauf bleibt
+            # sauber, aber live ist alles sichtbar. Kein Puls hier -> nur EIN bewegtes Element.
+            tail = state["think"].strip()[-1400:]
             parts.append("💭 " + tail)
         if state["lines"]:
             parts.append("─" * 18)
-            parts += state["lines"][-8:]
+            parts += state["lines"][-12:]
         if running:
             # EINE bewegte Zeile unten (Claude-Code-artig): rotierender Spruch + atmende Punkte.
             parts.append("🧠 " + state["phrase"] + " " + pulse)
