@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 
 from core.config import ROOT
+from core.kernel import events
 
 PY = sys.executable  # der (venv-)Python, mit dem der Supervisor laeuft
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -66,6 +67,15 @@ def _launch(name: str) -> subprocess.Popen:
                             stdout=f, stderr=subprocess.STDOUT, env=env)
 
 
+def _log_tail(name: str, lines: int = 12) -> str:
+    """Letzte Zeilen des Dienst-Logs (fuer die Crash-Diagnose im Dashboard)."""
+    try:
+        text = (ROOT / "data" / "logs" / f"{name}.log").read_text(encoding="utf-8", errors="replace")
+        return "\n".join(text.splitlines()[-lines:])
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def main() -> None:
     lock = _acquire_lock()
     if lock is None:
@@ -90,7 +100,13 @@ def main() -> None:
             # 1) Tote Komponenten neu starten
             for name, p in list(procs.items()):
                 if p.poll() is not None:
-                    print(f"[supervisor] {name} gestorben (code {p.returncode}) -> Neustart")
+                    code = p.returncode
+                    tail = _log_tail(name)
+                    print(f"[supervisor] {name} gestorben (code {code}) -> Neustart")
+                    try:
+                        events.emit("service_crash", {"service": name, "exit_code": code, "tail": tail})
+                    except Exception:  # noqa: BLE001
+                        pass
                     procs[name] = _launch(name)
 
             # 2) Restart-Flag (z.B. nach self_edit): sicherer Bounce der genannten Dienste

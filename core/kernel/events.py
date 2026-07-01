@@ -48,12 +48,18 @@ def emit(type: str, payload: dict[str, Any] | None = None, session_id: str | Non
     return eid
 
 
-def recent(limit: int = 50) -> list[dict]:
+def recent(limit: int = 50, before: float | None = None) -> list[dict]:
     with _conn() as c:
-        rows = c.execute(
-            "SELECT id, ts, type, session_id, payload FROM events ORDER BY ts DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
+        if before is not None:  # Pagination: nur Events AELTER als 'before' -> "mehr laden"
+            rows = c.execute(
+                "SELECT id, ts, type, session_id, payload FROM events WHERE ts < ? ORDER BY ts DESC LIMIT ?",
+                (before, limit),
+            ).fetchall()
+        else:
+            rows = c.execute(
+                "SELECT id, ts, type, session_id, payload FROM events ORDER BY ts DESC LIMIT ?",
+                (limit,),
+            ).fetchall()
     return [
         {
             "id": r[0],
@@ -70,3 +76,25 @@ def counts_by_type() -> dict[str, int]:
     with _conn() as c:
         rows = c.execute("SELECT type, COUNT(*) FROM events GROUP BY type ORDER BY 2 DESC").fetchall()
     return {r[0]: r[1] for r in rows}
+
+
+_ERROR_HINTS = ("error", "fail", "blocked", "timeout", "halt", "crash", "rollback", "denied", "exception")
+_ACTION_TYPES = {
+    "act_start", "act_done", "act_step", "tool_call", "shell_run",
+    "plan_start", "plan_made", "plan_step", "plan_done",
+    "mission_task_start", "mission_task_done", "mission_planned",
+    "cron_run", "cron_added", "self_edit", "file_edited", "restart_requested", "heartbeat_toggle",
+}
+_CHAT_TYPES = {"partner_message", "user_message", "telegram_in", "telegram_photo", "vision", "reflection"}
+
+
+def severity(etype: str) -> str:
+    """Grobe Einstufung fuer die Dashboard-Ansicht: error | action | chat | info."""
+    t = (etype or "").lower()
+    if any(h in t for h in _ERROR_HINTS):
+        return "error"
+    if etype in _CHAT_TYPES:
+        return "chat"
+    if etype in _ACTION_TYPES:
+        return "action"
+    return "info"

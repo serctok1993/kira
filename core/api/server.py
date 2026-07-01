@@ -129,8 +129,11 @@ async def api_file_save(body: dict) -> dict:
 
 
 @app.get("/api/events")
-def api_events(limit: int = 60) -> list[dict]:
-    return events.recent(limit)
+def api_events(limit: int = 60, before: float | None = None) -> list[dict]:
+    evs = events.recent(limit, before=before)
+    for e in evs:
+        e["sev"] = events.severity(e["type"])
+    return evs
 
 
 @app.get("/api/memory")
