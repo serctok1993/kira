@@ -69,6 +69,23 @@ def _notify(text: str) -> None:
         events.emit("notify_error", {"error": str(e)})
 
 
+def _pick_objective(actives: list[dict]) -> dict | None:
+    """Waehlt das naechste aktive Ziel: naechste Faelligkeit zuerst, dann geringster Fortschritt."""
+    if not actives:
+        return None
+    import datetime as _dt
+
+    def _key(o: dict):
+        td = o.get("target_date")
+        try:
+            days = (_dt.date.fromisoformat(td) - _dt.date.today()).days if td else 9999
+        except Exception:  # noqa: BLE001
+            days = 9999
+        return (days, o.get("progress", 0))
+
+    return sorted(actives, key=_key)[0]
+
+
 def run_once(escalate: bool = False) -> dict:
     events.init_db()
     if kill_switch_active():
@@ -84,10 +101,24 @@ def run_once(escalate: bool = False) -> dict:
     queue.init_queue()
 
     if not queue.pending(mission):
-        tasks = planner.generate_tasks(goal, _context(), escalate=escalate)
+        # Ziel-gerichtet planen: existieren aktive Objectives, arbeite aufs DRINGENDSTE hin
+        # und verknuepfe die Tasks (objective_id) -> der Fortschritt fuellt sich automatisch.
+        from core.agency.missions import objectives as _obj
+        _obj.init_objectives()
+        actives = [o for o in _obj.list_all(include_done=False) if o.get("status") == "active"]
+        target = _pick_objective(actives)
+        if target:
+            plan_goal = (f"AKTIVES ZIEL (arbeite konkret hierauf hin): {target['title']}"
+                         + (f"\n{target['notes']}" if target.get("notes") else "")
+                         + f"\n\nUEBERGEORDNETE MISSION:\n{goal}")
+            oid = target["id"]
+        else:
+            plan_goal, oid = goal, None
+        tasks = planner.generate_tasks(plan_goal, _context(), escalate=escalate)
         for t in tasks:
-            queue.add(t, mission=mission)
-        events.emit("mission_planned", {"mission": mission, "tasks": tasks})
+            queue.add(t, mission=mission, objective_id=oid)
+        events.emit("mission_planned", {"mission": mission, "tasks": tasks,
+                                        "objective": (target or {}).get("title")})
 
     task = queue.pop_next(mission)
     if not task:
