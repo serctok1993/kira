@@ -28,8 +28,13 @@ _BLOCKED = [
     r"\b(del|erase)\s+/[sq]",        # rekursives Loeschen (cmd)
     r"\b(rd|rmdir)\s+/s",            # Verzeichnisbaum loeschen (cmd)
     r"Remove-Item.*-Recurse.*[A-Za-z]:\\\s*['\"]?\s*$",  # PS: Laufwerk-Root rekursiv
-    r"\b(shutdown|reboot)\b",        # System runterfahren/neustarten
-    r"\btaskkill\b", r"\bStop-Process\b", r"\bkill\s+-?\d",  # keine Prozesse killen (auch nicht sich selbst!)
+    r"\b(shutdown|reboot|Restart-Computer|logoff)\b",  # System runterfahren/neustarten
+    # --- KEINE Prozesse killen (auch/gerade nicht sich selbst -> Suizid-Schutz) ---
+    r"\btaskkill\b", r"\btskill\b", r"\bpskill\b",     # Windows-Prozess-Killer
+    r"\bStop-Process\b", r"\bStop-Service\b",          # PowerShell stoppt Prozess/Dienst
+    r"\.Kill\s*\(",                                    # .NET-Methode: (Get-Process ...).Kill()
+    r"\b(pkill|killall)\b", r"\bkill\s+-?\d",          # unix kill/pkill/killall
+    r"wmic\s+process.*\bdelete\b",                     # wmic process ... delete
     r"\bdiskpart\b", r">\s*/dev/sd",  # Datentraeger
     r"\|\s*(sh|bash|iex)\b", r"iex\s*\(",  # Pipe-to-Shell aus dem Netz
 ]

@@ -359,12 +359,14 @@ def screenshot_url(url: str) -> str:
     try:
         with sync_playwright() as pw:
             browser = pw.chromium.launch()
-            page = browser.new_page(viewport={"width": 1366, "height": 900})
-            page.goto(url, timeout=30000, wait_until="domcontentloaded")
-            page.wait_for_timeout(1500)
-            title = page.title()
-            page.screenshot(path=str(img), full_page=True)
-            browser.close()
+            try:
+                page = browser.new_page(viewport={"width": 1366, "height": 900})
+                page.goto(url, timeout=30000, wait_until="domcontentloaded")
+                page.wait_for_timeout(1500)
+                title = page.title()
+                page.screenshot(path=str(img), full_page=True)
+            finally:
+                browser.close()  # IMMER schliessen -> kein Chromium-Leck bei Fehler/Timeout
         return f"Screenshot gemacht: {img}  (Titel: {title})"
     except Exception as e:  # noqa: BLE001
         return f"Screenshot fehlgeschlagen: {e}"
@@ -383,15 +385,35 @@ def browse(url: str) -> str:
     try:
         with sync_playwright() as pw:
             browser = pw.chromium.launch()
-            page = browser.new_page()
-            page.goto(url, timeout=30000, wait_until="domcontentloaded")
-            page.wait_for_timeout(1500)
-            title = page.title()
-            text = page.inner_text("body")
-            browser.close()
+            try:
+                page = browser.new_page()
+                page.goto(url, timeout=30000, wait_until="domcontentloaded")
+                page.wait_for_timeout(1500)
+                title = page.title()
+                text = page.inner_text("body")
+            finally:
+                browser.close()  # IMMER schliessen -> kein Chromium-Leck bei Fehler/Timeout
         return f"Titel: {title}\n\n{text[:6000]}"
     except Exception as e:  # noqa: BLE001
         return f"Browse fehlgeschlagen: {e}"
+
+
+@tool("restart_self",
+      "Startet Kira SICHER neu (sauberer Bounce ueber den Supervisor via data/restart.flag) — nutze dies, "
+      "wenn Code-/Config-Aenderungen aktiv werden sollen oder ein Dienst haengt. Prozesse per taskkill / "
+      "Stop-Process zu killen ist verboten und gefaehrlich (du wuerdest dich SELBST beenden); dieses "
+      "Werkzeug ist der EINZIGE sichere Weg.",
+      {"which": "optional: 'all' (Standard) oder Dienste kommagetrennt: bot,cockpit,runner"})
+def restart_self(which: str = "all") -> str:
+    from core.config import ROOT
+    from core.kernel import events as _ev
+
+    flag = ROOT / "data" / "restart.flag"
+    flag.parent.mkdir(parents=True, exist_ok=True)
+    flag.write_text((which or "all").strip().lower() or "all", encoding="utf-8")
+    _ev.emit("restart_requested", {"which": which or "all"})
+    return ("Sicherer Neustart angefordert — der Supervisor bounced in ~20s (genug Zeit, meinen "
+            "Bericht noch zu senden). Kein Prozess-Kill noetig.")
 
 
 @tool("jetzt", "Gibt aktuelles Datum, Uhrzeit und Wochentag auf Deutsch zurueck (z.B. 'Montag, 30.06.2025, 18:52 Uhr').", {})

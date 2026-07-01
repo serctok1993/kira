@@ -46,7 +46,9 @@ def test_shell_exec_and_sandbox():
 
     out = run_shell("echo hallo-test-123")
     assert "[exit 0]" in out and "hallo-test-123" in out
-    assert "nicht erlaubt" in run_shell("echo x", cwd="../../../..")
+    # Sandbox: Ausbruch aus Repo/Desktop wird abgelehnt (Befehl laeuft NICHT)
+    escaped = run_shell("echo x", cwd="../../../..")
+    assert "erlaubt" in escaped and "[exit 0]" not in escaped
 
 
 def test_cron_schedule_parsing():
