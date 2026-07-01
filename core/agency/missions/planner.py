@@ -23,7 +23,9 @@ def generate_tasks(goal: str, context: str, n: int = 3, escalate: bool = False) 
         f"Micro-SaaS X'), NICHT mehrere Themen in einer Aufgabe. Jede als eine Zeile mit '- '. "
         f"Nur Recherche/Analyse/Reflexion."
     )
-    res = llm_router.complete([{"role": "user", "content": user}], system=system, task_type="reason", escalate=escalate)
+    # Grind-Sparsamkeit: Task-Zerlegung braucht nicht die teure 'reason'-Stufe (pro),
+    # 'bulk' (flash/lokal) genuegt fuer atomare Rechercheschritte. escalate=True hebt weiter an.
+    res = llm_router.complete([{"role": "user", "content": user}], system=system, task_type="bulk", escalate=escalate)
     tasks = []
     for line in res["text"].splitlines():
         s = line.strip()

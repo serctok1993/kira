@@ -722,6 +722,39 @@ def api_digest() -> dict:
     }
 
 
+@app.get("/api/costs")
+def api_costs() -> dict:
+    """Kosten-Aufschluesselung aus den llm_call-Events: heute + 7 Tage, pro Modell + Top-Sessions."""
+    import datetime as _dt
+    from collections import defaultdict
+
+    start_today = _dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    start_7d = time.time() - 7 * 86400
+    m_today: dict = defaultdict(lambda: {"calls": 0, "cost": 0.0})
+    m_7d: dict = defaultdict(lambda: {"calls": 0, "cost": 0.0})
+    sess: dict = defaultdict(float)
+    tot_today = tot_7d = 0.0
+    for e in events.recent(4000):
+        if e["type"] != "llm_call":
+            continue
+        p = e.get("payload") or {}
+        cost = float(p.get("cost_usd") or 0.0)
+        model = p.get("model", "?")
+        if e["ts"] >= start_7d:
+            m_7d[model]["calls"] += 1; m_7d[model]["cost"] += cost; tot_7d += cost
+        if e["ts"] >= start_today:
+            m_today[model]["calls"] += 1; m_today[model]["cost"] += cost; tot_today += cost
+            sess[e.get("session_id") or "?"] += cost
+
+    def _fmt(d):
+        return sorted([{"model": m, "calls": v["calls"], "cost": round(v["cost"], 4)} for m, v in d.items()],
+                      key=lambda x: -x["cost"])
+    top = sorted([{"session": s, "cost": round(c, 4)} for s, c in sess.items() if c > 0], key=lambda x: -x["cost"])[:6]
+    return {"today": {"total": round(tot_today, 4), "by_model": _fmt(m_today), "top_sessions": top},
+            "week": {"total": round(tot_7d, 4), "by_model": _fmt(m_7d)},
+            "budget": treasury.status()}
+
+
 @app.post("/api/memory/update")
 async def api_memory_update(body: dict) -> dict:
     ok = memory.update_text(body.get("id", ""), body.get("text", ""))
@@ -1333,6 +1366,7 @@ button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(139,92,2
         <span class="muted" id="g-trust-hint" style="align-self:center"></span>
       </div></div>
     <div class="card"><h3>Audit — protokollierte Aussen-Aktionen</h3><div id="g-audit" class="muted">…</div></div>
+    <div class="card"><h3>💶 Kosten-Aufschluesselung (heute · 7 Tage)</h3><div id="g-costs" class="muted">…</div></div>
   </div>
 
   <div class="view" id="v-cron">
@@ -1820,7 +1854,15 @@ async function loadGov(){const g=await (await fetch("/api/governance")).json();c
  if($("#g-trust-sel"))$("#g-trust-sel").value=String(g.trust.level);
  const a=$("#g-audit");a.innerHTML=g.audit.length?g.audit.map(e=>{const ts=new Date(e.ts*1000).toLocaleString();const p=e.payload;
    return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>'+p.action+'</b> '+(p.target||'')
-    +' <small class=muted>'+ts+(p.reversible?' · rückrollbar':'')+'</small></div>';}).join(""):'<span class=muted>(noch keine Außen-Aktionen protokolliert)</span>';}
+    +' <small class=muted>'+ts+(p.reversible?' · rückrollbar':'')+'</small></div>';}).join(""):'<span class=muted>(noch keine Außen-Aktionen protokolliert)</span>';loadCosts();}
+async function loadCosts(){const el=$("#g-costs");if(!el)return;
+ try{const c=await (await fetch("/api/costs")).json();
+  const line=m=>'<div style="display:flex;gap:10px;padding:3px 0;font-family:var(--mono);font-size:12px"><span style="flex:1">'+m.model.replace(/</g,"&lt;")+'</span><span class=muted>'+m.calls+' calls</span><span style="min-width:80px;text-align:right">$'+m.cost.toFixed(3)+'</span></div>';
+  let h='<div style="margin-bottom:6px"><b>Heute: $'+c.today.total.toFixed(3)+'</b></div>'+(c.today.by_model.map(line).join("")||'<span class=muted>—</span>');
+  if(c.today.top_sessions&&c.today.top_sessions.length)h+='<div class=muted style="margin-top:8px;font-size:11px">Top-Sessions heute: '+c.today.top_sessions.map(s=>(s.session||"?").replace(/</g,"&lt;").slice(0,20)+' $'+s.cost.toFixed(2)).join(" · ")+'</div>';
+  h+='<div style="margin:10px 0 6px;border-top:1px solid var(--line);padding-top:8px"><b>7 Tage: $'+c.week.total.toFixed(2)+'</b></div>'+c.week.by_model.map(line).join("");
+  el.innerHTML=h;
+ }catch(e){}}
 $("#g-budget-save")&&($("#g-budget-save").onclick=async()=>{const d=parseFloat($("#g-day").value),mo=parseFloat($("#g-month").value);
  if(!isNaN(d))await cfgSet("governance.budget.daily_eur",d);
  if(!isNaN(mo))await cfgSet("governance.budget.monthly_eur",mo);

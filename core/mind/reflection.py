@@ -85,7 +85,7 @@ LEKTIONEN (konkret, umsetzbar, je eine Zeile, hoechstens 3):
 - ...
 """
     res = llm_router.complete(
-        [{"role": "user", "content": prompt}], system=REFLECT_SYSTEM, task_type="reason", escalate=escalate
+        [{"role": "user", "content": prompt}], system=REFLECT_SYSTEM, task_type="bulk", escalate=escalate
     )
     text = res["text"].strip()
     lessons = _extract_lessons(text)
@@ -113,7 +113,7 @@ Reflektiere kurz und ehrlich als mein innerer kritischer Beobachter. Halte dich 
 LEKTIONEN (konkret, umsetzbar fuer kuenftige aehnliche Aufgaben, je eine Zeile, hoechstens 3):
 - ..."""
     res = llm_router.complete(
-        [{"role": "user", "content": prompt}], system=REFLECT_SYSTEM, task_type="reason", escalate=escalate
+        [{"role": "user", "content": prompt}], system=REFLECT_SYSTEM, task_type="bulk", escalate=escalate
     )
     lessons = _extract_lessons(res["text"])
     for lesson in lessons:
