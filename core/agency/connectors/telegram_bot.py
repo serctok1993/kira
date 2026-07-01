@@ -478,6 +478,8 @@ def run() -> None:
         print("TELEGRAM_BOT_TOKEN fehlt in .env — Bot via @BotFather anlegen und Token eintragen.")
         return
     events.init_db()
+    from core.kernel import runstate
+    runstate.start_watchdog()  # festgefahrene Chat-Zuege erkennen -> Force-Restart (kein wedged Bot)
     offset: int | None = None
     print("Telegram-Bot laeuft (Long-Polling). Strg+C zum Stoppen.")
     with httpx.Client(timeout=75) as client:

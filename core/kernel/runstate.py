@@ -12,6 +12,7 @@ beim Zug-Ende ausgeloest. In Prozessen ohne aktiven Zug wirkt ein Neustart sofor
 from __future__ import annotations
 
 import threading
+import time
 
 from core.config import ROOT
 from core.kernel import events
@@ -68,3 +69,50 @@ def request_restart(which: str = "all") -> str:
                 "(damit ich meine Arbeit + Antwort nicht mittendrin abschiesse).")
     _write_flag(which)
     return "Sicherer Neustart angefordert — der Supervisor bounced in ~20s (Zeit fuer den Bericht)."
+
+
+def start_watchdog(check_every: int = 30) -> None:
+    """Hintergrund-Waechter gegen festgefahrene Chat-Zuege.
+
+    Haengt ein Zug (aktiv, aber seit langem KEIN Fortschritt = kein neues Event) laenger als
+    'turn_stall_seconds', wird ein Neustart ERZWUNGEN (Supervisor bounct den wedged Bot). Faengt
+    genau den Fall ab, dass ein LLM-/Netz-Call sein Timeout ignoriert und der Zug nie endet -> der
+    aufgeschobene Neustart wuerde sonst NIE feuern (beim Test: 8 Min Stillstand). Legitime lange
+    Tasks produzieren laufend Events (act_step/tool_call/llm_call) und loesen den Waechter NICHT aus.
+    """
+    from core.config import DB_PATH
+
+    try:
+        from core.config import CONFIG
+        stall_s = int(CONFIG.get("agency", {}).get("turn_stall_seconds", 720))
+    except Exception:  # noqa: BLE001
+        stall_s = 720
+
+    def _newest_event_ts() -> float:
+        import sqlite3
+        try:
+            con = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
+            try:
+                r = con.execute("SELECT MAX(ts) FROM events").fetchone()
+            finally:
+                con.close()
+            return float(r[0]) if r and r[0] else 0.0
+        except Exception:  # noqa: BLE001
+            return 0.0
+
+    def _loop() -> None:
+        while True:
+            time.sleep(check_every)
+            try:
+                if not turn_active():
+                    continue
+                stalled = time.time() - _newest_event_ts()
+                if stalled > stall_s:
+                    events.emit("turn_timeout", {"stalled_s": round(stalled), "limit_s": stall_s})
+                    _write_flag("all")  # Deferral bewusst umgangen: der festgefahrene Zug IST das Problem
+                    return  # Supervisor bounct in ~20s; dieser Thread stirbt mit dem Prozess
+            except Exception:  # noqa: BLE001
+                pass
+
+    threading.Thread(target=_loop, daemon=True, name="turn-watchdog").start()
+    events.emit("watchdog_started", {"stall_s": stall_s, "check_every": check_every})
