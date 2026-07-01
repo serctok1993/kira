@@ -48,6 +48,27 @@ def ollama_models() -> list[str]:
         return []
 
 
+def aimlapi_models() -> list[dict]:
+    """Modelle von AIMLAPI (https://aimlapi.com) – nur Chat-Modelle, ohne Key."""
+    try:
+        r = httpx.get("https://api.aimlapi.com/v1/models", timeout=5)
+        data = r.json().get("data", []) if isinstance(r.json(), dict) else []
+    except Exception:
+        return []
+    models = []
+    for m in data:
+        # Nur chat-completions-faehige Modelle
+        if "chat-completions" in (m.get("type") or "") or "chat-completions" in (m.get("features") or []):
+            models.append({
+                "id": "aimlapi/" + (m.get("id") or ""),
+                "name": m.get("name") or m.get("id") or "",
+                "in": 0,
+                "out": 0,
+                "ctx": m.get("contextLength"),
+            })
+    return models
+
+
 def set_model(model_id: str, scope: str = "default") -> str:
     """Aktives Modell setzen. scope='default' setzt auch chat/reason/bulk."""
     d = _load()
@@ -131,7 +152,10 @@ def catalog(force: bool = False) -> dict:
         pass
     local = [{"id": "ollama_chat/" + n.replace(":latest", ""), "name": n.replace(":latest", "") + " (lokal)", "in": 0, "out": 0}
              for n in ollama_models() if not any(x in n.lower() for x in ("embed", "hf.co", "gguf"))]
-    out = {"openrouter": sorted(ors, key=lambda x: x["id"]), "local": local}
+    aimlapi_list = []
+    if os.getenv("AIMLAPI_API_KEY"):
+        aimlapi_list = sorted(aimlapi_models(), key=lambda x: x["id"])
+    out = {"openrouter": sorted(ors, key=lambda x: x["id"]), "local": local, "aimlapi": aimlapi_list}
     _CATALOG_CACHE.update(ts=_t.time(), data=out)
     return out
 
