@@ -172,6 +172,22 @@ def remember_fact(fact: str) -> str:
     return f"Dauerhaft gemerkt: {fact[:90]}"
 
 
+@tool("request_approval",
+      "Lege eine Aussen-Aktion / oeffentliche oder irreversible Handlung (Post, Mail, "
+      "Veroeffentlichung) oder einen fertigen Entwurf zur FREIGABE vor. Sie wird NICHT "
+      "sofort ausgefuehrt, sondern wartet in Sergens Freigabe-Inbox auf sein GO. Nutze "
+      "das IMMER, bevor etwas nach aussen geht.",
+      {"title": "kurze Bezeichnung, z.B. 'Blogartikel posten'",
+       "detail": "der Entwurf / Volltext / was genau passieren soll",
+       "kind": "publish | external | email | generic (Standard: generic)"})
+def request_approval(title: str, detail: str = "", kind: str = "generic") -> str:
+    from core.agency import approvals
+
+    aid = approvals.create(title, kind=kind, detail=detail, source="kira")
+    return (f"Zur Freigabe vorgelegt: '{title}'. Ich fuehre es aus, sobald Sergen es in der "
+            f"Inbox freigibt (id {aid[:8]}). Bis dahin geht nichts nach aussen.")
+
+
 @tool("self_edit",
       "Bearbeite deinen EIGENEN Code (eine Datei im Projekt, z.B. das Dashboard oder ein Tool). "
       "Sicher: Syntax-Check + automatischer SELBST-TEST (Kernmodule muessen importierbar bleiben) "

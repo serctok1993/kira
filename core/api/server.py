@@ -27,10 +27,12 @@ from core.mind.memory import store as memory
 app = FastAPI(title="Kira Cockpit")
 events.init_db()
 memory.init_memory()
-try:  # Workspace-Tabellen (Ziele + Task-Felder) sicherstellen
+try:  # Workspace-Tabellen (Ziele + Task-Felder + Freigabe-Inbox) sicherstellen
     from core.agency.missions import objectives as _objectives, queue as _queue0
+    from core.agency import approvals as _approvals0
     _objectives.init_objectives()
     _queue0.init_queue()
+    _approvals0.init_approvals()
 except Exception:  # noqa: BLE001
     pass
 _synth.load_synthesized()  # selbstgebaute Werkzeuge fuer die Uebersicht verfuegbar machen
@@ -627,6 +629,99 @@ async def api_objectives_plan(body: dict) -> dict:
     return {"ok": True, "tasks": tasks}
 
 
+# ---------- Freigabe-Inbox + Tages-Digest (Phase 2) ----------
+def _pending_proposals() -> list[dict]:
+    """Offene SOUL/GOAL-Selbstaenderungs-Vorschlaege als Inbox-Eintraege (kind=evolution)."""
+    out = []
+    pdir = ROOT / "data" / "proposals"
+    try:
+        for doc in ("SOUL.md", "GOAL.md"):
+            p = pdir / doc
+            if p.exists():
+                out.append({"id": "prop:" + doc, "ts": p.stat().st_mtime, "kind": "evolution",
+                            "title": f"Selbst-Aenderung: {doc}", "detail": p.read_text(encoding="utf-8")[:4000],
+                            "ref": doc, "source": "kira", "status": "pending"})
+    except Exception:  # noqa: BLE001
+        pass
+    return out
+
+
+@app.get("/api/approvals")
+def api_approvals() -> dict:
+    from core.agency import approvals
+
+    approvals.init_approvals()
+    pend = approvals.pending() + _pending_proposals()
+    pend.sort(key=lambda x: x.get("ts", 0), reverse=True)
+    return {"pending": pend, "recent": approvals.recent(20)}
+
+
+@app.post("/api/approvals/decide")
+async def api_approvals_decide(body: dict) -> dict:
+    from core.agency import approvals
+
+    aid = body.get("id", "")
+    approved = bool(body.get("approved"))
+    note = body.get("note")
+    if aid.startswith("prop:"):  # SOUL/GOAL-Vorschlag
+        doc = aid[5:]
+        pfile = ROOT / "data" / "proposals" / doc
+        if approved:
+            try:
+                from core.mind import evolution
+                res = await anyio.to_thread.run_sync(lambda: evolution.apply_update(doc, "Freigabe via Inbox"))
+                return {"ok": True, "status": "approved", "applied": res}
+            except Exception as e:  # noqa: BLE001
+                return {"ok": False, "error": str(e)}
+        else:
+            try:
+                if pfile.exists():
+                    pfile.unlink()
+            except Exception:  # noqa: BLE001
+                pass
+            events.emit("approval_decided", {"id": aid, "status": "rejected", "kind": "evolution"})
+            return {"ok": True, "status": "rejected"}
+    return approvals.decide(aid, approved, note)
+
+
+@app.get("/api/digest")
+def api_digest() -> dict:
+    """Tages-Digest: was Kira heute getan/produziert hat + offene Freigaben."""
+    import datetime as _dt
+    from core.agency import approvals
+
+    start = _dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    done, planned, artifacts = [], 0, []
+    errs = 0
+    for e in events.recent(600):
+        if e["ts"] < start:
+            continue
+        t, p = e["type"], (e.get("payload") or {})
+        if t == "mission_task_done":
+            done.append(str(p.get("summary", ""))[:160])
+        elif t == "objective_planned":
+            planned += len(p.get("tasks", []) or [])
+        elif t in ("file_edited",):
+            artifacts.append(str(p.get("file", "")))
+        elif t in ("turn_timeout", "llm_call_timeout", "service_crash", "act_degraded"):
+            errs += 1
+    approvals.init_approvals()
+    news = 0
+    try:
+        from core.agency.connectors import news_monitor
+        news = len(news_monitor.recent_reports() or []) if hasattr(news_monitor, "recent_reports") else 0
+    except Exception:  # noqa: BLE001
+        news = 0
+    return {
+        "date": _dt.date.today().isoformat(),
+        "tasks_done": done[:10], "tasks_done_count": len(done),
+        "planned": planned, "artifacts": artifacts[:10],
+        "pending_approvals": len(approvals.pending()) + len(_pending_proposals()),
+        "errors": errs, "news": news,
+        "spend_usd": round(today_spend_usd(), 4), "budget": treasury.status(),
+    }
+
+
 @app.post("/api/memory/update")
 async def api_memory_update(body: dict) -> dict:
     ok = memory.update_text(body.get("id", ""), body.get("text", ""))
@@ -1113,6 +1208,20 @@ button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(139,92,2
         </div>
       </div>
     </div>
+    <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;max-width:1520px;margin-top:14px">
+      <div class="cmd-main">
+        <div class="panel">
+          <div class="panel-h">◈ Freigabe-Inbox <span class="live"></span><span class="sp"></span><span class="muted" id="inbox-count" style="font-size:11px"></span></div>
+          <div id="inbox-list" class="panel-b"><span class="muted">…</span></div>
+        </div>
+      </div>
+      <div class="cmd-side" style="flex:1 1 440px">
+        <div class="panel">
+          <div class="panel-h">◈ Tages-Digest</div>
+          <div id="digest" class="panel-b"><span class="muted">…</span></div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="view" id="v-chat">
@@ -1451,6 +1560,7 @@ async function loadMission(){
  const sel=$("#todo-obj");if(sel)sel.innerHTML='<option value="">— keins —</option>'+missionObjs.map(o=>'<option value="'+o.id+'">'+(o.title||"").replace(/</g,"&lt;").slice(0,40)+'</option>').join("");
  renderBoard(d.board||{});
  bindMissionForms();
+ loadInbox();loadDigest();
  $$('#obj-list [data-plan]').forEach(a=>a.onclick=async()=>{a.textContent="⚙ zerlege…";await fetch("/api/objectives/plan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.plan})});loadMission();});
  $$('#obj-list [data-odel]').forEach(a=>a.onclick=async()=>{if(!confirm("Ziel loeschen? (To-Dos bleiben, werden entkoppelt)"))return;await fetch("/api/objectives/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.odel})});loadMission();});
  $$('#obj-list [data-oprog]').forEach(r=>r.onchange=async()=>{await fetch("/api/objectives/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:r.dataset.oprog,progress:r.value})});loadMission();});
@@ -1488,6 +1598,29 @@ function bindMissionForms(){if(missionFormsBound)return;missionFormsBound=true;
    await fetch("/api/mission/queue/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({description:t,priority:$("#todo-prio").value,due_date:$("#todo-due").value||null,objective_id:$("#todo-obj").value||null})});
    $("#todo-desc").value="";loadMission();});
 }
+async function loadInbox(){const el=$("#inbox-list");if(!el)return;
+ try{const d=await (await fetch("/api/approvals")).json();const p=d.pending||[];
+  const cnt=$("#inbox-count");if(cnt)cnt.textContent=p.length?(p.length+" warten"):"leer";
+  if(!p.length){el.innerHTML='<span class="muted">Nichts wartet auf Freigabe. Kira legt hier Aussen-Aktionen/Entwuerfe zum GO ab.</span>';return;}
+  el.innerHTML=p.map(a=>{const ts=new Date(a.ts*1000).toLocaleString();
+   const kb={publish:"📮",email:"✉️",external:"🌐",evolution:"🧬",generic:"📝"}[a.kind]||"📝";
+   const det=(""+(a.detail||"")).replace(/</g,"&lt;").slice(0,500);
+   return '<div class="memrow"><div class="mh"><span class="badge kind">'+kb+' '+a.kind+'</span><b style="color:var(--ink)">'+(""+(a.title||"")).replace(/</g,"&lt;")+'</b><span style="flex:1"></span><span class="muted">'+ts+'</span></div>'
+    +(det?'<div style="white-space:pre-wrap;font-size:12px;color:var(--muted);max-height:130px;overflow:auto;border-left:2px solid var(--line);padding-left:8px;margin:4px 0">'+det+'</div>':'')
+    +'<div class="row" style="margin-top:6px"><button data-appr="'+a.id+'">✓ Freigeben</button><button class="ghost" data-rej="'+a.id+'">✕ Verwerfen</button></div></div>';
+  }).join("");
+  $$('#inbox-list [data-appr]').forEach(b=>b.onclick=async()=>{b.textContent="…";await fetch("/api/approvals/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:b.dataset.appr,approved:true})});loadInbox();loadDigest();});
+  $$('#inbox-list [data-rej]').forEach(b=>b.onclick=async()=>{if(!confirm("Wirklich verwerfen?"))return;await fetch("/api/approvals/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:b.dataset.rej,approved:false})});loadInbox();loadDigest();});
+ }catch(e){}}
+async function loadDigest(){const el=$("#digest");if(!el)return;
+ try{const d=await (await fetch("/api/digest")).json();const b=d.budget||{};
+  let h='<div class="muted" style="font-size:11px;letter-spacing:1px">'+d.date+'</div>';
+  h+='<div style="margin:6px 0"><b>'+d.tasks_done_count+'</b> Aufgaben erledigt · <b>'+d.planned+'</b> geplant · <b>'+d.news+'</b> News</div>';
+  if(d.tasks_done&&d.tasks_done.length)h+='<ul style="margin:4px 0;padding-left:16px;font-size:12px">'+d.tasks_done.map(t=>'<li>'+(""+t).replace(/</g,"&lt;")+'</li>').join("")+'</ul>';
+  h+='<div style="margin-top:6px;font-size:12px">Freigaben offen: <b style="color:'+(d.pending_approvals?"var(--warn)":"var(--ok)")+'">'+d.pending_approvals+'</b> · Fehler heute: <b style="color:'+(d.errors?"var(--danger)":"var(--ok)")+'">'+d.errors+'</b></div>';
+  h+='<div style="margin-top:4px;font-size:12px" class="muted">Kosten heute: '+d.spend_usd+' € · Budget '+(b.day_spent||0)+'/'+(b.day_limit==null?"-":b.day_limit)+' €</div>';
+  el.innerHTML=h;
+ }catch(e){}}
 
 async function refreshStatus(){const s=await (await fetch("/api/status")).json();
  $("#who").textContent=s.partner.toLowerCase()+" · cockpit";
