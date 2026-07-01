@@ -44,6 +44,10 @@ def init_queue() -> None:
             "ALTER TABLE tasks ADD COLUMN deferred_until TEXT",   # aufgeschoben bis ISO-Datum
             "ALTER TABLE tasks ADD COLUMN kind TEXT DEFAULT 'research'",  # research | produce | publish
             "ALTER TABLE tasks ADD COLUMN artifact_path TEXT",    # erzeugtes Artefakt (P2)
+            "ALTER TABLE tasks ADD COLUMN acceptance TEXT",       # JSON-Akzeptanzkriterien (S2, einmal generiert)
+            "ALTER TABLE tasks ADD COLUMN quality_retries INTEGER DEFAULT 0",  # Qualitaets-Retries (S2, getrennt von retry_count/Absturz)
+            "ALTER TABLE tasks ADD COLUMN feedback TEXT",         # Pruefer-Feedback fuer den naechsten Versuch (S2)
+            "ALTER TABLE tasks ADD COLUMN score INTEGER",         # letzter Outcome-Score 0..100 (S2)
         ):
             try:
                 c.execute(ddl)
@@ -66,7 +70,8 @@ def add(description: str, mission: str = "default", priority: int = 5,
 
 
 _TASK_COLS = ["id", "ts", "mission", "description", "status", "priority", "result",
-              "objective_id", "due_date", "deferred_until", "kind", "artifact_path", "updated_ts"]
+              "objective_id", "due_date", "deferred_until", "kind", "artifact_path", "updated_ts",
+              "acceptance", "quality_retries", "feedback", "score", "retry_count"]
 
 
 def all_tasks(mission: str | None = None, limit: int = 200) -> list[dict]:
@@ -83,9 +88,18 @@ def all_tasks(mission: str | None = None, limit: int = 200) -> list[dict]:
     return [dict(zip(_TASK_COLS, r)) for r in rows]
 
 
+def get_task(task_id: str) -> dict | None:
+    """Volle Task-Zeile (inkl. kind/acceptance/Zaehler) — pop_next bleibt bewusst schlank."""
+    sel = ", ".join(_TASK_COLS)
+    with _conn() as c:
+        row = c.execute(f"SELECT {sel} FROM tasks WHERE id=?", (task_id,)).fetchone()
+    return dict(zip(_TASK_COLS, row)) if row else None
+
+
 def update_task(task_id: str, **fields) -> bool:
     allowed = {"description", "priority", "status", "objective_id", "due_date",
-               "deferred_until", "kind", "result"}
+               "deferred_until", "kind", "result", "artifact_path",
+               "acceptance", "quality_retries", "feedback", "score"}
     sets, params = [], []
     for k, v in fields.items():
         if k in allowed:
