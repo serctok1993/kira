@@ -49,7 +49,23 @@ def ollama_models() -> list[str]:
 
 
 def aimlapi_models() -> list[dict]:
-    """Modelle von AIMLAPI (https://aimlapi.com) – nur Chat-Modelle, ohne Key."""
+    """Modelle von AIMLAPI (https://aimlapi.com) – nur Chat-Modelle, ohne Key.
+
+    Der /v1/models-Endpoint ist public; Antwort-Layout (Verkürzt):
+    {
+      "data": [
+        {
+          "id": "openai/gpt-4o",
+          "info": {
+            "name": "GPT-4o",
+            "contextLength": 128000,
+            "features": ["openai/chat-completion", ...]
+          },
+          "type": "openai/chat-completions"
+        }
+      ]
+    }
+    """
     try:
         r = httpx.get("https://api.aimlapi.com/v1/models", timeout=5)
         data = r.json().get("data", []) if isinstance(r.json(), dict) else []
@@ -57,15 +73,17 @@ def aimlapi_models() -> list[dict]:
         return []
     models = []
     for m in data:
-        # Nur chat-completions-faehige Modelle
-        if "chat-completions" in (m.get("type") or "") or "chat-completions" in (m.get("features") or []):
-            models.append({
-                "id": "aimlapi/" + (m.get("id") or ""),
-                "name": m.get("name") or m.get("id") or "",
-                "in": 0,
-                "out": 0,
-                "ctx": m.get("contextLength"),
-            })
+        m_type = (m.get("type") or "").lower()
+        if not m_type.endswith("chat-completions"):
+            continue
+        info = m.get("info") or {}
+        models.append({
+            "id": "aimlapi/" + (m.get("id") or ""),
+            "name": info.get("name") or m.get("id") or "",
+            "in": 0,
+            "out": 0,
+            "ctx": info.get("contextLength"),
+        })
     return models
 
 
@@ -152,9 +170,7 @@ def catalog(force: bool = False) -> dict:
         pass
     local = [{"id": "ollama_chat/" + n.replace(":latest", ""), "name": n.replace(":latest", "") + " (lokal)", "in": 0, "out": 0}
              for n in ollama_models() if not any(x in n.lower() for x in ("embed", "hf.co", "gguf"))]
-    aimlapi_list = []
-    if os.getenv("AIMLAPI_API_KEY"):
-        aimlapi_list = sorted(aimlapi_models(), key=lambda x: x["id"])
+    aimlapi_list = sorted(aimlapi_models(), key=lambda x: x["id"])
     out = {"openrouter": sorted(ors, key=lambda x: x["id"]), "local": local, "aimlapi": aimlapi_list}
     _CATALOG_CACHE.update(ts=_t.time(), data=out)
     return out
