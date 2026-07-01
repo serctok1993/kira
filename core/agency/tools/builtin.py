@@ -548,6 +548,9 @@ def harness_report(window: str = "today") -> str:
                 return one("SELECT COUNT(*) FROM events WHERE type=? AND ts>=?", t, cutoff)[0]
 
             deg, err, crash = cnt("act_degraded"), cnt("llm_call_error"), cnt("service_crash")
+            restart_def = cnt("restart_deferred_fired")
+            turn_to = cnt("turn_timeout")
+            tool_rec = cnt("tool_calls_recovered")
             top_tools = rows(
                 "SELECT json_extract(payload,'$.tool') t, COUNT(*) n FROM events "
                 "WHERE type='tool_call' AND ts>=? GROUP BY t ORDER BY n DESC LIMIT 5", cutoff)
@@ -570,5 +573,6 @@ def harness_report(window: str = "today") -> str:
         f"- Tool-Calls: {n_tools} gesamt, {n_fail} fehlgeschlagen\n"
         f"- Haertung: act_degraded={deg} | llm_call_error={err} | service_crash={crash}\n"
         f"- Top-Werkzeuge: {tool_lines}\n"
-        f"- LLM-Latenz: avg {lat_avg:.2f}s | max {lat_max:.2f}s"
+        f"- LLM-Latenz: avg {lat_avg:.2f}s | max {lat_max:.2f}s\n"
+        f"- Neustart-Signale: restart_deferred_fired={restart_def} | turn_timeout={turn_to} | tool_calls_recovered={tool_rec}"
     )
