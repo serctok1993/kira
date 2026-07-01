@@ -111,6 +111,63 @@ def set_params(num_ctx: int | None = None, max_tokens: int | None = None,
             "temperature": mm.get("temperature"), "keep_alive": mm.get("keep_alive")}
 
 
+_CATALOG_CACHE = {"ts": 0.0, "data": None}
+
+
+def catalog(force: bool = False) -> dict:
+    """Alle verfuegbaren Modelle: OpenRouter (live, 10 min gecacht) + lokal (Ollama)."""
+    import time as _t
+
+    if not force and _CATALOG_CACHE["data"] and (_t.time() - _CATALOG_CACHE["ts"]) < 600:
+        return _CATALOG_CACHE["data"]
+    ors = []
+    try:
+        data = httpx.get("https://openrouter.ai/api/v1/models", timeout=15).json().get("data", [])
+        for m in data:
+            pr = m.get("pricing", {})
+            ors.append({"id": "openrouter/" + (m.get("id") or ""), "name": m.get("name") or m.get("id"),
+                        "in": pr.get("prompt"), "out": pr.get("completion"), "ctx": m.get("context_length")})
+    except Exception:  # noqa: BLE001
+        pass
+    local = [{"id": "ollama_chat/" + n.replace(":latest", ""), "name": n.replace(":latest", "") + " (lokal)", "in": 0, "out": 0}
+             for n in ollama_models() if not any(x in n.lower() for x in ("embed", "hf.co", "gguf"))]
+    out = {"openrouter": sorted(ors, key=lambda x: x["id"]), "local": local}
+    _CATALOG_CACHE.update(ts=_t.time(), data=out)
+    return out
+
+
+def roles() -> dict:
+    """Aktuelle Rollen-Zuordnung (welches Modell fuer welche Aufgabe)."""
+    m = CONFIG["models"]
+    rt = m.get("routing", {})
+    return {
+        "chat": rt.get("chat", m.get("default")),
+        "reason": rt.get("reason", m.get("default")),
+        "bulk": rt.get("bulk", m.get("default")),
+        "escalation": m.get("escalation_model"),
+        "default": m.get("default"),
+    }
+
+
+def set_role(role: str, model: str) -> str:
+    """Weist einer Rolle (chat/reason/bulk/escalation/default) ein Modell zu — sofort live + persistent."""
+    role = (role or "").strip().lower()
+    model = (model or "").strip()
+    d = _load()
+    if role in ("escalation", "escalation_model", "esk", "eskalation"):
+        d["escalation_model"] = model
+    elif role == "default":
+        d["default"] = model
+        routing = d.setdefault("routing", {})
+        for s in _MAIN_SCOPES:
+            routing[s] = model
+    else:
+        d.setdefault("routing", {})[role] = model
+    _save(d)
+    apply_model_overrides(d)
+    return model
+
+
 def loaded() -> dict:
     """Was Ollama gerade geladen hat: Kontext + VRAM-Anteil (best effort, fuer 'passt auf GPU?')."""
     try:

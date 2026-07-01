@@ -184,6 +184,22 @@ async def api_model_openrouter(body: dict) -> dict:
     return {"ok": True, "active": models.add_openrouter(body.get("model", ""))}
 
 
+@app.get("/api/model/catalog")
+def api_model_catalog() -> dict:
+    return {"catalog": models.catalog(), "roles": models.roles()}
+
+
+@app.post("/api/model/role")
+async def api_model_role(body: dict) -> dict:
+    role = (body.get("role") or "").strip()
+    model = (body.get("model") or "").strip()
+    if not role or not model:
+        return {"ok": False, "error": "role + model noetig"}
+    m = models.set_role(role, model)
+    events.emit("model_role_set", {"role": role, "model": m, "via": "dashboard"})
+    return {"ok": True, "role": role, "model": m}
+
+
 @app.get("/api/model/loaded")
 def api_model_loaded() -> dict:
     return models.loaded()
@@ -873,16 +889,25 @@ textarea.k:focus{border-color:var(--accent2)}
       </div>
     </div>
     <div class="card"><h3>Lokal (Ollama) — klicken zum Wechseln</h3><div id="m-ollama"></div></div>
-    <div class="card"><h3>OpenRouter — ein Key, alle Modelle</h3>
-      <div class="muted" id="m-orkey"></div>
-      <div class="row"><input id="m-or" placeholder="z.B. anthropic/claude-opus-4-8"/>
-        <button id="m-orgo">Aktivieren</button></div>
-      <div style="margin-top:8px">Beliebt:
-        <span class="pill" data-or="z-ai/glm-5.2">GLM 5.2</span>
-        <span class="pill" data-or="anthropic/claude-opus-4-8">Claude Opus 4.8</span>
-        <span class="pill" data-or="google/gemini-2.5-pro">Gemini 2.5 Pro</span>
-        <span class="pill" data-or="deepseek/deepseek-chat">DeepSeek</span></div>
-      <div class="muted" style="margin-top:6px">Modell-ID eintippen (oder Pill klicken) → „Aktivieren" macht es zu Kiras Hirn. Volle Liste: openrouter.ai/models</div></div>
+    <div class="card"><h3>Modell-Rollen — was denkt womit</h3>
+      <div class="muted">Jede Aufgabe hat ihre eigene KI. Zum Aendern unten im Katalog ein Modell suchen und der Rolle zuweisen.</div>
+      <div id="m-roles" style="margin-top:8px"></div>
+    </div>
+    <div class="card"><h3>Modell-Katalog (live: alle OpenRouter + lokal)</h3>
+      <div class="row" style="margin-top:4px;flex-wrap:wrap">
+        <label class="muted" style="align-self:center">Zuweisen an:</label>
+        <select id="cat-role">
+          <option value="chat">💬 Chat (Smalltalk)</option>
+          <option value="reason">🧠 Reason / Coding</option>
+          <option value="bulk">⏰ Crons (einfach)</option>
+          <option value="escalation">⚡ Eskalation</option>
+          <option value="default">★ Default (alles)</option>
+        </select>
+        <input id="cat-search" placeholder="🔍 suchen: deepseek, flash, claude, gemini, qwen …" style="min-width:240px;flex:1"/>
+      </div>
+      <div id="cat-list" style="max-height:340px;overflow:auto;margin-top:8px;font-size:12px"></div>
+      <div class="muted" id="cat-hint" style="margin-top:6px"></div>
+    </div>
   </div>
 
   <div class="view" id="v-gov">
@@ -1228,14 +1253,30 @@ async function loadModels(){const s=await (await fetch("/api/status")).json();
   p.className="pill"+(id===s.model?" ok":"");p.textContent=m.replace(/:latest$/,"");
   p.onclick=()=>useModel(id);ol.appendChild(p);});
  if(!$("#m-ollama").children.length)ol.innerHTML='<span class=muted>(keine nutzbaren lokalen Modelle)</span>';
- $("#m-orkey").textContent=s.api_keys.openrouter?"OPENROUTER_API_KEY gesetzt ✓":"OPENROUTER_API_KEY fehlt — in .env eintragen (openrouter.ai/keys)";
+ loadCatalog();
  const ks=$("#m-keys");if(ks){ks.innerHTML="";Object.entries(s.api_keys).forEach(([k,v])=>{const p=document.createElement("span");
   p.className="pill "+(v?"ok":"no");p.textContent=k+(v?" ✓":" ✗");ks.appendChild(p);});}}
 async function useModel(id){await fetch("/api/model/use",{method:"POST",headers:{"Content-Type":"application/json"},
   body:JSON.stringify({id})});loadModels();refreshStatus();}
-$("#m-orgo").onclick=async()=>{const m=$("#m-or").value.trim();if(!m)return;
- await fetch("/api/model/openrouter",{method:"POST",headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({model:m})});$("#m-or").value="";loadModels();refreshStatus();};
+/* ---- Modell-Katalog + Rollen ---- */
+const ROLE_LABEL={chat:"💬 Chat",reason:"🧠 Reason/Coding",bulk:"⏰ Crons",escalation:"⚡ Eskalation",default:"★ Default"};
+let MCAT={openrouter:[],local:[]};
+function money(x){return (x==null||x===0)?"0€":("$"+(x*1e6).toFixed(2)+"/M");}
+function renderRoles(roles){const el=$("#m-roles");if(!el)return;
+ el.innerHTML=Object.keys(ROLE_LABEL).map(r=>'<div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px solid var(--line)"><span style="min-width:150px">'+ROLE_LABEL[r]+'</span><b style="flex:1;color:var(--accent)">'+((roles[r]||"—")+"").replace(/^openrouter\\//,"").replace(/</g,"&lt;")+'</b></div>').join("");}
+function renderCat(){const el=$("#cat-list");if(!el)return;const q=(($("#cat-search")||{}).value||"").toLowerCase().trim();
+ const all=(MCAT.local||[]).concat(MCAT.openrouter||[]);
+ const hits=all.filter(m=>!q||(m.id||"").toLowerCase().includes(q)||(m.name||"").toLowerCase().includes(q)).slice(0,80);
+ el.innerHTML=hits.length?hits.map(m=>'<div style="display:flex;gap:8px;align-items:center;padding:4px 2px;border-bottom:1px solid var(--line)">'
+   +'<span style="flex:1"><b>'+(m.id||"").replace(/^openrouter\\//,"").replace(/</g,"&lt;")+'</b>'+(m.ctx?' <small class=muted>'+Math.round(m.ctx/1000)+'K</small>':'')+'</span>'
+   +'<small class=muted style="min-width:120px">'+money(m.in)+' · '+money(m.out)+'</small>'
+   +'<button class=ghost data-mid="'+m.id+'" style="padding:3px 9px">→ zuweisen</button></div>').join(""):'<span class=muted>(keine Treffer)</span>';
+ el.querySelectorAll('button[data-mid]').forEach(b=>b.onclick=async()=>{const role=$("#cat-role").value;
+   $("#cat-hint").textContent="… setze "+role+" …";
+   await fetch("/api/model/role",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role,model:b.dataset.mid})});
+   $("#cat-hint").innerHTML=ROLE_LABEL[role]+' → <b>'+b.dataset.mid.replace(/^openrouter\\//,"")+'</b> ✓';loadModels();refreshStatus();});}
+async function loadCatalog(){try{const d=await (await fetch("/api/model/catalog")).json();MCAT=d.catalog||{openrouter:[],local:[]};renderRoles(d.roles||{});renderCat();}catch(e){}}
+$("#cat-search")&&($("#cat-search").oninput=()=>renderCat());
 $("#s-behav-save")&&($("#s-behav-save").onclick=async()=>{const tp=parseFloat($("#s-temp").value);
  if(!isNaN(tp))await cfgSet("models.temperature",tp);
  if($("#s-keep").value.trim())await cfgSet("models.keep_alive",$("#s-keep").value.trim());

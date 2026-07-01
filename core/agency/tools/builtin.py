@@ -183,22 +183,28 @@ def watch_remove(id: str) -> str:
 
 
 @tool("switch_model",
-      "Wechselt dein aktives Hirn (Default-Modell), sofort live + im Dashboard sichtbar. "
-      "Beispiele: 'ollama_chat/qwythos' (lokal, 0 EUR) oder 'openrouter/z-ai/glm-5.2' (stark, Cloud).",
-      {"model": "die Modell-ID im litellm-Format"})
-def switch_model(model: str) -> str:
+      "Weist einer ROLLE ein Modell zu — sofort live + im Dashboard sichtbar. Rollen: 'chat' (Smalltalk), "
+      "'reason' (Coding/schweres Denken), 'bulk' (einfache Crons), 'escalation' (Plan/Selbst-Edit), "
+      "'default' (alles). Modell-ID im litellm-Format, z.B. 'openrouter/deepseek/deepseek-v4-flash' "
+      "oder 'ollama_chat/qwythos' (lokal, 0 EUR).",
+      {"model": "die Modell-ID", "role": "optional: chat/reason/bulk/escalation/default (Standard: default)"})
+def switch_model(model: str, role: str = "default") -> str:
     from core.kernel import models
 
-    return f"Aktives Modell jetzt: {models.set_model(model.strip())}"
+    mid = model.strip()
+    if not (mid.startswith("openrouter/") or mid.startswith("ollama")):
+        mid = "openrouter/" + mid
+    return f"'{role}' laeuft jetzt auf: {models.set_role((role or 'default').strip(), mid)}"
 
 
-@tool("list_models", "Zeigt das aktive Modell, das Eskalations-Modell und die lokal verfuegbaren Ollama-Modelle.", {})
+@tool("list_models", "Zeigt, welches Modell fuer welche Rolle laeuft (chat/reason/bulk/escalation) + lokale Modelle.", {})
 def list_models() -> str:
     from core.kernel import models
 
-    s = models.status()
-    local = ", ".join(s.get("ollama_local", [])) or "(keine)"
-    return f"Aktiv: {s['default']} | Eskalation: {s['escalation_model']} | Lokal: {local}"
+    r = models.roles()
+    local = ", ".join(models.ollama_models()) or "(keine)"
+    return (f"chat: {r['chat']} | reason: {r['reason']} | bulk: {r['bulk']} | "
+            f"escalation: {r['escalation']} | lokal: {local}")
 
 
 @tool("set_context",

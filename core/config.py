@@ -38,6 +38,8 @@ def apply_model_overrides(d: dict) -> None:
         m["default"] = d["default"]
     if "routing" in d:
         m.setdefault("routing", {}).update(d["routing"])
+    if "escalation_model" in d:
+        m["escalation_model"] = d["escalation_model"]
     if "providers" in d:
         m.setdefault("providers", {}).update(d["providers"])
     for key in ("num_ctx", "max_tokens", "temperature", "keep_alive"):
