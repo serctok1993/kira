@@ -5,6 +5,7 @@ Ein Prozess, eine Seite (Terminal-Look). Start:
 """
 from __future__ import annotations
 
+import json
 import time
 
 import anyio
@@ -18,6 +19,7 @@ from core.config import CONFIG, MIND_DIR, ROOT
 from core.governance import audit, secrets, treasury, trust
 from core.kernel import events, models
 from core.kernel.llm_router import today_spend_usd
+from core.kernel.phrases import THINKING_PHRASES
 from core.kernel.scheduler import heartbeat_on, kill_switch_active, kill_switch_path, set_heartbeat
 from core.mind.agent import Agent
 from core.mind.memory import store as memory
@@ -674,7 +676,11 @@ async def ws_chat(ws: WebSocket) -> None:
 
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
-    return DASHBOARD_HTML
+    # Sprüche-Katalog (eine Quelle) in die Seite injizieren -> kein Extra-Request, kein Drift.
+    # [1:-1] = ohne aeussere Klammern (die stehen schon im JS: const PHRASES=[...]) -> bei
+    # ausbleibender Injektion bleibt [] als sichere, gueltige Fallback-Form.
+    inner = json.dumps(THINKING_PHRASES, ensure_ascii=False)[1:-1]
+    return DASHBOARD_HTML.replace("/*__PHRASES__*/", inner)
 
 
 DASHBOARD_HTML = """<!doctype html>
@@ -796,6 +802,48 @@ textarea.k{width:100%;background:var(--panel);color:var(--ink);border:1px solid 
  padding:10px;font-family:inherit;font-size:13px;resize:vertical;outline:none;min-height:52px}
 textarea.k:focus{border-color:var(--accent2)}
 .muted{color:var(--muted)}
+/* ===== Kira-Signature: UI-Font, Aura/Glow, Motion (additiv, ueberschreibt via Quellreihenfolge) ===== */
+:root{--mono:ui-monospace,"Cascadia Code",Consolas,monospace}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,"Helvetica Neue",Arial,sans-serif}
+.think,#farea,#evlog,#memlist,#feed-list,.e{font-family:var(--mono)}
+body::after{content:"";position:fixed;inset:-20% -10% -10% -10%;z-index:-1;pointer-events:none;
+ background:
+  radial-gradient(760px 520px at 15% -8%, rgba(139,92,246,.20), transparent 60%),
+  radial-gradient(680px 520px at 90% 2%, rgba(109,40,217,.15), transparent 62%),
+  radial-gradient(900px 720px at 60% 120%, rgba(90,45,150,.12), transparent 60%);
+ animation:aura 26s ease-in-out infinite alternate}
+@keyframes aura{from{transform:translate3d(0,0,0) scale(1)}to{transform:translate3d(0,-2.4%,0) scale(1.06)}}
+#side h1{text-shadow:0 0 18px rgba(139,92,246,.45),0 0 3px rgba(139,92,246,.35)}
+#side a{transition:background .18s ease,border-color .18s ease,color .18s ease}
+#side a.on{box-shadow:inset 0 0 26px rgba(139,92,246,.14)}
+button{transition:transform .15s ease,box-shadow .2s ease,filter .2s ease;box-shadow:0 6px 20px rgba(124,58,237,.26)}
+button:hover{filter:brightness(1.08);transform:translateY(-1px)}
+button:active{transform:translateY(0)}
+button.ghost{box-shadow:none}
+button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(139,92,246,.25)}
+.card{transition:border-color .2s ease,transform .2s ease,box-shadow .2s ease}
+.card:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.pill{transition:border-color .15s ease,color .15s ease,background .15s ease}
+.view.on{animation:viewin .32s ease both}
+@keyframes viewin{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.msg{animation:msgin .28s cubic-bezier(.2,.7,.2,1) both;border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.22);line-height:1.5}
+.me{background:linear-gradient(135deg,rgba(124,58,237,.26),rgba(109,40,217,.18));border-color:rgba(168,85,247,.38)}
+.bot{background:rgba(20,16,30,.82);border-color:rgba(139,92,246,.14)}
+@keyframes msgin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.think{background:rgba(139,92,246,.05);border-left:2px solid var(--accent);border-radius:10px;padding:8px 12px;box-shadow:inset 0 0 0 1px rgba(139,92,246,.06)}
+.thinking{align-self:flex-start;display:flex;align-items:center;gap:9px;margin:2px 0;padding:7px 14px;
+ font-size:13.5px;font-weight:500;border-radius:12px;
+ background:linear-gradient(90deg,transparent,rgba(139,92,246,.08),transparent)}
+.thinking .sh{color:var(--accent);filter:drop-shadow(0 0 7px var(--accent));animation:spin 3.4s linear infinite}
+.thinking .tx{background:linear-gradient(90deg,var(--muted) 0%,#fff 22%,var(--accent) 44%,var(--muted) 66%);
+ background-size:220% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
+ animation:shimmer 2.7s linear infinite}
+@keyframes shimmer{to{background-position:-220% 0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){
+ *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+ body::after{animation:none}
+}
 </style></head><body>
 <div id="side">
   <h1>KIRA</h1><div class="sub" id="who">cockpit</div>
@@ -1024,6 +1072,13 @@ textarea.k:focus{border-color:var(--accent2)}
 </div>
 <script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+/* Kiras Denk-Sprueche (eine Quelle, beim Ausliefern injiziert) */
+const PHRASES=[/*__PHRASES__*/];
+let _lastPhrase="";
+function rndPhrase(){if(PHRASES.length<2)return PHRASES[0]||"ich denke kurz nach";
+ let p=PHRASES[Math.floor(Math.random()*PHRASES.length)],g=0;
+ while(p===_lastPhrase&&g++<8)p=PHRASES[Math.floor(Math.random()*PHRASES.length)];
+ _lastPhrase=p;return p;}
 let cur="home";
 $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
 function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
@@ -1121,6 +1176,15 @@ $("#kill").onclick=async()=>{const on=!$("#kill").classList.contains("active");
 /* ---- Chat ---- */
 const log=$("#log");
 function add(t,c){const d=document.createElement("div");d.className="msg "+c;d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight;return d;}
+/* Shimmernder Denk-Indikator: rotierender Spruch, solange Kira arbeitet */
+let thinkTimer=null,thinkEl=null;
+function startThinking(){stopThinking();thinkEl=document.createElement("div");thinkEl.className="thinking";
+ thinkEl.innerHTML='<span class="sh">✦</span><span class="tx"></span>';
+ const setp=()=>{const t=thinkEl&&thinkEl.querySelector(".tx");if(t)t.textContent=rndPhrase();};
+ setp();log.appendChild(thinkEl);log.scrollTop=log.scrollHeight;
+ thinkTimer=setInterval(setp,3500);}
+function stopThinking(){if(thinkTimer){clearInterval(thinkTimer);thinkTimer=null;}
+ if(thinkEl){thinkEl.remove();thinkEl=null;}}
 const proto=location.protocol==="https:"?"wss":"ws";
 let ws,curBot,curThink,thinkBuf,curSid=null,wsIntentional=false;
 function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/chat"+(curSid?("?sid="+encodeURIComponent(curSid)):"");ws=new WebSocket(url);
@@ -1130,11 +1194,11 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
  function traceSet(){curThink.querySelector(".c").textContent=thinkBuf;log.scrollTop=log.scrollHeight;}
  ws.onmessage=ev=>{const m=JSON.parse(ev.data);
   if(m.role==="system"){add(m.text,"sys");return;}
-  if(m.done){curBot=null;curThink=null;loadChatSessions();return;}
+  if(m.done){stopThinking();curBot=null;curThink=null;loadChatSessions();return;}
   if(m.kind==="think"){ensureTrace();thinkBuf+=m.text;traceSet();return;}
   if(m.kind==="tool"){ensureTrace();thinkBuf+="\\n🔧 "+m.name+" "+JSON.stringify(m.args);traceSet();return;}
   if(m.kind==="obs"){ensureTrace();thinkBuf+="\\n   ✓ "+(m.text||"").slice(0,120);traceSet();return;}
-  if(m.kind==="final"||m.kind==="answer"){const b=add("","bot");b.textContent=(m.text||"").replace(/\\*\\*/g,"");log.scrollTop=log.scrollHeight;}};
+  if(m.kind==="final"||m.kind==="answer"){stopThinking();const b=add("","bot");b.textContent=(m.text||"").replace(/\\*\\*/g,"");log.scrollTop=log.scrollHeight;}};
  ws.onclose=()=>{if(!wsIntentional)setTimeout(connect,1500);};}
 function reconnect(){wsIntentional=true;if(ws){try{ws.close();}catch(e){}}connect();}
 function relTime(ts){const s=Date.now()/1000-ts;if(s<90)return "gerade";if(s<3600)return Math.round(s/60)+" Min";if(s<86400)return Math.round(s/3600)+" Std";return Math.round(s/86400)+" Tg";}
@@ -1155,7 +1219,7 @@ $("#sess-list")&&($("#sess-list").onchange=e=>openSession(e.target.value));
 $("#sess-new")&&($("#sess-new").onclick=()=>newSession());
 $("#sess-del")&&($("#sess-del").onclick=()=>deleteSession());
 $("#cform").onsubmit=e=>{e.preventDefault();const raw=$("#cin").value.trim();if(!raw||!ws||ws.readyState!==1)return;
- add(raw,"me");const t=($("#planmode")&&$("#planmode").checked?"plan: ":"")+raw;ws.send(t);$("#cin").value="";curBot=null;curThink=null;};
+ add(raw,"me");startThinking();const t=($("#planmode")&&$("#planmode").checked?"plan: ":"")+raw;ws.send(t);$("#cin").value="";curBot=null;curThink=null;};
 
 /* ---- Sprachmemo (Aufnahme -> Whisper -> Eingabefeld) ---- */
 let mediaRec=null,chunks=[];

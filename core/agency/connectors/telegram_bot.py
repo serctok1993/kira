@@ -21,6 +21,7 @@ import httpx
 
 from core.config import CONFIG, DATA_DIR
 from core.kernel import events
+from core.kernel.phrases import next_phrase
 from core.kernel.scheduler import kill_switch_active, kill_switch_path
 from core.mind.agent import Agent
 
@@ -252,11 +253,12 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
 
     _typing(client, chat_id)
     head = ("🎙️ «" + voice_text[:200] + "»\n") if voice_text else ""
+    phrase0 = next_phrase()
     init = client.post(f"{API}/sendMessage",
-                       json={"chat_id": chat_id, "text": head + "💭 Kira denkt ·"}).json()
+                       json={"chat_id": chat_id, "text": head + "🧠 " + phrase0 + " ·"}).json()
     mid = init.get("result", {}).get("message_id")
 
-    state = {"think": "", "lines": [], "tools": [], "tick": 0, "last_render": ""}
+    state = {"think": "", "lines": [], "tools": [], "tick": 0, "last_render": "", "phrase": phrase0}
     lock = threading.Lock()
     stop = threading.Event()
 
@@ -268,14 +270,15 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
         pulse = _PULSE[state["tick"] % len(_PULSE)]
         if state["think"]:
             # Ganzen Denk-Strom als geglaetteten Tail zeigen -> waechst ruhig im Takt,
-            # kein zitternder Zeichen-Cursor. Ein einziges Puls-Element am Ende.
+            # kein zitternder Zeichen-Cursor (kein Puls hier -> nur EIN bewegtes Element).
             tail = re.sub(r"\s+", " ", state["think"]).strip()[-240:]
-            parts.append("💭 " + tail + (" " + pulse if running else ""))
-        elif running:
-            parts.append("💭 Kira denkt " + pulse)
+            parts.append("💭 " + tail)
         if state["lines"]:
             parts.append("─" * 18)
             parts += state["lines"][-8:]
+        if running:
+            # EINE bewegte Zeile unten (Claude-Code-artig): rotierender Spruch + atmende Punkte.
+            parts.append("🧠 " + state["phrase"] + " " + pulse)
         return ("\n".join(parts))[:4000] or "💭 …"
 
     def edit() -> None:
@@ -297,6 +300,8 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
         while not stop.wait(_PULSE_INTERVAL):
             with lock:
                 state["tick"] += 1
+                if state["tick"] % 4 == 0:  # Spruch alle ~7 s wechseln (ruhig, nicht hektisch)
+                    state["phrase"] = next_phrase(state["phrase"])
                 edit()
             if state["tick"] % 3 == 0:  # nativen „tippt…"-Indikator am Leben halten
                 _typing(client, chat_id)
