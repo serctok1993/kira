@@ -58,14 +58,26 @@ def web_search(query: str, max_results: int = 5) -> str:
 
 
 # --- Datei-Haende: Kira kann auf dem PC lesen/schreiben/auflisten/Ordner anlegen ---
-@tool("read_file", "Liest eine Datei vom PC und gibt den Textinhalt zurueck.", {"path": "Dateipfad"})
-def read_file(path: str, max_chars: int = 24000) -> str:
+@tool("read_file",
+      "Liest eine Datei vom PC (UTF-8-korrekt) und gibt den Textinhalt zurueck. Bei langen Dateien "
+      "wird gestueckelt — nutze dann 'offset', um den naechsten Teil zu lesen. IMMER dieses Werkzeug "
+      "fuer Quelltext nutzen, NIE PowerShell Get-Content (das verfaelscht Emojis/Umlaute).",
+      {"path": "Dateipfad", "offset": "optional: ab welchem Zeichen lesen (Standard 0)"})
+def read_file(path: str, max_chars: int = 40000, offset: int = 0) -> str:
     p = Path(path).expanduser()
     if not p.exists():
         return f"(Datei nicht gefunden: {p})"
     if p.is_dir():
         return f"(Das ist ein Ordner, keine Datei: {p})"
-    return p.read_text(encoding="utf-8", errors="replace")[:max_chars]
+    try:
+        offset = max(0, int(offset))
+    except Exception:  # noqa: BLE001
+        offset = 0
+    full = p.read_text(encoding="utf-8", errors="replace")
+    chunk = full[offset:offset + max_chars]
+    if offset + max_chars < len(full):
+        chunk += f"\n\n[… Datei laenger ({len(full)} Zeichen) — read_file mit offset={offset + max_chars} fuer den Rest]"
+    return chunk
 
 
 @tool("write_file", "Schreibt Text in eine Datei (erstellt sie / ueberschreibt). Legt fehlende Ordner an.",
