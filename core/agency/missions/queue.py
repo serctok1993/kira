@@ -76,3 +76,20 @@ def pop_next(mission: str | None = None) -> dict | None:
 def complete(task_id: str, result: str, status: str = "done") -> None:
     with _conn() as c:
         c.execute("UPDATE tasks SET status=?, result=? WHERE id=?", (status, result[:4000], task_id))
+
+
+def remove(task_id: str) -> bool:
+    """Eine offene Aufgabe aus der Queue loeschen (nur solange 'pending')."""
+    with _conn() as c:
+        cur = c.execute("DELETE FROM tasks WHERE id=? AND status='pending'", (task_id,))
+    return cur.rowcount > 0
+
+
+def clear(mission: str | None = None, status: str = "pending") -> int:
+    """Alle offenen Aufgaben (einer Mission) verwerfen. Gibt Anzahl zurueck."""
+    with _conn() as c:
+        if mission:
+            cur = c.execute("DELETE FROM tasks WHERE mission=? AND status=?", (mission, status))
+        else:
+            cur = c.execute("DELETE FROM tasks WHERE status=?", (status,))
+    return cur.rowcount

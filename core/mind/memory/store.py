@@ -210,6 +210,29 @@ def delete(mem_id: str) -> bool:
     return True
 
 
+def update_text(mem_id: str, text: str) -> bool:
+    """Text einer Erinnerung aendern (inkl. FTS-Index + Embedding neu berechnen)."""
+    emb = None
+    try:
+        import json as _j
+
+        from core.mind.memory.embed import embed
+
+        v = embed(text)
+        emb = _j.dumps(v) if v else None
+    except Exception:
+        emb = None
+    with _conn() as c:
+        c.execute("UPDATE memory SET text=?, embedding=? WHERE id=?", (text, emb, mem_id))
+        if _HAS_FTS:
+            try:
+                c.execute("DELETE FROM memory_fts WHERE mem_id=?", (mem_id,))
+                c.execute("INSERT INTO memory_fts (mem_id, text) VALUES (?,?)", (mem_id, text))
+            except sqlite3.OperationalError:
+                pass
+    return True
+
+
 def backfill_embeddings(limit: int = 5000) -> int:
     """Berechnet Embeddings fuer alte Erinnerungen ohne Vektor (macht die Vergangenheit
     semantisch durchsuchbar). Gibt die Anzahl nachgeruesteter Eintraege zurueck."""

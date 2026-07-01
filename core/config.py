@@ -55,6 +55,44 @@ if _MODEL_OVERRIDE.exists():
     except Exception:
         pass
 
+
+# Allgemeine Laufzeit-Overrides (data/overrides.json) ueber config.yaml legen -> config.yaml
+# bleibt mit Kommentaren unangetastet, Aenderungen ueberleben Neustarts.
+_OVERRIDE_FILE = DATA_DIR / "overrides.json"
+
+
+def _apply_overrides(cfg: dict, ov: dict) -> None:
+    for path, val in ov.items():
+        keys = str(path).split(".")
+        d = cfg
+        for k in keys[:-1]:
+            d = d.setdefault(k, {})
+        d[keys[-1]] = val
+
+
+def set_override(path: str, value) -> None:
+    """Einen Config-Pfad (z.B. 'mission.goal') zur Laufzeit setzen + persistieren."""
+    import json as _jo
+
+    ov: dict = {}
+    if _OVERRIDE_FILE.exists():
+        try:
+            ov = _jo.loads(_OVERRIDE_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            ov = {}
+    ov[path] = value
+    _OVERRIDE_FILE.write_text(_jo.dumps(ov, indent=2, ensure_ascii=False), encoding="utf-8")
+    _apply_overrides(CONFIG, {path: value})
+
+
+if _OVERRIDE_FILE.exists():
+    import json as _json3
+
+    try:
+        _apply_overrides(CONFIG, _json3.loads(_OVERRIDE_FILE.read_text(encoding="utf-8")))
+    except Exception:
+        pass
+
 # Zugaenge/Secrets aus data/secrets.json in die Umgebung laden (write-only, gitignored)
 _SECRETS_FILE = DATA_DIR / "secrets.json"
 if _SECRETS_FILE.exists():

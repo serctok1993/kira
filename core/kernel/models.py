@@ -92,16 +92,23 @@ def add_provider(alias: str, model: str, api_base: str, api_key_env: str) -> dic
     return d["providers"][alias]
 
 
-def set_params(num_ctx: int | None = None, max_tokens: int | None = None) -> dict:
-    """Kontextfenster / max. Ausgabetokens zur Laufzeit setzen (persistiert, sofort live)."""
+def set_params(num_ctx: int | None = None, max_tokens: int | None = None,
+               temperature: float | None = None, keep_alive: str | None = None) -> dict:
+    """Kontext / max. Tokens / Temperatur / keep_alive zur Laufzeit setzen (persistiert, sofort live)."""
     d = _load()
     if num_ctx is not None:
         d["num_ctx"] = int(num_ctx)
     if max_tokens is not None:
         d["max_tokens"] = int(max_tokens)
+    if temperature is not None:
+        d["temperature"] = float(temperature)
+    if keep_alive is not None:
+        d["keep_alive"] = str(keep_alive)
     _save(d)
     apply_model_overrides(d)
-    return {"num_ctx": CONFIG["models"].get("num_ctx"), "max_tokens": CONFIG["models"].get("max_tokens")}
+    mm = CONFIG["models"]
+    return {"num_ctx": mm.get("num_ctx"), "max_tokens": mm.get("max_tokens"),
+            "temperature": mm.get("temperature"), "keep_alive": mm.get("keep_alive")}
 
 
 def loaded() -> dict:

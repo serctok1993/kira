@@ -28,6 +28,19 @@ def _mission() -> dict:
     return CONFIG.get("mission", {})
 
 
+def _focus() -> str:
+    """Sergens aktueller Fokus (Direktive) — live pro Tick gelesen, wirkt ohne Neustart."""
+    try:
+        import json
+
+        from core.config import ROOT
+
+        d = json.loads((ROOT / "data" / "focus.json").read_text(encoding="utf-8"))
+        return (d.get("focus") or "").strip()
+    except Exception:
+        return ""
+
+
 def _context(limit: int = 12) -> str:
     lines: list[str] = []
     for e in reversed(events.recent(80)):
@@ -65,6 +78,9 @@ def run_once(escalate: bool = False) -> dict:
     m = _mission()
     mission = m.get("name", "default")
     goal = m.get("goal") or _read("GOAL.md")
+    focus = _focus()
+    if focus:
+        goal = f"AKTUELLER FOKUS von Sergen (hat Vorrang vor dem Dauer-Ziel): {focus}\n\n{goal}"
     queue.init_queue()
 
     if not queue.pending(mission):
