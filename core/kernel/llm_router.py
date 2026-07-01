@@ -76,6 +76,10 @@ _PROVIDER_KEYS = {
     "gemini": "GEMINI_API_KEY",
 }
 
+# Erkennt OpenRouter-402-Antworten wegen zu wenig Guthaben fuer die angeforderte
+# max_tokens-Menge, z.B.: "...but can only afford 3035. To increase, visit..."
+_AFFORD_RE = re.compile(r"can only afford (\d+)", re.IGNORECASE)
+
 
 def _provider_config(model_id: str) -> tuple[str, str | None, str | None]:
     """Loest einen eigenen Provider-Alias auf.
@@ -218,16 +222,47 @@ def complete(
     if tools:
         extra["tools"] = tools
 
+    want_max_tokens = CONFIG["models"].get("max_tokens", 2048)
+
     t0 = time.time()
-    resp = litellm.completion(
-        model=real,
-        messages=msgs,
-        temperature=CONFIG["models"].get("temperature", 0.7),
-        max_tokens=CONFIG["models"].get("max_tokens", 2048),
-        num_retries=2,
-        timeout=CONFIG["models"].get("request_timeout", 120),  # hartes Timeout -> kein Einfrieren
-        **extra,
-    )
+    try:
+        resp = litellm.completion(
+            model=real,
+            messages=msgs,
+            temperature=CONFIG["models"].get("temperature", 0.7),
+            max_tokens=want_max_tokens,
+            num_retries=2,
+            timeout=CONFIG["models"].get("request_timeout", 120),  # hartes Timeout -> kein Einfrieren
+            **extra,
+        )
+    except Exception as e:  # noqa: BLE001
+        msg = str(e)
+        # OpenRouter-402: zu wenig Guthaben fuer die angeforderte max_tokens-Menge.
+        # Statt hart zu crashen (das reisst z.B. den Heartbeat in eine Fehler-Schleife):
+        # EINMAL automatisch mit der leistbaren Tokenzahl erneut versuchen.
+        m = _AFFORD_RE.search(msg)
+        if "credits" in msg.lower() and "afford" in msg.lower() and m:
+            affordable = max(256, int(m.group(1)) - 50)
+            retry_max_tokens = min(want_max_tokens, affordable)
+            try:
+                resp = litellm.completion(
+                    model=real,
+                    messages=msgs,
+                    temperature=CONFIG["models"].get("temperature", 0.7),
+                    max_tokens=retry_max_tokens,
+                    num_retries=2,
+                    timeout=CONFIG["models"].get("request_timeout", 120),
+                    **extra,
+                )
+                events.emit("llm_call_retry", {"model": model, "reason": "credits",
+                            "orig_max_tokens": want_max_tokens, "retry_max_tokens": retry_max_tokens},
+                            session_id=session_id)
+            except Exception as e2:  # noqa: BLE001
+                events.emit("llm_call_error", {"error": str(e2)[:300], "model": model}, session_id=session_id)
+                raise
+        else:
+            events.emit("llm_call_error", {"error": msg[:300], "model": model}, session_id=session_id)
+            raise
     latency = time.time() - t0
 
     message = resp.choices[0].message
