@@ -49,6 +49,15 @@ governance:
     monthly_eur: 150.0           # harter Monatsdeckel — DIE eigentliche Kostenbremse
   kill_switch_file: data/STOP     # existiert diese Datei -> Heartbeat haelt sofort
 
+# Ergebnis-Rueckkopplung (S2): jeder Mission-Task wird gegen selbst-geschriebene
+# Akzeptanzkriterien geprueft; scheitert er, folgt ein Retry mit ANDERER Strategie
+# statt blindem 'done'. enabled: false -> Alt-Verhalten (blind 'done').
+outcomes:
+  enabled: true
+  pass_score: 70              # ab diesem Judge-Score (0-100) gilt ein Task als bestanden
+  max_quality_retries: 2      # Qualitaets-Retries, GETRENNT von Absturz-Retries (reset_stuck)
+  verifier_task_type: bulk    # Route des Pruefers (bulk=flash; nicht classify/8B — muss striktes JSON koennen)
+
 # Heartbeat / autonomer Takt
 heartbeat:
   enabled: false                  # Auto-Start erst, wenn du bereit bist

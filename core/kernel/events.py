@@ -83,6 +83,7 @@ _ACTION_TYPES = {
     "act_start", "act_done", "act_step", "tool_call", "shell_run",
     "plan_start", "plan_made", "plan_step", "plan_done",
     "mission_task_start", "mission_task_done", "mission_planned",
+    "task_criteria", "task_scored", "task_retry",
     "cron_run", "cron_added", "self_edit", "file_edited", "restart_requested", "heartbeat_toggle",
 }
 _CHAT_TYPES = {"partner_message", "user_message", "telegram_in", "telegram_photo", "vision", "reflection"}

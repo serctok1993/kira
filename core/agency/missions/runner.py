@@ -16,6 +16,7 @@ import os
 import sys
 import time
 
+from core.agency import outcomes, verifier
 from core.agency.act import act
 from core.agency.missions import planner, queue
 from core.config import CONFIG
@@ -48,6 +49,10 @@ def _context(limit: int = 12) -> str:
             lines.append("Erledigt: " + str(e["payload"].get("summary", ""))[:160])
         elif e["type"] == "mission_planned":
             lines.append("Geplant: " + ", ".join(e["payload"].get("tasks", []))[:160])
+        elif e["type"] == "task_failed_final":
+            # Der Planner soll denselben todgeweihten Task nicht sofort neu planen.
+            lines.append("Endgueltig gescheitert (NICHT wiederholen): "
+                         + str(e["payload"].get("desc", ""))[:160])
     return "\n".join(lines[-limit:]) or "(noch kein Fortschritt)"
 
 
@@ -84,6 +89,111 @@ def _pick_objective(actives: list[dict]) -> dict | None:
         return (days, o.get("progress", 0))
 
     return sorted(actives, key=_key)[0]
+
+
+def _outcomes_enabled() -> bool:
+    o = CONFIG.get("outcomes") or {}
+    return bool(o.get("enabled", True)) if isinstance(o, dict) else True
+
+
+def _attempt_prompt(task: dict, criteria: list[dict], attempt: int) -> str:
+    """Task-Beschreibung + Akzeptanzkriterien; ab Versuch 2 Pruefer-Feedback + Strategiewechsel.
+
+    Die description in der DB bleibt UNVERAENDERT (Board + stabile Kriterien) —
+    nur der Arbeits-Prompt des Versuchs traegt die Zusaetze."""
+    parts = [task["description"]]
+    if criteria:
+        parts.append("\nAKZEPTANZKRITERIEN (dein Ergebnis wird unabhaengig dagegen geprueft):\n"
+                     + "\n".join(f"- {c['text']}" for c in criteria))
+    if attempt >= 2:
+        fb = (task.get("feedback") or "").strip()
+        if fb:
+            parts.append("\nDEIN VORHERIGER VERSUCH WURDE ABGELEHNT. Pruefer-Feedback:\n" + fb)
+        if attempt >= 3:
+            parts.append("\nWICHTIG: Wechsle die STRATEGIE grundlegend — anderer Ansatz, andere "
+                         "Quellen/Werkzeuge als zuvor. Benenne deine neue Strategie im ersten Satz.")
+        else:
+            parts.append("\nBehebe die Kritikpunkte gezielt.")
+    return "\n".join(parts)
+
+
+def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
+    """Ein Task-Versuch MIT Ergebnis-Rueckkopplung (S2): act -> pruefen -> pass/retry/fail.
+
+    Retry = Requeue auf 'pending' fuer den NAECHSTEN Tick (crash-durabel, budget-glatt),
+    nicht In-Tick-Schleife. Qualitaets-Retries (quality_retries) sind strikt getrennt
+    von Absturz-Retries (retry_count, gehoert reset_stuck)."""
+    sid = f"mission-{mission}"
+    full = queue.get_task(task["id"]) or task
+
+    if not _outcomes_enabled():  # Alt-Pfad: blind 'done' wie vor S2
+        result = act(full["description"], session_id=sid, escalate=escalate, task_type="bulk")
+        text = result["text"]
+        queue.complete(full["id"], text)
+        events.emit("mission_task_done", {"id": full["id"], "summary": text[:300]}, session_id=sid)
+        _notify(f"🤖 Mission-Schritt erledigt:\n{full['description']}\n\n{text[:1200]}")
+        return {"task": full["description"], "result": text}
+
+    criteria = verifier.ensure_criteria(full)
+    attempt = int(full.get("quality_retries") or 0) + 1
+    strategy = ("standard", "eskaliert", "strategiewechsel")[min(attempt, 3) - 1]
+    t0 = time.time()
+    # Versuch 1 auf der billigen bulk-Route (wie bisher); ab Versuch 2 hebt 'reason' an.
+    result = act(_attempt_prompt(full, criteria, attempt), session_id=sid,
+                 escalate=escalate, task_type=("reason" if attempt >= 2 else "bulk"))
+    text = result["text"]
+    out = verifier.verify(full, criteria, text)
+    outcomes.record(full["id"], attempt, criteria, out["checks"], out["score"], out["verdict"],
+                    feedback=out["feedback"], strategy=strategy,
+                    cost_usd=out["cost_usd"], duration_s=time.time() - t0)
+    events.emit("task_scored", {"id": full["id"], "attempt": attempt, "score": out["score"],
+                                "verdict": out["verdict"], "strategy": strategy}, session_id=sid)
+
+    if out["verdict"] == "pass":
+        queue.complete(full["id"], text)
+        queue.update_task(full["id"], score=out["score"])
+        events.emit("mission_task_done", {"id": full["id"], "summary": text[:300],
+                                          "score": out["score"]}, session_id=sid)
+        label = f" (Score {out['score']})" if out["score"] is not None else ""
+        _notify(f"🤖 Mission-Schritt erledigt{label}:\n{full['description']}\n\n{text[:1200]}")
+        return {"task": full["description"], "result": text, "score": out["score"]}
+
+    if attempt <= verifier.max_quality_retries():
+        # Naechster Tick versucht es erneut: pop_next sortiert nach (priority, ts ASC),
+        # der alte ts bringt den Task als erstes wieder dran.
+        queue.update_task(full["id"], status="pending", quality_retries=attempt,
+                          feedback=out["feedback"], score=out["score"])
+        events.emit("task_retry", {"id": full["id"], "attempt": attempt, "score": out["score"],
+                                   "feedback": (out["feedback"] or "")[:300]}, session_id=sid)
+        return {"task": full["description"], "retry": attempt, "score": out["score"]}
+
+    queue.complete(full["id"], text, status="failed")
+    queue.update_task(full["id"], score=out["score"])
+    events.emit("task_failed_final", {"id": full["id"], "attempts": attempt, "score": out["score"],
+                                      "desc": full["description"][:200]}, session_id=sid)
+    try:
+        from core.mind import reflection
+
+        reflection.reflect_on(
+            full["description"],
+            f"Nach {attempt} Versuchen an den Akzeptanzkriterien gescheitert. "
+            f"Letztes Pruefer-Feedback: {out['feedback']}\n\nLetztes Ergebnis:\n{text[:1500]}")
+    except Exception as e:  # noqa: BLE001
+        events.emit("reflect_error", {"error": str(e)[:200]})
+    try:
+        from core.agency import approvals
+
+        approvals.create(
+            f"Task {attempt}x an Qualitaet gescheitert: {full['description'][:80]}",
+            kind="generic", source="task",
+            detail=(f"Aufgabe: {full['description']}\n\nKriterien:\n"
+                    + "\n".join(f"- {c['text']}" for c in criteria)
+                    + f"\n\nLetzter Score: {out['score']}\nLetztes Feedback: {out['feedback']}"))
+    except Exception as e:  # noqa: BLE001
+        events.emit("approval_error", {"error": str(e)[:200]})
+    _notify(f"⚠️ Task endgueltig gescheitert ({attempt} Versuche, Score {out['score']}):\n"
+            f"{full['description']}\n\nPruefer: {(out['feedback'] or '')[:600]}")
+    return {"task": full["description"], "failed": True, "score": out["score"]}
 
 
 def run_once(escalate: bool = False) -> dict:
@@ -127,15 +237,10 @@ def run_once(escalate: bool = False) -> dict:
 
     events.emit("mission_task_start", {"id": task["id"], "desc": task["description"]}, session_id=f"mission-{mission}")
     try:
-        # 24/7-Grind guenstig: die Arbeits-Schleife laeuft auf der 'bulk'-Stufe (flash) statt
-        # 'reason' (pro) -> ~5-8x billiger pro Tick. escalate=True hebt genuinely harte Tasks
-        # weiter aufs Eskalations-Modell an. (Local-Endgame spaeter, wenn die Hardware steht.)
-        result = act(task["description"], session_id=f"mission-{mission}", escalate=escalate, task_type="bulk")
-        text = result["text"]
-        queue.complete(task["id"], text)
-        events.emit("mission_task_done", {"id": task["id"], "summary": text[:300]}, session_id=f"mission-{mission}")
-        _notify(f"🤖 Mission-Schritt erledigt:\n{task['description']}\n\n{text[:1200]}")
-        return {"task": task["description"], "result": text}
+        # 24/7-Grind guenstig: Versuch 1 laeuft auf der 'bulk'-Stufe (flash) statt 'reason'
+        # (pro) -> ~5-8x billiger pro Tick; erst Qualitaets-Retries eskalieren die Route.
+        # Ergebnis-Rueckkopplung (S2): pruefen statt blind 'done' melden.
+        return _execute_scored(task, mission, escalate)
     except Exception as e:  # noqa: BLE001
         queue.complete(task["id"], str(e), status="failed")
         events.emit("mission_task_failed", {"id": task["id"], "error": str(e)})
