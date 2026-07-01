@@ -390,4 +390,185 @@ def health() -> str:
     return "🩺 Mein Zustand:\n" + "\n".join(lines)
 
 
-# --- Echter Browser (
+# --- Echter Browser (Chromium via Playwright): sehen + lesen, was web_fetch nicht laedt ---
+@tool("screenshot_url",
+      "Oeffnet eine Webseite in einem ECHTEN Browser (Chromium) und macht einen ganzseitigen "
+      "Screenshot — fuer Seiten, die web_fetch nicht sauber laedt, oder wenn du sie visuell sehen "
+      "willst. Gibt den Datei-Pfad zum Bild zurueck.",
+      {"url": "die vollstaendige URL inkl. https://"})
+def screenshot_url(url: str) -> str:
+    from pathlib import Path
+
+    out_dir = Path.home() / "Desktop" / "kira-screenshots"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    name = re.sub(r"[^\w.-]+", "_", url.replace("https://", "").replace("http://", ""))[:60] or "page"
+    img = out_dir / f"{name}.png"
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return "Playwright ist nicht installiert."
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch()
+            try:
+                page = browser.new_page(viewport={"width": 1366, "height": 900})
+                page.goto(url, timeout=30000, wait_until="domcontentloaded")
+                page.wait_for_timeout(1500)
+                title = page.title()
+                page.screenshot(path=str(img), full_page=True)
+            finally:
+                browser.close()  # IMMER schliessen -> kein Chromium-Leck bei Fehler/Timeout
+        return f"Screenshot gemacht: {img}  (Titel: {title})"
+    except Exception as e:  # noqa: BLE001
+        return f"Screenshot fehlgeschlagen: {e}"
+
+
+@tool("browse",
+      "Oeffnet eine Seite in einem echten Browser (Chromium, MIT JavaScript) und gibt den sichtbaren "
+      "TEXT zurueck — fuer moderne/JS-Seiten, die web_fetch nicht lesen kann. Erst web_fetch versuchen, "
+      "bei Bedarf hierauf ausweichen.",
+      {"url": "die vollstaendige URL inkl. https://"})
+def browse(url: str) -> str:
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        return "Playwright ist nicht installiert."
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch()
+            try:
+                page = browser.new_page()
+                page.goto(url, timeout=30000, wait_until="domcontentloaded")
+                page.wait_for_timeout(1500)
+                title = page.title()
+                text = page.inner_text("body")
+            finally:
+                browser.close()  # IMMER schliessen -> kein Chromium-Leck bei Fehler/Timeout
+        return f"Titel: {title}\n\n{text[:6000]}"
+    except Exception as e:  # noqa: BLE001
+        return f"Browse fehlgeschlagen: {e}"
+
+
+@tool("restart_self",
+      "Startet Kira SICHER neu (sauberer Bounce ueber den Supervisor via data/restart.flag) — nutze dies, "
+      "wenn Code-/Config-Aenderungen aktiv werden sollen oder ein Dienst haengt. Laeuft gerade eine Antwort, "
+      "wird der Neustart AUTOMATISCH bis nach dem aktuellen Zug aufgeschoben (kein Selbst-Abschuss mitten in "
+      "der Arbeit). Prozesse per taskkill / Stop-Process zu killen ist verboten und gefaehrlich (du wuerdest "
+      "dich SELBST beenden); dieses Werkzeug ist der EINZIGE sichere Weg.",
+      {"which": "optional: 'all' (Standard) oder Dienste kommagetrennt: bot,cockpit,runner"})
+def restart_self(which: str = "all") -> str:
+    from core.kernel import runstate
+
+    # Laeuft gerade ein Chat-Zug -> Neustart bis idle aufschieben (kein Selbst-Abschuss).
+    return runstate.request_restart(which)
+
+
+@tool("db_query",
+      "Fuehrt eine READ-ONLY SQL-Abfrage auf der Event-/Gedaechtnis-DB (data/state.db) aus. NUR lesend "
+      "(SELECT/WITH/PRAGMA/EXPLAIN — die Verbindung ist read-only, Schreiben ist unmoeglich). Nutze dies "
+      "fuer Selbst-Diagnose (Events, Fehler, Kosten) STATT Temp-Skripte oder Shell-Gewuergel. Tabelle "
+      "events(id, ts REAL, type, session_id, payload JSON). Bsp: "
+      "SELECT type, COUNT(*) FROM events GROUP BY type ORDER BY 2 DESC LIMIT 20  |  "
+      "SELECT ts, payload FROM events WHERE type LIKE '%error%' ORDER BY ts DESC LIMIT 10",
+      {"sql": "die lesende SQL-Abfrage", "limit": "optional: max. Zeilen (Default 50, max 500)"})
+def db_query(sql: str, limit: int = 50) -> str:
+    import sqlite3
+
+    from core.config import DB_PATH
+
+    q = (sql or "").strip().rstrip(";")
+    if not q.lower().startswith(("select", "with", "pragma", "explain")):
+        return "Nur lesende Abfragen erlaubt (SELECT / WITH / PRAGMA / EXPLAIN)."
+    try:
+        con = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)  # read-only: Schreiben unmoeglich
+        try:
+            cur = con.execute(q)
+            cols = [d[0] for d in (cur.description or [])]
+            rows = cur.fetchmany(max(1, min(int(limit or 50), 500)))
+        finally:
+            con.close()
+    except Exception as e:  # noqa: BLE001
+        return f"SQL-Fehler: {e}"
+    if not rows:
+        return "(keine Zeilen)"
+    head = " | ".join(cols)
+    body = "\n".join(" | ".join("" if v is None else str(v)[:300] for v in r) for r in rows)
+    return f"{head}\n{body}"
+
+
+@tool("jetzt", "Gibt aktuelles Datum, Uhrzeit und Wochentag auf Deutsch zurueck (z.B. 'Montag, 30.06.2025, 18:52 Uhr').", {})
+def jetzt() -> str:
+    tage = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+    jetzt = datetime.now()
+    wochentag = tage[jetzt.weekday()]
+    return f"{wochentag}, {jetzt.strftime('%d.%m.%Y')}, {jetzt.strftime('%H:%M')} Uhr"
+
+
+@tool("harness_report",
+      "Gibt einen kompakten Selbst-Report ueber Kiras eigenen Betrieb (LLM-Kosten, Tool-Nutzung, "
+      "Fehler-/Haertungs-Signale, Latenz) fuer einen Zeitraum. NUR read-only DB-Zugriff, keine Shell.",
+      {"window": "Zeitraum: 'today' (Standard), '24h' oder '7d'"})
+def harness_report(window: str = "today") -> str:
+    import sqlite3
+    import time as _t
+    from datetime import datetime as _dt
+
+    from core.config import DB_PATH
+
+    w = (window or "today").strip().lower()
+    if w == "24h":
+        cutoff = _t.time() - 86400
+    elif w == "7d":
+        cutoff = _t.time() - 7 * 86400
+    else:
+        w = "today"
+        cutoff = _dt.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+
+    try:
+        con = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)  # read-only: Schreiben unmoeglich
+        try:
+            def one(sql, *args):
+                return con.execute(sql, args).fetchone()
+
+            def rows(sql, *args):
+                return con.execute(sql, args).fetchall()
+
+            n_llm, cost = one(
+                "SELECT COUNT(*), COALESCE(SUM(json_extract(payload,'$.cost_usd')),0) "
+                "FROM events WHERE type='llm_call' AND ts>=?", cutoff)
+            per_sess = rows(
+                "SELECT COALESCE(NULLIF(session_id,''),'(ohne Session)'), "
+                "COALESCE(SUM(json_extract(payload,'$.cost_usd')),0) c, COUNT(*) "
+                "FROM events WHERE type='llm_call' AND ts>=? GROUP BY session_id ORDER BY c DESC LIMIT 5", cutoff)
+            n_tools = one("SELECT COUNT(*) FROM events WHERE type='tool_call' AND ts>=?", cutoff)[0]
+            n_fail = one("SELECT COUNT(*) FROM events WHERE type='tool_call' AND ts>=? "
+                         "AND json_extract(payload,'$.ok')=0", cutoff)[0]
+
+            def cnt(t):
+                return one("SELECT COUNT(*) FROM events WHERE type=? AND ts>=?", t, cutoff)[0]
+
+            deg, err, crash = cnt("act_degraded"), cnt("llm_call_error"), cnt("service_crash")
+            top_tools = rows(
+                "SELECT json_extract(payload,'$.tool') t, COUNT(*) n FROM events "
+                "WHERE type='tool_call' AND ts>=? GROUP BY t ORDER BY n DESC LIMIT 5", cutoff)
+            lat_avg, lat_max = one(
+                "SELECT COALESCE(AVG(json_extract(payload,'$.latency_s')),0), "
+                "COALESCE(MAX(json_extract(payload,'$.latency_s')),0) "
+                "FROM events WHERE type='llm_call' AND ts>=?", cutoff)
+        finally:
+            con.close()
+    except Exception as e:  # noqa: BLE001 -> nie crashen, immer einen String liefern
+        return f"Harness-Report Fehler: {e}"
+
+    sess_lines = "\n".join(
+        f"    - {s}: {c:.2f} EUR ({calls} calls)" for s, c, calls in per_sess) or "    - (keine)"
+    tool_lines = ", ".join(f"{t or '?'}:{n}" for t, n in top_tools) or "(keine)"
+    return (
+        f"📊 Harness-Report ({w})\n"
+        f"- LLM-Calls: {n_llm} | Kosten: {cost:.2f} EUR\n"
+        f"- Kosten/Session (Top 5):\n{sess_lines}\n"
+        f"- Tool-Calls: {n_tools} gesamt, {n_fail} fehlgeschlagen\n"
+        f"- Haertung: act_degraded={deg} | llm_call_error={err} | service_crash={crash}\n"
+        f"- Top-Werkzeuge: {tool_lines}\n"
+        f"- LLM-Latenz: avg {lat_avg:.2f}s | max {lat_max:.2f}s"
+    )

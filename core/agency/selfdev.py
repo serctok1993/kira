@@ -67,6 +67,25 @@ def _request_restart(which: str = "all") -> None:
             pass
 
 
+def _lost_defs(old_src: str, new_src: str) -> list[str]:
+    """Top-Level def/class-Namen, die in old existieren, in new aber FEHLEN — starker
+    Truncation-Indikator (self_edit-Ganzdatei-Rewrite riss am max_tokens-Limit ab)."""
+    import ast
+
+    def names(src: str) -> set[str]:
+        try:
+            tree = ast.parse(src)
+        except Exception:  # noqa: BLE001
+            return set()
+        return {n.name for n in tree.body
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
+
+    old_names = names(old_src)
+    if not old_names:
+        return []
+    return sorted(old_names - names(new_src))
+
+
 def apply_edit(rel_path: str, new_content: str, reason: str = "", verify: bool = True) -> dict:
     p = (ROOT / rel_path).resolve()
     # Sicherheit: nur innerhalb des Projekts
@@ -87,6 +106,18 @@ def apply_edit(rel_path: str, new_content: str, reason: str = "", verify: bool =
                 p.unlink(missing_ok=True)
             events.emit("selfdev_rejected", {"file": rel_path, "error": str(e)[:200]})
             return {"ok": False, "error": f"Syntaxfehler -> zurueckgerollt: {str(e)[:160]}"}
+
+        # Truncation-Schutz: self_edit laesst das LLM die GANZE Datei neu schreiben -> bei grossen
+        # Dateien reisst die Ausgabe am max_tokens-Limit ab und loescht still den Rest (verlorene
+        # Tools/Funktionen sehen py_compile+pytest NICHT). Verschwinden bestehende Top-Level-defs
+        # -> als kaputt ablehnen und zurueckrollen, statt einen falschen 'Erfolg' zu committen.
+        if old is not None:
+            missing = _lost_defs(old, new_content)
+            if missing:
+                p.write_text(old, encoding="utf-8")
+                events.emit("selfdev_rejected", {"file": rel_path, "error": "lost_defs", "missing": missing[:20]})
+                return {"ok": False, "error": "Abgelehnt (evtl. Truncation): bestehende Definitionen wuerden "
+                        f"verschwinden: {', '.join(missing[:12])}. Mach einen GEZIELTEN, kleineren Edit."}
 
     _git("add", rel_path)
     _git("commit", "-m", f"selfdev: {reason or rel_path}")
