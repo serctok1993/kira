@@ -9,21 +9,21 @@ identity:
 # sie fuer wuerdig haelt -- und nur solange das Tagesbudget (governance) reicht.
 # (Fuer ein reines Cloud-Setup laesst sich 'default' voruebergehend umstellen.)
 models:
-  default: openrouter/z-ai/glm-5.2          # TEMPORAER: GLM 5.2 als Default bis System stabil, danach Wechsel zurueck auf lokal (ollama_chat/qwythos)
+  default: openrouter/deepseek/deepseek-v4-flash   # Live-Baseline: guenstiger Flash fuer Default/Chat/Grind
   routing:
-    chat: ollama_chat/qwythos               # Dialog mit Sergen -> Qwythos
-    reason: ollama_chat/qwythos             # Reasoning/Council/Reflexion -> Qwythos
-    bulk: ollama_chat/qwythos               # Massen-/Routine-Tasks -> Qwythos
-    classify: ollama_chat/llama3.1:8b       # triviale Klassifikation -> klein & schnell
-  local_fallback: ollama_chat/qwythos       # immer verfuegbar, 0 EUR
-  escalation_model: openrouter/z-ai/glm-5.2     # Cloud NUR bei escalate=True (self_edit, /council!, harte Tasks); 1M Kontext
+    chat: openrouter/deepseek/deepseek-v4-flash    # Dialog mit Sergen -> Flash (guenstig, schnell)
+    reason: openrouter/deepseek/deepseek-v4-pro    # Reasoning/Council/Reflexion -> Pro (staerker)
+    bulk: openrouter/deepseek/deepseek-v4-flash    # Massen-/24-7-Grind -> Flash (guenstig)
+    classify: ollama_chat/llama3.1:8b       # triviale Klassifikation -> klein & schnell, lokal 0 EUR
+  local_fallback: ollama_chat/qwythos       # immer verfuegbar, 0 EUR (Endgame: lokal-first)
+  escalation_model: openrouter/deepseek/deepseek-v4-pro   # Cloud bei escalate=True (self_edit, /council!, harte Tasks)
   vision_model: openrouter/z-ai/glm-4.6v         # fuer Bild-Erkennung im Chat (/api/vision)
   embeddings: ollama/nomic-embed-text       # 0 EUR Gedaechtnis (optional)
   temperature: 0.7
   request_timeout: 120                      # hartes Timeout pro LLM-Call (Sek.) -> kein Einfrieren
   max_tokens: 8192                          # Ausgabe-Grenze pro Antwort (inkl. think-Phase)
   keep_alive: "24h"                         # Modell warm halten -> kein Kaltstart im Dauerbetrieb
-  num_ctx: 65536                            # Kontextfenster (Arbeitsgedaechtnis) -> mehr Platz fuer Prompt+Erinnerungen+Verlauf
+  num_ctx: 32768                            # Kontextfenster (Live-Baseline; kleiner = guenstiger pro Call)
 
 # Agentische Ausdauer — wie lang Kira an EINEM Task dranbleibt (Claude-Code-artig).
 # Die Handlungs-Schleife endet automatisch frueh, sobald Kira fertig ist; diese Werte
@@ -45,8 +45,8 @@ selfdev:
 governance:
   trust_level: 3                  # voll-autonom (Nutzerwahl)
   budget:
-    daily_eur: 50.0               # Sonnet-5-Aufbauphase (Live-Override in data/overrides.json = ebenfalls 50) — im Gov-Tab anpassbar
-    monthly_eur: 200.0            # harter Monatsdeckel — DIE eigentliche Kostenbremse
+    daily_eur: 20.0              # Experimentier-Topf 300 EUR: 20/Tag = mutig, aber begrenzt (Live-Override gleichgezogen)
+    monthly_eur: 150.0           # harter Monatsdeckel — DIE eigentliche Kostenbremse
   kill_switch_file: data/STOP     # existiert diese Datei -> Heartbeat haelt sofort
 
 # Heartbeat / autonomer Takt
