@@ -1,0 +1,1 @@
+"""MCP-Client – verbindet Kira mit externen MCP-Servern (stdio)."""
