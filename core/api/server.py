@@ -308,6 +308,14 @@ async def api_cron_runnow(body: dict) -> dict:
     return {"ok": True, "result": out}
 
 
+@app.post("/api/cron/update")
+async def api_cron_update(body: dict) -> dict:
+    from core.agency.missions import cron
+
+    ok = cron.update_job(body.get("id", ""), body.get("label"), body.get("prompt"), body.get("schedule"))
+    return {"ok": ok}
+
+
 @app.post("/api/kill")
 async def api_kill(body: dict) -> dict:
     if body.get("on"):
@@ -624,7 +632,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 
   <div class="view" id="v-cron">
     <div class="card"><h3>Geplante Aufgaben (Cron)</h3>
-      <div class="muted">Wiederkehrende Aufgaben fuer Kira. Zeitplan: <b>30m</b>/<b>2h</b> (Intervall) oder <b>08:00</b> (taeglich). Laufen, sobald der Runner aktiv ist.</div>
+      <div class="muted">Wiederkehrende Aufgaben fuer Kira. Zeitplan: <b>30m</b>/<b>2h</b> (Intervall) oder <b>08:00</b> (taeglich) · zum Aendern auf <b>bearbeiten</b> beim Job klicken. Laufen, sobald der Runner aktiv ist.</div>
       <div class="row" style="margin-top:8px">
         <input id="cr-label" placeholder="Name" style="max-width:150px"/>
         <input id="cr-prompt" placeholder="Was Kira jeweils tun soll" style="min-width:260px"/>
@@ -718,16 +726,27 @@ $("#mo-add").onclick=async()=>{const v=$("#mo-value").value.trim();if(!v)return;
 $("#mo-check").onclick=async()=>{$("#mo-hint").textContent="… prueft alle Beobachtungen (kann etwas dauern) …";const r=await (await fetch("/api/monitor/check",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();$("#mo-hint").textContent="Geprueft: "+r.checked+" Quelle(n) · Neu gemeldet: "+(r.digests?r.digests.length:0);loadMonitor();};
 
 /* ---- Cron / geplante Aufgaben ---- */
-async function loadCron(){const d=await (await fetch("/api/cron")).json();const fmt=ts=>ts?new Date(ts*1000).toLocaleString():"—";
+let cronJobs=[], cronEdit=null;
+async function loadCron(){const d=await (await fetch("/api/cron")).json();cronJobs=d.jobs;const fmt=ts=>ts?new Date(ts*1000).toLocaleString():"—";
  $("#cr-list").innerHTML=d.jobs.length?d.jobs.map(j=>{const last=(j.recent_runs&&j.recent_runs.length)?j.recent_runs[j.recent_runs.length-1]:null;
    return '<div style="padding:8px 0;border-bottom:1px solid #1b2a33"><b>'+(j.label||"").replace(/</g,"&lt;")+'</b> <small class=muted>'+(j.schedule_text||"")+' · '+(j.enabled?"an":"aus")+' · naechster: '+fmt(j.next_run)+'</small>'
-     +'<span style="float:right"><a href="#" data-run="'+j.id+'">jetzt</a> · <a href="#" data-tog="'+j.id+'">'+(j.enabled?"pausieren":"aktivieren")+'</a> · <a href="#" data-rm="'+j.id+'" style="color:#e0a35a">entfernen</a></span>'
+     +'<span style="float:right"><a href="#" data-run="'+j.id+'">jetzt</a> · <a href="#" data-edit="'+j.id+'">bearbeiten</a> · <a href="#" data-tog="'+j.id+'">'+(j.enabled?"pausieren":"aktivieren")+'</a> · <a href="#" data-rm="'+j.id+'" style="color:#e0a35a">entfernen</a></span>'
      +'<br><small class=muted>'+(j.prompt||"").slice(0,120).replace(/</g,"&lt;")+'</small>'
      +(last?('<br><small class=muted>letzter Lauf '+fmt(last.ts)+': '+(last.ok?"✓":"✗")+' '+(last.summary||"").slice(0,140).replace(/</g,"&lt;")+'</small>'):'')+'</div>';}).join(""):'<span class=muted>(keine geplanten Aufgaben)</span>';
  document.querySelectorAll('#cr-list a[data-rm]').forEach(a=>a.onclick=async e=>{e.preventDefault();await fetch("/api/cron/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.rm})});loadCron();});
  document.querySelectorAll('#cr-list a[data-tog]').forEach(a=>a.onclick=async e=>{e.preventDefault();await fetch("/api/cron/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.tog})});loadCron();});
- document.querySelectorAll('#cr-list a[data-run]').forEach(a=>a.onclick=async e=>{e.preventDefault();$("#cr-hint").textContent="… Job laeuft …";await fetch("/api/cron/runnow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.run})});$("#cr-hint").textContent="Lauf fertig.";loadCron();});}
-$("#cr-add").onclick=async()=>{const p=$("#cr-prompt").value.trim();if(!p)return;await fetch("/api/cron/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({label:$("#cr-label").value,prompt:p,schedule:$("#cr-sched").value||"60m"})});$("#cr-label").value="";$("#cr-prompt").value="";$("#cr-sched").value="";loadCron();};
+ document.querySelectorAll('#cr-list a[data-run]').forEach(a=>a.onclick=async e=>{e.preventDefault();$("#cr-hint").textContent="… Job laeuft …";await fetch("/api/cron/runnow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.run})});$("#cr-hint").textContent="Lauf fertig.";loadCron();});
+ document.querySelectorAll('#cr-list a[data-edit]').forEach(a=>a.onclick=e=>{e.preventDefault();startEditCron(a.dataset.edit);});}
+function startEditCron(id){const j=cronJobs.find(x=>x.id===id);if(!j)return;
+ $("#cr-label").value=j.label||"";$("#cr-prompt").value=j.prompt||"";$("#cr-sched").value=j.schedule_text||"";
+ cronEdit=id;$("#cr-add").textContent="✓ Speichern";$("#cr-hint").innerHTML='Bearbeite: <b>'+(j.label||"").replace(/</g,"&lt;")+'</b> — <a href="#" id="cr-cancel">abbrechen</a>';
+ $("#cr-cancel").onclick=e=>{e.preventDefault();cancelEditCron();};}
+function cancelEditCron(){cronEdit=null;$("#cr-label").value="";$("#cr-prompt").value="";$("#cr-sched").value="";$("#cr-add").textContent="+ Planen";$("#cr-hint").textContent="";}
+$("#cr-add").onclick=async()=>{const p=$("#cr-prompt").value.trim();if(!p)return;
+ const body={label:$("#cr-label").value,prompt:p,schedule:$("#cr-sched").value||"60m"};
+ if(cronEdit){body.id=cronEdit;await fetch("/api/cron/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}
+ else{await fetch("/api/cron/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});}
+ cancelEditCron();loadCron();};
 
 /* ---- Mission (24/7) ---- */
 async function loadMission(){const m=await (await fetch("/api/mission")).json();

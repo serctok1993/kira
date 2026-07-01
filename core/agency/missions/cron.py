@@ -119,6 +119,27 @@ def toggle_job(jid: str, on: bool | None = None) -> bool:
     return bool(state)
 
 
+def update_job(jid: str, label: str | None = None, prompt: str | None = None, schedule: str | None = None) -> bool:
+    """Bestehenden Job bearbeiten (Name/Prompt/Zeitplan). Historie (runs) bleibt erhalten."""
+    jobs = _load()
+    found = False
+    for j in jobs:
+        if j.get("id") == jid:
+            if label is not None and label.strip():
+                j["label"] = label.strip()
+            if prompt is not None and prompt.strip():
+                j["prompt"] = prompt.strip()
+            if schedule is not None and schedule.strip():
+                j["schedule"] = parse_schedule(schedule)
+                j["schedule_text"] = schedule.strip()
+                j["next_run"] = _next_run(j["schedule"])
+            found = True
+    if found:
+        _save(jobs)
+        events.emit("cron_updated", {"id": jid, "label": label})
+    return found
+
+
 def _notify(text: str) -> None:
     try:
         token = os.getenv("TELEGRAM_BOT_TOKEN")
