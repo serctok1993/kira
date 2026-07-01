@@ -451,20 +451,49 @@ def browse(url: str) -> str:
 
 @tool("restart_self",
       "Startet Kira SICHER neu (sauberer Bounce ueber den Supervisor via data/restart.flag) — nutze dies, "
-      "wenn Code-/Config-Aenderungen aktiv werden sollen oder ein Dienst haengt. Prozesse per taskkill / "
-      "Stop-Process zu killen ist verboten und gefaehrlich (du wuerdest dich SELBST beenden); dieses "
-      "Werkzeug ist der EINZIGE sichere Weg.",
+      "wenn Code-/Config-Aenderungen aktiv werden sollen oder ein Dienst haengt. Laeuft gerade eine Antwort, "
+      "wird der Neustart AUTOMATISCH bis nach dem aktuellen Zug aufgeschoben (kein Selbst-Abschuss mitten in "
+      "der Arbeit). Prozesse per taskkill / Stop-Process zu killen ist verboten und gefaehrlich (du wuerdest "
+      "dich SELBST beenden); dieses Werkzeug ist der EINZIGE sichere Weg.",
       {"which": "optional: 'all' (Standard) oder Dienste kommagetrennt: bot,cockpit,runner"})
 def restart_self(which: str = "all") -> str:
-    from core.config import ROOT
-    from core.kernel import events as _ev
+    from core.kernel import runstate
 
-    flag = ROOT / "data" / "restart.flag"
-    flag.parent.mkdir(parents=True, exist_ok=True)
-    flag.write_text((which or "all").strip().lower() or "all", encoding="utf-8")
-    _ev.emit("restart_requested", {"which": which or "all"})
-    return ("Sicherer Neustart angefordert — der Supervisor bounced in ~20s (genug Zeit, meinen "
-            "Bericht noch zu senden). Kein Prozess-Kill noetig.")
+    # Laeuft gerade ein Chat-Zug -> Neustart bis idle aufschieben (kein Selbst-Abschuss).
+    return runstate.request_restart(which)
+
+
+@tool("db_query",
+      "Fuehrt eine READ-ONLY SQL-Abfrage auf der Event-/Gedaechtnis-DB (data/state.db) aus. NUR lesend "
+      "(SELECT/WITH/PRAGMA/EXPLAIN — die Verbindung ist read-only, Schreiben ist unmoeglich). Nutze dies "
+      "fuer Selbst-Diagnose (Events, Fehler, Kosten) STATT Temp-Skripte oder Shell-Gewuergel. Tabelle "
+      "events(id, ts REAL, type, session_id, payload JSON). Bsp: "
+      "SELECT type, COUNT(*) FROM events GROUP BY type ORDER BY 2 DESC LIMIT 20  |  "
+      "SELECT ts, payload FROM events WHERE type LIKE '%error%' ORDER BY ts DESC LIMIT 10",
+      {"sql": "die lesende SQL-Abfrage", "limit": "optional: max. Zeilen (Default 50, max 500)"})
+def db_query(sql: str, limit: int = 50) -> str:
+    import sqlite3
+
+    from core.config import DB_PATH
+
+    q = (sql or "").strip().rstrip(";")
+    if not q.lower().startswith(("select", "with", "pragma", "explain")):
+        return "Nur lesende Abfragen erlaubt (SELECT / WITH / PRAGMA / EXPLAIN)."
+    try:
+        con = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)  # read-only: Schreiben unmoeglich
+        try:
+            cur = con.execute(q)
+            cols = [d[0] for d in (cur.description or [])]
+            rows = cur.fetchmany(max(1, min(int(limit or 50), 500)))
+        finally:
+            con.close()
+    except Exception as e:  # noqa: BLE001
+        return f"SQL-Fehler: {e}"
+    if not rows:
+        return "(keine Zeilen)"
+    head = " | ".join(cols)
+    body = "\n".join(" | ".join("" if v is None else str(v)[:300] for v in r) for r in rows)
+    return f"{head}\n{body}"
 
 
 @tool("jetzt", "Gibt aktuelles Datum, Uhrzeit und Wochentag auf Deutsch zurueck (z.B. 'Montag, 30.06.2025, 18:52 Uhr').", {})

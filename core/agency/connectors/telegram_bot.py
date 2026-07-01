@@ -429,17 +429,23 @@ _chat_lock = threading.Lock()
 
 
 def _worker(client: httpx.Client, chat_id: int, update: dict) -> None:
-    cur = update
-    while cur is not None:
-        try:
-            _handle(client, cur)
-        except Exception as e:  # eine kaputte Nachricht darf den Worker nicht killen
-            events.emit("telegram_handle_error", {"error": str(e)})
-        with _chat_lock:
-            q = _chat_queue.get(chat_id)
-            cur = q.popleft() if (q and len(q)) else None
-            if cur is None:
-                _chat_busy[chat_id] = False
+    from core.kernel import runstate
+
+    runstate.enter_turn()  # aktiver Zug -> ein Neustart (restart_self/self_edit) wartet bis danach
+    try:
+        cur = update
+        while cur is not None:
+            try:
+                _handle(client, cur)
+            except Exception as e:  # eine kaputte Nachricht darf den Worker nicht killen
+                events.emit("telegram_handle_error", {"error": str(e)})
+            with _chat_lock:
+                q = _chat_queue.get(chat_id)
+                cur = q.popleft() if (q and len(q)) else None
+                if cur is None:
+                    _chat_busy[chat_id] = False
+    finally:
+        runstate.exit_turn()  # idle -> ein aufgeschobener Neustart wird jetzt ausgeloest
 
 
 def _dispatch(client: httpx.Client, update: dict) -> None:

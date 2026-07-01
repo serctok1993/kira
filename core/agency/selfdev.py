@@ -52,13 +52,19 @@ def _verify() -> tuple[bool, str]:
 
 
 def _request_restart(which: str = "all") -> None:
-    """Bittet den Supervisor um einen SICHEREN Neustart (statt Selbst-Kill via taskkill)."""
+    """Bittet um einen SICHEREN Neustart (statt Selbst-Kill via taskkill). Laeuft gerade
+    ein Chat-Zug (z.B. self_edit mitten im Gespraech), wird der Bounce ueber runstate bis
+    idle aufgeschoben -> Kira schiesst ihre eigene Antwort nicht ab."""
     try:
-        flag = ROOT / "data" / "restart.flag"
-        flag.parent.mkdir(parents=True, exist_ok=True)
-        flag.write_text(which, encoding="utf-8")
+        from core.kernel import runstate
+        runstate.request_restart(which)
     except Exception:  # noqa: BLE001
-        pass
+        try:  # Fallback: den self_edit-Erfolg nie an einem Restart-Problem scheitern lassen
+            flag = ROOT / "data" / "restart.flag"
+            flag.parent.mkdir(parents=True, exist_ok=True)
+            flag.write_text(which, encoding="utf-8")
+        except Exception:  # noqa: BLE001
+            pass
 
 
 def apply_edit(rel_path: str, new_content: str, reason: str = "", verify: bool = True) -> dict:

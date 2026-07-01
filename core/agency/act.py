@@ -29,9 +29,10 @@ synthesize.load_synthesized()
 # tool_calls mehr) -- diese Decken sind nur das Sicherheitsnetz gegen Endlosschleifen,
 # NICHT der Normal-Ausstieg. Alle drei ueber config.yaml (Sektion 'agency') justierbar.
 _AG = CONFIG.get("agency", {}) if isinstance(CONFIG.get("agency"), dict) else {}
-_MAX_STEPS = int(_AG.get("max_steps", 40))                 # Werkzeug-Runden pro Task (vorher hart 8)
+_MAX_STEPS = int(_AG.get("max_steps", 40))                 # Werkzeug-Runden pro TASK (vorher hart 8)
 _MAX_STEPS_PLAN = int(_AG.get("max_steps_plan_step", 12))  # Runden pro Plan-Teilschritt (vorher hart 6)
 _OBS_MAX = int(_AG.get("obs_max_chars", 16000))            # wie viel Werkzeug-Ergebnis das Modell sieht (vorher 6000)
+_MAX_STEPS_CHAT = int(_AG.get("max_steps_chat", 8))        # knapper Deckel fuer NORMALEN Chat -> kein 80er-Sturm bei Small-Talk (voller Task-Deckel via /work oder /plan)
 
 _ACT_RE = re.compile(r"ACT\s+([a-zA-Z_]\w*)\s*\{")
 
@@ -97,6 +98,38 @@ def _cloud(escalate: bool, task_type: str = "reason") -> bool:
     return not real.startswith("ollama")
 
 
+def _complete_resilient(*args, **kwargs):
+    """Ein LLM-Call, der einen transienten Fehler (Provider/Netz/Ratelimit/402) EINMAL
+    kurz abfedert, statt sofort den ganzen Task abzureissen. Wirft erst, wenn auch der
+    zweite Versuch scheitert -> der Aufrufer degradiert dann sauber (kein Voll-Abbruch)."""
+    import time as _t
+    try:
+        return llm_router.complete(*args, **kwargs)
+    except Exception as e:  # noqa: BLE001
+        events.emit("llm_call_error", {"error": str(e)[:300], "retry": True},
+                    session_id=kwargs.get("session_id"))
+        _t.sleep(2)
+        return llm_router.complete(*args, **kwargs)  # zweiter Versuch; scheitert der -> raise
+
+
+def _degrade_text(messages: list[dict], err: Exception) -> str:
+    """Graceful Degrade OHNE weiteren LLM-Call: kurzer Bericht ueber die bisher gemachten
+    Werkzeug-Schritte + der Fehler. So verwirft ein transienter Modellausfall nicht den
+    ganzen Task (und Kiras Arbeit) — Sergen kann mit 'weiter' den Faden aufnehmen."""
+    used: list[str] = []
+    for m in messages:
+        for tc in (m.get("tool_calls") or []):
+            fn = (tc.get("function") or {}).get("name")
+            if fn:
+                used.append(fn)
+    steps = ", ".join(used[-8:]) if used else "keine abgeschlossenen Schritte"
+    return ("⚠️ Ich bin bei einem Modell-/Netzwerk-Schritt auf einen Fehler gestossen und breche "
+            "diesen Task SAUBER ab, statt ihn halb kaputt fortzusetzen.\n"
+            f"Bisher gemacht: {steps}.\n"
+            f"Fehler: {str(err)[:200]}\n"
+            "Sag 'weiter', dann nehme ich den Faden wieder auf.")
+
+
 def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, emit, max_steps: int = _MAX_STEPS, task_type: str = "reason") -> str:
     """Nativer Function-Calling-Loop fuer Cloud-Modelle: strukturierte tool_calls statt
     ACT-Text — robust, kein Leak. Streamt Schritte ueber emit({'kind':'tool'|'obs'|...})."""
@@ -104,8 +137,12 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
     used_tools = False
     nudged = False
     for step in range(max_steps):
-        res = llm_router.complete(messages, system=system, task_type=task_type,
-                                  session_id=session_id, escalate=escalate, tools=schemas)
+        try:
+            res = _complete_resilient(messages, system=system, task_type=task_type,
+                                      session_id=session_id, escalate=escalate, tools=schemas)
+        except Exception as e:  # noqa: BLE001 -> Teilstand liefern statt ganzen Task abreissen
+            events.emit("act_degraded", {"step": step, "error": str(e)[:300]}, session_id=session_id)
+            return _degrade_text(messages, e)
         calls = res.get("tool_calls") or []
         if not calls:
             text = res["text"].strip()
@@ -141,9 +178,13 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
             emit({"kind": "obs", "name": name, "text": obs[:200]})
             events.emit("act_step", {"step": step, "tool": name, "args": args, "obs_preview": obs[:160]}, session_id=session_id)
             messages.append({"role": "tool", "tool_call_id": cid, "content": obs[:_OBS_MAX]})
-    res = llm_router.complete(
-        messages + [{"role": "user", "content": "Fasse jetzt final fuer Sergen zusammen — ohne weitere Werkzeuge."}],
-        system=system, task_type=task_type, session_id=session_id, escalate=escalate)
+    try:
+        res = _complete_resilient(
+            messages + [{"role": "user", "content": "Fasse jetzt final fuer Sergen zusammen — ohne weitere Werkzeuge."}],
+            system=system, task_type=task_type, session_id=session_id, escalate=escalate)
+    except Exception as e:  # noqa: BLE001
+        events.emit("act_degraded", {"step": "final", "error": str(e)[:300]}, session_id=session_id)
+        return _degrade_text(messages, e)
     return (res["text"].strip()
             or "Ich habe die Werkzeuge genutzt, aber keine saubere Schluss-Antwort hinbekommen — frag mich gern konkret nach, dann liefere ich dir das Ergebnis.")
 
@@ -328,6 +369,13 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
         events.emit("partner_message", {"text": final, "plan": True}, session_id=session_id)
         return final
 
+    # Arbeits-Modus: /work bzw. work: -> volles Task-Budget (viele Schritte, Claude-Code-Stil).
+    # Sonst knapper Chat-Deckel -> normaler Dialog laeuft nicht in einen langen Tool-Sturm.
+    work_mode = _s.lower().startswith(("/work", "work:"))
+    if work_mode:
+        user_message = re.sub(r"^(/work|work:)\s*", "", _s, flags=re.IGNORECASE).strip() or _s
+    step_ceiling = _MAX_STEPS if work_mode else _MAX_STEPS_CHAT
+
     messages = [
         {"role": "assistant" if h["role"] == "partner" else "user", "content": h["text"]}
         for h in history
@@ -337,7 +385,7 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     # Cloud-Modelle: natives Function-Calling (robust, kein ACT-Text-Leak)
     if _cloud(escalate, "chat"):
         system = build_system_prompt(user_message, session_id=session_id) + _NATIVE_TOOLS_HINT
-        text = _native_loop(messages, system, session_id, escalate, emit, max_steps=max(max_steps, 8), task_type="chat")
+        text = _native_loop(messages, system, session_id, escalate, emit, max_steps=step_ceiling, task_type="chat")
         memory.remember(text, role="partner", session_id=session_id)
         events.emit("partner_message", {"text": text, "agentic": True}, session_id=session_id)
         emit({"kind": "final", "text": text})
@@ -356,7 +404,7 @@ Danach bekommst du das ERGEBNIS und kannst weiter ein Werkzeug nutzen oder norma
 Wenn du etwas Aktuelles nicht sicher weisst (Wetter, Preise, News, Webinhalte): NICHT raten,
 sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und vollstaendig."""
 
-    for step in range(max_steps):
+    for step in range(step_ceiling):
         parts = []
         for piece in llm_router.stream_tagged(
             messages, system=system, task_type="chat", session_id=session_id, escalate=escalate

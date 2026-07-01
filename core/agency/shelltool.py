@@ -44,6 +44,24 @@ def _is_dangerous(cmd: str) -> bool:
     return any(re.search(p, cmd, re.IGNORECASE) for p in _BLOCKED)
 
 
+# Haeufige Unix/cmd-Verwechslungen auf Windows: statt kryptisch zu scheitern (und einen
+# Fehl-Call-Sturm auszuloesen) sofort einen korrigierenden Hinweis geben. Nur klare Faelle.
+_UNIX_ISH = re.compile(
+    r"(^|\|)\s*(head|tail|grep|sed|awk|wc|less|man|cat|ls)\b"   # Unix-Tools als Kommando
+    r"|(^|\s)cd\s+/[a-zA-Z]/"                                    # Unix-Mount-Pfad: cd /d/kira
+    r"|2>\s*/dev/null",                                          # Unix-Null-Umleitung
+    re.IGNORECASE)
+
+_UNIX_HINT = (
+    "⚠️ Windows-Shell (cmd) — keine Unix-Tools: kein head/tail/grep/cat/ls/sed/awk, "
+    "kein `/d/pfad`, kein `2>/dev/null`. Nutze die WERKZEUGE statt Shell-Gewuergel:\n"
+    "• Dateien lesen/auflisten → read_file / list_dir (statt cat/ls/grep)\n"
+    "• Logs → read_logs\n"
+    "• Events/Fehler/Kosten/DB → db_query (read-only SQL) statt Temp-Skripte\n"
+    "• Wenn wirklich PowerShell: powershell -Command \"... | Select-Object -First N\" "
+    "(kein head), 2>$null (kein 2>/dev/null).")
+
+
 def run_shell(command: str, cwd: str | None = None, timeout: int = 60) -> str:
     command = (command or "").strip()
     if not command:
@@ -53,6 +71,9 @@ def run_shell(command: str, cwd: str | None = None, timeout: int = 60) -> str:
     if _is_dangerous(command):
         events.emit("shell_blocked", {"command": command[:200]})
         return "Blockiert: dieser Befehl wirkt potenziell zerstoererisch. Ausfuehrung verweigert."
+    if _UNIX_ISH.search(command):  # Unix-Verwechslung -> sofort korrigieren statt scheitern lassen
+        events.emit("shell_hint", {"command": command[:200]})
+        return _UNIX_HINT
 
     # erlaubte Arbeitsverzeichnisse: ihr Repo + Desktop (fuer Kundenprojekte) - Gefahren-Filter bleibt
     allowed = (str(ROOT), str(ROOT.home() / "Desktop"))
