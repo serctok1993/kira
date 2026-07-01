@@ -30,6 +30,25 @@ FILE_API = f"https://api.telegram.org/file/bot{TOKEN}"
 
 _agents: dict[int, Agent] = {}
 
+# Dedizierter Kurz-Timeout-Client fuer ALLE ausgehenden Steuer-Nachrichten
+# (send/edit/delete/typing). Strikt getrennt vom Long-Polling-Client (getUpdates,
+# 75 s) -> keine Pool-Konkurrenz, keine verhakte Zustellung, jeder Call hart begrenzt.
+# Das war die Wurzel des 20-Min-Wedge: Dauer-Edits der Live-Animation kollidierten
+# mit dem laufenden 60-s-getUpdates auf demselben Verbindungspool.
+_ctrl_client: httpx.Client | None = None
+_ctrl_lock = threading.Lock()
+
+
+def _ctrl() -> httpx.Client:
+    global _ctrl_client
+    c = _ctrl_client
+    if c is None:
+        with _ctrl_lock:
+            if _ctrl_client is None:
+                _ctrl_client = httpx.Client(timeout=httpx.Timeout(20.0, connect=10.0))
+            c = _ctrl_client
+    return c
+
 
 def _cfg() -> dict:
     return CONFIG.get("channels", {}).get("telegram", {})
@@ -53,6 +72,7 @@ def _tg_html(text: str) -> str:
 
 def _send(client: httpx.Client, chat_id: int, text: str, html: bool = True) -> None:
     # Telegram-Limit ~4096 Zeichen -> stueckeln; HTML-Format mit Plain-Fallback.
+    client = _ctrl()  # Steuer-Plane immer ueber den dedizierten Kurz-Timeout-Client
     text = text or "…"
     for i in range(0, len(text), 3800):
         chunk = text[i : i + 3800]
@@ -72,7 +92,7 @@ def _send(client: httpx.Client, chat_id: int, text: str, html: bool = True) -> N
 
 def _typing(client: httpx.Client, chat_id: int) -> None:
     try:
-        client.post(f"{API}/sendChatAction", json={"chat_id": chat_id, "action": "typing"})
+        _ctrl().post(f"{API}/sendChatAction", json={"chat_id": chat_id, "action": "typing"})
     except Exception:
         pass
 
@@ -210,102 +230,92 @@ def _action_label(name: str, args: dict | None) -> str:
     return f"{emoji} {verb}" + (f": {arg}" if arg else "")
 
 
-_SPINNER = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
+# Ruhiger „Atem"-Puls fuer die Denk-/Arbeits-Anzeige: EIN einziges bewegtes Element,
+# das im gemaechlichen Pump-Takt atmet (waechst/schrumpft) -> pulsiert, flackert nicht.
+_PULSE = ["·", "··", "···", "··"]
+_PULSE_INTERVAL = 1.8  # Sekunden zwischen Edits: gemaechlich = kein Flackern, kein 429
 
 
 def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: str,
                    voice_text: str | None = None) -> None:
-    """Agentischer Chat mit Live-Trace (Denken + Werkzeug-Schritte). Ein Sprachmemo wird NUR
-    live im Arbeits-Trace gezeigt (kein separates 'Verstanden'); am Ende faellt der Trace zu
-    einer kompakten Taetigkeits-Zeile zusammen, die Antwort kommt als neue Nachricht."""
-    import threading
+    """Agentischer Chat mit RUHIGER Live-Trace (Denken + Werkzeug-Schritte).
+
+    Architektur bewusst deterministisch:
+    - EIN Render-Pump editiert die Trace-Nachricht in gemaechlichem Fixtakt
+      (Puls statt Flackern); eingehende Events mutieren NUR den Zustand, nie das UI.
+    - Alle Telegram-Calls laufen ueber den dedizierten Kurz-Timeout-Client (_ctrl),
+      strikt getrennt vom Long-Polling -> keine verhakte Zustellung (Wedge-Fix).
+    - Ein Sprachmemo ist live oben sichtbar und verschwindet bei Abschluss aus dem
+      Verlauf (kein Transkript-Berg). Die Antwort kommt als neue Nachricht.
+    """
+    client = _ctrl()  # dedizierter Sende-/Edit-Client (nicht der getUpdates-Long-Poll)
 
     _typing(client, chat_id)
     head = ("🎙️ «" + voice_text[:200] + "»\n") if voice_text else ""
-    init = client.post(f"{API}/sendMessage", json={"chat_id": chat_id, "text": head + "💭 Kira denkt ⠋"}).json()
+    init = client.post(f"{API}/sendMessage",
+                       json={"chat_id": chat_id, "text": head + "💭 Kira denkt ·"}).json()
     mid = init.get("result", {}).get("message_id")
-    state = {
-        "think_target": "",   # der volle think-Text (wächst durch Events)
-        "think_shown": "",    # was bereits im Typewriter angezeigt wird
-        "lines": [],
-        "tools": [],
-        "done": False,
-        "tick": 0,
-        "last_render": "",
-        "last_edit": 0.0,
-    }
+
+    state = {"think": "", "lines": [], "tools": [], "tick": 0, "last_render": ""}
     lock = threading.Lock()
+    stop = threading.Event()
 
     def render() -> str:
         parts = []
         if voice_text:
             parts.append("🎙️ «" + voice_text[:160] + "»")
-        # Think mit Cursor (Typewriter-Effekt)
-        if state["think_shown"]:
-            shown = state["think_shown"][-220:]
-            cursor = "" if state["done"] else "▌"
-            parts.append("💭 " + shown + cursor)
-        elif not state["done"]:
-            spin = _SPINNER[state["tick"] % len(_SPINNER)]
-            parts.append(spin + " Kira denkt")
-        # Trennlinie zwischen Denken und Werkzeugen
-        if state["think_shown"] and state["lines"]:
-            parts.append("─" * 20)
-        # Werkzeug-/Ergebnis-Zeilen
-        parts += state["lines"][-10:]
-        if not state["done"] and (state["think_shown"] or state["lines"]):
-            spin = _SPINNER[state["tick"] % len(_SPINNER)]
-            parts.append(spin + " Kira arbeitet")
+        running = not stop.is_set()
+        pulse = _PULSE[state["tick"] % len(_PULSE)]
+        if state["think"]:
+            # Ganzen Denk-Strom als geglaetteten Tail zeigen -> waechst ruhig im Takt,
+            # kein zitternder Zeichen-Cursor. Ein einziges Puls-Element am Ende.
+            tail = re.sub(r"\s+", " ", state["think"]).strip()[-240:]
+            parts.append("💭 " + tail + (" " + pulse if running else ""))
+        elif running:
+            parts.append("💭 Kira denkt " + pulse)
+        if state["lines"]:
+            parts.append("─" * 18)
+            parts += state["lines"][-8:]
         return ("\n".join(parts))[:4000] or "💭 …"
 
     def edit() -> None:
         if not mid:
             return
-        now = time.time()
-        if now - state["last_edit"] < 1.1:  # Telegram-Rate-Limit-Schutz: max ~1 Edit/Sek -> kein 429, Zustellung bleibt
-            return
         txt = render()
         if txt == state["last_render"]:
             return
         state["last_render"] = txt
-        state["last_edit"] = now
         try:
-            client.post(f"{API}/editMessageText", json={"chat_id": chat_id, "message_id": mid, "text": txt})
+            client.post(f"{API}/editMessageText",
+                        json={"chat_id": chat_id, "message_id": mid, "text": txt})
         except Exception:
             pass
 
-    def animate() -> None:
-        while not state["done"]:
-            time.sleep(0.35)
+    def pump() -> None:
+        # Einziger Editor: ruhiger Fixtakt -> kein Sub-Edit-Flackern, kein 429.
+        # stop.wait() weckt bei Abschluss SOFORT -> snappy Finalisierung.
+        while not stop.wait(_PULSE_INTERVAL):
             with lock:
-                if state["done"]:
-                    break
                 state["tick"] += 1
-                # Typewriter: think_shown um 4 Zeichen erweitern
-                target = state["think_target"]
-                shown = state["think_shown"]
-                if len(shown) < len(target):
-                    state["think_shown"] = target[:len(shown) + 4]
                 edit()
-            _typing(client, chat_id)
+            if state["tick"] % 3 == 0:  # nativen „tippt…"-Indikator am Leben halten
+                _typing(client, chat_id)
 
-    threading.Thread(target=animate, daemon=True).start()
+    anim = threading.Thread(target=pump, daemon=True)
+    anim.start()
 
     def on_event(ev: dict) -> None:
+        # Nur Zustand mutieren; das Rendern macht ausschliesslich der Pump.
         with lock:
             k = ev["kind"]
             if k == "think":
-                state["think_target"] += ev["text"]
-                edit()
+                state["think"] += ev["text"]
             elif k == "tool":
                 state["tools"].append(ev["name"])
                 state["lines"].append(_action_label(ev["name"], ev.get("args")))
-                edit()
             elif k == "obs":
-                # Ergebnis nur bei Fehlern zeigen, sonst sauber halten
-                if "Fehler" in (ev.get("text") or ""):
+                if "Fehler" in (ev.get("text") or ""):  # Ergebnis nur bei Fehlern zeigen
                     state["lines"].append("   ⚠️ " + ev["text"][:60])
-                    edit()
 
     from core.agency.act import act_chat
 
@@ -315,13 +325,11 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
         events.emit("agentic_reply_error", {"error": str(e)})
         answer = f"⚠️ Ich bin auf einen Fehler gestossen: {str(e)[:300]}"
 
-    # Typewriter zu Ende spielen bevor done
-    with lock:
-        state["think_shown"] = state["think_target"]
-    state["done"] = True
+    # Pump deterministisch stoppen (weckt sofort) und einholen -> kein Thread laeuft weiter.
+    stop.set()
+    anim.join(timeout=3)
 
-    # Arbeits-Trace abschliessen: bei Werkzeug-Nutzung eine kompakte Taetigkeits-Zeile,
-    # sonst die Trace-Nachricht entfernen (sauberer Chat, kein Transkript-Berg).
+    # Genau EINE finale Aktion: Transkript + Denk-Trace verschwinden aus dem Verlauf.
     if mid:
         try:
             if state["tools"]:
