@@ -41,7 +41,11 @@ def web_fetch(url: str, limit: int = 3000) -> str:
 def web_search(query: str, max_results: int = 5) -> str:
     import os
 
-    key = os.getenv("BRAVE_API_KEY")
+    key = (os.getenv("BRAVE_API_KEY") or "").strip()
+    if key and (not key.isascii() or " " in key or len(key) > 200):
+        return ("(BRAVE_API_KEY unter 'Zugaenge' ist UNGUELTIG — zu lang / Leerzeichen / Sonderzeichen. "
+                "Ein Brave-Key ist kurz & alphanumerisch (~32 Zeichen). Bitte den ECHTEN Key aus deinem "
+                "Brave-API-Dashboard eintragen, keinen Text.)")
     if key:
         try:
             r = httpx.get(
@@ -58,6 +62,8 @@ def web_search(query: str, max_results: int = 5) -> str:
                         for x in res
                     )
                 return "(keine Treffer fuer diese Anfrage)"
+            if r.status_code in (401, 422):
+                return "(Brave lehnt den Key ab — ungueltiger Token. Bitte BRAVE_API_KEY unter 'Zugaenge' neu eintragen.)"
             return f"(Brave-Suche Fehler {r.status_code} — BRAVE_API_KEY unter 'Zugaenge' pruefen)"
         except Exception as e:  # noqa: BLE001
             return f"(Brave-Suche fehlgeschlagen: {e})"
