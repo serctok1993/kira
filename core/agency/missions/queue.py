@@ -29,10 +29,21 @@ def init_queue() -> None:
                 description TEXT NOT NULL,
                 status      TEXT DEFAULT 'pending',   -- pending | running | done | failed
                 priority    INTEGER DEFAULT 5,
-                result      TEXT
+                result      TEXT,
+                retry_count INTEGER DEFAULT 0,
+                updated_ts  REAL
             )
             """
         )
+        # Nachtraegliche Ergaenzung fuer bereits existierende DBs (Spalten fehlen ggf. noch).
+        try:
+            c.execute("ALTER TABLE tasks ADD COLUMN retry_count INTEGER DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            c.execute("ALTER TABLE tasks ADD COLUMN updated_ts REAL")
+        except sqlite3.OperationalError:
+            pass
         c.execute("CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(mission, status, priority, ts)")
 
 
@@ -69,13 +80,16 @@ def pop_next(mission: str | None = None) -> dict | None:
         return None
     task = p[0]
     with _conn() as c:
-        c.execute("UPDATE tasks SET status='running' WHERE id=?", (task["id"],))
+        c.execute("UPDATE tasks SET status='running', updated_ts=? WHERE id=?", (time.time(), task["id"]))
     return task
 
 
 def complete(task_id: str, result: str, status: str = "done") -> None:
     with _conn() as c:
-        c.execute("UPDATE tasks SET status=?, result=? WHERE id=?", (status, result[:4000], task_id))
+        c.execute(
+            "UPDATE tasks SET status=?, result=?, updated_ts=? WHERE id=?",
+            (status, result[:4000], time.time(), task_id),
+        )
 
 
 def remove(task_id: str) -> bool:
@@ -93,3 +107,42 @@ def clear(mission: str | None = None, status: str = "pending") -> int:
         else:
             cur = c.execute("DELETE FROM tasks WHERE status=?", (status,))
     return cur.rowcount
+
+
+def reset_stuck(timeout_seconds: int = 1800, max_retries: int = 3) -> dict:
+    """Macht nach einem Absturz haengengebliebene 'running'-Tasks wieder flott.
+
+    Tasks, die laenger als timeout_seconds nicht mehr aktualisiert wurden,
+    gelten als verwaist (z.B. weil der Prozess waehrend der Bearbeitung
+    abgestuerzt ist). Solche Tasks werden erneut auf 'pending' gesetzt
+    (Durable Execution: nichts geht verloren), solange sie noch nicht zu
+    oft gescheitert sind. Ist das Retry-Limit erreicht, werden sie final
+    als 'failed' markiert, damit sie nicht endlos wiederholt werden.
+    """
+    now = time.time()
+    cutoff = now - timeout_seconds
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT id, retry_count FROM tasks WHERE status='running' "
+            "AND (updated_ts IS NULL OR updated_ts < ?)",
+            (cutoff,),
+        ).fetchall()
+
+        requeued = 0
+        failed = 0
+        for task_id, retry_count in rows:
+            retry_count = retry_count or 0
+            if retry_count < max_retries:
+                c.execute(
+                    "UPDATE tasks SET status='pending', retry_count=?, updated_ts=? WHERE id=?",
+                    (retry_count + 1, now, task_id),
+                )
+                requeued += 1
+            else:
+                c.execute(
+                    "UPDATE tasks SET status='failed', result=?, updated_ts=? WHERE id=?",
+                    ("stuck: max retries erreicht", now, task_id),
+                )
+                failed += 1
+
+    return {"requeued": requeued, "failed": failed}
