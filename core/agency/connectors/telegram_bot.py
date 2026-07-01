@@ -59,9 +59,12 @@ def _send(client: httpx.Client, chat_id: int, text: str, html: bool = True) -> N
         payload = {"chat_id": chat_id, "text": _tg_html(chunk) if html else chunk}
         if html:
             payload["parse_mode"] = "HTML"
-        r = client.post(f"{API}/sendMessage", json=payload)
         try:
-            if html and not r.json().get("ok"):  # HTML-Parsing gescheitert -> als Plain nachsenden
+            j = client.post(f"{API}/sendMessage", json=payload).json()
+            if not j.get("ok") and j.get("error_code") == 429:  # Rate-Limit -> kurz warten + 1x erneut
+                time.sleep(min(6, ((j.get("parameters") or {}).get("retry_after") or 2)))
+                j = client.post(f"{API}/sendMessage", json=payload).json()
+            if not j.get("ok") and html:  # HTML-Parsing gescheitert -> als Plain nachsenden
                 client.post(f"{API}/sendMessage", json={"chat_id": chat_id, "text": chunk})
         except Exception:
             pass
@@ -229,6 +232,7 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
         "done": False,
         "tick": 0,
         "last_render": "",
+        "last_edit": 0.0,
     }
     lock = threading.Lock()
 
@@ -257,10 +261,14 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
     def edit() -> None:
         if not mid:
             return
+        now = time.time()
+        if now - state["last_edit"] < 1.1:  # Telegram-Rate-Limit-Schutz: max ~1 Edit/Sek -> kein 429, Zustellung bleibt
+            return
         txt = render()
         if txt == state["last_render"]:
             return
         state["last_render"] = txt
+        state["last_edit"] = now
         try:
             client.post(f"{API}/editMessageText", json={"chat_id": chat_id, "message_id": mid, "text": txt})
         except Exception:
