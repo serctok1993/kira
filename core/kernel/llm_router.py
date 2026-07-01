@@ -101,6 +101,11 @@ _PROVIDER_KEYS = {
     "mistral": "MISTRAL_API_KEY",
     "xai": "XAI_API_KEY",
     "gemini": "GEMINI_API_KEY",
+    "aimlapi": "AIMLAPI_API_KEY",
+}
+
+_PROVIDER_META = {
+    "aimlapi": {"api_base": "https://api.aimlapi.com/v1", "key_env": "AIMLAPI_API_KEY"},
 }
 
 # Erkennt OpenRouter-402-Antworten wegen zu wenig Guthaben fuer die angeforderte
@@ -118,6 +123,10 @@ def _provider_config(model_id: str) -> tuple[str, str | None, str | None]:
     if model_id in providers:
         p = providers[model_id]
         return p.get("model", model_id), p.get("api_base"), p.get("api_key_env")
+    for prefix, meta in _PROVIDER_META.items():
+        if model_id.startswith(prefix + "/"):
+            stripped = model_id[len(prefix)+1:]
+            return f"openai/{stripped}", meta["api_base"], meta["key_env"]
     return model_id, None, None
 
 
