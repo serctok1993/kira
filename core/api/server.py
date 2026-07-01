@@ -771,6 +771,13 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 .direktive{max-width:1120px;margin:0 0 16px;border:1px solid var(--line);border-radius:12px;
  padding:14px;background:rgba(16,16,20,.72)}
 .direktive h3{margin:0 0 8px;color:var(--amber)}
+.home-cols{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;max-width:1400px}
+.home-main{flex:3 1 520px;min-width:0;display:flex;flex-direction:column;gap:14px}
+.home-side{flex:1 1 300px;min-width:280px;display:flex;flex-direction:column;gap:10px}
+.home-main .direktive,.home-main .home-feed{max-width:none;margin:0;width:100%}
+.home-side .card{max-width:none;margin:0;padding:11px 13px}
+.home-side .card h3{font-size:12px;margin:0 0 6px}
+.home-feed #feed-list{max-height:440px}
 textarea.k{width:100%;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;
  padding:10px;font-family:inherit;font-size:13px;resize:vertical;outline:none;min-height:52px}
 textarea.k:focus{border-color:var(--accent2)}
@@ -810,19 +817,23 @@ textarea.k:focus{border-color:var(--accent2)}
   </div>
 
   <div class="view on" id="v-home">
-    <div class="direktive">
-      <h3>🎯 Sag mir, was ich tun soll</h3>
-      <textarea id="dir-text" class="k" placeholder="Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…"></textarea>
-      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-        <button id="dir-now">⚡ Sofort ausfuehren</button>
-        <button class="ghost" id="dir-focus">🧭 Als Fokus setzen</button>
-        <button class="ghost" id="dir-clear" title="Fokus loeschen">Fokus loeschen</button>
-        <span class="muted" id="dir-hint" style="align-self:center"></span>
+    <div class="home-cols">
+      <div class="home-main">
+        <div class="direktive">
+          <h3>🎯 Sag mir, was ich tun soll</h3>
+          <textarea id="dir-text" class="k" placeholder="Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button id="dir-now">⚡ Sofort ausfuehren</button>
+            <button class="ghost" id="dir-focus">🧭 Als Fokus setzen</button>
+            <button class="ghost" id="dir-clear" title="Fokus loeschen">Fokus loeschen</button>
+            <span class="muted" id="dir-hint" style="align-self:center"></span>
+          </div>
+          <div id="dir-result" style="margin-top:8px;white-space:pre-wrap;display:none;border-top:1px solid var(--line);padding-top:8px"></div>
+        </div>
+        <div class="card home-feed"><h3><span class="live"></span> Live-Feed</h3><div id="feed-list" class="muted">…</div></div>
       </div>
-      <div id="dir-result" style="margin-top:8px;white-space:pre-wrap;display:none;border-top:1px solid var(--line);padding-top:8px"></div>
+      <div class="home-side" id="home"></div>
     </div>
-    <div class="card" style="max-width:1120px"><h3><span class="live"></span> Live-Feed</h3><div id="feed-list" class="muted">…</div></div>
-    <div id="home" style="overflow:auto"></div>
   </div>
 
   <div class="view" id="v-chat">
@@ -1113,7 +1124,7 @@ async function loadHome(){const o=await (await fetch("/api/overview")).json();co
  const kill=o.kill_switch?'<b style="color:var(--danger)">⛔ NOT-AUS aktiv</b>':'<span style="color:var(--ok)">einsatzbereit</span>';
  let h='<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><span class="dot"></span>'
   +'<h2 style="margin:0">'+o.partner+'</h2><span class=muted>'+kill+'</span></div>'
-  +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;max-width:1120px">';
+  +'<div style="display:flex;flex-direction:column;gap:10px">';
  const sdot=(ok)=>'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle;background:'+(ok?'var(--ok)':'var(--danger)')+';margin-right:5px"></span>';
  const svc=sv.services||{};
  h+=card("System",sdot(sv.supervisor)+'Supervisor '+sdot(svc.cockpit!==false)+'Cockpit '+sdot(svc.bot)+'Bot '+sdot(svc.runner)+'Runner '+sdot(sv.ollama)+'Ollama'
