@@ -6,13 +6,15 @@ Ablauf von apply_edit():
 3. Bei .py: Syntax-Check (py_compile). Faellt er durch -> ROLLBACK (alte Version zurueck).
 4. Sonst: git add + commit (revertierbar) und Hinweis, den betroffenen Dienst neu zu starten.
 
-self_edit() laesst ein (vorzugsweise starkes/escaliertes) Modell den neuen Dateiinhalt
-erzeugen und ruft apply_edit(). Die Verfassung bleibt fuer Kira gesperrt (evolution.py);
-hier geht es um Code/Dashboard/Tools — nicht um die Grundregeln.
+self_edit() laesst ein (vorzugsweise starkes/escaliertes) Modell GEZIELTE Such-/Ersetz-
+Bloecke (SEARCH/REPLACE bzw. APPEND) erzeugen — NIE die ganze Datei (darum keine Truncation
+bei grossen Dateien) — und wendet sie via apply_edit() an. Die Verfassung bleibt fuer Kira
+gesperrt (evolution.py); hier geht es um Code/Dashboard/Tools — nicht um die Grundregeln.
 """
 from __future__ import annotations
 
 import py_compile
+import re
 import subprocess
 
 from core.config import ROOT
@@ -145,28 +147,80 @@ def apply_edit(rel_path: str, new_content: str, reason: str = "", verify: bool =
     return {"ok": True, "file": rel_path, "note": "Angewendet + committet. Betroffenen Dienst (Cockpit/Bot) neu starten."}
 
 
+_SELF_EDIT_SYS = (
+    "Du bist ein praeziser Software-Entwickler und bearbeitest EINE Datei mit GEZIELTEN Edits. "
+    "Gib die Datei NIEMALS komplett neu aus. Antworte NUR mit einem oder mehreren Edit-Bloecken "
+    "in GENAU diesem Format (nichts sonst — keine Erklaerung, keine Code-Fences):\n\n"
+    "ERSETZEN eines vorhandenen Stuecks:\n"
+    "<<<<<<< SEARCH\n"
+    "<ein KURZER, wortgenau aus der Datei kopierter Ausschnitt>\n"
+    "=======\n"
+    "<der neue Text, der ihn ersetzt>\n"
+    ">>>>>>> REPLACE\n\n"
+    "HINZUFUEGEN am Dateiende (z.B. eine neue Funktion / ein neues Tool):\n"
+    "<<<<<<< APPEND\n"
+    "<der neue Code>\n"
+    ">>>>>>> APPEND\n\n"
+    "Regeln: SEARCH muss ZEICHENGENAU (inkl. Einrueckung) so in der Datei stehen und EINDEUTIG "
+    "sein (kommt genau einmal vor) — nimm ein paar Zeilen Kontext, wenn noetig. Aendere nur, was "
+    "der Auftrag verlangt. Mehrere Stellen -> mehrere Bloecke."
+)
+
+_EDIT_BLOCK_RE = re.compile(
+    r"<{3,}\s*SEARCH\s*\n(.*?)\n={3,}\s*\n(.*?)\n>{3,}\s*REPLACE"
+    r"|<{3,}\s*APPEND\s*\n(.*?)\n>{3,}\s*APPEND",
+    re.DOTALL)
+
+
+def _parse_edit_blocks(text: str) -> list[tuple]:
+    """Extrahiert Edit-Bloecke in Dokument-Reihenfolge: ('replace', search, repl) | ('append', text)."""
+    blocks: list[tuple] = []
+    for m in _EDIT_BLOCK_RE.finditer(text or ""):
+        if m.group(1) is not None:
+            blocks.append(("replace", m.group(1), m.group(2)))
+        else:
+            blocks.append(("append", m.group(3)))
+    return blocks
+
+
+def _apply_edits(original: str, blocks: list[tuple]) -> tuple[str | None, str | None]:
+    """Wendet die Bloecke auf 'original' an (all-or-nothing, in Reihenfolge).
+    Rueckgabe: (neuer_inhalt, None) oder (None, fehlermeldung)."""
+    content = original
+    for i, b in enumerate(blocks, 1):
+        if b[0] == "append":
+            content = content.rstrip("\n") + "\n\n\n" + b[1].strip("\n") + "\n"
+            continue
+        _, search, replace = b
+        n = content.count(search)
+        if n != 1:
+            why = "nicht gefunden" if n == 0 else f"{n}x gefunden (nicht eindeutig)"
+            return None, (f"Edit-Block {i}: SEARCH {why} — nimm einen groesseren, EINDEUTIGEN "
+                          "Ausschnitt (wortgenau inkl. Einrueckung).")
+        content = content.replace(search, replace, 1)
+    return content, None
+
+
 def self_edit(rel_path: str, instruction: str, escalate: bool = True) -> dict:
-    """Laesst ein Modell den neuen Dateiinhalt erzeugen und wendet ihn sicher an."""
+    """Bearbeitet eine Datei mit GEZIELTEN Such-/Ersetz-Bloecken (kein Ganzdatei-Rewrite ->
+    keine Truncation bei grossen Dateien) und wendet das Ergebnis sicher an (apply_edit)."""
     from core.kernel import llm_router
 
     p = ROOT / rel_path
     if not p.exists():
         return {"ok": False, "error": f"Datei nicht gefunden: {rel_path}"}
     content = p.read_text(encoding="utf-8")
-    sysmsg = (
-        "Du bist ein praeziser Software-Entwickler. Aendere genau das Gewuenschte, sonst nichts. "
-        "Gib NUR den vollstaendigen neuen Dateiinhalt zurueck — ohne Erklaerung, ohne Code-Fences."
-    )
-    user = f"DATEI: {rel_path}\n---\n{content}\n---\nAENDERUNGSWUNSCH: {instruction}\n\nKompletter neuer Dateiinhalt:"
-    res = llm_router.complete([{"role": "user", "content": user}], system=sysmsg, task_type="reason", escalate=escalate)
-    new = res["text"].strip()
-    if new.startswith("```"):
-        lines = new.splitlines()
-        if lines and lines[0].startswith("```"):
-            lines = lines[1:]
-        if lines and lines[-1].strip().startswith("```"):
-            lines = lines[:-1]
-        new = "\n".join(lines).strip()
-    if len(new) < 20:
-        return {"ok": False, "error": "Modell-Ausgabe zu kurz/leer — verworfen."}
-    return apply_edit(rel_path, new, reason=instruction[:80])
+    user = (f"DATEI: {rel_path}\n---\n{content}\n---\nAENDERUNGSWUNSCH: {instruction}\n\n"
+            "Gib NUR die Edit-Bloecke aus:")
+    res = llm_router.complete([{"role": "user", "content": user}], system=_SELF_EDIT_SYS,
+                              task_type="reason", escalate=escalate)
+    blocks = _parse_edit_blocks(res["text"])
+    if not blocks:
+        return {"ok": False, "error": "Keine gueltigen Edit-Bloecke erhalten (Format SEARCH/REPLACE "
+                "bzw. APPEND). Nichts geaendert — formuliere den Auftrag ggf. konkreter."}
+    new_content, err = _apply_edits(content, blocks)
+    if err:
+        return {"ok": False, "error": err}
+    if new_content == content:
+        return {"ok": False, "error": "Die Edit-Bloecke ergaben keine Aenderung."}
+    return apply_edit(rel_path, new_content, reason=instruction[:80])
