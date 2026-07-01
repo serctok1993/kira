@@ -637,23 +637,28 @@ DASHBOARD_HTML = """<!doctype html>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Kira Cockpit</title>
 <style>
-:root{--bg:#0a0710;--panel:#150f20;--panel2:#100b18;--line:#2a1f3a;--ink:#f3eef9;
- --muted:#9a8fb0;--accent:#a855f7;--accent2:#7c3aed;--amber:#c4b5fd;--danger:#f0596a;--ok:#5eead4;--warn:#e879f9;}
+:root{--bg:#07070a;--panel:#101014;--panel2:#0b0b0f;--line:#20202a;--ink:#eceef4;
+ --muted:#8a8a99;--accent:#8b5cf6;--accent2:#6d28d9;--amber:#c4b5fd;--danger:#f0596a;--ok:#34d399;--warn:#f59e0b;}
 html[data-theme="blutmond"]{--bg:#0a0406;--panel:#1a0d10;--panel2:#140a0c;--line:#3a1f26;--accent:#f0596a;--accent2:#b3243a;--amber:#ffb3c1;--ok:#f0a35e;--warn:#ff7ab0;}
 html[data-theme="abyss"]{--bg:#03080a;--panel:#0b1518;--panel2:#081114;--line:#123038;--accent:#22d3ee;--accent2:#0e7490;--amber:#a5f3fc;--ok:#5eead4;--warn:#67a3f9;}
 html[data-theme="asche"]{--bg:#0a0a0c;--panel:#16161a;--panel2:#101014;--line:#2a2a32;--accent:#c8c8d4;--accent2:#8a8a99;--amber:#e6e6ee;--ok:#9adcc4;--warn:#d0a0d8;}
 .look .sw{width:16px;height:16px;border-radius:50%;cursor:pointer;border:2px solid transparent;box-shadow:0 0 6px rgba(0,0,0,.6)}
 .look .sw.on{border-color:#fff}
-.heart{filter:drop-shadow(0 0 6px var(--accent));animation:beat 1.7s ease-in-out infinite}
-@keyframes beat{0%,100%{transform:scale(1)}12%{transform:scale(1.25)}24%{transform:scale(1)}36%{transform:scale(1.18)}}
-.pulse{color:var(--accent);text-shadow:0 0 12px rgba(168,85,247,.55);font-weight:600;letter-spacing:.3px}
+.live{width:7px;height:7px;border-radius:50%;background:var(--ok);display:inline-block;animation:ping 2.4s ease-out infinite}
+@keyframes ping{0%{box-shadow:0 0 0 0 rgba(52,211,153,.5)}70%,100%{box-shadow:0 0 0 7px rgba(52,211,153,0)}}
+.pulse{color:var(--muted);font-weight:500;letter-spacing:.2px}
+#feed-list{font-size:12.5px;max-height:280px;overflow:auto;margin-top:6px}
+.fd{display:flex;gap:12px;padding:5px 2px;border-bottom:1px solid var(--line)}
+.fd .fdt{color:var(--muted);min-width:72px;font-variant-numeric:tabular-nums}
+.fd .fdx{flex:1;color:var(--ink)}
+.fd.error .fdx{color:var(--danger)} .fd.chat .fdx{color:var(--accent)} .fd.info .fdx{color:var(--muted)}
 *{box-sizing:border-box}
 body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Code",Consolas,monospace;
- background:#000;color:var(--ink)}
+ background:radial-gradient(1100px 620px at 78% -12%, rgba(90,60,150,.16), #07070a 62%) fixed;color:var(--ink)}
 #side{width:210px;flex-shrink:0;border-right:1px solid var(--line);background:rgba(13,9,20,.72);
  backdrop-filter:blur(8px);display:flex;flex-direction:column}
-#side h1{font-size:19px;letter-spacing:3px;padding:16px 16px 2px;color:#fff;margin:0;
- text-shadow:0 0 12px rgba(168,85,247,.9),0 0 26px rgba(124,58,237,.5)}
+#side h1{font-size:19px;letter-spacing:4px;padding:16px 16px 2px;color:#fff;margin:0;
+ text-shadow:0 0 10px rgba(139,92,246,.30)}
 #side .sub{font-size:11px;color:var(--muted);padding:0 16px 14px;letter-spacing:1px}
 #side a{display:block;padding:10px 16px;color:var(--ink);text-decoration:none;cursor:pointer;
  border-left:3px solid transparent}
@@ -685,8 +690,8 @@ body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Cod
 #cin{flex:1;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);
  outline:none;font-family:inherit}
 #cin:focus{border-color:var(--accent2)}
-button{padding:0 16px;border:none;border-radius:10px;cursor:pointer;font-weight:600;font-family:inherit;
- background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 0 14px rgba(168,85,247,.35)}
+button{padding:0 16px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-family:inherit;
+ background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
 button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line)}
 /* files */
 .cols{display:flex;gap:16px;flex:1;min-height:0}
@@ -701,7 +706,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 #farea:read-only{color:var(--muted)}
 .frow{display:flex;gap:10px;align-items:center}
 /* models + protokoll */
-.card{background:rgba(21,15,32,.62);backdrop-filter:blur(8px);border:1px solid rgba(168,85,247,.18);border-radius:12px;padding:14px;margin-bottom:14px;max-width:880px}
+.card{background:rgba(16,16,20,.72);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px;max-width:880px}
 .card h3{margin:0 0 8px;font-size:13px;color:var(--amber)}
 .pill{display:inline-block;padding:3px 9px;border:1px solid var(--line);border-radius:20px;margin:3px 5px 3px 0;
  font-size:12px;cursor:pointer}
@@ -721,17 +726,16 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 .e.chat .t{color:#67e8c9}
 .e.info .t{color:var(--muted)}
 .pill.on{color:#fff;border-color:var(--accent);background:rgba(168,85,247,.14)}
-.card{box-shadow:0 0 22px rgba(124,58,237,.10),inset 0 0 0 1px rgba(168,85,247,.06)}
-.card h3{text-shadow:0 0 10px rgba(168,85,247,.35)}
-#side{background:linear-gradient(180deg,rgba(20,10,30,.88),rgba(10,7,16,.82))}
+.card:hover{border-color:rgba(139,92,246,.26)}
+#side{background:linear-gradient(180deg,rgba(14,14,18,.92),rgba(8,8,11,.86))}
 .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--danger)}
 .look{display:flex;gap:10px;align-items:center;justify-content:center;padding:8px 12px;
  margin:0 12px 6px;border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:12px}
 .look label,.look a{cursor:pointer;color:var(--muted);text-decoration:none}
 .look label:hover,.look a:hover{color:var(--accent)}
-.direktive{max-width:1120px;margin:0 0 16px;border:1px solid rgba(168,85,247,.30);border-radius:14px;
- padding:14px;background:linear-gradient(135deg,rgba(124,58,237,.16),rgba(21,15,32,.66));box-shadow:0 0 26px rgba(168,85,247,.14)}
-.direktive h3{margin:0 0 8px;color:var(--amber);text-shadow:0 0 10px rgba(168,85,247,.4)}
+.direktive{max-width:1120px;margin:0 0 16px;border:1px solid var(--line);border-radius:12px;
+ padding:14px;background:rgba(16,16,20,.72)}
+.direktive h3{margin:0 0 8px;color:var(--amber)}
 textarea.k{width:100%;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;
  padding:10px;font-family:inherit;font-size:13px;resize:vertical;outline:none;min-height:52px}
 textarea.k:focus{border-color:var(--accent2)}
@@ -752,7 +756,7 @@ textarea.k:focus{border-color:var(--accent2)}
   <a data-v="log" title="Alles was ich tue (Live-Log)">› Protokoll</a>
   <div class="spacer"></div>
   <div class="look">
-    <span title="Kira (Standard)" class="sw on" data-theme="" style="background:#a855f7"></span>
+    <span title="Kira (Standard)" class="sw on" data-theme="" style="background:#8b5cf6"></span>
     <span title="Blutmond" class="sw" data-theme="blutmond" style="background:#f0596a"></span>
     <span title="Abyss" class="sw" data-theme="abyss" style="background:#22d3ee"></span>
     <span title="Asche" class="sw" data-theme="asche" style="background:#c8c8d4"></span>
@@ -763,7 +767,7 @@ textarea.k:focus{border-color:var(--accent2)}
 </div>
 <div id="main">
   <div id="bar">
-    <span class="heart">🖤</span>
+    <span class="live"></span>
     <span id="pulse" class="pulse">…</span>
     <span style="flex:1"></span>
     <span class="muted"><b id="b-model">…</b></span>
@@ -783,6 +787,7 @@ textarea.k:focus{border-color:var(--accent2)}
       </div>
       <div id="dir-result" style="margin-top:8px;white-space:pre-wrap;display:none;border-top:1px solid var(--line);padding-top:8px"></div>
     </div>
+    <div class="card" style="max-width:1120px"><h3><span class="live"></span> Live-Feed</h3><div id="feed-list" class="muted">…</div></div>
     <div id="home" style="overflow:auto"></div>
   </div>
 
@@ -1068,7 +1073,7 @@ async function loadHome(){const o=await (await fetch("/api/overview")).json();co
   +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;max-width:1120px">';
  const sdot=(ok)=>'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle;background:'+(ok?'var(--ok)':'var(--danger)')+';margin-right:5px"></span>';
  const svc=sv.services||{};
- h+=card("❤ System",sdot(sv.supervisor)+'Supervisor '+sdot(svc.cockpit!==false)+'Cockpit '+sdot(svc.bot)+'Bot '+sdot(svc.runner)+'Runner '+sdot(sv.ollama)+'Ollama'
+ h+=card("System",sdot(sv.supervisor)+'Supervisor '+sdot(svc.cockpit!==false)+'Cockpit '+sdot(svc.bot)+'Bot '+sdot(svc.runner)+'Runner '+sdot(sv.ollama)+'Ollama'
    +'<br><span class=muted style="display:inline-block;margin-top:6px">24/7-Loop: '+(sv.heartbeat?'<b style="color:var(--ok)">AN</b>':'aus')+'</span>'
    +'<div style="margin-top:10px;display:flex;gap:8px"><button class=ghost id="sys-restart">↻ Neustart</button>'
    +'<button class=ghost onclick="nav(\\'mission\\')">24/7 steuern</button></div>');
@@ -1285,12 +1290,13 @@ $("#mem-add")&&($("#mem-add").onclick=async()=>{const t=$("#mem-new").value.trim
  $("#mem-new").value="";$("#mem-hint").textContent="gemerkt ✓";loadMem();});
 
 /* ---- Hintergrund beim Laden + Sidebar Look-Umschalter ---- */
-function applyBg(){document.body.style.backgroundImage="linear-gradient(rgba(10,7,16,.82),rgba(10,7,16,.94)),url('/api/bg?t="+Date.now()+"')";
+const BGBASE="radial-gradient(1100px 620px at 78% -12%, rgba(90,60,150,.18), #07070a 62%)";
+function applyBg(){document.body.style.backgroundImage="linear-gradient(rgba(7,7,10,.80),rgba(7,7,10,.94)),url('/api/bg?t="+Date.now()+"'),"+BGBASE;
  document.body.style.backgroundSize="cover";document.body.style.backgroundPosition="center";document.body.style.backgroundAttachment="fixed";}
 applyBg();
 function bgUpload(f){const rd=new FileReader();rd.onload=async()=>{await fetch("/api/bg/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dataurl:rd.result})});applyBg();};rd.readAsDataURL(f);}
 $("#bgquick")&&($("#bgquick").onchange=e=>{const f=e.target.files[0];if(f)bgUpload(f);});
-$("#bgclear")&&($("#bgclear").onclick=async e=>{e.preventDefault();await fetch("/api/bg/clear",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});document.body.style.backgroundImage="none";});
+$("#bgclear")&&($("#bgclear").onclick=async e=>{e.preventDefault();await fetch("/api/bg/clear",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});document.body.style.backgroundImage=BGBASE;});
 
 /* ---- Farb-Themes (Kira = Standard) ---- */
 function setTheme(t){if(t)document.documentElement.setAttribute("data-theme",t);else document.documentElement.removeAttribute("data-theme");
@@ -1312,12 +1318,21 @@ function pulsePhrase(e){const p=e.payload||{},t=e.type,tool=p.tool||"";
  if(t==="reflection")return "🪞 Ich denke ueber mich nach";
  if(t==="service_crash")return "⚠️ Ein Dienst kam gerade zurueck";
  if(t==="focus_set")return "🧭 Du hast mir eine Richtung gegeben";
- return "💜 Ich bin da";}
+ if(t==="act_done")return "✓ Aufgabe fertig";
+ if(t==="cron_run")return "⏰ Geplante Aufgabe gelaufen";
+ return "· aktiv";}
 async function updatePulse(){try{const es=await (await fetch("/api/events?limit=6")).json();const el=$("#pulse");if(!el)return;
-  if(!es.length){el.textContent="😴 Ich warte auf dich…";return;}
+  if(!es.length){el.textContent="Leerlauf";return;}
   const fresh=(Date.now()/1000 - es[0].ts) < 50;
-  el.textContent=fresh?pulsePhrase(es[0]):"💜 Bereit, wenn du mich brauchst.";}catch(e){}}
+  el.textContent=fresh?pulsePhrase(es[0]):"Leerlauf — bereit";}catch(e){}}
 updatePulse();setInterval(updatePulse,3500);
+function feedLine(e){const t=new Date(e.ts*1000).toLocaleTimeString();
+ return '<div class="fd '+(e.sev||"info")+'"><span class="fdt">'+t+'</span><span class="fdx">'+pulsePhrase(e).replace(/</g,"&lt;")+'</span></div>';}
+const FEED_TYPES=["tool_call","act_done","partner_message","user_message","mission_task_done","mission_task_start","cron_run","plan_made","reflection","service_crash","focus_set","file_edited"];
+async function updateFeed(){const el=$("#feed-list");if(!el)return;try{const es=await (await fetch("/api/events?limit=50")).json();
+ const keep=es.filter(e=>FEED_TYPES.includes(e.type)).slice(0,14);
+ el.innerHTML=keep.length?keep.map(feedLine).join(""):'<span class=muted>(noch keine Aktivitaet)</span>';}catch(e){}}
+updateFeed();setInterval(updateFeed,4000);
 
 /* ---- Direktive (Startseite) ---- */
 $("#dir-now")&&($("#dir-now").onclick=async()=>{const p=$("#dir-text").value.trim();if(!p)return;
