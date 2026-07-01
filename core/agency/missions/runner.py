@@ -96,7 +96,10 @@ def run_once(escalate: bool = False) -> dict:
 
     events.emit("mission_task_start", {"id": task["id"], "desc": task["description"]}, session_id=f"mission-{mission}")
     try:
-        result = act(task["description"], session_id=f"mission-{mission}", escalate=escalate)
+        # 24/7-Grind guenstig: die Arbeits-Schleife laeuft auf der 'bulk'-Stufe (flash) statt
+        # 'reason' (pro) -> ~5-8x billiger pro Tick. escalate=True hebt genuinely harte Tasks
+        # weiter aufs Eskalations-Modell an. (Local-Endgame spaeter, wenn die Hardware steht.)
+        result = act(task["description"], session_id=f"mission-{mission}", escalate=escalate, task_type="bulk")
         text = result["text"]
         queue.complete(task["id"], text)
         events.emit("mission_task_done", {"id": task["id"], "summary": text[:300]}, session_id=f"mission-{mission}")
