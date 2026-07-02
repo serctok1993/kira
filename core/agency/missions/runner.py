@@ -279,6 +279,12 @@ def run_once(escalate: bool = False) -> dict:
 def run_forever(interval: int | None = None) -> None:
     interval = interval or CONFIG.get("heartbeat", {}).get("interval_seconds", 1800)
     events.init_db()
+    try:  # MCP-Bruecke im Hintergrund anschliessen (Ausfall darf den Boot nie bricken)
+        from core.agency.mcp import registry_bridge as _mcp_bridge
+
+        _mcp_bridge.init_background()
+    except Exception as e:  # noqa: BLE001
+        events.emit("mcp_bridge_error", {"error": str(e)[:200]})
     last_stuck_check = 0.0
     print(f"Mission-Runner laeuft. Cron+Monitor laufen immer; 24/7-Missionen nur wenn eingeschaltet. Takt {interval}s.")
     while True:

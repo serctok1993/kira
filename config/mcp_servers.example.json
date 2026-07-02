@@ -1,0 +1,55 @@
+{
+  "github": {
+    "comment": "Offizieller GitHub-MCP (stdio). Allowlist gegen Manifest-Flut (~80 Tools ungefiltert). Token: request_secret('GITHUB_TOKEN').",
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-github"],
+    "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_TOKEN" },
+    "timeout": 60,
+    "enabled": true,
+    "tools": [
+      "create_repository", "create_or_update_file", "push_files",
+      "get_file_contents", "search_repositories", "create_issue",
+      "list_issues", "create_pull_request", "list_commits", "create_branch"
+    ]
+  },
+  "supabase": {
+    "comment": "Offizieller Supabase-MCP. Token: request_secret('SUPABASE_ACCESS_TOKEN').",
+    "command": "npx",
+    "args": ["-y", "@supabase/mcp-server-supabase@latest"],
+    "env": { "SUPABASE_ACCESS_TOKEN": "$SUPABASE_ACCESS_TOKEN" },
+    "timeout": 60,
+    "enabled": true,
+    "tools": [
+      "list_projects", "get_project", "list_tables",
+      "execute_sql", "apply_migration", "get_logs", "get_advisors"
+    ]
+  },
+  "stripe": {
+    "comment": "Stripe live HINTERM GATE: Zahlungen annehmen (Produkte/Preise/Payment-Links) = external (frei + Audit); Geld bewegen (Refunds) = money (Freigabe-Inbox). Empfohlen: Restricted Key. Aktivieren, sobald STRIPE_SECRET_KEY im Tresor liegt.",
+    "command": "npx",
+    "args": ["-y", "@stripe/mcp", "--tools=products.create,prices.create,paymentLinks.create,products.read,prices.read,balance.read,refunds.create"],
+    "env": { "STRIPE_SECRET_KEY": "$STRIPE_SECRET_KEY" },
+    "timeout": 60,
+    "enabled": false,
+    "kinds": {
+      "create_product": "external",
+      "create_price": "external",
+      "create_payment_link": "external",
+      "create_refund": "money"
+    }
+  },
+  "vercel": {
+    "comment": "Offizieller Vercel-MCP ist remote-HTTP (OAuth) — unser Client ist stdio-only. Zukunft: mcp-remote-Shim. Vorher: request_secret('VERCEL_TOKEN').",
+    "command": "npx",
+    "args": ["-y", "mcp-remote", "https://mcp.vercel.com"],
+    "timeout": 60,
+    "enabled": false
+  },
+  "filesystem": {
+    "comment": "Aus: redundant zu Kiras eingebauten read_file/write_file/list_dir — reine Manifest-Kosten.",
+    "command": "npx",
+    "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
+    "timeout": 15,
+    "enabled": false
+  }
+}

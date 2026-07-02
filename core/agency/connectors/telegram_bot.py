@@ -492,6 +492,11 @@ def run() -> None:
         print("TELEGRAM_BOT_TOKEN fehlt in .env — Bot via @BotFather anlegen und Token eintragen.")
         return
     events.init_db()
+    try:  # MCP-Bruecke im Hintergrund anschliessen (Ausfall darf den Boot nie bricken)
+        from core.agency.mcp import registry_bridge as _mcp_bridge
+        _mcp_bridge.init_background()
+    except Exception:  # noqa: BLE001
+        pass
     from core.kernel import runstate
     runstate.start_watchdog()  # festgefahrene Chat-Zuege erkennen -> Force-Restart (kein wedged Bot)
     offset: int | None = None

@@ -36,6 +36,11 @@ try:  # Workspace-Tabellen (Ziele + Task-Felder + Freigabe-Inbox) sicherstellen
 except Exception:  # noqa: BLE001
     pass
 _synth.load_synthesized()  # selbstgebaute Werkzeuge fuer die Uebersicht verfuegbar machen
+try:  # MCP-Bruecke im Hintergrund anschliessen (Ausfall darf den Boot nie bricken)
+    from core.agency.mcp import registry_bridge as _mcp_bridge
+    _mcp_bridge.init_background()
+except Exception:  # noqa: BLE001
+    pass
 
 # Im Dashboard sichtbare/bearbeitbare Dateien. Alles editierbar — DU bist der Eigentuemer.
 # (Die Verfassung ist nur fuer KIRA gesperrt — via evolution.py; du darfst sie hier aendern.)

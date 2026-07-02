@@ -21,18 +21,31 @@ import asyncio
 import concurrent.futures
 import json
 import os
+import threading
+import time
 from pathlib import Path
 from typing import Any
 
 from core.agency.mcp.client import McpServer
+from core.agency.tools import registry
 from core.agency.tools.registry import register
 
 # ---------------------------------------------------------------------------
 # Modul-Zustand
 # ---------------------------------------------------------------------------
 
-_servers: dict[str, McpServer] = {}          # server_name → laufende McpServer-Instanz
+_servers: dict[str, "_ServerHandle"] = {}     # server_name → dauerhaftes Server-Handle
 _tool_registry: dict[str, str] = {}           # tool_name → server_name (für spätere Referenz)
+
+
+def _emit(etype: str, payload: dict) -> None:
+    """Event-Emission, die nie den Bridge-Betrieb bricht (z.B. DB noch nicht initialisiert)."""
+    try:
+        from core.kernel import events
+
+        events.emit(etype, payload)
+    except Exception:  # noqa: BLE001
+        pass
 
 # ---------------------------------------------------------------------------
 # Schreib-/Lese-Heuristik
@@ -84,22 +97,168 @@ def _build_tool_name(server_name: str, tool_name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Async-Helfer: sync → async (thread-safe)
+# Server-Lifecycle: EIN dediziertes MCP-Event-Loop (Daemon-Thread) + EIN
+# Owner-Task pro Server.
+#
+# Warum: Das fruehere asyncio.run()-pro-Aufruf oeffnete und schloss je eine
+# eigene Event-Schleife — die stdio-Streams der Server hingen aber an der
+# (laengst geschlossenen) Start-Schleife -> jeder spaetere Aufruf lief bis zum
+# Timeout ins Leere. Zusaetzlich verlangt anyio, dass stdio_client/ClientSession
+# im SELBEN Task betreten und verlassen werden. Deshalb haelt EIN Owner-Task
+# das async-with ueber die gesamte Lebensdauer und bedient eine Queue; sync-
+# Aufrufer reichen (Future, Tool, Args) thread-sicher hinein.
 # ---------------------------------------------------------------------------
 
-def _run_async(coro: Any) -> Any:
-    """Fuehre eine Coroutine aus – funktioniert auch, wenn bereits ein
-    Event-Loop laeuft (z.B. im Bot-Chat-Thread)."""
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        # Kein laufender Loop → einfach asyncio.run()
-        return asyncio.run(coro)
-    else:
-        # Loop laeuft schon → Coroutine in separatem Thread ausfuehren
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(asyncio.run, coro)
-            return future.result()
+_loop: asyncio.AbstractEventLoop | None = None
+_loop_thread: threading.Thread | None = None
+_loop_lock = threading.Lock()
+
+
+def _ensure_loop() -> asyncio.AbstractEventLoop:
+    """Das dedizierte MCP-Loop (lazy, ein Daemon-Thread fuer alle Server)."""
+    global _loop, _loop_thread
+    with _loop_lock:
+        if _loop is not None and _loop.is_running():
+            return _loop
+        loop = asyncio.new_event_loop()
+
+        def _run() -> None:
+            asyncio.set_event_loop(loop)
+            loop.run_forever()
+
+        t = threading.Thread(target=_run, name="mcp-loop", daemon=True)
+        t.start()
+        _loop, _loop_thread = loop, t
+        return loop
+
+
+class _ServerHandle:
+    """Ein dauerhaft laufender MCP-Server hinter einer sync-Fassade."""
+
+    RESPAWN_COOLDOWN = 60.0  # Sekunden zwischen Wiederbelebungs-Versuchen
+
+    def __init__(self, name: str, config: dict) -> None:
+        self.name = name
+        self.config = config
+        self.state = "starting"          # starting | ready | dead
+        self.tools: list[dict] = []
+        self.last_error = ""
+        self._died_at = 0.0
+        self._queue: asyncio.Queue | None = None
+
+    # ---- laeuft komplett im MCP-Loop (EIN Task = ganze Server-Lebensdauer) ----
+    async def _owner(self, ready: concurrent.futures.Future) -> None:
+        cfg = self.config
+        resolved_env = {**os.environ}
+        for k, v in (cfg.get("env") or {}).items():
+            resolved_env[k] = os.getenv(v[1:], "") if isinstance(v, str) and v.startswith("$") else str(v)
+        try:
+            async with McpServer(command=cfg["command"], args=cfg.get("args", []),
+                                 env=resolved_env,
+                                 timeout=float(cfg.get("timeout", 15.0))) as srv:
+                self.tools = await srv.list_tools()
+                self._queue = asyncio.Queue()
+                self.state = "ready"
+                if not ready.done():
+                    ready.set_result(self.tools)
+                while True:
+                    item = await self._queue.get()
+                    if item is None:  # Shutdown-Sentinel
+                        break
+                    fut, tool_name, args = item
+                    try:
+                        res = await srv.call_tool(tool_name, args)
+                        if not fut.done():
+                            fut.set_result(res)
+                    except Exception as e:  # noqa: BLE001 — Fehler zum Aufrufer, Server lebt weiter
+                        if not fut.done():
+                            fut.set_exception(e)
+        except Exception as e:  # noqa: BLE001 — Start/Transport kaputt
+            self.last_error = str(e)[:300]
+            if not ready.done():
+                ready.set_exception(e)
+        finally:
+            was_ready = self.state == "ready"
+            self.state = "dead"
+            self._died_at = time.time()
+            q, self._queue = self._queue, None
+            while q is not None and not q.empty():  # Wartende nicht haengen lassen
+                try:
+                    item = q.get_nowait()
+                except Exception:  # noqa: BLE001
+                    break
+                if item is not None and not item[0].done():
+                    item[0].set_exception(RuntimeError(f"MCP-Server '{self.name}' wurde beendet"))
+            if was_ready:
+                _emit("mcp_server_died", {"server": self.name, "error": self.last_error})
+
+    # ---- sync-Fassade (von Werkzeug-Wrappern aus beliebigen Threads) ----
+    def start(self, wait_s: float | None = None) -> list[dict]:
+        """Owner-Task starten; blockiert bis Handshake+list_tools fertig sind."""
+        loop = _ensure_loop()
+        ready: concurrent.futures.Future = concurrent.futures.Future()
+        self.state = "starting"
+        self.last_error = ""
+        asyncio.run_coroutine_threadsafe(self._owner(ready), loop)
+        # npx laedt beim Kaltstart ggf. erst Pakete -> grosszuegig warten
+        return ready.result(timeout=wait_s or float(self.config.get("timeout", 15.0)) + 45)
+
+    def call(self, tool_name: str, args: dict, timeout: float | None = None) -> dict:
+        if threading.current_thread() is _loop_thread:
+            raise RuntimeError("MCP-Aufruf vom MCP-Loop-Thread selbst — Deadlock-Gefahr, abgebrochen.")
+        if self.state != "ready" or self._queue is None:
+            self._maybe_respawn()
+        q = self._queue
+        if self.state != "ready" or q is None:
+            wait = max(0, int(self.RESPAWN_COOLDOWN - (time.time() - self._died_at)))
+            raise RuntimeError(
+                f"MCP-Server '{self.name}' ist tot ({self.last_error or 'unbekannt'}) — "
+                f"naechster Neustart-Versuch in ~{wait}s")
+        fut: concurrent.futures.Future = concurrent.futures.Future()
+        _ensure_loop().call_soon_threadsafe(q.put_nowait, (fut, tool_name, args))
+        t = timeout or float(self.config.get("timeout", 15.0))
+        return fut.result(timeout=t + 10)
+
+    def _maybe_respawn(self) -> None:
+        """Genau EIN Wiederbelebungs-Versuch pro Cooldown-Fenster."""
+        if self.state != "dead" or time.time() - self._died_at < self.RESPAWN_COOLDOWN:
+            return
+        try:
+            self.start()
+            _emit("mcp_server_restarted", {"server": self.name})
+        except Exception as e:  # noqa: BLE001
+            self.last_error = str(e)[:300]
+            self._died_at = time.time()
+
+    def stop(self) -> None:
+        q = self._queue
+        if q is not None and _loop is not None:
+            _loop.call_soon_threadsafe(q.put_nowait, None)
+
+
+def _coerce_args(kwargs: dict, input_schema: dict) -> dict:
+    """Argumente nach dem echten inputSchema typisieren (fail-soft).
+
+    Kiras tool_schemas() deklariert alle Parameter als String — MCP-Server
+    validieren aber gegen ihr Schema, daher hier die Rueck-Uebersetzung."""
+    props = (input_schema or {}).get("properties", {})
+    out: dict = {}
+    for k, v in kwargs.items():
+        typ = (props.get(k) or {}).get("type")
+        try:
+            if isinstance(v, str):
+                if typ == "integer":
+                    v = int(v)
+                elif typ == "number":
+                    v = float(v)
+                elif typ == "boolean":
+                    v = v.strip().lower() in ("true", "1", "ja", "yes")
+                elif typ in ("object", "array"):
+                    v = json.loads(v)
+        except Exception:  # noqa: BLE001 — im Zweifel Original lassen, Server meldet sauber
+            pass
+        out[k] = v
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -110,15 +269,15 @@ def _call_server_text(server_name: str, tool_name: str, kwargs: dict) -> str:
     """Fuehrt ein MCP-Tool aus und baut die Content-Bloecke zu lesbarem Text zusammen.
 
     Gemeinsamer Pfad fuer Lese-Tools (direkt) und Schreib-Tools (via gate.guarded)."""
-    server = _servers.get(server_name)
-    if server is None:
+    handle = _servers.get(server_name)
+    if handle is None:
         return (
             f"(MCP-Server '{server_name}' laeuft nicht. "
             f"Ist er in data/mcp_servers.json aktiviert?)"
         )
 
     try:
-        result = _run_async(server.call_tool(tool_name, kwargs))
+        result = handle.call(tool_name, kwargs)
     except Exception as e:
         return f"(MCP-Fehler bei {server_name}/{tool_name}: {e})"
 
@@ -149,6 +308,7 @@ def _make_wrapper(
     read_only = not _is_write_tool(tool_name)
 
     def wrapper(**kwargs: Any) -> str:
+        kwargs = _coerce_args(kwargs, input_schema)  # LLM liefert Strings, Server will Typen
         # --- Schreib-Tool: durchs Autonomie-Gate (Ketten ab: ausfuehren + Audit;
         #     nur hard_gate-Arten wie money/email_stranger halten an der Inbox) ---
         if not read_only:
@@ -191,113 +351,131 @@ def _make_wrapper(
 
 
 # ---------------------------------------------------------------------------
-# Server-Lifecycle
+# Bruecken-Aufbau
 # ---------------------------------------------------------------------------
 
-async def bridge_server(server_name: str, config: dict) -> int:
-    """Startet einen MCP-Server und registriert alle seine Tools.
+def bridge_server(server_name: str, config: dict) -> int:
+    """Startet einen MCP-Server (dauerhaft) und registriert seine Tools.
 
-    Args:
-        server_name: Name des Servers (Schluessel in mcp_servers.json)
-        config: Dict mit command, args, env, timeout, enabled
+    Flut-Kontrolle: optionale Allowlist config["tools"] / Denylist config["deny"] —
+    das Manifest geht bei JEDEM LLM-Call mit, ungefilterte Server (GitHub: ~80
+    Tools) wuerden jeden Prompt massiv verteuern.
 
     Returns:
         Anzahl erfolgreich registrierter Tools.
     """
-    command = config["command"]
-    args = config.get("args", [])
-    timeout = float(config.get("timeout", 15.0))
-    raw_env = config.get("env", {})
+    handle = _ServerHandle(server_name, config)
+    tools = handle.start()
+    _servers[server_name] = handle
 
-    # Env-Variablen aufloesen: direkte Werte oder $-Referenzen auf os.environ
-    resolved_env = {**os.environ}
-    for k, v in raw_env.items():
-        if isinstance(v, str) and v.startswith("$"):
-            resolved_env[k] = os.getenv(v[1:], "")
-        else:
-            resolved_env[k] = str(v)
-
-    server = McpServer(
-        command=command,
-        args=args,
-        env=resolved_env,
-        timeout=timeout,
-    )
-
-    await server.start()
-    _servers[server_name] = server
-
-    tools = await server.list_tools()
-
+    allow = set(config.get("tools") or [])
+    deny = set(config.get("deny") or [])
     kind_overrides = config.get("kinds", {})
 
     count = 0
+    skipped = 0
     for tool in tools:
         t_name = tool["name"]
-        t_desc = tool.get("description", "")
-        t_schema = tool.get("inputSchema", {})
-
-        wrapper, params = _make_wrapper(server_name, t_name, t_desc, t_schema,
-                                        kind_overrides=kind_overrides)
-
+        if (allow and t_name not in allow) or t_name in deny:
+            skipped += 1
+            continue
         kira_name = _build_tool_name(server_name, t_name)
-        register(
-            name=kira_name,
-            description=f"[MCP:{server_name}] {t_desc}",
-            func=wrapper,
-            params=params,
-        )
+        if registry.get(kira_name) is not None:
+            # Nie blind ueberschreiben (Re-Bridge nach Respawn ODER Namens-Kollision).
+            # Bestehende Wrapper zeigen per Namens-Lookup ohnehin aufs neue Handle.
+            _tool_registry.setdefault(kira_name, server_name)
+            continue
+
+        t_desc = tool.get("description", "")
+        wrapper, params = _make_wrapper(server_name, t_name, t_desc,
+                                        tool.get("inputSchema", {}),
+                                        kind_overrides=kind_overrides)
+        register(name=kira_name, description=f"[MCP:{server_name}] {t_desc}",
+                 func=wrapper, params=params)
         _tool_registry[kira_name] = server_name
         count += 1
 
+    if skipped:
+        _emit("mcp_tools_skipped", {"server": server_name, "skipped": skipped, "registered": count})
+    if count > 20:
+        _emit("mcp_manifest_warning", {"server": server_name, "count": count,
+                                       "hint": "Allowlist in mcp_servers.json setzen — Manifest-Kosten pro Call"})
     return count
 
 
-async def shutdown_all() -> None:
+def shutdown_all() -> None:
     """Faehrt alle laufenden MCP-Server sauber herunter."""
-    for name, server in list(_servers.items()):
+    for name, handle in list(_servers.items()):
         try:
-            await server.stop()
-        except Exception:
+            handle.stop()
+        except Exception:  # noqa: BLE001
             pass
         del _servers[name]
     _tool_registry.clear()
 
 
+_EXAMPLE_CONFIG = Path(__file__).resolve().parents[3] / "config" / "mcp_servers.example.json"
+
+
 def load_and_bridge(config_path: str = "data/mcp_servers.json") -> dict[str, int]:
     """Laedt die Server-Konfiguration und brueckt alle aktivierten Server.
 
-    Wird beim Bot-Start aufgerufen — bringt alle MCP-Tools in die Registry.
+    Fehlt data/mcp_servers.json (data/ ist gitignored), wird sie aus der
+    versionierten Vorlage config/mcp_servers.example.json geseedet.
 
     Returns:
         {server_name: anzahl_registrierter_tools}
     """
     path = Path(config_path)
     if not path.exists():
-        return {}
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(_EXAMPLE_CONFIG.read_text(encoding="utf-8"), encoding="utf-8")
+        except Exception:  # noqa: BLE001
+            return {}
 
     try:
-        configs = json.loads(path.read_text())
-    except json.JSONDecodeError as e:
-        print(f"[mcp-bridge] Fehler beim Lesen von {config_path}: {e}")
+        configs = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        _emit("mcp_bridge_error", {"error": f"Config unlesbar: {e}"})
+        return {}
+    if not isinstance(configs, dict):
         return {}
 
     results: dict[str, int] = {}
-
-    async def _bridge_all() -> None:
-        for name, cfg in configs.items():
-            if not cfg.get("enabled", True):
-                continue
-            try:
-                count = await bridge_server(name, cfg)
-                results[name] = count
-                print(f"[mcp-bridge] '{name}': {count} Tools registriert")
-            except Exception as e:
-                results[name] = 0
-                print(f"[mcp-bridge] Fehler bei '{name}': {e}")
-
-    _run_async(_bridge_all())
+    for name, cfg in configs.items():
+        if not isinstance(cfg, dict) or not cfg.get("enabled", True):
+            continue
+        try:
+            results[name] = bridge_server(name, cfg)
+        except Exception as e:  # noqa: BLE001 — ein kaputter Server bricht nie die anderen
+            results[name] = 0
+            _emit("mcp_bridge_error", {"server": name, "error": str(e)[:300]})
     return results
+
+
+_init_started = False
+
+
+def init_background() -> None:
+    """Bridge-Aufbau im Hintergrund — MCP-Ausfall darf den Boot NIE bricken.
+
+    Idempotent; in Cockpit, Runner und Bot beim Start aufgerufen. Tools tauchen
+    in der Registry auf, sobald sie bereit sind (Manifest wird pro Call gelesen,
+    spaete Registrierung ist unproblematisch)."""
+    global _init_started
+    if _init_started:
+        return
+    _init_started = True
+
+    def _boot() -> None:
+        try:
+            res = load_and_bridge()
+            _emit("mcp_bridge_ready", {"servers": res})
+        except Exception as e:  # noqa: BLE001
+            _emit("mcp_bridge_error", {"error": str(e)[:300]})
+
+    threading.Thread(target=_boot, name="mcp-bridge-init", daemon=True).start()
 
 
 def server_status() -> dict[str, dict]:
