@@ -18,7 +18,7 @@ import uuid
 from core.config import DB_PATH
 from core.kernel import events
 
-KINDS = ("publish", "external", "email", "evolution", "generic")
+KINDS = ("publish", "external", "email", "email_stranger", "money", "evolution", "generic")
 
 
 def _conn() -> sqlite3.Connection:

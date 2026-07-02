@@ -2,10 +2,12 @@
 Kira-Werkzeuge registrieren.
 
 Jedes MCP-Tool wird mit dem Namenspraefix ``mcp_<server>_<tool>`` registriert.
-Lesende Tools (list/get/read/search/fetch/query/find/show/view/describe/check/
-status/ls/cat) werden DIREKT ausgefuehrt. Alle anderen (create/update/delete/
-write/post/send/deploy/publish/push/commit/merge/put/patch/...) gehen ueber die
-Freigabe-Inbox (request_approval) — niemals direkt.
+Lesende Tools werden DIREKT ausgefuehrt. Schreibende Tools laufen durch das
+Autonomie-Gate (core/governance/gate.py): bei 'Ketten ab' werden sie ausgefuehrt
+und lueckenlos auditiert — NUR geld-bewegende und fremd-mailende Werkzeuge
+(hard_gate) halten an und landen in der Freigabe-Inbox. Die Aktions-Art kommt
+aus einer Namens-Heuristik, pro Server ueberschreibbar via "kinds" in
+data/mcp_servers.json (z.B. {"create_payment_link": "external"}).
 
 Verwendung beim Startup::
 
@@ -41,7 +43,25 @@ _WRITE_VERBS = [
     "deploy", "publish", "push", "commit", "merge", "insert", "upsert",
     "put", "patch", "set", "add", "upload", "execute", "run", "apply",
     "migrate", "sync", "trigger", "invoke",
+    "fork", "star", "dispatch", "enable", "disable", "pause", "restore",
 ]
+
+# Aktions-Art fuers Autonomie-Gate: Namens-Hints. Fehlklassifikation blockt in die
+# SICHERE Richtung (Inbox statt Ausfuehrung); Korrektur-Hebel ist das per-Server
+# "kinds"-Override in mcp_servers.json.
+_MONEY_HINTS = ("payment", "charge", "refund", "payout", "transfer", "invoice",
+                "subscription", "billing", "checkout")
+_EMAIL_HINTS = ("send_email", "send_mail", "send_message", "sendmessage")
+
+
+def _classify_kind(tool_name: str) -> str:
+    """'money' | 'email_stranger' | 'external' — die Gate-Art eines Schreib-Tools."""
+    n = tool_name.lower()
+    if any(h in n for h in _MONEY_HINTS):
+        return "money"
+    if any(h in n for h in _EMAIL_HINTS):
+        return "email_stranger"
+    return "external"
 
 
 def _is_write_tool(name: str) -> bool:
@@ -86,11 +106,39 @@ def _run_async(coro: Any) -> Any:
 # Tool-Wrapper
 # ---------------------------------------------------------------------------
 
+def _call_server_text(server_name: str, tool_name: str, kwargs: dict) -> str:
+    """Fuehrt ein MCP-Tool aus und baut die Content-Bloecke zu lesbarem Text zusammen.
+
+    Gemeinsamer Pfad fuer Lese-Tools (direkt) und Schreib-Tools (via gate.guarded)."""
+    server = _servers.get(server_name)
+    if server is None:
+        return (
+            f"(MCP-Server '{server_name}' laeuft nicht. "
+            f"Ist er in data/mcp_servers.json aktiviert?)"
+        )
+
+    try:
+        result = _run_async(server.call_tool(tool_name, kwargs))
+    except Exception as e:
+        return f"(MCP-Fehler bei {server_name}/{tool_name}: {e})"
+
+    parts: list[str] = []
+    for block in result.get("content", []):
+        if block.get("type") == "text":
+            parts.append(block["text"])
+        else:
+            parts.append(json.dumps(block, ensure_ascii=False))
+    return "\n".join(parts) if parts else (
+        "(leeres Ergebnis)" if not result.get("isError") else f"(Fehler: {result})"
+    )
+
+
 def _make_wrapper(
     server_name: str,
     tool_name: str,
     description: str,
     input_schema: dict,
+    kind_overrides: dict[str, str] | None = None,
 ) -> tuple[Any, dict[str, str]]:
     """Baut eine synchrone Wrapper-Funktion fuer ein MCP-Tool.
 
@@ -101,45 +149,23 @@ def _make_wrapper(
     read_only = not _is_write_tool(tool_name)
 
     def wrapper(**kwargs: Any) -> str:
-        # --- Schreib-Tool: Freigabe-Inbox statt Ausführung ---
+        # --- Schreib-Tool: durchs Autonomie-Gate (Ketten ab: ausfuehren + Audit;
+        #     nur hard_gate-Arten wie money/email_stranger halten an der Inbox) ---
         if not read_only:
-            from core.agency import approvals
+            from core.governance import gate
 
-            aid = approvals.create(
+            kind = (kind_overrides or {}).get(tool_name) or _classify_kind(tool_name)
+            return gate.guarded(
+                kind=kind,
                 title=f"MCP: {server_name}/{tool_name}",
-                kind="external",
                 detail=json.dumps(kwargs, indent=2, ensure_ascii=False),
-                source="kira",
-            )
-            return (
-                f"⚠️  **Schreib-Werkzeug** `{server_name}/{tool_name}` — "
-                f"in die Freigabe-Inbox gelegt (id {aid[:8]}). "
-                f"Wird ausgefuehrt, sobald Sergen freigibt."
+                execute=lambda: _call_server_text(server_name, tool_name, kwargs),
+                target=tool_name,
+                action=_build_tool_name(server_name, tool_name),
             )
 
         # --- Lese-Tool: direkt ausführen ---
-        server = _servers.get(server_name)
-        if server is None:
-            return (
-                f"(MCP-Server '{server_name}' laeuft nicht. "
-                f"Ist er in data/mcp_servers.json aktiviert?)"
-            )
-
-        try:
-            result = _run_async(server.call_tool(tool_name, kwargs))
-        except Exception as e:
-            return f"(MCP-Fehler bei {server_name}/{tool_name}: {e})"
-
-        # Content-Blöcke zu lesbarem Text zusammenbauen
-        parts: list[str] = []
-        for block in result.get("content", []):
-            if block.get("type") == "text":
-                parts.append(block["text"])
-            else:
-                parts.append(json.dumps(block, ensure_ascii=False))
-        return "\n".join(parts) if parts else (
-            "(leeres Ergebnis)" if not result.get("isError") else f"(Fehler: {result})"
-        )
+        return _call_server_text(server_name, tool_name, kwargs)
 
     # --- Parameter aus inputSchema ableiten ---
     params: dict[str, str] = {}
@@ -203,13 +229,16 @@ async def bridge_server(server_name: str, config: dict) -> int:
 
     tools = await server.list_tools()
 
+    kind_overrides = config.get("kinds", {})
+
     count = 0
     for tool in tools:
         t_name = tool["name"]
         t_desc = tool.get("description", "")
         t_schema = tool.get("inputSchema", {})
 
-        wrapper, params = _make_wrapper(server_name, t_name, t_desc, t_schema)
+        wrapper, params = _make_wrapper(server_name, t_name, t_desc, t_schema,
+                                        kind_overrides=kind_overrides)
 
         kira_name = _build_tool_name(server_name, t_name)
         register(
