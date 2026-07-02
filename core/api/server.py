@@ -845,11 +845,17 @@ def api_agents() -> dict:
         skills_total = len(memory.all_skills())
     except Exception:  # noqa: BLE001
         pass
+    doctor_report = None
+    for e in events.recent(500):
+        if e["type"] == "doctor_report":
+            doctor_report = {"ts": e["ts"], **(e.get("payload") or {})}
+            break
     return {
         "organs": [{"name": o, **(last.get(o) or {})} for o in _ORGANS],
         "mcp": mcp,
         "tools_total": len(registry.all_tools()),
         "skills_total": skills_total,
+        "doctor": doctor_report,
     }
 
 

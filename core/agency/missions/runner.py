@@ -348,6 +348,14 @@ def run_forever(interval: int | None = None) -> None:
 
                     res = body.refresh()  # Anatomie-Fakten frisch abschreiben (S5)
                     events.emit("body_refreshed", res)
+                if maintenance.maybe_run("doctor_check", interval_s=7 * 86400):
+                    from core.kernel import doctor
+
+                    rep = doctor.check()  # 0-Token-Selbst-Check (S5.6)
+                    events.emit("doctor_report", {"problems": rep.get("problems", [])[:10],
+                                                  "ok": rep.get("ok")})
+                    if rep.get("problems"):
+                        _notify("🩺 Selbst-Check meldet:\n- " + "\n- ".join(rep["problems"][:5]))
             except Exception as e:  # noqa: BLE001
                 events.emit("maintenance_error", {"error": str(e)})
             try:

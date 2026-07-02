@@ -590,6 +590,10 @@ async function loadAgenten(){try{const d=await (await fetch("/api/agents")).json
  const mk=Object.keys(d.mcp||{});
  h+=mk.length?mk.map(n=>{const st=d.mcp[n];return '<div class="memrow"><div class="mh">'+dot(st.running)+'<b>'+n+'</b><span style="flex:1"></span><span class="muted">'+(st.enabled?"aktiv":"aus")+' &middot; '+(st.tools||0)+' Tools</span></div></div>';}).join(""):'<span class="muted">(keine konfiguriert)</span>';
  h+='<div class="muted" style="margin-top:8px;font-size:12px">'+d.tools_total+' Werkzeuge &middot; '+d.skills_total+' Skills</div>';
+ if(d.doctor){const dr=d.doctor;const okd=dr.ok;
+  h+='<div class="muted" style="font-size:11px;letter-spacing:1px;margin:10px 0 4px">SELBST-CHECK</div>';
+  h+='<div>'+dot(okd)+(okd?'alles gesund':((dr.problems||[]).length+' Problem(e)'))+'</div>';
+  if(!okd)h+='<ul style="margin:4px 0;padding-left:16px;font-size:12px;color:var(--warn)">'+(dr.problems||[]).map(p=>'<li>'+(""+p).replace(/</g,"&lt;")+'</li>').join("")+'</ul>';}
  $("#ag-infra").innerHTML=h;}catch(e){}}
 
 /* ---- Projekte (S5.3b): Venture-Karten + Drilldown ---- */

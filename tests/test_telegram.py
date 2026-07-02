@@ -26,3 +26,24 @@ def test_clean_strips_markdown():
 
     assert _clean("**fett** und __unter__") == "fett und unter"
     assert _clean("kein markdown") == "kein markdown"
+
+
+def test_render_trace_structure():
+    """S5.6: der pure Trace-Renderer — Transkript-Kopf, Denk-Strom, Schritte, Puls."""
+    from core.agency.connectors.telegram_bot import _render_trace
+
+    live = _render_trace("mein memo", "ich denke nach", ["🔧 web_search"], "arbeite", "···", True)
+    assert "🎙️" in live and "mein memo" in live
+    assert "ich denke nach" in live and "web_search" in live
+    assert "arbeite" in live and "···" in live  # Puls-Zeile nur waehrend running
+
+    final = _render_trace(None, "fertig gedacht", [], "egal", "···", False)
+    assert "arbeite" not in final and "···" not in final  # kein Puls mehr am Ende
+    assert "fertig gedacht" in final
+
+
+def test_render_trace_caps_length():
+    from core.agency.connectors.telegram_bot import _render_trace
+
+    out = _render_trace(None, "x" * 5000, [], "p", "·", True)
+    assert len(out) <= 4000  # Telegram-Limit

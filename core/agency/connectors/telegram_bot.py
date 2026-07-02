@@ -285,6 +285,26 @@ _PULSE = ["·", "··", "···", "··"]
 _PULSE_INTERVAL = 1.8  # Sekunden zwischen Edits: gemaechlich = kein Flackern, kein 429
 
 
+def _render_trace(voice_text: str | None, think: str, lines: list[str],
+                  phrase: str, pulse: str, running: bool) -> str:
+    """Reiner Renderer der Live-Trace-Nachricht (pur -> testbar).
+
+    Struktur: Transkript-Kopf (falls Sprachmemo) · voller Denk-Strom · Trenner +
+    Werkzeug-Schritte · EINE bewegte Puls-Zeile unten. Bei Abschluss (running=False)
+    faellt die Puls-Zeile weg -> ruhige Finalisierung."""
+    parts: list[str] = []
+    if voice_text:
+        parts.append("🎙️ «" + voice_text[:160] + "»")
+    if think:
+        parts.append("💭 " + think.strip()[-1400:])
+    if lines:
+        parts.append("─" * 18)
+        parts += lines[-12:]
+    if running:
+        parts.append("🧠 " + phrase + " " + pulse)
+    return ("\n".join(parts))[:4000] or "💭 …"
+
+
 def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: str,
                    voice_text: str | None = None) -> None:
     """Agentischer Chat mit RUHIGER Live-Trace (Denken + Werkzeug-Schritte).
@@ -310,33 +330,25 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
     lock = threading.Lock()
     stop = threading.Event()
 
-    def render() -> str:
-        parts = []
-        if voice_text:
-            parts.append("🎙️ «" + voice_text[:160] + "»")
-        running = not stop.is_set()
-        pulse = _PULSE[state["tick"] % len(_PULSE)]
-        if state["think"]:
-            # VOLLER Denk-Strom (Debug-Sicht) mit Struktur — waechst mit. Bei Abschluss
-            # faellt der Trace ohnehin zu einer schlanken Zeile zusammen -> Verlauf bleibt
-            # sauber, aber live ist alles sichtbar. Kein Puls hier -> nur EIN bewegtes Element.
-            tail = state["think"].strip()[-1400:]
-            parts.append("💭 " + tail)
-        if state["lines"]:
-            parts.append("─" * 18)
-            parts += state["lines"][-12:]
-        if running:
-            # EINE bewegte Zeile unten (Claude-Code-artig): rotierender Spruch + atmende Punkte.
-            parts.append("🧠 " + state["phrase"] + " " + pulse)
-        return ("\n".join(parts))[:4000] or "💭 …"
+    def content_sig() -> str:
+        """Signatur des INHALTS (Denk-Strom + Schritte) — ohne Puls/Spruch. So laesst
+        sich 'nur der Puls hat sich bewegt' von 'echte neue Info' unterscheiden."""
+        return state["think"].strip()[-1400:] + "" + "\n".join(state["lines"][-12:])
 
-    def edit() -> None:
+    def edit(force: bool = False) -> None:
         if not mid:
             return
-        txt = render()
+        running = not stop.is_set()
+        pulse = _PULSE[state["tick"] % len(_PULSE)]
+        txt = _render_trace(voice_text, state["think"], state["lines"], state["phrase"], pulse, running)
         if txt == state["last_render"]:
             return
+        # Reine Puls-Bewegung (kein neuer Inhalt) nur gedrosselt senden -> waehrend Kira
+        # still nachdenkt flackert der Chat nicht bei jedem Takt (Sergens Kernschmerz).
+        if not force and content_sig() == state.get("last_sig") and (state["tick"] % 2 != 0):
+            return
         state["last_render"] = txt
+        state["last_sig"] = content_sig()
         try:
             client.post(f"{API}/editMessageText",
                         json={"chat_id": chat_id, "message_id": mid, "text": txt})
@@ -359,7 +371,8 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
     anim.start()
 
     def on_event(ev: dict) -> None:
-        # Nur Zustand mutieren; das Rendern macht ausschliesslich der Pump.
+        # Zustand mutieren; Denk-Strom rendert der ruhige Pump-Takt, ein NEUER
+        # Werkzeug-Schritt aber sofort (echte Info -> snappy, kein 1,8s-Verzug).
         with lock:
             k = ev["kind"]
             if k == "think":
@@ -367,9 +380,11 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
             elif k == "tool":
                 state["tools"].append(ev["name"])
                 state["lines"].append(_action_label(ev["name"], ev.get("args")))
+                edit(force=True)
             elif k == "obs":
                 if "Fehler" in (ev.get("text") or ""):  # Ergebnis nur bei Fehlern zeigen
                     state["lines"].append("   ⚠️ " + ev["text"][:60])
+                    edit(force=True)
 
     from core.agency.act import act_chat
 
