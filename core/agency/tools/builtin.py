@@ -597,3 +597,5 @@ def harness_report(window: str = "today") -> str:
 from core.agency.tools import venture_tools  # noqa: E402,F401
 # Email-Werkzeuge (S3): senden hinterm Autonomie-Gate, lesen frei.
 from core.agency.tools import mail_tools  # noqa: E402,F401
+# Browser-Aktor (S3): klicken/ausfuellen mit Zahlungsfeld-Stopp + Audit.
+from core.agency.tools import browser as _browser_tools  # noqa: E402,F401

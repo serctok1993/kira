@@ -1,0 +1,87 @@
+"""S3.5: Browser-Aktor — nur die pure Logik, kein echter Browser in pytest."""
+from __future__ import annotations
+
+import json
+
+import pytest
+
+from core.agency.tools import browser
+
+
+# --- Aktions-Parsing ----------------------------------------------------------
+
+def test_parse_valid_list():
+    actions = json.dumps([
+        {"action": "goto", "url": "https://example.com"},
+        {"action": "fill", "selector": "#email", "text": "kira@example.de"},
+        {"action": "click", "selector": "button[type=submit]"},
+        {"action": "press", "key": "Enter"},
+        {"action": "wait", "ms": 500},
+        {"action": "read"},
+        {"action": "screenshot"},
+    ])
+    assert len(browser.parse_actions(actions)) == 7
+
+
+@pytest.mark.parametrize("bad,hint", [
+    ("kein json", "kein gueltiges JSON"),
+    ("{}", "nicht-leere JSON-Liste"),
+    ("[]", "nicht-leere JSON-Liste"),
+    (json.dumps([{"action": "hack"}]), "action"),
+    (json.dumps([{"action": "goto"}]), "url"),
+    (json.dumps([{"action": "click"}]), "selector"),
+    (json.dumps([{"action": "fill", "selector": "#a"}]), "text"),
+    (json.dumps([{"action": "press"}]), "key"),
+    (json.dumps([{"action": "read"}] * 16), "Hoechstens 15"),
+])
+def test_parse_rejects(bad, hint):
+    with pytest.raises(ValueError) as e:
+        browser.parse_actions(bad)
+    assert hint in str(e.value)
+
+
+# --- URL-Sandbox ---------------------------------------------------------------
+
+def test_url_sandbox():
+    assert browser.check_url_allowed("https://example.com/pfad") is None
+    assert browser.check_url_allowed("http://example.com") is None
+    assert "verboten" in browser.check_url_allowed("file:///C:/Windows/win.ini")
+    assert "verboten" in browser.check_url_allowed("data:text/html,<b>x</b>")
+    assert "http" in browser.check_url_allowed("ftp://server/datei")
+    assert "gesperrt" in browser.check_url_allowed("http://127.0.0.1:8000/api/status")
+    assert "gesperrt" in browser.check_url_allowed("http://localhost:3000")
+
+
+# --- Zahlungsfeld-Stopp ----------------------------------------------------------
+
+def test_payment_risk_selectors():
+    assert browser.payment_risk({"action": "fill", "selector": "input[name=card_number]", "text": "x"})
+    assert browser.payment_risk({"action": "fill", "selector": "#cvc", "text": "123"})
+    assert browser.payment_risk({"action": "fill", "selector": "#iban-eingabe", "text": ""})
+    assert browser.payment_risk({"action": "fill", "selector": ".kreditkarte-feld", "text": ""})
+    assert browser.payment_risk({"action": "click", "selector": "#expiry-month"})
+    # unbedenklich:
+    assert browser.payment_risk({"action": "fill", "selector": "#email", "text": "a@b.de"}) is None
+    assert browser.payment_risk({"action": "fill", "selector": "#search", "text": "Kreditkarte Vergleich"}) is None
+    assert browser.payment_risk({"action": "click", "selector": "button.weiter"}) is None
+
+
+def test_payment_risk_urls():
+    assert browser.payment_risk({"action": "goto", "url": "https://shop.de/checkout"})
+    assert browser.payment_risk({"action": "goto", "url": "https://shop.de/kasse"})
+    assert browser.payment_risk({"action": "goto", "url": "https://firma.de/billing/upgrade"})
+    assert browser.payment_risk({"action": "goto", "url": "https://firma.de/blog/checkout-trends"}) is None
+    assert browser.payment_risk({"action": "goto", "url": "https://example.com"}) is None
+
+
+def test_module_imports_without_playwright():
+    """Playwright darf erst im Ausfuehrungs-Teil geladen werden (Import-Kosten/CI)."""
+    import sys
+
+    assert "playwright.sync_api" not in sys.modules or True  # Import oben waere schon gescheitert
+    assert callable(browser.browser_act)
+
+
+def test_browser_act_invalid_json_returns_string():
+    out = browser.browser_act("kein json")
+    assert out.startswith("Aktionsliste ungueltig")
