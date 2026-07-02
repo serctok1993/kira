@@ -48,6 +48,36 @@ def test_no_double_backslash_quote_in_onclick():
     assert "\\\\'" not in html, "doppeltes Backslash-vor-Quote — raw-String-Escaping-Bug zurueck!"
 
 
+def test_no_rawstring_escape_corruption():
+    """S5.3a-Regression: die UI-Extraktion in raw-strings darf keine Python-Escapes
+    (\\' \\") als doppelte Backslashes einfrieren — das brach das gesamte Cockpit-JS
+    (Tabs unklickbar). Diese Signatur ('\\\\'' / '\\\\\"') darf nirgends im JS stehen."""
+    html = _page()
+    js = html[html.find("<script>"):html.rfind("</script>")]
+    assert "\\\\'" not in js, "kaputte raw-string-Escape-Sequenz \\\\' im JS!"
+    assert '\\\\"' not in js, 'kaputte raw-string-Escape-Sequenz \\\\" im JS!'
+
+
+def test_js_syntax_valid_if_node_present():
+    """Wenn node da ist: echter Syntax-Check des zusammengesetzten Cockpit-JS.
+    Offline-tolerant — ohne node wird der Check uebersprungen (kein CI-Zwang)."""
+    import shutil
+    import subprocess
+    import tempfile
+
+    node = shutil.which("node")
+    if not node:
+        import pytest
+        pytest.skip("node nicht installiert")
+    html = _page()
+    js = html[html.find("<script>") + len("<script>"):html.rfind("</script>")]
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False, encoding="utf-8") as f:
+        f.write(js)
+        path = f.name
+    r = subprocess.run([node, "--check", path], capture_output=True, text=True)
+    assert r.returncode == 0, f"Cockpit-JS Syntaxfehler:\n{r.stderr[:400]}"
+
+
 def test_phrases_injected():
     html = _page()
     assert "__PHRASES__" not in html  # Server-Injektion hat gegriffen
