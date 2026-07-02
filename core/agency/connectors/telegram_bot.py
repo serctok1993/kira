@@ -343,7 +343,20 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
                 client.post(f"{API}/editMessageText",
                             json={"chat_id": chat_id, "message_id": mid, "text": done[:4000]})
             else:
-                client.post(f"{API}/deleteMessage", json={"chat_id": chat_id, "message_id": mid})
+                # Transkript-/Trace-Nachricht restlos entfernen. Wichtig: Ergebnis PRUEFEN —
+                # ein still scheiterndes Loeschen laesst das Sprachmemo-Transkript stehen
+                # und sprengt den Chat (Sergens Kernschmerz). Fallback: kollabieren.
+                r = client.post(f"{API}/deleteMessage",
+                                json={"chat_id": chat_id, "message_id": mid})
+                ok = False
+                try:
+                    ok = bool(r.json().get("ok"))
+                except Exception:  # noqa: BLE001
+                    pass
+                if not ok:
+                    events.emit("telegram_cleanup_failed", {"message_id": mid})
+                    client.post(f"{API}/editMessageText",
+                                json={"chat_id": chat_id, "message_id": mid, "text": "🎙️ ✓"})
         except Exception:
             pass
 

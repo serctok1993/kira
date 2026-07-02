@@ -38,11 +38,18 @@ _ACT_RE = re.compile(r"ACT\s+([a-zA-Z_]\w*)\s*\{")
 
 
 def _identity() -> str:
+    try:
+        from core.mind.agent import _body_compact
+
+        koerper = _body_compact()
+    except Exception:  # noqa: BLE001
+        koerper = ""
     return (
         f"# DEINE VERFASSUNG\n{_read('constitution.md')}\n\n"
         f"# DEINE SEELE\n{_read('SOUL.md')}\n\n"
         f"# DEIN ZIEL\n{_read('GOAL.md')}\n\n"
-        f"{PERSONA_DIRECTIVE}"
+        + (f"# DEIN KOERPER (Details: read_file(\"core/mind/BODY.md\"))\n{koerper}\n\n" if koerper else "")
+        + f"{PERSONA_DIRECTIVE}"
     )
 
 

@@ -29,12 +29,9 @@ kein generischer Assistent.
 # WAS DU WIRKLICH KANNST (echtes Selbstwissen)
 - DAUERHAFTES semantisches Gedaechtnis ueber Sitzungen hinweg — sag NIE "jede Sitzung ist
   frisch" oder "ich speichere nichts". Wichtige Fakten sicherst du gezielt mit remember_fact.
-- HAENDE auf diesem PC: Web suchen & lesen, Dateien/Ordner lesen, schreiben, anlegen, dir
-  EIGENE Python-Werkzeuge bauen, Shell/Code/Tests AUSFUEHREN (run_command: ausfuehren ->
-  Ausgabe lesen -> selbst korrigieren), deinen EIGENEN Code aendern (self_edit), Grosses
-  erst planen (Plan-Modus). Nutze das auch MITTEN IM GESPRAECH: Aktuelles (News, Preise,
-  Wetter, Webseiten) SIEHST du NACH (web_search/web_fetch) — du raetst nicht und
-  behauptest nichts ins Blaue.
+- HAENDE auf diesem PC — deine Anatomie steht unter "DEIN KOERPER" (Details in BODY.md).
+  Nutze sie auch MITTEN IM GESPRAECH: Aktuelles (News, Preise, Wetter, Webseiten) SIEHST
+  du NACH (web_search/web_fetch) — du raetst nicht und behauptest nichts ins Blaue.
 - Sergens SPRACHMEMOS werden dir automatisch transkribiert — du "hoerst" ihn. Sag nie
   "ich kann dich nicht hoeren".
 - Du arbeitest autonom an deiner Mission und meldest dich per Telegram. Der Not-Aus stoppt
@@ -70,11 +67,22 @@ keine Floskeln. Emojis sparsam fuer Waerme (🙂🔥💡). SPARSAM **fett** fuer
 am Zeilenanfang. Klar und aufgeraeumt, nicht ueberladen."""
 
 
+def _body_compact() -> str:
+    """Kompakt-Kopf aus BODY.md (Anatomie-Selbstwissen, S5) — fail-soft."""
+    try:
+        from core.mind import body
+
+        return body.compact()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def build_system_prompt(user_message: str, session_id: str | None = None) -> str:
     constitution = _read("constitution.md")
     soul = _read("SOUL.md")
     goal = _read("GOAL.md")
     user = _read("USER.md")
+    koerper = _body_compact()
     recalled = memory.recall(user_message, limit=6, exclude_session=session_id)
     if recalled:
         mem_block = "\n".join(f"- ({m['role']}) {m['text']}" for m in recalled)
@@ -98,6 +106,9 @@ def build_system_prompt(user_message: str, session_id: str | None = None) -> str
 
 # DEIN PARTNER (mit wem du arbeitest)
 {user}
+
+# DEIN KOERPER (Anatomie dieses Harness — Details: read_file("core/mind/BODY.md"))
+{koerper}
 
 # DEINE GELERNTEN LEKTIONEN (aus eigener Reflexion)
 {lessons_block}

@@ -17,7 +17,7 @@ from core.config import DATA_DIR, MIND_DIR
 from core.kernel import events, llm_router
 from core.mind.agent import _read
 
-MUTABLE = {"SOUL.md", "GOAL.md"}
+MUTABLE = {"SOUL.md", "GOAL.md", "BODY.md"}  # BODY: Erzaehl-Teile via Freigabe; den AUTO-Block schreibt body.refresh()
 HISTORY_DIR = MIND_DIR / "history"
 PROPOSAL_DIR = DATA_DIR / "proposals"
 

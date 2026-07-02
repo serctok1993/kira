@@ -33,12 +33,22 @@ def test_persona_size_budget():
 
 def test_persona_keeps_all_rules():
     p = PERSONA_DIRECTIVE
-    for marker in ("Kira", "weiblich", "Basismodell", "remember_fact", "self_edit",
-                   "run_command", "web_search", "SPRACHMEMOS", "Not-Aus",
+    for marker in ("Kira", "weiblich", "Basismodell", "remember_fact",
+                   "web_search", "SPRACHMEMOS", "Not-Aus",
                    "Ketten ab", "FREMDE", "GELD", "Audit", "read_file", "Get-Content",
                    "db_query", "read_logs", "WINDOWS", "/work", "/plan",
                    "Sternchen", "KNAPP"):
         assert marker in p, f"Regel-Marker fehlt nach Trim: {marker}"
+
+
+def test_persona_plus_body_cover_capabilities():
+    """Faehigkeits-Selbstwissen (self_edit, run_command ...) ist nach S5.2 in den
+    BODY-Kopf umgezogen — Persona + BODY zusammen muessen es tragen."""
+    from core.mind import body
+
+    combined = PERSONA_DIRECTIVE + body.compact()
+    for marker in ("self_edit", "run_command", "BODY.md"):
+        assert marker in combined, f"Faehigkeits-Marker fehlt im Verbund: {marker}"
 
 
 # --- Lektionen-Curator ----------------------------------------------------------

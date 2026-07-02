@@ -343,6 +343,11 @@ def run_forever(interval: int | None = None) -> None:
                     n = _mem.backfill_embeddings()
                     if n:
                         events.emit("embed_backfill", {"count": n})
+                if maintenance.maybe_run("body_refresh"):
+                    from core.mind import body
+
+                    res = body.refresh()  # Anatomie-Fakten frisch abschreiben (S5)
+                    events.emit("body_refreshed", res)
             except Exception as e:  # noqa: BLE001
                 events.emit("maintenance_error", {"error": str(e)})
             try:
