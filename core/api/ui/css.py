@@ -240,4 +240,26 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
  body::after{animation:none}
 }
 .subview{display:none}.subview.on{display:block}
+/* ===== S5.3c · Motion-Politur (Huly-Anspruch: Physik vor Quantitaet) ===== */
+.view.on .panel{animation:panein .42s cubic-bezier(.16,.84,.28,1) backwards}
+.view.on .panel:nth-of-type(2){animation-delay:.05s}
+.view.on .panel:nth-of-type(3){animation-delay:.1s}
+.view.on .mgrid .panel:nth-child(2){animation-delay:.07s}
+@keyframes panein{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+.memrow,.op{animation:rowin .26s ease backwards}
+@keyframes rowin{from{opacity:0;transform:translateX(-4px)}to{opacity:1;transform:none}}
+.memrow{transition:border-color .18s,transform .18s}
+.memrow:hover{border-color:color-mix(in srgb,var(--hud) 35%,var(--line));transform:translateX(2px)}
+.seg a{transition:background .16s,color .16s}
+#side a{transition:color .16s,background .16s,padding-left .16s}
+#side a:hover{padding-left:14px}
+#log{scroll-behavior:smooth}
+.panel-h{transition:color .18s}
+@media (prefers-reduced-motion: reduce){
+ .view.on .panel,.memrow,.op{animation:none}
+ .memrow:hover{transform:none}
+ #side a:hover{padding-left:inherit}
+ #log{scroll-behavior:auto}
+}
+
 </style>"""

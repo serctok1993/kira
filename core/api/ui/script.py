@@ -11,8 +11,9 @@ function rndPhrase(){if(PHRASES.length<2)return PHRASES[0]||"ich denke kurz nach
  _lastPhrase=p;return p;}
 let cur="home";
 $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
-function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
- $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");
+function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
+ $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");};
+ if(document.startViewTransition&&!matchMedia("(prefers-reduced-motion: reduce)").matches){document.startViewTransition(go);}else{go();}
  if(v==="home")loadCommand(); if(v==="mission")loadMission(); if(v==="chat"){loadChatModels();loadChatSessions();} if(v==="system")syst(sysCur); if(v==="leben")loadLeben(); if(v==="agenten")loadAgenten();}
 
 /* ---- System-Bereich: Sub-Tabs (Modelle/Gewissen/Cron/Monitor/Zugaenge/Gedaechtnis/Dateien/Protokoll) ---- */
