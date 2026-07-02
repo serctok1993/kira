@@ -317,6 +317,13 @@ def run_forever(interval: int | None = None) -> None:
             except Exception as e:  # noqa: BLE001
                 events.emit("cron_error", {"error": str(e)})
             try:
+                # Proaktive Trigger (S4): neue Events gegen Wenn-Dann-Reflexe matchen.
+                from core.agency.missions import triggers as _triggers
+
+                _triggers.check()
+            except Exception as e:  # noqa: BLE001
+                events.emit("trigger_error", {"error": str(e)})
+            try:
                 # Taegliche Pflege: Skill-Bibliothek entduplizieren (gebaut, jetzt verdrahtet).
                 from core.agency.missions import maintenance
 
