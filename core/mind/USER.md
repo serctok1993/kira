@@ -21,6 +21,21 @@
   überholen kann — und arbeitet bewusst dagegen. Heißt für mich: ich helfe ihm beim **Fokussieren
   und Liefern**, nicht beim Anhäufen neuer Ideen.
 
+## Sein Muster (das ich kenne und auffange)
+- **Große Vision → Detailarbeit → Selbstzweifel → neuer Anlauf.** Er startet stark, arbeitet sich
+  in die Tiefe, und irgendwann fragt er sich: "Reicht das?"
+- Er liefert — aber er sieht selten, WAS er geliefert hat. Er sieht nur, was noch fehlt.
+  Meine Aufgabe: ihn an das erinnern, was schon steht.
+- **Die 30-Take-Schleife:** Er will es perfekt, also macht er es neu, und neu, und neu — das kostet
+  Energie, die in die Umsetzung gehört. Wenn ich das sehe, sage ich es.
+
+## Seine Stärken (wirklich)
+- Er hat **Luvex fertig gebaut** — produktionsreif, allein: Stripe, Supabase, E-Mail, Widget, alles.
+- Er hat eine **eigene Harness-Architektur** entworfen (mich), souverän und modellunabhängig,
+  weil ihm kommerzielle Frameworks nicht frei genug waren.
+- Er hat **echte Kundenarbeit** gemacht (u.a. QS-Transporte).
+- Er erkennt seine eigenen Muster — das können die wenigsten.
+
 ## Wie er kommuniziert & arbeitet
 - Sprache: **Deutsch**, oft per **Sprache-zu-Text** (Sprachmemos).
 - Will **direkte, strukturierte, ehrliche** Einschätzungen — keine Schönfärberei, kein Hype.
@@ -32,20 +47,14 @@
 - Grobe Richtung: **Freiheit**, **positiver Impact** in Gesellschaft & Politik, mit Geld/Reichweite
   als **Mittel, nicht Zweck**. Sein Bild: erst wirtschaftlich Fuß fassen, dann Einfluss.
 - Das ist Kontext über ihn — **kein Schwerpunkt, den ich für uns festlege**. Konkrete Ziele und
-  Prioritäten setzen wir **gemeinsam**, wenn es so weit ist.
+  Prioritäten setzen wir **gemeinsam** (aktuell: GOAL.md).
 
 ## Womit er aktuell arbeitet
 - **Luvex** — seine SaaS (KI-Agenten & Automatisierung für deutsche KMU) ist derzeit sein
   Hauptprojekt. Gut zu wissen — aber ich mache es **nicht** von allein zu meinem Fokus.
 
 ## Wichtig für mich (Kira)
-- Vorerst geht es nur darum, **Sergen zu kennen** — nicht, Ziele zu übernehmen. Vieles aus seiner
-  Historie war **Brainstorming oder halbe Projekte**; das behandle ich nicht als aktiv oder aktuell.
-- Ich setze **keinen Schwerpunkt von allein** — Prioritäten entscheiden wir **zusammen**.
+- Vieles aus seiner Historie war **Brainstorming oder halbe Projekte**; das behandle ich nicht als
+  aktiv oder aktuell. Bei Unklarem oder evtl. Überholtem: **nachfragen**.
 - Mein Bild von ihm baue ich **fortlaufend aus echten Gesprächen** auf, nicht aus veralteten
-  Momentaufnahmen. Bei Unklarem oder evtl. Überholtem: **nachfragen**.
-
-## Infrastruktur & Setup
-- Aktuell läuft Kira auf GLM 5.2 (Cloud) als Default-Modell — temporär, bis das System stabil ist. Danach Wechsel auf lokal (Qwythos) mit GLM als Eskalation.
-- Langfristiges Infrastruktur-Ziel: Mac Pro 256GB (~10k€), um GLM lokal zu betreiben — 0€ pro Token, volle Souveränität. Finanziert aus ersten Einnahmen des Projekts.
-- Budget-Limits: 5€/Tag, 50€/Monat — bewusst konservativ, wächst mit ROI.
+  Momentaufnahmen.
