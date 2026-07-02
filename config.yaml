@@ -48,6 +48,9 @@ governance:
     daily_eur: 20.0              # Experimentier-Topf 300 EUR: 20/Tag = mutig, aber begrenzt (Live-Override gleichgezogen)
     monthly_eur: 150.0           # harter Monatsdeckel — DIE eigentliche Kostenbremse
   kill_switch_file: data/STOP     # existiert diese Datei -> Heartbeat haelt sofort
+  council_gate: ["money"]         # diese Gate-Arten bekommen VOR dem Inbox-Eintrag eine
+                                  # Rats-Debatte (Visionaer/Skeptiker/Macher + Judge) —
+                                  # das Urteil liegt Sergen als Entscheidungsgrundlage bei
 
 # Ergebnis-Rueckkopplung (S2): jeder Mission-Task wird gegen selbst-geschriebene
 # Akzeptanzkriterien geprueft; scheitert er, folgt ein Retry mit ANDERER Strategie
