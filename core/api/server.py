@@ -587,7 +587,8 @@ async def api_objectives_add(body: dict) -> dict:
     oid = objectives.add(title, kind=body.get("kind", "weekly"),
                          parent_id=body.get("parent_id") or None,
                          target_date=body.get("target_date") or None,
-                         notes=body.get("notes") or None)
+                         notes=body.get("notes") or None,
+                         domain=body.get("domain") or "business")
     events.emit("objective_add", {"id": oid, "title": title, "kind": body.get("kind", "weekly"), "via": "dashboard"})
     return {"ok": True, "id": oid}
 
@@ -597,7 +598,8 @@ async def api_objectives_update(body: dict) -> dict:
     from core.agency.missions import objectives
 
     oid = body.get("id", "")
-    fields = {k: body[k] for k in ("title", "kind", "status", "progress", "target_date", "notes", "parent_id") if k in body}
+    fields = {k: body[k] for k in ("title", "kind", "status", "progress", "target_date",
+                                   "notes", "parent_id", "domain", "venture_id") if k in body}
     if "progress" in fields and fields["progress"] is not None:
         try:
             fields["progress"] = max(0, min(100, int(fields["progress"])))
@@ -632,6 +634,41 @@ async def api_objectives_plan(body: dict) -> dict:
         mqueue.add(t, mission=_mission_name(), priority=int(body.get("priority", 3)), objective_id=oid)
     events.emit("objective_planned", {"id": oid, "tasks": tasks})
     return {"ok": True, "tasks": tasks}
+
+
+# ---------- Lebens-Ebene: Todos, Ziele, Metriken (S5) ----------
+@app.get("/api/life/board")
+def api_life_board() -> dict:
+    from core.agency.missions import objectives, queue as mqueue
+
+    objectives.init_objectives()
+    mqueue.init_queue()
+    return {"objectives": objectives.list_active(domain="leben"),
+            "board": mqueue.board("leben")}
+
+
+@app.get("/api/metrics")
+def api_metrics(name: str = "", days: int = 90) -> dict:
+    from core.agency.missions import metrics
+
+    if name.strip():
+        return {"name": name.strip().lower(), "series": metrics.series(name, days=days)}
+    return {"latest": metrics.latest(), "names": metrics.names()}
+
+
+@app.post("/api/metrics/log")
+async def api_metrics_log(body: dict) -> dict:
+    from core.agency.missions import metrics
+
+    name = (body.get("name") or "").strip()
+    try:
+        value = float(str(body.get("value")).replace(",", "."))
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "value braucht eine Zahl"}
+    if not name:
+        return {"ok": False, "error": "name fehlt"}
+    metrics.log(name, value, note=body.get("note") or None)
+    return {"ok": True}
 
 
 # ---------- Ventures: Standbeine mit eigenem Konto-Buch (S3) ----------

@@ -157,8 +157,18 @@ def _notify(text: str) -> None:
 def run_job(job: dict, notify: bool = True) -> dict:
     from core.agency.act import act
 
+    prompt = job["prompt"]
+    if "{{standup}}" in prompt:
+        # S5: Briefings/Coach lesen echte Boards (Leben, Ziele, Ventures, Metriken)
+        # statt zu raten — der Platzhalter wird pro Lauf frisch expandiert.
+        try:
+            from core.agency.missions import standup
+
+            prompt = prompt.replace("{{standup}}", standup.build_context(scope=job.get("label", "cron")))
+        except Exception:  # noqa: BLE001
+            prompt = prompt.replace("{{standup}}", "(Lagebericht nicht verfuegbar)")
     try:
-        r = act(job["prompt"], session_id=f"cron-{job['id']}", escalate=job.get("escalate", False),
+        r = act(prompt, session_id=f"cron-{job['id']}", escalate=job.get("escalate", False),
                 task_type="bulk")  # einfache Crons -> lokal (0 EUR); escalate-Crons gehen weiter zu GLM
         summary = (r.get("text") or "").strip()[:300]
         ok = True

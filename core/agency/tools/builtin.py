@@ -601,3 +601,5 @@ from core.agency.tools import mail_tools  # noqa: E402,F401
 from core.agency.tools import browser as _browser_tools  # noqa: E402,F401
 # Proaktive Trigger (S4): Wenn-Dann-Reflexe auf Events.
 from core.agency.tools import trigger_tools  # noqa: E402,F401
+# Lebens-Ebene (S5): Todos, Ziele, Metriken — Kiras Coach-Griff.
+from core.agency.tools import life_tools  # noqa: E402,F401

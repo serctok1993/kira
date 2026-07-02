@@ -228,7 +228,9 @@ def run_once(escalate: bool = False) -> dict:
         # und verknuepfe die Tasks (objective_id) -> der Fortschritt fuellt sich automatisch.
         from core.agency.missions import objectives as _obj
         _obj.init_objectives()
-        actives = [o for o in _obj.list_all(include_done=False) if o.get("status") == "active"]
+        # S5: nur Business-Ziele werden vom Heartbeat gegrindet — Lebens-Ziele
+        # (domain='leben') laufen ueber Coach/Briefings, nie automatisch.
+        actives = _obj.list_active(domain="business")
         target = _pick_objective(actives)
         if target:
             plan_goal = (f"AKTIVES ZIEL (arbeite konkret hierauf hin): {target['title']}"

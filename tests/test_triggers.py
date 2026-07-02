@@ -17,6 +17,7 @@ def _setup(monkeypatch, tmp_path):
     events.init_db()
     queue.init_queue()
     triggers.check()  # erster Lauf: nur Basislinie setzen
+    time.sleep(0.02)  # Uhr-Aufloesung: Folge-Events muessen NACH der Basislinie liegen
 
 
 def test_add_list_remove_roundtrip(monkeypatch, tmp_path):
