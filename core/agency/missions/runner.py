@@ -74,11 +74,21 @@ def _notify(text: str) -> None:
         events.emit("notify_error", {"error": str(e)})
 
 
+_KIND_RANK = {"weekly": 0, "monthly": 1, "big": 2}
+
+
 def _pick_objective(actives: list[dict]) -> dict | None:
-    """Waehlt das naechste aktive Ziel: naechste Faelligkeit zuerst, dann geringster Fortschritt."""
+    """Waehlt das naechste aktive Ziel (S6.3: Blaetter zuerst).
+
+    Eltern mit aktiven Kind-Zielen werden uebersprungen — gearbeitet wird an den
+    Kindern, der Eltern-Fortschritt folgt daraus. Innerhalb des Rangs (weekly <
+    monthly < big): naechste Faelligkeit zuerst, dann geringster Fortschritt."""
     if not actives:
         return None
     import datetime as _dt
+
+    parents_with_children = {o["parent_id"] for o in actives if o.get("parent_id")}
+    candidates = [o for o in actives if o["id"] not in parents_with_children] or actives
 
     def _key(o: dict):
         td = o.get("target_date")
@@ -86,9 +96,9 @@ def _pick_objective(actives: list[dict]) -> dict | None:
             days = (_dt.date.fromisoformat(td) - _dt.date.today()).days if td else 9999
         except Exception:  # noqa: BLE001
             days = 9999
-        return (days, o.get("progress", 0))
+        return (_KIND_RANK.get(o.get("kind"), 1), days, o.get("progress", 0))
 
-    return sorted(actives, key=_key)[0]
+    return sorted(candidates, key=_key)[0]
 
 
 def _outcomes_enabled() -> bool:
@@ -232,6 +242,26 @@ def run_once(escalate: bool = False) -> dict:
         # (domain='leben') laufen ueber Coach/Briefings, nie automatisch.
         actives = _obj.list_active(domain="business")
         target = _pick_objective(actives)
+        if target and target.get("kind") in ("big", "monthly"):
+            # S6.3: ein grosses Ziel ohne aktive Wochen-Kinder wird (max. 1x pro Woche)
+            # in Wochen-Ziele zerlegt — danach arbeitet der Tick am ersten Blatt.
+            try:
+                from core.agency.missions import maintenance as _maint
+
+                if not _obj.children(target["id"]) \
+                        and _maint.maybe_run(f"decompose_{target['id']}", interval_s=7 * 86400):
+                    weeklies = planner.propose_weekly_objectives(target, _context(), escalate=escalate)
+                    for w in weeklies:
+                        _obj.add(w["title"], kind="weekly", parent_id=target["id"],
+                                 target_date=w.get("target_date"),
+                                 domain=target.get("domain") or "business",
+                                 venture_id=target.get("venture_id"))
+                    if weeklies:
+                        events.emit("objective_decomposed",
+                                    {"parent": target["title"], "children": len(weeklies)})
+                        target = _pick_objective(_obj.list_active(domain="business"))
+            except Exception as e:  # noqa: BLE001
+                events.emit("decompose_error", {"error": str(e)[:200]})
         if target:
             plan_goal = (f"AKTIVES ZIEL (arbeite konkret hierauf hin): {target['title']}"
                          + (f"\n{target['notes']}" if target.get("notes") else "")
@@ -365,6 +395,22 @@ def run_forever(interval: int | None = None) -> None:
                     lessons = _ins.weekly_lessons()  # Outcome-Muster -> Lektionen (S6.2)
                     if lessons:
                         events.emit("insights_lessons", {"count": len(lessons)})
+                if maintenance.maybe_run("stall_check", interval_s=86400):
+                    # S6.3: festgefahrene Ziele erkennen -> Freigabe-Eintrag statt stilles Grinden.
+                    from core.agency import insights as _ins2
+
+                    for o in _ins2.stalled_objectives(days=5):
+                        if maintenance.maybe_run(f"stall_{o['id']}", interval_s=7 * 86400):
+                            from core.agency import approvals as _appr
+
+                            _appr.create(
+                                f"Ziel steckt fest: {o['title'][:70]}",
+                                kind="generic", source="kira",
+                                detail=(f"Seit ~{o['idle_days']} Tagen kein erledigter Task "
+                                        f"(Fortschritt {o['progress']}%).\n"
+                                        "Vorschlag: Ziel teilen, Ansatz wechseln (Pivot) oder "
+                                        "pausieren — entscheide im Cockpit oder im Chat."))
+                            events.emit("objective_stalled", {"id": o["id"], "title": o["title"][:120]})
                 if maintenance.maybe_run("doctor_check", interval_s=7 * 86400):
                     from core.kernel import doctor
 

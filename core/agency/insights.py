@@ -198,3 +198,23 @@ def weekly_lessons(days: int = 7) -> list[str]:
     if lessons:
         events.emit("insights_weekly", {"lessons": len(lessons[:3]), "attempts": pat["attempts"]})
     return lessons[:3]
+
+
+def stalled_objectives(days: int = 5) -> list[dict]:
+    """Aktive Business-Ziele ohne erledigten Task seit `days` Tagen (S6.3).
+
+    Zu junge Ziele (juenger als `days`) bekommen noch kein Urteil. Ergebnis
+    traegt idle_days fuer den Freigabe-Eintrag ('Ziel steckt fest')."""
+    from core.agency.missions import objectives
+
+    now = time.time()
+    cutoff = now - days * 86400
+    out: list[dict] = []
+    for o in objectives.list_active(domain="business"):
+        if float(o.get("ts") or now) > cutoff:
+            continue  # zu jung fuer ein Stall-Urteil
+        la = objectives.last_activity(o["id"])
+        if la is None or la < cutoff:
+            idle = (now - la) / 86400 if la else (now - float(o["ts"])) / 86400
+            out.append({**o, "last_activity": la, "idle_days": round(idle, 1)})
+    return out

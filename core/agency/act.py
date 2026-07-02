@@ -382,6 +382,49 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
     return final
 
 
+def _resolve_objective_token(text: str) -> tuple[str, str | None]:
+    """Erkennt '@ziel:<id-praefix-oder-titel-teil>' im /work-Text (S6.3) und loest es
+    gegen die aktiven Ziele auf: erst id-Praefix, dann Titel-Teiltreffer (case-insensitiv).
+    Mehrdeutig oder kein Treffer -> keine Verknuepfung. Liefert (Text ohne Token, oid|None)."""
+    m = re.search(r"@ziel:(\S+)", text, flags=re.IGNORECASE)
+    if not m:
+        return text, None
+    token = m.group(1).strip().rstrip(",.;:")
+    cleaned = (text[:m.start()] + text[m.end():]).strip()
+    try:
+        from core.agency.missions import objectives
+
+        actives = objectives.list_active()
+    except Exception:  # noqa: BLE001
+        return cleaned, None
+    hits = [o for o in actives if o["id"].startswith(token)]
+    if not hits:
+        low = token.lower()
+        hits = [o for o in actives if low in (o.get("title") or "").lower()]
+    return cleaned, (hits[0]["id"] if len(hits) == 1 else None)
+
+
+def _book_work_result(oid: str | None, desc: str, result: str) -> None:
+    """/work-Ergebnis als erledigten Task aufs Ziel buchen (S6.3): Chat-Arbeit zaehlt
+    damit im Ziel-Fortschritt und landet im Arbeitsstand (workingset)."""
+    if not oid or not result:
+        return
+    try:
+        from core.agency.missions import queue, workingset
+        from core.config import CONFIG
+
+        queue.init_queue()
+        tid = queue.add(f"[chat/work] {desc[:180]}",
+                        mission=CONFIG.get("mission", {}).get("name", "default"),
+                        objective_id=oid, kind="produce")
+        queue.complete(tid, result[:4000])
+        first = (result.strip().splitlines() or [""])[0]
+        workingset.append(oid, f"[chat] {desc[:80]} -> {first[:120]}")
+        events.emit("work_booked", {"objective_id": oid, "task_id": tid})
+    except Exception as e:  # noqa: BLE001
+        events.emit("work_book_error", {"error": str(e)[:200]})
+
+
 def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, escalate: bool = False, on_event=None) -> str:
     """Konversationeller, agentischer Chat: Gedaechtnis + Persona + Werkzeuge.
 
@@ -413,8 +456,11 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     # Arbeits-Modus: /work bzw. work: -> volles Task-Budget (viele Schritte, Claude-Code-Stil).
     # Sonst knapper Chat-Deckel -> normaler Dialog laeuft nicht in einen langen Tool-Sturm.
     work_mode = _s.lower().startswith(("/work", "work:"))
+    work_objective = None
     if work_mode:
         user_message = re.sub(r"^(/work|work:)\s*", "", _s, flags=re.IGNORECASE).strip() or _s
+        # S6.3: '@ziel:<praefix|titel-teil>' verknuepft die Arbeit mit einem Ziel.
+        user_message, work_objective = _resolve_objective_token(user_message)
     step_ceiling = _MAX_STEPS if work_mode else _MAX_STEPS_CHAT
 
     messages = [
@@ -429,6 +475,7 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
         text = _native_loop(messages, system, session_id, escalate, emit, max_steps=step_ceiling, task_type="chat")
         memory.remember(text, role="partner", session_id=session_id)
         events.emit("partner_message", {"text": text, "agentic": True}, session_id=session_id)
+        _book_work_result(work_objective, user_message, text)
         emit({"kind": "final", "text": text})
         return text
 
@@ -459,6 +506,7 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
         if not call:
             memory.remember(text, role="partner", session_id=session_id)
             events.emit("partner_message", {"text": text, "agentic": True}, session_id=session_id)
+            _book_work_result(work_objective, user_message, text)
             emit({"kind": "final", "text": text})
             return text
         name, args = call
@@ -481,6 +529,7 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
     text = res["text"].strip()
     memory.remember(text, role="partner", session_id=session_id)
     events.emit("partner_message", {"text": text, "agentic": True}, session_id=session_id)
+    _book_work_result(work_objective, user_message, text)
     emit({"kind": "final", "text": text})
     return text
 

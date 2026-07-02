@@ -140,3 +140,21 @@ def list_active(domain: str | None = None) -> list[dict]:
     if domain:
         out = [o for o in out if o.get("domain") == domain]
     return out
+
+
+def children(oid: str, active_only: bool = True) -> list[dict]:
+    """Kind-Ziele eines Ziels (parent_id-Verkettung) — S6.3: Blatt-Erkennung."""
+    src = list_active() if active_only else list_all()
+    return [o for o in src if o.get("parent_id") == oid]
+
+
+def last_activity(oid: str) -> float | None:
+    """Zeitstempel des juengsten ERLEDIGTEN Tasks zu diesem Ziel (Stall-Erkennung, S6.3)."""
+    with _conn() as c:
+        try:
+            row = c.execute(
+                "SELECT MAX(updated_ts) FROM tasks WHERE objective_id=? AND status='done'", (oid,)
+            ).fetchone()
+        except sqlite3.OperationalError:
+            return None
+    return float(row[0]) if row and row[0] else None
