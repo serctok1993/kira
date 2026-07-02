@@ -326,6 +326,19 @@ def run_forever(interval: int | None = None) -> None:
                     curator.curate_skills()
             except Exception as e:  # noqa: BLE001
                 events.emit("maintenance_error", {"error": str(e)})
+            try:
+                # Stripe-Einnahmen alle 6h ins Venture-Konto-Buch ziehen (rein lesend).
+                from core.agency.missions import maintenance
+
+                if maintenance.maybe_run("stripe_sync", interval_s=6 * 3600):
+                    from core.agency.connectors import stripe_sync
+
+                    res = stripe_sync.sync()
+                    if res.get("booked"):
+                        _notify(f"💶 Stripe: {res['booked']} neue Zahlung(en), "
+                                f"+{res['total_eur']:.2f} EUR im Konto-Buch.")
+            except Exception as e:  # noqa: BLE001
+                events.emit("stripe_sync_error", {"error": str(e)})
 
             if heartbeat_on():
                 out = run_once()
