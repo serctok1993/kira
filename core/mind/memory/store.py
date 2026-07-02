@@ -327,3 +327,37 @@ def all_skills() -> list[dict]:
     with _conn() as c:
         rows = c.execute("SELECT id, text FROM memory WHERE kind = 'skill' ORDER BY ts DESC").fetchall()
     return [{"id": r[0], "text": r[1]} for r in rows]
+
+
+def all_lessons() -> list[dict]:
+    """Alle Lektionen (id + text) — fuer den Curator (S4: Lektionen wachsen sonst unbegrenzt)."""
+    with _conn() as c:
+        rows = c.execute("SELECT id, text FROM memory WHERE kind = 'lesson' ORDER BY ts DESC").fetchall()
+    return [{"id": r[0], "text": r[1]} for r in rows]
+
+
+def backfill_embeddings(limit: int = 200) -> int:
+    """Alt-Eintraege ohne Embedding nachvektorisieren (lokal, 0 EUR) -> Anzahl.
+
+    Ohne Embedding faellt recall() fuer diese Eintraege auf Stichwort/Recency
+    zurueck — der Backfill macht das Gedaechtnis vollstaendig semantisch."""
+    import json
+
+    try:
+        from core.mind.memory.embed import embed
+    except Exception:  # noqa: BLE001
+        return 0
+    with _conn() as c:
+        rows = c.execute("SELECT id, text FROM memory WHERE embedding IS NULL LIMIT ?", (limit,)).fetchall()
+    done = 0
+    for mid, text in rows:
+        try:
+            v = embed(text)
+        except Exception:  # noqa: BLE001
+            break
+        if not v:
+            break  # Embedder gerade nicht verfuegbar -> naechster Wartungslauf
+        with _conn() as c:
+            c.execute("UPDATE memory SET embedding=? WHERE id=?", (json.dumps(v), mid))
+        done += 1
+    return done

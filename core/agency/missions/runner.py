@@ -324,6 +324,16 @@ def run_forever(interval: int | None = None) -> None:
                     from core.mind import curator
 
                     curator.curate_skills()
+                if maintenance.maybe_run("curate_lessons"):
+                    from core.mind import curator
+
+                    curator.curate_lessons()
+                if maintenance.maybe_run("embed_backfill", interval_s=7 * 86400):
+                    from core.mind.memory import store as _mem
+
+                    n = _mem.backfill_embeddings()
+                    if n:
+                        events.emit("embed_backfill", {"count": n})
             except Exception as e:  # noqa: BLE001
                 events.emit("maintenance_error", {"error": str(e)})
             try:
