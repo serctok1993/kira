@@ -261,5 +261,24 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
  #side a:hover{padding-left:inherit}
  #log{scroll-behavior:auto}
 }
+/* ===== S6.4 · Toasts, WS-Statuspunkt, Burger + mobiles Seitenmenue ===== */
+#toasts{position:fixed;right:16px;bottom:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:min(360px,90vw)}
+.toast{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--hud);border-radius:8px;
+ padding:9px 13px;font-size:12.5px;color:var(--ink);box-shadow:0 6px 24px rgba(0,0,0,.45);animation:toastin .22s ease}
+.toast.err{border-left-color:var(--danger)} .toast.ok{border-left-color:var(--ok)}
+.toast.out{opacity:0;transform:translateY(6px);transition:opacity .38s,transform .38s}
+@keyframes toastin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+#ws-dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--muted)}
+#ws-dot.on{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+#ws-dot.off{background:var(--danger);box-shadow:0 0 8px var(--danger)}
+#burger{display:none;cursor:pointer;font-size:18px;color:var(--ink);user-select:none;line-height:1}
+@media(max-width:900px){
+ #burger{display:inline-block}
+ #side{position:fixed;z-index:1000;top:0;bottom:0;left:0;transform:translateX(-100%);transition:transform .24s ease}
+ body.side-open #side{transform:none;box-shadow:0 0 40px rgba(0,0,0,.6)}
+ .cmd-grid{grid-template-columns:1fr!important}
+ .view{padding:12px}
+}
+@media (prefers-reduced-motion: reduce){#side{transition:none}.toast{animation:none}}
 
 </style>"""

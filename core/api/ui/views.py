@@ -23,9 +23,11 @@ VIEWS = r"""</head><body>
 </div>
 <div id="main">
   <div id="bar">
+    <a id="burger" title="Menue">☰</a>
     <span class="live"></span>
     <span id="pulse" class="pulse">…</span>
     <span style="flex:1"></span>
+    <span id="ws-dot" class="off" title="Chat-Verbindung"></span>
     <span class="muted"><b id="b-model">…</b></span>
     <span class="muted">heute <b id="b-spend">…</b></span>
     <span id="b-kill"></span>

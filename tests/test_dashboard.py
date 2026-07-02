@@ -140,6 +140,25 @@ def test_inbox_buttons_have_doubleclick_guard():
     assert 'x.disabled=true' in html
 
 
+def test_ui_v3_robustness_markers():
+    """S6.4: Toasts + Fetch-Wrapper + EIN Poll-Scheduler + WS-Backoff + mobiles Menue."""
+    html = _page()
+    for marker in ("function toast(", "async function J(", "function pollTick(",
+                   "visibilitychange", "wsDelay", 'id="burger"', 'id="ws-dot"',
+                   "@media(max-width:900px)"):
+        assert marker in html, f"S6.4-Marker fehlt: {marker}"
+
+
+def test_single_poll_scheduler_no_naked_intervals():
+    """Der alte 5s-setInterval-Hammer ist raus — Polling laeuft ueber pollTick (Backoff+Pause).
+    Erlaubt bleibt nur der UI-lokale thinkTimer im Chat."""
+    html = _page()
+    js = html[html.find("<script>"):html.rfind("</script>")]
+    assert "setInterval(()=>{refreshStatus" not in js
+    assert "setInterval(updatePulse" not in js
+    assert js.count("setInterval(") <= 1  # nur thinkTimer
+
+
 def test_ws_roundtrip_contract(monkeypatch):
     """Pinnt den WS-Vertrag {role, kind: think|tool|obs|final, done} VOR jedem Restyling."""
     import core.agency.act as act_mod

@@ -4,6 +4,17 @@ SCRIPT = r"""<script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 /* Zentrales HTML-Escaping: JEDER dynamische Anzeigetext geht hier durch (XSS-Wache). */
 function esc(x){return (""+(x==null?"":x)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+/* ---- S6.4: Toast-Fehlerflaeche + Fetch-Wrapper J() (Fehler werden SICHTBAR, nicht stumm verschluckt) ---- */
+function toast(msg,kind){let box=$("#toasts");if(!box){box=document.createElement("div");box.id="toasts";document.body.appendChild(box);}
+ const t=document.createElement("div");t.className="toast"+(kind==="err"?" err":kind==="ok"?" ok":"");t.textContent=msg;box.appendChild(t);
+ setTimeout(()=>{t.classList.add("out");setTimeout(()=>t.remove(),400);},kind==="err"?5200:2600);}
+let pollFails=0;
+async function J(url,opts){try{const r=await fetch(url,opts);
+  if(!r.ok){pollFails++;let d=null;try{d=await r.clone().json();}catch(e){}
+   if(r.status!==409)toast((d&&(d.error||d.detail))||("Fehler "+r.status+" bei "+url.split("?")[0]),"err");
+   const e=new Error("http "+r.status);e.status=r.status;e.data=d;throw e;}
+  pollFails=0;return await r.json();
+ }catch(e){if(e.status===undefined){pollFails++;toast("Netzwerkfehler: "+url.split("?")[0],"err");}throw e;}}
 /* Kiras Denk-Sprueche (eine Quelle, beim Ausliefern injiziert) */
 const PHRASES=[/*__PHRASES__*/];
 let _lastPhrase="";
@@ -12,7 +23,9 @@ function rndPhrase(){if(PHRASES.length<2)return PHRASES[0]||"ich denke kurz nach
  while(p===_lastPhrase&&g++<8)p=PHRASES[Math.floor(Math.random()*PHRASES.length)];
  _lastPhrase=p;return p;}
 let cur="home";
-$$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
+$$("#side a").forEach(a=>a.onclick=()=>{nav(a.dataset.v);document.body.classList.remove("side-open");});
+/* S6.4: mobiles Seitenmenue ein-/ausklappen */
+$("#burger")&&($("#burger").onclick=()=>document.body.classList.toggle("side-open"));
 function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");};
  if(document.startViewTransition&&!matchMedia("(prefers-reduced-motion: reduce)").matches){document.startViewTransition(go);}else{go();}
@@ -238,7 +251,7 @@ async function loadDigest(){const el=$("#digest");if(!el)return;
   el.innerHTML=h;
  }catch(e){}}
 
-async function refreshStatus(){const s=await (await fetch("/api/status")).json();
+async function refreshStatus(){let s;try{s=await J("/api/status");}catch(e){return null;}  // Backoff via pollFails in J()
  $("#who").textContent=s.partner.toLowerCase()+" · cockpit";
  $("#b-model").textContent=s.model;
  $("#b-spend").textContent="$"+s.spend_usd_today+((s.budget&&s.budget.day_limit!=null)?(" / "+s.budget.day_limit+"€"):"");
@@ -262,8 +275,10 @@ function startThinking(){stopThinking();thinkEl=document.createElement("div");th
 function stopThinking(){if(thinkTimer){clearInterval(thinkTimer);thinkTimer=null;}
  if(thinkEl){thinkEl.remove();thinkEl=null;}}
 const proto=location.protocol==="https:"?"wss":"ws";
-let ws,curBot,curThink,thinkBuf,curSid=null,wsIntentional=false;
+let ws,curBot,curThink,thinkBuf,curSid=null,wsIntentional=false,wsDelay=1000;
+function wsDot(ok){const d=$("#ws-dot");if(d){d.classList.toggle("on",ok);d.classList.toggle("off",!ok);d.title=ok?"Chat verbunden":"Chat getrennt — verbinde neu";}}
 function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/chat"+(curSid?("?sid="+encodeURIComponent(curSid)):"");ws=new WebSocket(url);
+ ws.onopen=()=>{wsDelay=1000;wsDot(true);};
  function ensureTrace(){if(!curThink){thinkBuf="";curThink=document.createElement("div");curThink.className="think show";
     curThink.innerHTML='<span class="h">💭 Denken &amp; Aktionen (klick zum Ein-/Ausklappen)</span><div class="c"></div>';
     curThink.querySelector(".h").onclick=()=>curThink.classList.toggle("show");log.appendChild(curThink);}return curThink;}
@@ -275,7 +290,7 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
   if(m.kind==="tool"){ensureTrace();thinkBuf+="\n🔧 "+m.name+" "+JSON.stringify(m.args);traceSet();return;}
   if(m.kind==="obs"){ensureTrace();thinkBuf+="\n   ✓ "+(m.text||"").slice(0,120);traceSet();return;}
   if(m.kind==="final"||m.kind==="answer"){stopThinking();const b=add("","bot");b.textContent=(m.text||"").replace(/\*\*/g,"");log.scrollTop=log.scrollHeight;}};
- ws.onclose=()=>{if(!wsIntentional)setTimeout(connect,1500);};}
+ ws.onclose=()=>{wsDot(false);if(!wsIntentional){wsDelay=Math.min(wsDelay*2,30000);setTimeout(connect,wsDelay);}};}
 function reconnect(){wsIntentional=true;if(ws){try{ws.close();}catch(e){}}connect();}
 function relTime(ts){const s=Date.now()/1000-ts;if(s<90)return "gerade";if(s<3600)return Math.round(s/60)+" Min";if(s<86400)return Math.round(s/3600)+" Std";return Math.round(s/86400)+" Tg";}
 async function loadChatSessions(){const sel=$("#sess-list");if(!sel)return;
@@ -550,7 +565,7 @@ async function updatePulse(){try{const es=await (await fetch("/api/events?limit=
   if(!es.length){el.textContent="Leerlauf";return;}
   const fresh=(Date.now()/1000 - es[0].ts) < 50;
   el.textContent=fresh?pulsePhrase(es[0]):"Leerlauf — bereit";}catch(e){}}
-updatePulse();setInterval(updatePulse,3500);
+updatePulse();
 
 /* ---- Direktive (Startseite) ---- */
 $("#dir-now")&&($("#dir-now").onclick=async()=>{const p=$("#dir-text").value.trim();if(!p)return;
@@ -689,6 +704,26 @@ $("#rd-scan")&&($("#rd-scan").onclick=async()=>{$("#rd-hint").textContent="… s
  $("#rd-hint").textContent=r.error?("Fehler: "+r.error):("Scan fertig — "+(r.found||0)+" neue Chance(n).");loadRadar();});
 
 refreshStatus();loadCommand();
-setInterval(()=>{refreshStatus();if(cur==="system"&&sysCur==="log"&&logRaw.length<=100)loadEvents();if(cur==="system"&&sysCur==="gov")loadGov();if(cur==="home"){loadHud();loadOps();loadNeeds();}},5000);
-setInterval(()=>{if(cur==="home")loadNews();},30000);
+/* ---- S6.4: EIN Poll-Scheduler statt zweier nackter setInterval ----
+   - pausiert bei document.hidden (kein Polling im Hintergrund-Tab)
+   - Backoff x2 bis 60s bei Fehler-Serien (pollFails), sofort zurueck auf 5s bei Erfolg
+   - sofortiger Refresh, wenn der Tab wieder sichtbar wird */
+let _pollN=0,_pollTimer=null;
+function pollTick(){
+ if(_pollTimer){clearTimeout(_pollTimer);_pollTimer=null;}  // nie zwei Schleifen parallel
+ if(!document.hidden){
+   updatePulse();
+   refreshStatus();
+   if(cur==="system"&&sysCur==="log"&&logRaw.length<=100)loadEvents();
+   if(cur==="system"&&sysCur==="gov")loadGov();
+   if(cur==="home"){loadHud();loadOps();loadNeeds();}
+   if(cur==="home"&&(_pollN%6===0))loadNews();  // News seltener (~alle 30s)
+   _pollN++;
+ }
+ const base=document.hidden?15000:5000;
+ const delay=Math.min(base*Math.pow(2,Math.min(pollFails,4)),60000);  // Backoff bei Fehler-Serien
+ _pollTimer=setTimeout(pollTick,delay);
+}
+_pollTimer=setTimeout(pollTick,5000);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden){pollFails=0;pollTick();}});
 </script></body></html>"""
