@@ -10,3 +10,11 @@ data/
 .pytest_cache/
 node_modules/
 .next/
+
+# Kiras Scratch-Artefakte (Recherche-Downloads, Wegwerf-Skripte, Evolution-Backups)
+page.html
+qs_home.html
+headers.txt
+tmp_hue_register.json
+test_mcp_*.py
+core/mind/history/*.bak
