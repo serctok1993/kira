@@ -595,3 +595,5 @@ def harness_report(window: str = "today") -> str:
 
 # Venture-Werkzeuge (S3) registrieren — Import genuegt (Decorator-Registry).
 from core.agency.tools import venture_tools  # noqa: E402,F401
+# Email-Werkzeuge (S3): senden hinterm Autonomie-Gate, lesen frei.
+from core.agency.tools import mail_tools  # noqa: E402,F401

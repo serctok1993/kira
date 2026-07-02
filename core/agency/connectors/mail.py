@@ -1,0 +1,148 @@
+"""Mail-Konnektor: Kiras eigene Email-Identitaet (S3).
+
+Eigenes Postfach nur fuer Kira (Sergens Entscheidung): Senden via SMTP (oder
+Resend-API, falls Key gesetzt), Empfangen via IMAP — alles stdlib + httpx,
+provider-agnostisch. Config: config.yaml channels.email; Zugangsdaten kommen
+aus dem Secrets-Tresor (SMTP_USER/SMTP_PASS bzw. RESEND_API_KEY, IMAP nutzt
+die SMTP-Zugangsdaten).
+
+Gate-Regel (siehe mail_tools): Mails an Sergens eigene Adressen fliessen frei,
+Mails an FREMDE laufen als 'email_stranger' in die Freigabe-Inbox.
+"""
+from __future__ import annotations
+
+import email as _email
+import email.header
+import imaplib
+import os
+import smtplib
+from email.message import EmailMessage
+
+from core.config import CONFIG
+
+
+def _cfg() -> dict:
+    c = CONFIG.get("channels", {}).get("email", {})
+    return c if isinstance(c, dict) else {}
+
+
+def enabled() -> bool:
+    return bool(_cfg().get("enabled"))
+
+
+def provider() -> str:
+    """'resend' | 'smtp' — via Config erzwingbar, sonst nach vorhandenem Key."""
+    forced = str(_cfg().get("provider", "auto")).lower()
+    if forced in ("resend", "smtp"):
+        return forced
+    return "resend" if os.getenv("RESEND_API_KEY") else "smtp"
+
+
+def is_stranger(to: str) -> bool:
+    """Fremde Adresse? Alles, was NICHT in own_addresses steht (case-insensitive)."""
+    own = {str(a).strip().lower() for a in (_cfg().get("own_addresses") or [])}
+    return (to or "").strip().lower() not in own
+
+
+def send(to: str, subject: str, body: str) -> str:
+    """Mail senden. Fehlende Zugaenge -> klarer Hinweis-String (nie Exception)."""
+    if not enabled():
+        return ("Email ist noch nicht eingerichtet (channels.email.enabled=false). "
+                "Sergen legt das Postfach an; Zugaenge via request_secret anfragen.")
+    if provider() == "resend":
+        return _send_resend(to, subject, body)
+    return _send_smtp(to, subject, body)
+
+
+def _send_resend(to: str, subject: str, body: str) -> str:
+    key = os.getenv("RESEND_API_KEY")
+    if not key:
+        return "RESEND_API_KEY fehlt — mit request_secret('RESEND_API_KEY', ...) anfragen."
+    sender = _cfg().get("from_address") or ""
+    if not sender:
+        return "channels.email.from_address fehlt in config.yaml."
+    import httpx
+
+    r = httpx.post("https://api.resend.com/emails",
+                   headers={"Authorization": f"Bearer {key}"},
+                   json={"from": sender, "to": [to], "subject": subject, "text": body},
+                   timeout=20)
+    if r.status_code >= 400:
+        return f"Resend-Fehler {r.status_code}: {r.text[:200]}"
+    return f"Gesendet an {to}: {subject}"
+
+
+def _send_smtp(to: str, subject: str, body: str) -> str:
+    cfg = _cfg()
+    host, port = cfg.get("smtp_host") or "", int(cfg.get("smtp_port") or 587)
+    user, pw = os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
+    sender = cfg.get("from_address") or user or ""
+    if not (host and user and pw):
+        return ("SMTP-Zugaenge fehlen — smtp_host in config.yaml setzen und "
+                "request_secret('SMTP_USER'/'SMTP_PASS', ...) anfragen.")
+    msg = EmailMessage()
+    msg["From"], msg["To"], msg["Subject"] = sender, to, subject
+    msg.set_content(body)
+    with smtplib.SMTP(host, port, timeout=30) as s:
+        s.starttls()
+        s.login(user, pw)
+        s.send_message(msg)
+    return f"Gesendet an {to}: {subject}"
+
+
+def _decode(value: str | None) -> str:
+    """MIME-kodierte Header (=?utf-8?...) lesbar machen."""
+    if not value:
+        return ""
+    parts = []
+    for text, charset in _email.header.decode_header(value):
+        parts.append(text.decode(charset or "utf-8", errors="replace") if isinstance(text, bytes) else text)
+    return "".join(parts)
+
+
+def _parse_message(raw: bytes, snippet_chars: int = 400) -> dict:
+    """Rohe Mail -> {from, subject, date, snippet}. Pur und offline testbar."""
+    msg = _email.message_from_bytes(raw)
+    snippet = ""
+    if msg.is_multipart():
+        for part in msg.walk():
+            if part.get_content_type() == "text/plain" and not part.get("Content-Disposition"):
+                payload = part.get_payload(decode=True) or b""
+                snippet = payload.decode(part.get_content_charset() or "utf-8", errors="replace")
+                break
+    else:
+        payload = msg.get_payload(decode=True) or b""
+        snippet = payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
+    return {
+        "from": _decode(msg.get("From")),
+        "subject": _decode(msg.get("Subject")),
+        "date": msg.get("Date") or "",
+        "snippet": " ".join(snippet.split())[:snippet_chars],
+    }
+
+
+def check(limit: int = 10) -> list[dict] | str:
+    """Die juengsten Mails aus dem Posteingang (IMAP). Fehler -> Hinweis-String."""
+    if not enabled():
+        return "Email ist noch nicht eingerichtet (channels.email.enabled=false)."
+    cfg = _cfg()
+    host, port = cfg.get("imap_host") or "", int(cfg.get("imap_port") or 993)
+    user, pw = os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
+    if not host:
+        return "IMAP ist nicht konfiguriert (channels.email.imap_host) — nur Senden moeglich."
+    if not (user and pw):
+        return "Postfach-Zugaenge fehlen — request_secret('SMTP_USER'/'SMTP_PASS', ...) anfragen."
+    try:
+        with imaplib.IMAP4_SSL(host, port) as m:
+            m.login(user, pw)
+            m.select("INBOX", readonly=True)
+            _, data = m.search(None, "ALL")
+            ids = (data[0] or b"").split()
+            out = []
+            for mid in reversed(ids[-limit:]):
+                _, msg_data = m.fetch(mid, "(RFC822)")
+                if msg_data and msg_data[0]:
+                    out.append(_parse_message(msg_data[0][1]))
+            return out
+    except Exception as e:  # noqa: BLE001 — Fehler-String statt Raise (executor-Regel)
+        return f"IMAP-Fehler: {e}"

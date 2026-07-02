@@ -90,3 +90,16 @@ channels:
     allowed_chat_id: 7037806562   # Sergens Chat (nur er darf mit Kira reden)
     voice: true               # Sprachmemos lokal transkribieren
     whisper_model: base       # tiny | base | small | medium  (CPU, 0 EUR)
+  # Kiras EIGENES Postfach (S3): Sergen legt es an, Zugaenge in den Secrets-Tresor
+  # (SMTP_USER/SMTP_PASS; IMAP nutzt dieselben). Mails an own_addresses laufen frei,
+  # an Fremde stoppt das email_stranger-Gate an der Freigabe-Inbox.
+  email:
+    enabled: false            # an, sobald Postfach + Zugaenge da sind
+    provider: auto            # auto | smtp | resend
+    from_address: ""          # Kiras Absender-Adresse
+    own_addresses:            # Sergens Adressen -> kein Fremd-Gate
+      - serc.tok1993@gmail.com
+    smtp_host: ""
+    smtp_port: 587
+    imap_host: ""
+    imap_port: 993
