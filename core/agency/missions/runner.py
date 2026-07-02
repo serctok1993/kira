@@ -235,6 +235,19 @@ def run_once(escalate: bool = False) -> dict:
                          + (f"\n{target['notes']}" if target.get("notes") else "")
                          + f"\n\nUEBERGEORDNETE MISSION:\n{goal}")
             oid = target["id"]
+            if target.get("venture_id"):
+                # Unternehmer-Kontext: Kira plant mit Blick auf Kasse + Meilenstein (ROI statt Aktivitaet).
+                try:
+                    from core.agency import ventures as _ventures
+
+                    v = _ventures.get(target["venture_id"])
+                    if v:
+                        plan_goal = (f"VENTURE: {v['name']} — {v.get('hypothesis') or ''} "
+                                     f"(Kasse: {_ventures.balance(v['id']):.2f} EUR"
+                                     + (f", Meilenstein {v['milestone_eur']:.0f} EUR" if v.get("milestone_eur") else "")
+                                     + ")\n" + plan_goal)
+                except Exception as e:  # noqa: BLE001
+                    events.emit("venture_context_error", {"error": str(e)[:200]})
             ws = workingset.render(oid)
             if ws:  # Plaene bauen auf dem Stand auf, statt Erledigtes neu zu planen
                 plan_goal += f"\n\nARBEITSSTAND ZUM ZIEL (nichts davon wiederholen):\n{ws}"

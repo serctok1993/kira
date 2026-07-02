@@ -629,6 +629,73 @@ async def api_objectives_plan(body: dict) -> dict:
     return {"ok": True, "tasks": tasks}
 
 
+# ---------- Ventures: Standbeine mit eigenem Konto-Buch (S3) ----------
+@app.get("/api/ventures")
+def api_ventures() -> dict:
+    from core.agency import ventures
+
+    return {"ventures": ventures.summary()}
+
+
+@app.post("/api/ventures")
+async def api_ventures_add(body: dict) -> dict:
+    from core.agency import ventures
+
+    name = (body.get("name") or "").strip()
+    if not name:
+        return {"ok": False, "error": "leer"}
+    ms = body.get("milestone_eur")
+    try:
+        ms = float(ms) if ms not in (None, "") else None
+    except (TypeError, ValueError):
+        ms = None
+    vid = ventures.add(name, hypothesis=body.get("hypothesis") or "",
+                       milestone_eur=ms, notes=body.get("notes") or None)
+    return {"ok": True, "id": vid}
+
+
+@app.post("/api/ventures/update")
+async def api_ventures_update(body: dict) -> dict:
+    from core.agency import ventures
+
+    vid = body.get("id", "")
+    fields = {k: body[k] for k in ("name", "status", "hypothesis", "milestone_eur", "notes") if k in body}
+    return {"ok": ventures.update(vid, **fields)}
+
+
+@app.get("/api/ventures/ledger")
+def api_ventures_ledger(id: str) -> dict:
+    from core.agency import ventures
+
+    return {"ledger": ventures.ledger(id), "balance": ventures.balance(id)}
+
+
+@app.post("/api/ventures/book")
+async def api_ventures_book(body: dict) -> dict:
+    """Buchung via Dashboard — gleiche Regel wie das ledger_book-Werkzeug:
+    Ausgaben ueber record_spend (Budget + Ledger), Einnahmen direkt."""
+    from core.agency import ventures
+    from core.governance import treasury
+
+    vid = body.get("id", "")
+    direction = body.get("direction", "")
+    try:
+        amount = float(body.get("amount_eur", 0))
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "amount_eur braucht eine Zahl"}
+    if amount <= 0 or direction not in ("in", "out") or not ventures.get(vid):
+        return {"ok": False, "error": "id/direction/amount pruefen"}
+    note = body.get("note") or ""
+    if direction == "out":
+        ok, why = treasury.can_spend(amount)
+        if not ok:
+            return {"ok": False, "error": why}
+        treasury.record_spend(amount, note or "Ausgabe via Dashboard", category="venture", venture_id=vid)
+    else:
+        ventures.book(vid, "in", amount, category="venture", note=note)
+    return {"ok": True, "balance": ventures.balance(vid)}
+
+
 # ---------- Freigabe-Inbox + Tages-Digest (Phase 2) ----------
 def _pending_proposals() -> list[dict]:
     """Offene SOUL/GOAL-Selbstaenderungs-Vorschlaege als Inbox-Eintraege (kind=evolution)."""

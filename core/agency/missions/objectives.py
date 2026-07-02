@@ -41,24 +41,29 @@ def init_objectives() -> None:
             """
         )
         c.execute("CREATE INDEX IF NOT EXISTS idx_obj_parent ON objectives(parent_id, status)")
+        try:
+            c.execute("ALTER TABLE objectives ADD COLUMN venture_id TEXT")  # Ziel gehoert zu einem Venture (S3)
+        except sqlite3.OperationalError:
+            pass
 
 
 def add(title: str, kind: str = "weekly", parent_id: str | None = None,
-        target_date: str | None = None, notes: str | None = None) -> str:
+        target_date: str | None = None, notes: str | None = None,
+        venture_id: str | None = None) -> str:
     oid = uuid.uuid4().hex
     kind = kind if kind in KINDS else "weekly"
     now = time.time()
     with _conn() as c:
         c.execute(
-            "INSERT INTO objectives (id, ts, kind, title, parent_id, status, target_date, notes, updated_ts) "
-            "VALUES (?,?,?,?,?, 'active', ?, ?, ?)",
-            (oid, now, kind, title.strip(), parent_id, target_date, notes, now),
+            "INSERT INTO objectives (id, ts, kind, title, parent_id, status, target_date, notes, updated_ts, venture_id) "
+            "VALUES (?,?,?,?,?, 'active', ?, ?, ?, ?)",
+            (oid, now, kind, title.strip(), parent_id, target_date, notes, now, venture_id),
         )
     return oid
 
 
 def update(oid: str, **fields) -> bool:
-    allowed = {"title", "kind", "parent_id", "status", "progress", "target_date", "notes"}
+    allowed = {"title", "kind", "parent_id", "status", "progress", "target_date", "notes", "venture_id"}
     sets, params = [], []
     for k, v in fields.items():
         if k in allowed:
@@ -100,7 +105,7 @@ def _task_progress(oid: str) -> tuple[int, int]:
 def list_all(include_done: bool = True) -> list[dict]:
     with _conn() as c:
         rows = c.execute(
-            "SELECT id, ts, kind, title, parent_id, status, progress, target_date, notes "
+            "SELECT id, ts, kind, title, parent_id, status, progress, target_date, notes, venture_id "
             "FROM objectives ORDER BY "
             "CASE kind WHEN 'big' THEN 0 WHEN 'monthly' THEN 1 ELSE 2 END, ts ASC"
         ).fetchall()
@@ -115,6 +120,6 @@ def list_all(include_done: bool = True) -> list[dict]:
         out.append({
             "id": r[0], "ts": r[1], "kind": r[2], "title": r[3], "parent_id": r[4],
             "status": r[5], "progress": int(prog), "target_date": r[7], "notes": r[8],
-            "tasks_done": done, "tasks_total": total,
+            "venture_id": r[9], "tasks_done": done, "tasks_total": total,
         })
     return out

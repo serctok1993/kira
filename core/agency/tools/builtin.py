@@ -592,3 +592,6 @@ def harness_report(window: str = "today") -> str:
         f"- LLM-Latenz: avg {lat_avg:.2f}s | max {lat_max:.2f}s\n"
         f"- Neustart-Signale: restart_deferred_fired={restart_def} | turn_timeout={turn_to} | tool_calls_recovered={tool_rec}"
     )
+
+# Venture-Werkzeuge (S3) registrieren — Import genuegt (Decorator-Registry).
+from core.agency.tools import venture_tools  # noqa: E402,F401

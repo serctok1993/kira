@@ -64,6 +64,19 @@ def can_spend(amount: float) -> tuple[bool, str]:
     return True, "ok"
 
 
-def record_spend(amount: float, reason: str, category: str = "misc") -> str:
-    """Eine getaetigte Ausgabe verbuchen (z.B. Ads, API, Tools)."""
-    return events.emit("spend", {"amount": float(amount), "reason": reason, "category": category})
+def record_spend(amount: float, reason: str, category: str = "misc",
+                 venture_id: str | None = None) -> str:
+    """Eine getaetigte Ausgabe verbuchen (z.B. Ads, API, Tools).
+
+    Der EINZIGE Schreibpfad fuer Ausgaben: das spend-Event traegt das globale Budget,
+    venture_id bucht dieselbe Ausgabe zusaetzlich ins Venture-Konto-Buch (Projekt-Sicht).
+    Das Ledger emittiert nur venture_book — hier nicht mitgezaehlt, kein Doppelzaehlen."""
+    if venture_id:
+        try:
+            from core.agency import ventures
+
+            ventures.book(venture_id, "out", float(amount), category=category, note=reason)
+        except Exception as e:  # noqa: BLE001 — Buchhaltungs-Sicht darf die Ausgabe nie blockieren
+            events.emit("venture_book_error", {"venture_id": venture_id, "error": str(e)[:200]})
+    return events.emit("spend", {"amount": float(amount), "reason": reason,
+                                 "category": category, "venture_id": venture_id})
