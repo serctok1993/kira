@@ -123,6 +123,23 @@ def test_ws_contract_markers_present():
     assert "updateFeed" not in html  # toter Poller ist raus
 
 
+def test_esc_helper_and_audit_escaping():
+    """S6.1: zentrales esc() existiert und die bekannten XSS-Spots (Audit-Panel,
+    Inbox-Titel/Detail) laufen hindurch. Rohes '+p.action+' darf nicht zurueckkommen."""
+    html = _page()
+    assert "function esc(" in html
+    assert "esc(p.action)" in html and "esc(p.target||'')" in html
+    assert "'<b>'+p.action+'</b>'" not in html
+
+
+def test_inbox_buttons_have_doubleclick_guard():
+    """S6.1: Freigabe-Buttons sperren sich beim Klick (decideOnce) — der 10x-Apply-Bug
+    kam u.a. durch ungebremste Mehrfach-Klicks."""
+    html = _page()
+    assert "decideOnce" in html
+    assert 'x.disabled=true' in html
+
+
 def test_ws_roundtrip_contract(monkeypatch):
     """Pinnt den WS-Vertrag {role, kind: think|tool|obs|final, done} VOR jedem Restyling."""
     import core.agency.act as act_mod

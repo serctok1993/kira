@@ -10,7 +10,7 @@ import time
 
 import anyio
 from fastapi import FastAPI, File, Form, UploadFile, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, HTMLResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 
 from core.agency.tools import builtin as _builtin  # noqa: F401  (registriert eingebaute Tools)
 from core.agency.tools import registry
@@ -42,10 +42,12 @@ try:  # MCP-Bruecke im Hintergrund anschliessen (Ausfall darf den Boot nie brick
 except Exception:  # noqa: BLE001
     pass
 
-# Im Dashboard sichtbare/bearbeitbare Dateien. Alles editierbar — DU bist der Eigentuemer.
-# (Die Verfassung ist nur fuer KIRA gesperrt — via evolution.py; du darfst sie hier aendern.)
+# Im Dashboard sichtbare/bearbeitbare Dateien.
+# Die Verfassung ist ueberall nur lesend (Cockpit, Kira-Tools, Evolution) — Aenderungen
+# macht Sergen bewusst via Git/Editor. Grund: am 02.07. wurde sie ueber genau diesen
+# Endpoint abgeschwaecht, ohne dass es jemandem auffiel.
 FILES: dict[str, dict] = {
-    "constitution.md": {"path": MIND_DIR / "constitution.md", "editable": True, "label": "Verfassung (fuer Kira gesperrt, von dir editierbar)"},
+    "constitution.md": {"path": MIND_DIR / "constitution.md", "editable": False, "label": "Verfassung (nur lesend — Aenderung nur via Git durch Sergen)"},
     "SOUL.md": {"path": MIND_DIR / "SOUL.md", "editable": True, "label": "Seele (SOUL)"},
     "GOAL.md": {"path": MIND_DIR / "GOAL.md", "editable": True, "label": "Ziel (GOAL)"},
     "USER.md": {"path": MIND_DIR / "USER.md", "editable": True, "label": "Nutzer-Profil (Sergen)"},
@@ -881,11 +883,13 @@ def api_venture_trace(id: str) -> dict:
 
 # ---------- Freigabe-Inbox + Tages-Digest (Phase 2) ----------
 def _pending_proposals() -> list[dict]:
-    """Offene SOUL/GOAL-Selbstaenderungs-Vorschlaege als Inbox-Eintraege (kind=evolution)."""
+    """Offene Selbstaenderungs-Vorschlaege (alle MUTABLE-Docs) als Inbox-Eintraege (kind=evolution)."""
+    from core.mind import evolution
+
     out = []
     pdir = ROOT / "data" / "proposals"
     try:
-        for doc in ("SOUL.md", "GOAL.md"):
+        for doc in sorted(evolution.MUTABLE):
             p = pdir / doc
             if p.exists():
                 out.append({"id": "prop:" + doc, "ts": p.stat().st_mtime, "kind": "evolution",
@@ -913,25 +917,31 @@ async def api_approvals_decide(body: dict) -> dict:
     aid = body.get("id", "")
     approved = bool(body.get("approved"))
     note = body.get("note")
-    if aid.startswith("prop:"):  # SOUL/GOAL-Vorschlag
+    if aid.startswith("prop:"):  # Selbstaenderungs-Vorschlag (MUTABLE-Doc)
         doc = aid[5:]
         pfile = ROOT / "data" / "proposals" / doc
+        if not pfile.exists():  # bereits entschieden (Doppelklick) oder nie da
+            return JSONResponse({"ok": False, "error": "kein offener Vorschlag (bereits entschieden?)"},
+                                status_code=409)
         if approved:
             try:
                 from core.mind import evolution
+                # apply_update konsumiert den Vorschlag -> zweiter Klick landet oben im 409
                 res = await anyio.to_thread.run_sync(lambda: evolution.apply_update(doc, "Freigabe via Inbox"))
                 return {"ok": True, "status": "approved", "applied": res}
             except Exception as e:  # noqa: BLE001
                 return {"ok": False, "error": str(e)}
         else:
             try:
-                if pfile.exists():
-                    pfile.unlink()
-            except Exception:  # noqa: BLE001
+                pfile.unlink()
+            except OSError:
                 pass
             events.emit("approval_decided", {"id": aid, "status": "rejected", "kind": "evolution"})
             return {"ok": True, "status": "rejected"}
-    return approvals.decide(aid, approved, note)
+    res = approvals.decide(aid, approved, note)
+    if not res.get("ok") and res.get("error") == "already decided":
+        return JSONResponse(res, status_code=409)
+    return res
 
 
 @app.get("/api/digest")

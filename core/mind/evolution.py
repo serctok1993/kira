@@ -22,6 +22,21 @@ HISTORY_DIR = MIND_DIR / "history"
 PROPOSAL_DIR = DATA_DIR / "proposals"
 
 
+def _ensure_mutable(doc: str, op: str) -> str:
+    """Normalisiert den Dokumentnamen (keine Pfad-Tricks wie '../constitution.md')
+    und erzwingt die MUTABLE-Whitelist. Verstoss -> Alarm-Event + ValueError."""
+    from pathlib import Path
+
+    name = Path(str(doc).strip()).name
+    if name not in MUTABLE:
+        try:
+            events.emit("evolution_blocked", {"doc": str(doc), "op": op})
+        except Exception:  # noqa: BLE001
+            pass
+        raise ValueError(f"'{doc}' ist unveraenderlich. Nur {sorted(MUTABLE)} duerfen sich entwickeln.")
+    return name
+
+
 def _strip_fence(text: str) -> str:
     if text.startswith("```"):
         lines = text.splitlines()
@@ -53,8 +68,7 @@ def _guardian_check(doc: str, new_content: str, constitution: str, escalate: boo
 
 
 def propose_update(doc: str, instruction: str | None = None, escalate: bool = False) -> dict:
-    if doc not in MUTABLE:
-        raise ValueError(f"'{doc}' ist unveraenderlich. Nur {sorted(MUTABLE)} duerfen sich entwickeln.")
+    doc = _ensure_mutable(doc, "propose")
     events.init_db()
     constitution = _read("constitution.md")
     current = _read(doc)
@@ -86,8 +100,7 @@ def propose_update(doc: str, instruction: str | None = None, escalate: bool = Fa
 
 
 def apply_update(doc: str, reason: str = "(kein Grund angegeben)") -> dict:
-    if doc not in MUTABLE:
-        raise ValueError("Die Verfassung ist unantastbar.")
+    doc = _ensure_mutable(doc, "apply")
     proposal = PROPOSAL_DIR / doc
     if not proposal.exists():
         raise FileNotFoundError("Kein Vorschlag vorhanden — erst propose_update() aufrufen.")
@@ -99,8 +112,14 @@ def apply_update(doc: str, reason: str = "(kein Grund angegeben)") -> dict:
     (HISTORY_DIR / backup).write_text(_read(doc), encoding="utf-8")
 
     (MIND_DIR / doc).write_text(new_content, encoding="utf-8")
+    # Vorschlag KONSUMIEREN: sonst bleibt er 'pending' und jeder weitere Klick
+    # wendet ihn erneut an (Ursache des 10x-GOAL-Applys vom 02.07.).
+    try:
+        proposal.unlink()
+    except OSError:
+        pass
     events.emit("self_update_applied", {"doc": doc, "reason": reason, "backup": backup})
-    return {"doc": doc, "backup": backup}
+    return {"doc": doc, "backup": backup, "consumed": True}
 
 
 if __name__ == "__main__":

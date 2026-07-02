@@ -17,7 +17,7 @@ import py_compile
 import re
 import subprocess
 
-from core.config import ROOT
+from core.config import MIND_DIR, ROOT
 from core.kernel import events
 
 
@@ -90,6 +90,10 @@ def _lost_defs(old_src: str, new_src: str) -> list[str]:
 
 def apply_edit(rel_path: str, new_content: str, reason: str = "", verify: bool = True) -> dict:
     p = (ROOT / rel_path).resolve()
+    if p == (MIND_DIR / "constitution.md").resolve():
+        events.emit("write_blocked", {"path": str(p), "tool": "self_edit"})
+        return {"ok": False, "error": "constitution.md ist unantastbar (Verfassung) — "
+                                      "Aenderungen macht nur Sergen selbst via Git."}
     # Sicherheit: nur innerhalb des Projekts
     if ROOT not in p.parents and p != ROOT:
         return {"ok": False, "error": "Pfad ausserhalb des Projekts."}

@@ -2,6 +2,8 @@
 
 SCRIPT = r"""<script>
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+/* Zentrales HTML-Escaping: JEDER dynamische Anzeigetext geht hier durch (XSS-Wache). */
+function esc(x){return (""+(x==null?"":x)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 /* Kiras Denk-Sprueche (eine Quelle, beim Ausliefern injiziert) */
 const PHRASES=[/*__PHRASES__*/];
 let _lastPhrase="";
@@ -212,13 +214,19 @@ async function loadInbox(){const el=$("#inbox-list");if(!el)return;
   if(!p.length){el.innerHTML='<span class="muted">Nichts wartet auf Freigabe. Kira legt hier Aussen-Aktionen/Entwuerfe zum GO ab.</span>';return;}
   el.innerHTML=p.map(a=>{const ts=new Date(a.ts*1000).toLocaleString();
    const kb={publish:"📮",email:"✉️",external:"🌐",evolution:"🧬",generic:"📝"}[a.kind]||"📝";
-   const det=(""+(a.detail||"")).replace(/</g,"&lt;").slice(0,500);
-   return '<div class="memrow"><div class="mh"><span class="badge kind">'+kb+' '+a.kind+'</span><b style="color:var(--ink)">'+(""+(a.title||"")).replace(/</g,"&lt;")+'</b><span style="flex:1"></span><span class="muted">'+ts+'</span></div>'
+   const det=esc((""+(a.detail||"")).slice(0,500));
+   return '<div class="memrow"><div class="mh"><span class="badge kind">'+kb+' '+esc(a.kind)+'</span><b style="color:var(--ink)">'+esc(a.title||"")+'</b><span style="flex:1"></span><span class="muted">'+ts+'</span></div>'
     +(det?'<div style="white-space:pre-wrap;font-size:12px;color:var(--muted);max-height:130px;overflow:auto;border-left:2px solid var(--line);padding-left:8px;margin:4px 0">'+det+'</div>':'')
     +'<div class="row" style="margin-top:6px"><button data-appr="'+a.id+'">✓ Freigeben</button><button class="ghost" data-rej="'+a.id+'">✕ Verwerfen</button></div></div>';
   }).join("");
-  $$('#inbox-list [data-appr]').forEach(b=>b.onclick=async()=>{b.textContent="…";await fetch("/api/approvals/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:b.dataset.appr,approved:true})});loadInbox();loadDigest();});
-  $$('#inbox-list [data-rej]').forEach(b=>b.onclick=async()=>{if(!confirm("Wirklich verwerfen?"))return;await fetch("/api/approvals/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:b.dataset.rej,approved:false})});loadInbox();loadDigest();});
+  const decideOnce=async(b,id,approved,label)=>{ /* Doppelklick-Wache: Buttons sofort sperren; 409 = bereits entschieden */
+   const row=b.closest(".memrow");row.querySelectorAll("button").forEach(x=>x.disabled=true);b.textContent="…";
+   try{const r=await fetch("/api/approvals/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id,approved:approved})});
+    if(!r.ok&&r.status!==409){row.querySelectorAll("button").forEach(x=>x.disabled=false);b.textContent=label;}
+   }catch(e){row.querySelectorAll("button").forEach(x=>x.disabled=false);b.textContent=label;}
+   loadInbox();loadDigest();};
+  $$('#inbox-list [data-appr]').forEach(b=>b.onclick=()=>decideOnce(b,b.dataset.appr,true,"✓ Freigeben"));
+  $$('#inbox-list [data-rej]').forEach(b=>b.onclick=()=>{if(!confirm("Wirklich verwerfen?"))return;decideOnce(b,b.dataset.rej,false,"✕ Verwerfen");});
  }catch(e){}}
 async function loadDigest(){const el=$("#digest");if(!el)return;
  try{const d=await (await fetch("/api/digest")).json();const b=d.budget||{};
@@ -427,7 +435,7 @@ async function loadGov(){const g=await (await fetch("/api/governance")).json();c
   +'<br><span class=muted>Bei Stufe 3 begrenzt nur das Budget; Außen-Aktionen brauchen kein Go.</span>';
  if($("#g-trust-sel"))$("#g-trust-sel").value=String(g.trust.level);
  const a=$("#g-audit");a.innerHTML=g.audit.length?g.audit.map(e=>{const ts=new Date(e.ts*1000).toLocaleString();const p=e.payload;
-   return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>'+p.action+'</b> '+(p.target||'')
+   return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>'+esc(p.action)+'</b> '+esc(p.target||'')
     +' <small class=muted>'+ts+(p.reversible?' · rückrollbar':'')+'</small></div>';}).join(""):'<span class=muted>(noch keine Außen-Aktionen protokolliert)</span>';loadCosts();}
 async function loadCosts(){const el=$("#g-costs");if(!el)return;
  try{const c=await (await fetch("/api/costs")).json();

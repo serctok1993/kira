@@ -98,14 +98,19 @@ def get(aid: str) -> dict | None:
 
 def decide(aid: str, approved: bool, note: str | None = None) -> dict:
     """Freigeben oder ablehnen. Fuer 'evolution'-Eintraege wird bei Freigabe der
-    hinterlegte SOUL/GOAL-Vorschlag automatisch angewendet (Backup + Guard laufen dort)."""
+    hinterlegte SOUL/GOAL-Vorschlag automatisch angewendet (Backup + Guard laufen dort).
+    Idempotent: nur pending -> decided; ein zweiter Aufruf (Doppelklick/Race) tut nichts."""
     entry = get(aid)
     if not entry:
         return {"ok": False, "error": "nicht gefunden"}
+    if entry.get("status") != "pending":
+        return {"ok": False, "error": "already decided", "status": entry.get("status")}
     status = "approved" if approved else "rejected"
     with _conn() as c:
-        c.execute("UPDATE approvals SET status=?, decided_ts=?, note=? WHERE id=?",
-                  (status, time.time(), note, aid))
+        cur = c.execute("UPDATE approvals SET status=?, decided_ts=?, note=? WHERE id=? AND status='pending'",
+                        (status, time.time(), note, aid))
+        if cur.rowcount == 0:  # parallele Entscheidung hat gewonnen
+            return {"ok": False, "error": "already decided", "status": (get(aid) or {}).get("status")}
     applied = None
     if approved and entry.get("kind") == "evolution" and entry.get("ref"):
         try:

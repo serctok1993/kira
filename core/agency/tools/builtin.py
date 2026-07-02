@@ -13,9 +13,32 @@ from pathlib import Path
 import httpx
 
 from core.agency.tools.registry import tool
+from core.config import MIND_DIR
+from core.kernel import events
 
 _UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                      "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+
+# Schreibgeschuetzte Dateien: die Verfassung darf KEIN Werkzeug anfassen.
+# (write_file hatte frueher keinerlei Pfadschutz — so entstanden Root-Strays
+# und die Verfassung war de facto beschreibbar.)
+_PROTECTED = {(MIND_DIR / "constitution.md").resolve()}
+
+
+def _write_guard(p: Path, tool_name: str) -> str | None:
+    """Liefert einen Blockier-Text, wenn das Ziel schreibgeschuetzt ist, sonst None."""
+    try:
+        rp = p.resolve()
+    except OSError:
+        rp = p
+    if rp in _PROTECTED:
+        try:
+            events.emit("write_blocked", {"path": str(rp), "tool": tool_name})
+        except Exception:  # noqa: BLE001
+            pass
+        return ("BLOCKIERT: constitution.md ist unantastbar (Verfassung). "
+                "Aenderungen daran macht nur Sergen selbst via Git.")
+    return None
 
 
 def _strip_html(raw: str) -> str:
@@ -117,6 +140,9 @@ def read_file(path: str, max_chars: int = 40000, offset: int = 0) -> str:
       {"path": "Dateipfad", "content": "der Inhalt"})
 def write_file(path: str, content: str) -> str:
     p = Path(path).expanduser()
+    blocked = _write_guard(p, "write_file")
+    if blocked:
+        return blocked
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(str(content), encoding="utf-8")
     return f"OK, geschrieben: {p} ({len(str(content))} Zeichen)"
@@ -126,6 +152,9 @@ def write_file(path: str, content: str) -> str:
       {"path": "Dateipfad", "content": "anzuhaengender Text"})
 def append_file(path: str, content: str) -> str:
     p = Path(path).expanduser()
+    blocked = _write_guard(p, "append_file")
+    if blocked:
+        return blocked
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "a", encoding="utf-8") as f:
         f.write(str(content))
