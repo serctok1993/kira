@@ -37,7 +37,9 @@ def test_compact_missing_file_is_empty(monkeypatch, tmp_path):
 
 
 def test_refresh_replaces_auto_block_idempotent(monkeypatch, tmp_path):
-    from core.config import DB_PATH  # noqa: F401 — refresh liest die echte Registry (read-only)
+    # Registry explizit fuellen — sonst haengt der Test von der Import-Reihenfolge
+    # anderer Testdateien ab (builtin registriert die Werkzeuge erst beim Import).
+    from core.agency.tools import builtin  # noqa: F401
 
     p = _use_tmp_body(monkeypatch, tmp_path, _MINI)
     assert body.refresh()["ok"]

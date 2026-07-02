@@ -16,8 +16,7 @@ def _setup(monkeypatch, tmp_path):
     monkeypatch.setitem(CONFIG, "mission", {"name": "testmission"})
     events.init_db()
     queue.init_queue()
-    triggers.check()  # erster Lauf: nur Basislinie setzen
-    time.sleep(0.02)  # Uhr-Aufloesung: Folge-Events muessen NACH der Basislinie liegen
+    triggers.check()  # erster Lauf: nur Basislinie setzen (ID-Dedupe macht das racefrei)
 
 
 def test_add_list_remove_roundtrip(monkeypatch, tmp_path):

@@ -91,11 +91,17 @@ def check() -> list[dict]:
     if last_ts is None:
         # Allererster Lauf: Basislinie setzen — Alt-Historie feuert nicht nach.
         state["last_ts"] = now
+        state["seen_ids"] = [e["id"] for e in events.recent(300)]
         _save(state)
         return []
 
     fired: list[dict] = []
-    new_events = [e for e in events.recent(300) if e["ts"] > float(last_ts)]
+    # Neu = im Zeitfenster UND noch nie verarbeitet. Der ID-Abgleich macht das robust
+    # gegen die Uhr-Aufloesung (Events im selben Millisekunden-Tick wie der letzte
+    # Check gingen frueher verloren); das 5s-Rueckfenster haelt die seen-Liste klein.
+    seen = set(state.get("seen_ids") or [])
+    new_events = [e for e in events.recent(300)
+                  if e["ts"] > float(last_ts) - 5.0 and e["id"] not in seen]
     for e in reversed(new_events):  # chronologisch
         if e["type"] in ("trigger_fired", "trigger_added"):
             continue  # nie selbst-triggern (Endlos-Schleifen-Schutz)
@@ -117,5 +123,6 @@ def check() -> list[dict]:
             fired.append({"trigger": t["label"], "task_id": task_id})
 
     state["last_ts"] = now
+    state["seen_ids"] = (state.get("seen_ids") or [])[-600:] + [e["id"] for e in new_events]
     _save(state)
     return fired
