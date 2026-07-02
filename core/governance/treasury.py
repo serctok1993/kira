@@ -8,8 +8,9 @@ vereinfachend gleichgesetzt — fuer ein privates Setup ausreichend.
 from __future__ import annotations
 
 import datetime
+import sqlite3
 
-from core.config import CONFIG
+from core.config import CONFIG, DB_PATH
 from core.kernel import events
 
 
@@ -18,15 +19,31 @@ def _budget() -> dict:
 
 
 def _spent_since(ts_start: float) -> float:
-    total = 0.0
-    for e in events.recent(5000):
-        if e["ts"] < ts_start:
-            continue
-        if e["type"] == "llm_call":
-            total += float(e["payload"].get("cost_usd") or 0.0)
-        elif e["type"] == "spend":
-            total += float(e["payload"].get("amount") or 0.0)
-    return total
+    """Summe aller Ausgaben seit ts_start — als SQL-Aggregat ueber die GANZE
+    events-Tabelle (S6.2). Vorher lief das ueber events.recent(5000): unter
+    24/7-Last rutschten Monatsanfangs-Events aus dem Fenster und der Monats-
+    Spend wurde still zu NIEDRIG gezaehlt — die Budget-Bremse griff zu spaet."""
+    try:
+        with sqlite3.connect(DB_PATH) as c:
+            row = c.execute(
+                "SELECT "
+                " COALESCE(SUM(CASE WHEN type='llm_call' "
+                "   THEN COALESCE(json_extract(payload,'$.cost_usd'),0) ELSE 0 END),0),"
+                " COALESCE(SUM(CASE WHEN type='spend' "
+                "   THEN COALESCE(json_extract(payload,'$.amount'),0) ELSE 0 END),0) "
+                "FROM events WHERE ts >= ?", (ts_start,),
+            ).fetchone()
+        return float(row[0] or 0.0) + float(row[1] or 0.0)
+    except Exception:  # noqa: BLE001 — Fallback: alter (ungenauer) Fenster-Scan
+        total = 0.0
+        for e in events.recent(5000):
+            if e["ts"] < ts_start:
+                continue
+            if e["type"] == "llm_call":
+                total += float(e["payload"].get("cost_usd") or 0.0)
+            elif e["type"] == "spend":
+                total += float(e["payload"].get("amount") or 0.0)
+        return total
 
 
 def today_spend() -> float:

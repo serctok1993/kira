@@ -11,7 +11,7 @@ from core.kernel import events
 
 def _use_tmp_db(monkeypatch, tmp_path):
     db = str(tmp_path / "state.db")
-    for mod in (ventures, objectives, events):
+    for mod in (ventures, objectives, events, treasury):  # treasury liest seit S6.2 per SQL
         monkeypatch.setattr(mod, "DB_PATH", db)
     events.init_db()
     return db

@@ -255,7 +255,18 @@ def run_once(escalate: bool = False) -> dict:
                 plan_goal += f"\n\nARBEITSSTAND ZUM ZIEL (nichts davon wiederholen):\n{ws}"
         else:
             plan_goal, oid = goal, None
-        tasks = planner.generate_tasks(plan_goal, _context(), escalate=escalate)
+        # S6.2: Erkenntnisse aus dem Outcome-Ledger + Restbudget fliessen in die Planung.
+        try:
+            from core.agency import insights as _insights
+            from core.governance import treasury as _treasury
+
+            brief = _insights.render_brief()
+            budget = _treasury.status()
+        except Exception as e:  # noqa: BLE001
+            events.emit("insights_error", {"error": str(e)[:200]})
+            brief, budget = "", None
+        tasks = planner.generate_tasks(plan_goal, _context(), escalate=escalate,
+                                       budget=budget, insights=brief or None)
         for t in tasks:
             queue.add(t, mission=mission, objective_id=oid)
         events.emit("mission_planned", {"mission": mission, "tasks": tasks,
@@ -348,6 +359,12 @@ def run_forever(interval: int | None = None) -> None:
 
                     res = body.refresh()  # Anatomie-Fakten frisch abschreiben (S5)
                     events.emit("body_refreshed", res)
+                if maintenance.maybe_run("insights_weekly", interval_s=7 * 86400):
+                    from core.agency import insights as _ins
+
+                    lessons = _ins.weekly_lessons()  # Outcome-Muster -> Lektionen (S6.2)
+                    if lessons:
+                        events.emit("insights_lessons", {"count": len(lessons)})
                 if maintenance.maybe_run("doctor_check", interval_s=7 * 86400):
                     from core.kernel import doctor
 

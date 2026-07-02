@@ -7,7 +7,8 @@ from core.kernel import llm_router
 from core.mind.agent import _read
 
 
-def generate_tasks(goal: str, context: str, n: int = 3, escalate: bool = False) -> list[str]:
+def generate_tasks(goal: str, context: str, n: int = 3, escalate: bool = False,
+                   budget: dict | None = None, insights: str | None = None) -> list[str]:
     system = (
         _read("constitution.md")
         + "\n\nDu bist der Planer. Du zerlegst ein Ziel in kleine, eigenstaendig "
@@ -17,6 +18,20 @@ def generate_tasks(goal: str, context: str, n: int = 3, escalate: bool = False) 
     user = (
         f"ZIEL DER MISSION:\n{goal}\n\n"
         f"BISHERIGER FORTSCHRITT:\n{context}\n\n"
+    )
+    if insights:  # S6.2: Outcome-Muster fliessen in die Planung zurueck
+        user += insights + "\n\n"
+    if budget:  # S6.2: der Planner kennt das Restbudget und plant danach
+        dl, dr = budget.get("day_limit"), budget.get("day_remaining")
+        mr = budget.get("month_remaining")
+        if dl:
+            user += (f"BUDGET: heute noch {dr} von {dl} EUR"
+                     + (f", Monat noch {mr} EUR" if mr is not None else "") + ".\n")
+            if dr is not None and dr < 0.2 * float(dl):
+                user += ("BUDGET FAST ERSCHOEPFT: plane NUR billige lokale Analyse-/"
+                         "Aufraeumschritte, keine teuren Recherche-Ketten.\n")
+            user += "\n"
+    user += (
         f"Nenne die naechsten {n} Aufgaben, die dem Ziel dienen und NICHT wiederholen, "
         f"was schon erledigt ist. WICHTIG: jede Aufgabe ist KLEIN und ATOMAR — genau EIN "
         f"konkreter Rechercheschritt (z.B. 'Suche und lies 3 Quellen zur Nachfrage nach "

@@ -158,19 +158,27 @@ def board(mission: str | None = None, limit: int = 200) -> dict:
 
 
 def pending(mission: str | None = None, limit: int = 20) -> list[dict]:
+    """Naechste offene Aufgaben, termin-bewusst (S6.2):
+    1. faellig/ueberfaellig (due_date <= heute) zuerst, das Ueberfaelligste vorn,
+    2. sonst: priority, dann Termin-Naehe, dann Alter (alter ts = Retry zuerst).
+    deferred_until in der Zukunft wird uebersprungen (war vorher ein Bug: Aufgeschobenes
+    wurde trotzdem gezogen). Datum kommt aus Python (kein SQLite-UTC-Drift)."""
+    import datetime as _dt
+
+    today = _dt.date.today().isoformat()
+    where = ("status='pending' AND (deferred_until IS NULL OR deferred_until <= :today)"
+             + (" AND mission=:mission" if mission else ""))
+    order = ("CASE WHEN due_date IS NOT NULL AND due_date <= :today THEN 0 ELSE 1 END, "
+             "CASE WHEN due_date IS NOT NULL AND due_date <= :today THEN due_date END ASC, "
+             "priority ASC, COALESCE(due_date, '9999-12-31') ASC, ts ASC")
+    params: dict = {"today": today, "limit": limit}
+    if mission:
+        params["mission"] = mission
     with _conn() as c:
-        if mission:
-            rows = c.execute(
-                "SELECT id, description, priority FROM tasks WHERE mission=? AND status='pending' "
-                "ORDER BY priority ASC, ts ASC LIMIT ?",
-                (mission, limit),
-            ).fetchall()
-        else:
-            rows = c.execute(
-                "SELECT id, description, priority FROM tasks WHERE status='pending' "
-                "ORDER BY priority ASC, ts ASC LIMIT ?",
-                (limit,),
-            ).fetchall()
+        rows = c.execute(
+            f"SELECT id, description, priority FROM tasks WHERE {where} "
+            f"ORDER BY {order} LIMIT :limit", params,
+        ).fetchall()
     return [{"id": r[0], "description": r[1], "priority": r[2]} for r in rows]
 
 

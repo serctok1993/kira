@@ -47,6 +47,7 @@ def add(label: str, event_type: str, task: str, contains: str = "",
         "id": tid, "label": label.strip(), "event_type": event_type.strip(),
         "contains": contains.strip(), "task": task.strip(),
         "enabled": True, "cooldown_s": int(cooldown_s), "last_fired": 0.0,
+        "fail_count": 0, "spawned": [],  # S6.2: Backoff-Buchhaltung
     })
     _save(state)
     events.emit("trigger_added", {"id": tid, "label": label, "event_type": event_type})
@@ -76,6 +77,14 @@ def set_enabled(tid: str, enabled: bool) -> bool:
     return False
 
 
+def _effective_cooldown(t: dict) -> float:
+    """S6.2-Backoff: scheitern die ausgeloesten Aufgaben wiederholt, verdoppelt sich
+    der Cooldown pro Fehlschlag (Cap 16x) — ein kaputter Trigger feuert nicht mehr
+    stur jede Stunde. Erfolg setzt zurueck."""
+    base = float(t.get("cooldown_s") or 3600)
+    return base * (2 ** min(int(t.get("fail_count") or 0), 4))
+
+
 def check() -> list[dict]:
     """Neue Events seit dem letzten Check gegen alle Trigger matchen.
 
@@ -103,6 +112,14 @@ def check() -> list[dict]:
     new_events = [e for e in events.recent(300)
                   if e["ts"] > float(last_ts) - 5.0 and e["id"] not in seen]
     for e in reversed(new_events):  # chronologisch
+        # S6.2: Ausgang der selbst ausgeloesten Aufgaben verbuchen (Backoff-Futter).
+        if e["type"] in ("task_failed_final", "mission_task_failed", "mission_task_done"):
+            done_id = str((e.get("payload") or {}).get("id") or "")
+            if done_id:
+                for t in trigs:
+                    if done_id in (t.get("spawned") or []):
+                        t["fail_count"] = 0 if e["type"] == "mission_task_done" \
+                            else int(t.get("fail_count") or 0) + 1
         if e["type"] in ("trigger_fired", "trigger_added"):
             continue  # nie selbst-triggern (Endlos-Schleifen-Schutz)
         for t in trigs:
@@ -112,12 +129,13 @@ def check() -> list[dict]:
                 haystack = json.dumps(e.get("payload") or {}, ensure_ascii=False).lower()
                 if t["contains"].lower() not in haystack:
                     continue
-            if now - float(t.get("last_fired") or 0) < float(t.get("cooldown_s") or 3600):
+            if now - float(t.get("last_fired") or 0) < _effective_cooldown(t):
                 continue
             queue.init_queue()
             task_id = queue.add(f"[Trigger '{t['label']}'] {t['task']}",
                                 mission=_mission_name(), priority=3)
             t["last_fired"] = now
+            t["spawned"] = ((t.get("spawned") or []) + [task_id])[-10:]
             events.emit("trigger_fired", {"trigger": t["label"], "event": e["type"],
                                           "task_id": task_id})
             fired.append({"trigger": t["label"], "task_id": task_id})

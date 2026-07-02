@@ -90,6 +90,37 @@ def test_disabled_trigger_silent(monkeypatch, tmp_path):
     assert triggers.check() == []
 
 
+def test_backoff_doubles_cooldown_on_fail(monkeypatch, tmp_path):
+    """S6.2: scheitert die ausgeloeste Aufgabe, verdoppelt sich der effektive Cooldown."""
+    _setup(monkeypatch, tmp_path)
+    triggers.add("Reflex", "stripe_income", "Pruefe X", cooldown_s=100)
+    events.emit("stripe_income", {"a": 1})
+    fired = triggers.check()
+    assert len(fired) == 1
+
+    events.emit("task_failed_final", {"id": fired[0]["task_id"], "desc": "x"})
+    triggers.check()  # verbucht den Fehlschlag
+    t = triggers.list_all()[0]
+    assert t["fail_count"] == 1
+    assert triggers._effective_cooldown(t) == 200.0
+
+
+def test_backoff_resets_on_success(monkeypatch, tmp_path):
+    _setup(monkeypatch, tmp_path)
+    triggers.add("Reflex", "stripe_income", "Pruefe X", cooldown_s=100)
+    events.emit("stripe_income", {"a": 1})
+    fired = triggers.check()
+
+    events.emit("mission_task_done", {"id": fired[0]["task_id"]})
+    triggers.check()
+    assert triggers.list_all()[0]["fail_count"] == 0
+
+
+def test_backoff_cap_at_16x():
+    t = {"cooldown_s": 100, "fail_count": 10}
+    assert triggers._effective_cooldown(t) == 1600.0  # Cap: 2^4
+
+
 def test_no_self_triggering_loop(monkeypatch, tmp_path):
     """trigger_fired darf nie selbst triggern — sonst Endlos-Schleife."""
     _setup(monkeypatch, tmp_path)

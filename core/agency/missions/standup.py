@@ -15,7 +15,7 @@ import time
 from core.config import ROOT
 from core.kernel import events
 
-_CAP = 2500
+_CAP = 3000  # S6.2: +500 fuer die ERKENNTNISSE-Sektion (Outcome-Rueckkopplung)
 
 
 def _focus() -> str:
@@ -107,6 +107,16 @@ def build_context(scope: str = "morgen") -> str:
     nums = _today_numbers()
     spend = f", {nums['spend']} EUR ausgegeben" if nums.get("spend") is not None else ""
     parts.append(f"HEUTE: {nums['done']} Aufgaben erledigt, {nums['fails']} gescheitert{spend}")
+
+    # Erkenntnisse aus dem Outcome-Ledger (S6.2) — was zuletzt funktionierte und was nicht
+    try:
+        from core.agency import insights
+
+        brief = insights.render_brief(days=7, max_chars=400)
+        if brief:
+            parts.append(brief)
+    except Exception:  # noqa: BLE001
+        pass
 
     # Metriken (Coach-Futter)
     try:
