@@ -13,7 +13,7 @@ let cur="home";
 $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
 function nav(v){cur=v;$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");
- if(v==="home")loadCommand(); if(v==="mission")loadMission(); if(v==="chat"){loadChatModels();loadChatSessions();} if(v==="system")syst(sysCur);}
+ if(v==="home")loadCommand(); if(v==="mission")loadMission(); if(v==="chat"){loadChatModels();loadChatSessions();} if(v==="system")syst(sysCur); if(v==="leben")loadLeben(); if(v==="agenten")loadAgenten();}
 
 /* ---- System-Bereich: Sub-Tabs (Modelle/Gewissen/Cron/Monitor/Zugaenge/Gedaechtnis/Dateien/Protokoll) ---- */
 let sysCur="models";
@@ -143,12 +143,13 @@ function bindNewsSeed(){const s=$("#news-seed");if(!s)return;s.onclick=async()=>
   for(const f of DEFAULT_FEEDS){try{await fetch("/api/monitor/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(f)});}catch(e){}}
   s.textContent="✓ hinzugefuegt";loadNews();};}
 function bindOpsFilter(){$$("#ops-filter a").forEach(a=>a.onclick=()=>{opsFilter=a.dataset.of;$$("#ops-filter a").forEach(x=>x.classList.toggle("on",x===a));loadOps();});}
-function loadCommand(){loadHud();loadOps();loadNews();loadHome();bindNewsSeed();bindOpsFilter();}
+function loadCommand(){loadHud();loadOps();loadNews();loadHome();loadNeeds();loadZDigest();bindNewsSeed();bindOpsFilter();}
 
 /* ---- Mission-Workspace (Ziele + To-Do-Board) ---- */
 const KIND_LABEL={big:"BIG",monthly:"MONAT",weekly:"WOCHE"};
 let missionObjs=[];
 async function loadMission(){
+ loadVentures();
  const d=await (await fetch("/api/mission/board")).json();
  missionObjs=d.objectives||[];
  const ol=$("#obj-list");
@@ -552,7 +553,83 @@ $("#dir-focus")&&($("#dir-focus").onclick=async()=>{const p=$("#dir-text").value
  $("#dir-hint").textContent="🧭 Fokus gesetzt — ich ziehe ihn in meinen naechsten Schritt.";loadHome();});
 $("#dir-clear")&&($("#dir-clear").onclick=async()=>{await fetch("/api/direktive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({focus:""})});$("#dir-text").value="";$("#dir-hint").textContent="Fokus geloescht.";loadHome();});
 
+/* ---- Leben (S5.3b): Todos, Ziele, Metrik-Sparklines ---- */
+function spark(series){if(!series||series.length<2)return'<span class="muted" style="margin-right:8px">&mdash;</span>';
+ const vs=series.map(p=>p.value),mn=Math.min(...vs),mx=Math.max(...vs),W=120,H=26;
+ const pts=vs.map((v,i)=>((i/(vs.length-1))*W).toFixed(1)+","+(H-3-((mx===mn)?H/2-3:(v-mn)/(mx-mn)*(H-6))).toFixed(1)).join(" ");
+ return '<svg width="'+W+'" height="'+H+'" style="margin-right:8px;overflow:visible"><polyline points="'+pts+'" fill="none" stroke="var(--hud)" stroke-width="1.5"/></svg>';}
+async function loadLeben(){
+ try{const d=await (await fetch("/api/life/board")).json();const b=d.board||{};let h="";
+  BOARD_GROUPS.forEach(([k,label])=>{const arr=b[k]||[];if(!arr.length)return;
+   h+='<div style="margin:9px 0 4px;font-size:11px;letter-spacing:1px;color:var(--hud);text-transform:uppercase">'+label+' ('+arr.length+')</div>'
+    +arr.map(t=>{const due=t.due_date?('&#9200;'+t.due_date):'';
+     const act=t.status==="pending"?' <a data-ldone="'+t.id+'" style="cursor:pointer;color:var(--ok)" title="abhaken">&#10003;</a>':'';
+     return '<div class="op" style="border-radius:8px;margin-bottom:3px"><span class="od"></span><span class="opx">'+(t.description||"").replace(/</g,"&lt;").slice(0,150)+' <span class="muted">'+due+'</span></span>'+act+'</div>';}).join("");});
+  $("#life-board").innerHTML=h||'<div class="emptybox">Keine offenen Todos<br>Sag mir einfach, was ansteht.</div>';
+  $$('#life-board [data-ldone]').forEach(a=>a.onclick=async()=>{await fetch("/api/mission/task/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.ldone,status:"done"})});loadLeben();});
+  const objs=d.objectives||[];
+  $("#life-goals").innerHTML=objs.length?objs.map(o=>'<div class="memrow"><div class="mh"><span class="badge kind">'+(KIND_LABEL[o.kind]||o.kind)+'</span><b>'+(o.title||"").replace(/</g,"&lt;")+'</b><span style="flex:1"></span><span class="muted">'+o.progress+'%'+(o.target_date?(' &middot; &#9200;'+o.target_date):'')+'</span></div></div>').join("")
+   :'<div class="emptybox">Noch keine Lebens-Ziele<br>z.B. Kira, neues Ziel: 85kg bis Dezember</div>';
+ }catch(e){}
+ try{const m=await (await fetch("/api/metrics")).json();const rows=[];
+  for(const it of (m.latest||[]).slice(0,6)){
+   const sr=await (await fetch("/api/metrics?name="+encodeURIComponent(it.name)+"&days=90")).json();
+   rows.push('<div class="memrow"><div class="mh"><b>'+it.name+'</b><span style="flex:1"></span>'+spark(sr.series||[])+'<span style="min-width:110px;text-align:right"><b>'+it.value+'</b>'+(it.delta!=null?(' <span class="muted">('+(it.delta>0?"+":"")+it.delta+')</span>'):'')+'</span></div></div>');}
+  $("#life-metrics").innerHTML=rows.join("")||'<div class="emptybox">Noch keine Metriken</div>';
+ }catch(e){}}
+
+/* ---- Agenten (S5.3b): Organe, Dienste, MCP ---- */
+async function loadAgenten(){try{const d=await (await fetch("/api/agents")).json();
+ const rel=ts=>{if(!ts)return "noch nie";const x=(Date.now()/1000-ts);return x<90?"gerade eben":x<3600?Math.round(x/60)+" min":x<86400?Math.round(x/3600)+" h":Math.round(x/86400)+" Tage";};
+ $("#ag-organs").innerHTML=(d.organs||[]).map(o=>'<div class="memrow"><div class="mh"><span class="badge kind">'+o.name+'</span><span class="muted" style="font-size:11px">'+(o.event||"&mdash;")+'</span><span style="flex:1"></span><span class="muted">'+rel(o.ts)+'</span></div></div>').join("");
+ const sv=await (await fetch("/api/services")).json();const svc=sv.services||{};
+ const dot=ok=>'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+(ok?"var(--ok)":"var(--danger)")+';margin-right:6px"></span>';
+ let h='<div style="margin-bottom:8px">'+dot(sv.supervisor)+'Supervisor '+dot(svc.cockpit!==false)+'Cockpit '+dot(svc.bot)+'Bot '+dot(svc.runner)+'Runner '+dot(sv.ollama)+'Ollama</div>';
+ h+='<div class="muted" style="font-size:11px;letter-spacing:1px;margin:8px 0 4px">MCP-SERVER</div>';
+ const mk=Object.keys(d.mcp||{});
+ h+=mk.length?mk.map(n=>{const st=d.mcp[n];return '<div class="memrow"><div class="mh">'+dot(st.running)+'<b>'+n+'</b><span style="flex:1"></span><span class="muted">'+(st.enabled?"aktiv":"aus")+' &middot; '+(st.tools||0)+' Tools</span></div></div>';}).join(""):'<span class="muted">(keine konfiguriert)</span>';
+ h+='<div class="muted" style="margin-top:8px;font-size:12px">'+d.tools_total+' Werkzeuge &middot; '+d.skills_total+' Skills</div>';
+ $("#ag-infra").innerHTML=h;}catch(e){}}
+
+/* ---- Projekte (S5.3b): Venture-Karten + Drilldown ---- */
+async function loadVentures(){const el=$("#vent-list");if(!el)return;try{
+ const d=await (await fetch("/api/ventures")).json();const vs=d.ventures||[];
+ const vc=$("#vent-sum");if(vc)vc.textContent=vs.length?(vs.length+" Standbeine"):"";
+ el.innerHTML=vs.length?vs.map(v=>{
+  const ms=(v.milestone_progress!=null)?('<div style="height:4px;background:var(--line);border-radius:2px;margin-top:5px"><div style="height:4px;border-radius:2px;background:var(--hud);width:'+v.milestone_progress+'%"></div></div>'):'';
+  return '<div class="memrow" data-vent="'+v.id+'" style="cursor:pointer"><div class="mh"><span class="badge kind">'+v.status+'</span><b>'+(v.name||"").replace(/</g,"&lt;")+'</b><span style="flex:1"></span><span class="muted">+'+v.income_eur.toFixed(2)+' / -'+v.expenses_eur.toFixed(2)+' = <b>'+v.balance_eur.toFixed(2)+' &euro;</b></span></div>'+ms+'</div>';}).join("")
+  :'<div class="emptybox">Noch keine Ventures<br>Kira, leg ein Venture an: &hellip;</div>';
+ $$('#vent-list [data-vent]').forEach(r=>r.onclick=()=>loadVentureTrace(r.dataset.vent));
+}catch(e){}}
+async function loadVentureTrace(id){const el=$("#vent-detail");try{
+ const d=await (await fetch("/api/venture/trace?id="+encodeURIComponent(id))).json();
+ if(d.error){el.style.display="none";return;}
+ let h='<div style="display:flex;align-items:center;gap:8px"><b>'+(d.venture.name||"").replace(/</g,"&lt;")+'</b><span class="muted">Kasse '+d.balance.toFixed(2)+' &euro;</span><span style="flex:1"></span><a id="vent-close" style="cursor:pointer;color:var(--muted)">&#10005;</a></div>';
+ if(!(d.objectives||[]).length)h+='<div class="muted" style="margin-top:6px">Noch keine Ziele an diesem Venture.</div>';
+ (d.objectives||[]).forEach(o=>{
+  h+='<div style="margin-top:8px"><span class="badge kind">'+(KIND_LABEL[o.kind]||o.kind)+'</span> <b>'+(o.title||"").replace(/</g,"&lt;")+'</b> <span class="muted">'+o.progress+'%</span></div>';
+  (o.tasks||[]).slice(0,6).forEach(t=>{h+='<div class="muted" style="font-size:12px;margin-left:12px">'+(t.status==="done"?"&#10003;":"&middot;")+' '+(t.description||"").replace(/</g,"&lt;").slice(0,110)+(t.score!=null?(' <span style="color:var(--hud)">['+t.score+']</span>'):'')+'</div>';});
+  if(o.workingset)h+='<div class="muted" style="font-size:11px;margin:4px 0 0 12px;white-space:pre-wrap;border-left:2px solid var(--line);padding-left:8px">'+o.workingset.replace(/</g,"&lt;").slice(-500)+'</div>';});
+ el.innerHTML=h;el.style.display="block";
+ const cl=$("#vent-close");if(cl)cl.onclick=()=>{el.style.display="none";};
+}catch(e){}}
+
+/* ---- Zentrale (S5.3b): Brauche-von-dir + Heute-erledigt ---- */
+async function loadNeeds(){const el=$("#needs-list");if(!el)return;try{
+ const a=await (await fetch("/api/approvals")).json();
+ const k=await (await fetch("/api/secrets")).json();
+ const items=[];
+ (a.pending||[]).forEach(p=>items.push('<div class="op"><span class="od" style="background:var(--warn)"></span><span class="opx">&#128272; Freigabe: '+(p.title||"").replace(/</g,"&lt;").slice(0,110)+'</span></div>'));
+ (k.pending||[]).forEach(p=>items.push('<div class="op"><span class="od" style="background:var(--warn)"></span><span class="opx">&#128273; Zugang: '+((p.name||"")+" &mdash; "+(p.reason||"")).replace(/</g,"&lt;").slice(0,110)+'</span></div>'));
+ const nc=$("#needs-count");if(nc)nc.textContent=items.length?(items.length+" offen"):"";
+ el.innerHTML=items.join("")||'<div class="emptybox">Nichts offen &mdash; alles bei mir.</div>';
+}catch(e){}}
+async function loadZDigest(){const el=$("#z-digest");if(!el)return;try{const d=await (await fetch("/api/digest")).json();
+ el.innerHTML='<div><b>'+d.tasks_done_count+'</b> Aufgaben erledigt &middot; <b>'+d.planned+'</b> geplant &middot; Fehler: <b style="color:'+(d.errors?"var(--danger)":"var(--ok)")+'">'+d.errors+'</b></div>'
+  +((d.tasks_done&&d.tasks_done.length)?('<ul style="margin:6px 0 0;padding-left:16px;font-size:12px">'+d.tasks_done.slice(0,6).map(t=>'<li>'+(""+t).replace(/</g,"&lt;")+'</li>').join("")+'</ul>'):'')
+  +'<div class="muted" style="margin-top:6px;font-size:12px">Kosten heute: '+d.spend_usd+' &euro;</div>';}catch(e){}}
+
 refreshStatus();loadCommand();
-setInterval(()=>{refreshStatus();if(cur==="system"&&sysCur==="log"&&logRaw.length<=100)loadEvents();if(cur==="system"&&sysCur==="gov")loadGov();if(cur==="home"){loadHud();loadOps();}},5000);
+setInterval(()=>{refreshStatus();if(cur==="system"&&sysCur==="log"&&logRaw.length<=100)loadEvents();if(cur==="system"&&sysCur==="gov")loadGov();if(cur==="home"){loadHud();loadOps();loadNeeds();}},5000);
 setInterval(()=>{if(cur==="home")loadNews();},30000);
 </script></body></html>"""

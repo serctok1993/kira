@@ -59,12 +59,25 @@ VIEWS = r"""</head><body>
           <div class="ticker" id="news-ticker"><span>… Intel wird geladen …</span></div>
           <div id="news-list" class="panel-b"><span class="muted">…</span></div>
         </div>
+        <div class="panel">
+          <div class="panel-h">◈ Brauche von dir <span class="sp"></span><span class="muted" id="needs-count" style="font-size:11px"></span></div>
+          <div id="needs-list" class="panel-b"><span class="muted">…</span></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h">◈ Heute erledigt</div>
+          <div id="z-digest" class="panel-b"><span class="muted">…</span></div>
+        </div>
         <div class="home-side" id="home"></div>
       </div>
     </div>
   </div>
 
   <div class="view" id="v-mission">
+    <div class="panel" style="margin-bottom:14px">
+      <div class="panel-h">◈ VENTURES — Standbeine <span class="sp"></span><span class="muted" id="vent-sum" style="font-size:11px"></span></div>
+      <div id="vent-list" class="panel-b"><span class="muted">…</span></div>
+      <div id="vent-detail" class="panel-b" style="display:none;border-top:1px solid var(--line)"></div>
+    </div>
     <div class="mgrid">
       <div class="panel">
         <div class="panel-h">◈ ZIELE / PROJEKTE <span class="sp"></span><a id="obj-new-btn" class="muted" style="cursor:pointer;font-size:11px">+ ZIEL</a></div>
@@ -124,15 +137,23 @@ VIEWS = r"""</head><body>
   </div>
 
   <div class="view" id="v-leben">
-    <div class="panel"><div class="panel-h">◈ LEBEN — Todos · Missionen · Ziele · Metriken</div>
-      <div class="panel-b"><span class="muted">Die Boards kommen im naechsten Ausbauschritt (S5.3b). Erfassen geht schon jetzt:
-      sag es Kira einfach im Chat oder per Telegram-Sprachmemo — sie nutzt todo_add, objective_add und metric_log.</span></div></div>
+    <div class="mgrid">
+      <div class="panel"><div class="panel-h">◈ TODOS <span class="sp"></span><span class="muted" style="font-size:11px">Erfassen: sag es mir einfach (Chat/Telegram/Sprachmemo)</span></div>
+        <div id="life-board" class="panel-b"><span class="muted">…</span></div></div>
+      <div class="panel"><div class="panel-h">◈ MISSIONEN &amp; ZIELE</div>
+        <div id="life-goals" class="panel-b"><span class="muted">…</span></div></div>
+    </div>
+    <div class="panel"><div class="panel-h">◈ METRIKEN <span class="sp"></span><span class="muted" style="font-size:11px">z.B. „Kira, Gewicht heute 91.4“</span></div>
+      <div id="life-metrics" class="panel-b"><span class="muted">…</span></div></div>
   </div>
 
   <div class="view" id="v-agenten">
-    <div class="panel"><div class="panel-h">◈ AGENTEN — Organe · Dienste · MCP</div>
-      <div class="panel-b"><span class="muted">Die Rollen-Sicht (Planner, Actor, Pruefer, Council, Curator + Dienste + MCP-Server)
-      kommt im naechsten Ausbauschritt (S5.3b).</span></div></div>
+    <div class="mgrid">
+      <div class="panel"><div class="panel-h">◈ ORGANE — wer zuletzt gearbeitet hat</div>
+        <div id="ag-organs" class="panel-b"><span class="muted">…</span></div></div>
+      <div class="panel"><div class="panel-h">◈ DIENSTE &amp; MCP</div>
+        <div id="ag-infra" class="panel-b"><span class="muted">…</span></div></div>
+    </div>
   </div>
 
   <div class="view" id="v-wissen">

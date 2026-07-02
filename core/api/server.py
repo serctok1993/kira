@@ -738,6 +738,69 @@ async def api_ventures_book(body: dict) -> dict:
     return {"ok": True, "balance": ventures.balance(vid)}
 
 
+# ---------- Agenten-Sicht + Projekt-Spuren (S5.3b, rein lesend) ----------
+_ORGANS = {
+    "Planner": ("mission_planned", "objective_planned", "plan_made"),
+    "Actor": ("mission_task_start", "act_start", "tool_call"),
+    "Pruefer": ("task_scored", "task_criteria"),
+    "Council": ("council_verdict", "council_argument", "council_opening"),
+    "Curator": ("skills_curated", "lessons_curated"),
+    "Reflexion": ("reflection",),
+    "Radar/Monitor": ("monitor_new", "opportunity_found"),
+    "Trigger": ("trigger_fired",),
+    "Selbst-Check": ("doctor_report",),
+}
+
+
+@app.get("/api/agents")
+def api_agents() -> dict:
+    """Rollen-Sicht: welches Organ zuletzt gearbeitet hat + Dienste + MCP (S5)."""
+    last: dict[str, dict] = {}
+    for e in events.recent(500):
+        for organ, types in _ORGANS.items():
+            if organ not in last and e["type"] in types:
+                last[organ] = {"ts": e["ts"], "event": e["type"],
+                               "detail": str(e.get("payload") or {})[:140]}
+    mcp: dict = {}
+    try:
+        from core.agency.mcp import registry_bridge
+
+        mcp = registry_bridge.server_status()
+    except Exception:  # noqa: BLE001
+        pass
+    skills_total = 0
+    try:
+        skills_total = len(memory.all_skills())
+    except Exception:  # noqa: BLE001
+        pass
+    return {
+        "organs": [{"name": o, **(last.get(o) or {})} for o in _ORGANS],
+        "mcp": mcp,
+        "tools_total": len(registry.all_tools()),
+        "skills_total": skills_total,
+    }
+
+
+@app.get("/api/venture/trace")
+def api_venture_trace(id: str) -> dict:
+    """Projekt-Drilldown: Ziel-Baum + Tasks (mit Scores) + Arbeitsstand je Ziel."""
+    from core.agency import ventures
+    from core.agency.missions import objectives, queue as mqueue, workingset
+
+    v = ventures.get(id)
+    if not v:
+        return {"error": "unbekanntes Venture"}
+    objs = [o for o in objectives.list_all() if o.get("venture_id") == id]
+    all_t = mqueue.all_tasks(None, limit=500)
+    out_objs = []
+    for o in objs:
+        tasks = [t for t in all_t if t.get("objective_id") == o["id"]]
+        out_objs.append({**o, "tasks": tasks[:20],
+                         "workingset": workingset.render(o["id"], max_chars=1000)})
+    return {"venture": v, "balance": ventures.balance(id),
+            "ledger": ventures.ledger(id, limit=15), "objectives": out_objs}
+
+
 # ---------- Freigabe-Inbox + Tages-Digest (Phase 2) ----------
 def _pending_proposals() -> list[dict]:
     """Offene SOUL/GOAL-Selbstaenderungs-Vorschlaege als Inbox-Eintraege (kind=evolution)."""
