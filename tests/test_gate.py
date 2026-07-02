@@ -15,6 +15,9 @@ def _setup(monkeypatch, tmp_path, chains_off=True, hard_gate=("money", "email_st
     autonomy.set_config(chains_off=chains_off, hard_gate=list(hard_gate))
     events.init_db()
     approvals.init_approvals()  # pending() legt die Tabelle nicht selbst an
+    # Council-Debatte (S4.2) hier stummschalten — sonst machen money-Tests ECHTE
+    # LLM-Calls. Das Council-Verhalten testet test_council_gate.py mit Fake-LLM.
+    monkeypatch.setattr(gate, "_council_kinds", lambda: set())
 
 
 def test_hard_gate_blocks_without_executing(monkeypatch, tmp_path):
