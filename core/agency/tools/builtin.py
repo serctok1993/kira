@@ -605,3 +605,5 @@ from core.agency.tools import trigger_tools  # noqa: E402,F401
 from core.agency.tools import life_tools  # noqa: E402,F401
 # Wissens-Archiv (S5): suchen/ablegen im Schreibtisch.
 from core.agency.tools import knowledge_tools  # noqa: E402,F401
+# Business-Radar (S5): Chancen-Pipeline.
+from core.agency.tools import radar_tools  # noqa: E402,F401

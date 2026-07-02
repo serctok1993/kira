@@ -363,6 +363,17 @@ def run_forever(interval: int | None = None) -> None:
                                 f"+{res['total_eur']:.2f} EUR im Konto-Buch.")
             except Exception as e:  # noqa: BLE001
                 events.emit("stripe_sync_error", {"error": str(e)})
+            try:
+                # Business-Radar (S5): woechentlich nach Einkommens-Chancen scannen.
+                from core.agency.missions import maintenance
+
+                if maintenance.maybe_run("radar_scan", interval_s=7 * 86400):
+                    from core.agency import radar
+
+                    res = radar.scan(notify=True)
+                    events.emit("radar_scan_done", res)
+            except Exception as e:  # noqa: BLE001
+                events.emit("radar_error", {"error": str(e)})
 
             if heartbeat_on():
                 out = run_once()

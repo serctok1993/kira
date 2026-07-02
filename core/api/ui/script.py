@@ -14,7 +14,7 @@ $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
 function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");};
  if(document.startViewTransition&&!matchMedia("(prefers-reduced-motion: reduce)").matches){document.startViewTransition(go);}else{go();}
- if(v==="home")loadCommand(); if(v==="mission")loadMission(); if(v==="chat"){loadChatModels();loadChatSessions();} if(v==="system")syst(sysCur); if(v==="leben")loadLeben(); if(v==="agenten")loadAgenten(); if(v==="wissen")loadWissen();}
+ if(v==="home")loadCommand(); if(v==="mission")loadMission(); if(v==="chat"){loadChatModels();loadChatSessions();} if(v==="system")syst(sysCur); if(v==="leben")loadLeben(); if(v==="agenten")loadAgenten(); if(v==="wissen")loadWissen(); if(v==="radar")loadRadar();}
 
 /* ---- System-Bereich: Sub-Tabs (Modelle/Gewissen/Cron/Monitor/Zugaenge/Gedaechtnis/Dateien/Protokoll) ---- */
 let sysCur="models";
@@ -655,6 +655,26 @@ $("#kn-q")&&($("#kn-q").oninput=()=>{clearTimeout(knTimer);knTimer=setTimeout(as
  const d=await (await fetch("/api/knowledge/search?q="+encodeURIComponent(q))).json();
  el.innerHTML=(d.hits||[]).length?d.hits.map(h=>'<div class="memrow"><div class="mh"><b>'+(h.title||"").replace(/</g,"&lt;").slice(0,60)+'</b><span class="muted"> &middot; Abschnitt '+(h.chunk_no+1)+(h.score!=null?(' &middot; '+h.score):'')+'</span></div><div class="muted" style="font-size:12px;margin-top:3px">'+(h.text||"").replace(/</g,"&lt;").slice(0,260)+'&hellip;</div></div>').join("")
   :'<span class="muted">nichts gefunden</span>';},350);});
+
+/* ---- Radar (S5.5): Chancen-Pipeline ---- */
+const OPP_BADGE={new:"var(--hud)",shortlist:"var(--ok)",converted:"var(--accent)",rejected:"var(--muted)"};
+async function loadRadar(){try{const d=await (await fetch("/api/opportunities")).json();const os=d.opportunities||[];
+ $("#rd-list").innerHTML=os.length?os.map(o=>{
+  let act="";
+  if(o.status==="new"||o.status==="shortlist")act=' <a data-oconv="'+o.id+'" style="cursor:pointer;color:var(--ok)" title="zum Venture machen">&rarr; Venture</a>'
+   +(o.status==="new"?' <a data-oshort="'+o.id+'" style="cursor:pointer;color:var(--hud)" title="merken">&#9733;</a>':'')
+   +' <a data-orej="'+o.id+'" style="cursor:pointer;color:var(--muted)" title="verwerfen">&#10005;</a>';
+  return '<div class="memrow"><div class="mh"><span class="badge kind" style="color:'+(OPP_BADGE[o.status]||"var(--muted)")+'">'+o.status+'</span><b>['+o.score+']</b> <b>'+(o.title||"").replace(/</g,"&lt;").slice(0,90)+'</b><span style="flex:1"></span>'+act+'</div>'
+   +(o.hypothesis?('<div class="muted" style="font-size:12px;margin-top:3px">'+(o.hypothesis||"").replace(/</g,"&lt;").slice(0,200)+'</div>'):'')+'</div>';}).join("")
+  :'<div class="emptybox">Pipeline leer<br>&bdquo;jetzt scannen&ldquo; klicken oder auf den Wochen-Scan warten.</div>';
+ const wire=(sel,fn)=>$$(sel).forEach(a=>a.onclick=fn(a));
+ wire('#rd-list [data-oconv]',a=>async()=>{await fetch("/api/opportunities/convert",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.oconv})});loadRadar();});
+ wire('#rd-list [data-oshort]',a=>async()=>{await fetch("/api/opportunities/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.oshort,status:"shortlist"})});loadRadar();});
+ wire('#rd-list [data-orej]',a=>async()=>{await fetch("/api/opportunities/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.orej,status:"rejected"})});loadRadar();});
+}catch(e){}}
+$("#rd-scan")&&($("#rd-scan").onclick=async()=>{$("#rd-hint").textContent="… scanne (kann ~1 min dauern) …";
+ const r=await (await fetch("/api/radar/scan",{method:"POST"})).json();
+ $("#rd-hint").textContent=r.error?("Fehler: "+r.error):("Scan fertig — "+(r.found||0)+" neue Chance(n).");loadRadar();});
 
 refreshStatus();loadCommand();
 setInterval(()=>{refreshStatus();if(cur==="system"&&sysCur==="log"&&logRaw.length<=100)loadEvents();if(cur==="system"&&sysCur==="gov")loadGov();if(cur==="home"){loadHud();loadOps();loadNeeds();}},5000);

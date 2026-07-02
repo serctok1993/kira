@@ -738,6 +738,36 @@ async def api_ventures_book(body: dict) -> dict:
     return {"ok": True, "balance": ventures.balance(vid)}
 
 
+# ---------- Business-Radar (S5.5) ----------
+@app.get("/api/opportunities")
+def api_opportunities(status: str = "") -> dict:
+    from core.agency import radar
+
+    return {"opportunities": radar.list_all(status)}
+
+
+@app.post("/api/opportunities/decide")
+async def api_opportunities_decide(body: dict) -> dict:
+    from core.agency import radar
+
+    return {"ok": radar.decide(body.get("id", ""), body.get("status", ""),
+                               note=body.get("note", ""))}
+
+
+@app.post("/api/opportunities/convert")
+async def api_opportunities_convert(body: dict) -> dict:
+    from core.agency import radar
+
+    return await anyio.to_thread.run_sync(lambda: radar.convert(body.get("id", "")))
+
+
+@app.post("/api/radar/scan")
+async def api_radar_scan() -> dict:
+    from core.agency import radar
+
+    return await anyio.to_thread.run_sync(lambda: radar.scan(notify=False))
+
+
 # ---------- Wissens-Archiv (S5.4) ----------
 @app.get("/api/knowledge")
 def api_knowledge() -> dict:

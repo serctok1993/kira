@@ -11,7 +11,11 @@ from core.mind import reflection
 def _setup(monkeypatch, tmp_path, verdicts: list[dict]):
     """Temp-DB + stiller Runner + geskriptete Verdicts. Liefert (task_id, act_calls)."""
     db = str(tmp_path / "state.db")
-    for mod in (queue, outcomes, events, approvals):
+    from core.agency.missions import objectives as _objectives
+
+    # WICHTIG: auch objectives patchen — run_once ruft init_objectives(); ohne Patch
+    # ginge das auf die ECHTE state.db (Lock-Flakes + Hands-off-Verstoss).
+    for mod in (queue, outcomes, events, approvals, _objectives):
         monkeypatch.setattr(mod, "DB_PATH", db)
 
     monkeypatch.setitem(CONFIG, "mission", {"name": "testmission", "notify_telegram": False})

@@ -181,8 +181,11 @@ VIEWS = r"""</head><body>
   </div>
 
   <div class="view" id="v-radar">
-    <div class="panel"><div class="panel-h">◈ RADAR — Business-Chancen</div>
-      <div class="panel-b"><span class="muted">Der Chancen-Scanner (Ideen mit Hypothese + Score, ein Klick zum Venture) kommt in S5.5.</span></div></div>
+    <div class="panel"><div class="panel-h">◈ RADAR — Business-Chancen <span class="sp"></span>
+      <a id="rd-scan" class="muted" style="cursor:pointer;font-size:11px">⚡ jetzt scannen</a></div>
+      <div class="panel-b"><span class="muted" id="rd-hint">Automatischer Scan laeuft woechentlich — Chancen landen hier als Pipeline.</span></div>
+      <div id="rd-list" class="panel-b"><span class="muted">…</span></div>
+    </div>
   </div>
 
   <div class="view" id="v-system">
