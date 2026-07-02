@@ -22,6 +22,32 @@ def test_page_boots_with_new_ia():
     assert 'id="sys-tabs"' in html
 
 
+def test_cockpit_js_is_syntactically_valid(tmp_path):
+    """Faengt genau den S5.3a-Bug: die UI-Extraktion als raw-String fror Python-Escapes
+    (nav(\\'x\\')) ein und brach das GANZE Skript -> keine Tab-Navigation. Ein toter
+    Syntaxfehler legt das komplette Cockpit lahm, deshalb hier ein echter JS-Parse."""
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if not node:
+        import pytest
+        pytest.skip("node nicht verfuegbar")
+    html = _page()
+    js = html[html.find("<script>") + 8:html.rfind("</script>")]
+    f = tmp_path / "cockpit.js"
+    f.write_text(js, encoding="utf-8")
+    r = subprocess.run([node, "--check", str(f)], capture_output=True, text=True)
+    assert r.returncode == 0, f"Cockpit-JS hat einen Syntaxfehler:\n{r.stderr[:600]}"
+
+
+def test_no_double_backslash_quote_in_onclick():
+    """Schneller node-freier Waechter gegen das exakte Fehlermuster (zwei Backslashes
+    vor einem Apostroph in einem JS-String = immer kaputt in diesem Codebase)."""
+    html = _page()
+    assert "\\\\'" not in html, "doppeltes Backslash-vor-Quote — raw-String-Escaping-Bug zurueck!"
+
+
 def test_phrases_injected():
     html = _page()
     assert "__PHRASES__" not in html  # Server-Injektion hat gegriffen

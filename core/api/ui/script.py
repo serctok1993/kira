@@ -50,7 +50,7 @@ $("#bgfile")&&($("#bgfile").onchange=(e)=>{const f=e.target.files[0];if(!f)retur
 async function loadMonitor(){const m=await (await fetch("/api/monitor")).json();
  $("#mo-list").innerHTML=m.watches.length?m.watches.map(w=>'<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>'+(w.label||"").replace(/</g,"&lt;")+'</b> <small class=muted>['+w.kind+']</small> <a href="#" data-rm="'+w.id+'" style="float:right;color:var(--warn)">entfernen</a><br><small class=muted>'+(w.value||"").replace(/</g,"&lt;")+'</small></div>').join(""):'<span class=muted>(noch keine — oben hinzufuegen)</span>';
  document.querySelectorAll('#mo-list a[data-rm]').forEach(a=>a.onclick=async(e)=>{e.preventDefault();await fetch("/api/monitor/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.rm})});loadMonitor();});
- $("#mo-recent").innerHTML=m.recent.length?m.recent.map(r=>{const ts=new Date(r.ts*1000).toLocaleString();return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><small class=muted>'+ts+'</small> <b>'+(r.label||"")+'</b> ('+r.count+' neu)<br>'+(r.summary||"").slice(0,320).replace(/</g,"&lt;").replace(/\\n/g,"<br>")+'</div>';}).join(""):'<span class=muted>(noch nichts gemeldet)</span>';}
+ $("#mo-recent").innerHTML=m.recent.length?m.recent.map(r=>{const ts=new Date(r.ts*1000).toLocaleString();return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><small class=muted>'+ts+'</small> <b>'+(r.label||"")+'</b> ('+r.count+' neu)<br>'+(r.summary||"").slice(0,320).replace(/</g,"&lt;").replace(/\n/g,"<br>")+'</div>';}).join(""):'<span class=muted>(noch nichts gemeldet)</span>';}
 $("#mo-add").onclick=async()=>{const v=$("#mo-value").value.trim();if(!v)return;await fetch("/api/monitor/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:$("#mo-kind").value,value:v,label:$("#mo-label").value})});$("#mo-value").value="";$("#mo-label").value="";loadMonitor();};
 $("#mo-check").onclick=async()=>{$("#mo-hint").textContent="… prueft alle Beobachtungen (kann etwas dauern) …";const r=await (await fetch("/api/monitor/check",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();$("#mo-hint").textContent="Geprueft: "+r.checked+" Quelle(n) · Neu gemeldet: "+(r.digests?r.digests.length:0);loadMonitor();};
 
@@ -96,9 +96,9 @@ async function loadHome(){const o=await (await fetch("/api/overview")).json();co
  h+=card("Werkzeuge ("+o.tools.length+")", o.tools.map(t=>'<span class="pill">'+t+'</span>').join(" "));
  h+=card("Letzte Lektionen", o.lessons.length?('<ul style="margin:0;padding-left:18px">'
    +o.lessons.map(l=>'<li>'+l.slice(0,140).replace(/</g,"&lt;")+'</li>').join("")+'</ul>'):'<span class=muted>(noch keine)</span>');
- h+=card("Schnellzugriff",'<button class=ghost onclick="nav(\\'chat\\')">Chat</button> '
-   +'<button class=ghost onclick="nav(\\'models\\')">Modelle</button> '
-   +'<button class=ghost onclick="nav(\\'gov\\')">Gewissen</button>');
+ h+=card("Schnellzugriff",'<button class=ghost onclick="nav(\'chat\')">Chat</button> '
+   +'<button class=ghost onclick="nav(\'models\')">Modelle</button> '
+   +'<button class=ghost onclick="nav(\'gov\')">Gewissen</button>');
  h+='</div>';$("#home").innerHTML=h;
  const rb=$("#sys-restart"); if(rb) rb.onclick=async()=>{if(!confirm("Kira neu starten? Dienste bouncen in ~20s."))return;await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});rb.textContent="↻ Neustart angefordert …";};}
 
@@ -264,9 +264,9 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
   if(m.role==="system"){add(m.text,"sys");return;}
   if(m.done){stopThinking();curBot=null;curThink=null;loadChatSessions();return;}
   if(m.kind==="think"){ensureTrace();thinkBuf+=m.text;traceSet();return;}
-  if(m.kind==="tool"){ensureTrace();thinkBuf+="\\n🔧 "+m.name+" "+JSON.stringify(m.args);traceSet();return;}
-  if(m.kind==="obs"){ensureTrace();thinkBuf+="\\n   ✓ "+(m.text||"").slice(0,120);traceSet();return;}
-  if(m.kind==="final"||m.kind==="answer"){stopThinking();const b=add("","bot");b.textContent=(m.text||"").replace(/\\*\\*/g,"");log.scrollTop=log.scrollHeight;}};
+  if(m.kind==="tool"){ensureTrace();thinkBuf+="\n🔧 "+m.name+" "+JSON.stringify(m.args);traceSet();return;}
+  if(m.kind==="obs"){ensureTrace();thinkBuf+="\n   ✓ "+(m.text||"").slice(0,120);traceSet();return;}
+  if(m.kind==="final"||m.kind==="answer"){stopThinking();const b=add("","bot");b.textContent=(m.text||"").replace(/\*\*/g,"");log.scrollTop=log.scrollHeight;}};
  ws.onclose=()=>{if(!wsIntentional)setTimeout(connect,1500);};}
 function reconnect(){wsIntentional=true;if(ws){try{ws.close();}catch(e){}}connect();}
 function relTime(ts){const s=Date.now()/1000-ts;if(s<90)return "gerade";if(s<3600)return Math.round(s/60)+" Min";if(s<86400)return Math.round(s/3600)+" Std";return Math.round(s/86400)+" Tg";}
@@ -277,7 +277,7 @@ async function loadChatSessions(){const sel=$("#sess-list");if(!sel)return;
  else{sel.value=curSid;}}
 async function openSession(sid){curSid=sid;log.innerHTML="";curBot=null;curThink=null;
  try{const h=await (await fetch("/api/chat/history?sid="+encodeURIComponent(sid))).json();
-  (h.messages||[]).forEach(m=>add((m.text||"").replace(/\\*\\*/g,""),m.role==="user"?"me":"bot"));}catch(e){}
+  (h.messages||[]).forEach(m=>add((m.text||"").replace(/\*\*/g,""),m.role==="user"?"me":"bot"));}catch(e){}
  const sel=$("#sess-list");if(sel)sel.value=sid;reconnect();}
 function newSession(){curSid="cockpit-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;reconnect();}
 async function deleteSession(){if(!curSid)return;if(!confirm("Diese Unterhaltung wirklich loeschen?"))return;
@@ -367,18 +367,18 @@ const ROLE_LABEL={chat:"💬 Chat",reason:"🧠 Reason/Coding",bulk:"⏰ Crons",
 let MCAT={openrouter:[],local:[]};
 function money(x){return (x==null||x===0)?"0€":("$"+(x*1e6).toFixed(2)+"/M");}
 function renderRoles(roles){const el=$("#m-roles");if(!el)return;
- el.innerHTML=Object.keys(ROLE_LABEL).map(r=>'<div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px solid var(--line)"><span style="min-width:150px">'+ROLE_LABEL[r]+'</span><b style="flex:1;color:var(--accent)">'+((roles[r]||"—")+"").replace(/^openrouter\\//,"").replace(/</g,"&lt;")+'</b></div>').join("");}
+ el.innerHTML=Object.keys(ROLE_LABEL).map(r=>'<div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px solid var(--line)"><span style="min-width:150px">'+ROLE_LABEL[r]+'</span><b style="flex:1;color:var(--accent)">'+((roles[r]||"—")+"").replace(/^openrouter\//,"").replace(/</g,"&lt;")+'</b></div>').join("");}
 function renderCat(){const el=$("#cat-list");if(!el)return;const q=(($("#cat-search")||{}).value||"").toLowerCase().trim();
  const all=(MCAT.local||[]).concat(MCAT.openrouter||[]);
  const hits=all.filter(m=>!q||(m.id||"").toLowerCase().includes(q)||(m.name||"").toLowerCase().includes(q)).slice(0,80);
  el.innerHTML=hits.length?hits.map(m=>'<div style="display:flex;gap:8px;align-items:center;padding:4px 2px;border-bottom:1px solid var(--line)">'
-   +'<span style="flex:1"><b>'+(m.id||"").replace(/^openrouter\\//,"").replace(/</g,"&lt;")+'</b>'+(m.ctx?' <small class=muted>'+Math.round(m.ctx/1000)+'K</small>':'')+'</span>'
+   +'<span style="flex:1"><b>'+(m.id||"").replace(/^openrouter\//,"").replace(/</g,"&lt;")+'</b>'+(m.ctx?' <small class=muted>'+Math.round(m.ctx/1000)+'K</small>':'')+'</span>'
    +'<small class=muted style="min-width:120px">'+money(m.in)+' · '+money(m.out)+'</small>'
    +'<button class=ghost data-mid="'+m.id+'" style="padding:3px 9px">→ zuweisen</button></div>').join(""):'<span class=muted>(keine Treffer)</span>';
  el.querySelectorAll('button[data-mid]').forEach(b=>b.onclick=async()=>{const role=$("#cat-role").value;
    $("#cat-hint").textContent="… setze "+role+" …";
    await fetch("/api/model/role",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role,model:b.dataset.mid})});
-   $("#cat-hint").innerHTML=ROLE_LABEL[role]+' → <b>'+b.dataset.mid.replace(/^openrouter\\//,"")+'</b> ✓';loadModels();refreshStatus();});}
+   $("#cat-hint").innerHTML=ROLE_LABEL[role]+' → <b>'+b.dataset.mid.replace(/^openrouter\//,"")+'</b> ✓';loadModels();refreshStatus();});}
 async function loadCatalog(){try{const d=await (await fetch("/api/model/catalog")).json();MCAT=d.catalog||{openrouter:[],local:[]};renderRoles(d.roles||{});renderCat();}catch(e){}}
 $("#cat-search")&&($("#cat-search").oninput=()=>renderCat());
 $("#s-behav-save")&&($("#s-behav-save").onclick=async()=>{const tp=parseFloat($("#s-temp").value);
