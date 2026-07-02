@@ -9,7 +9,7 @@ import json
 import time
 
 import anyio
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Form, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, Response
 
 from core.agency.tools import builtin as _builtin  # noqa: F401  (registriert eingebaute Tools)
@@ -736,6 +736,48 @@ async def api_ventures_book(body: dict) -> dict:
     else:
         ventures.book(vid, "in", amount, category="venture", note=note)
     return {"ok": True, "balance": ventures.balance(vid)}
+
+
+# ---------- Wissens-Archiv (S5.4) ----------
+@app.get("/api/knowledge")
+def api_knowledge() -> dict:
+    from core.mind import knowledge
+
+    return {"docs": knowledge.list_docs()}
+
+
+@app.get("/api/knowledge/search")
+def api_knowledge_search(q: str, k: int = 5) -> dict:
+    from core.mind import knowledge
+
+    return {"hits": knowledge.search(q, k=max(1, min(10, k)))}
+
+
+@app.post("/api/knowledge/add")
+async def api_knowledge_add(body: dict) -> dict:
+    from core.mind import knowledge
+
+    return await anyio.to_thread.run_sync(
+        lambda: knowledge.ingest_text((body.get("title") or "Notiz").strip(),
+                                      body.get("text") or "", source="paste",
+                                      tags=body.get("tags") or ""))
+
+
+@app.post("/api/knowledge/upload")
+async def api_knowledge_upload(file: UploadFile = File(...), tags: str = Form("")) -> dict:
+    from core.mind import knowledge
+
+    data = await file.read()
+    fname = file.filename or "upload.txt"
+    return await anyio.to_thread.run_sync(
+        lambda: knowledge.ingest_file(data, fname, source="upload", tags=tags))
+
+
+@app.post("/api/knowledge/delete")
+async def api_knowledge_delete(body: dict) -> dict:
+    from core.mind import knowledge
+
+    return {"ok": knowledge.delete(body.get("id", ""))}
 
 
 # ---------- Agenten-Sicht + Projekt-Spuren (S5.3b, rein lesend) ----------

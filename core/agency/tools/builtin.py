@@ -603,3 +603,5 @@ from core.agency.tools import browser as _browser_tools  # noqa: E402,F401
 from core.agency.tools import trigger_tools  # noqa: E402,F401
 # Lebens-Ebene (S5): Todos, Ziele, Metriken — Kiras Coach-Griff.
 from core.agency.tools import life_tools  # noqa: E402,F401
+# Wissens-Archiv (S5): suchen/ablegen im Schreibtisch.
+from core.agency.tools import knowledge_tools  # noqa: E402,F401

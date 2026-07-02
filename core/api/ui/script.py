@@ -14,7 +14,7 @@ $$("#side a").forEach(a=>a.onclick=()=>nav(a.dataset.v));
 function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");};
  if(document.startViewTransition&&!matchMedia("(prefers-reduced-motion: reduce)").matches){document.startViewTransition(go);}else{go();}
- if(v==="home")loadCommand(); if(v==="mission")loadMission(); if(v==="chat"){loadChatModels();loadChatSessions();} if(v==="system")syst(sysCur); if(v==="leben")loadLeben(); if(v==="agenten")loadAgenten();}
+ if(v==="home")loadCommand(); if(v==="mission")loadMission(); if(v==="chat"){loadChatModels();loadChatSessions();} if(v==="system")syst(sysCur); if(v==="leben")loadLeben(); if(v==="agenten")loadAgenten(); if(v==="wissen")loadWissen();}
 
 /* ---- System-Bereich: Sub-Tabs (Modelle/Gewissen/Cron/Monitor/Zugaenge/Gedaechtnis/Dateien/Protokoll) ---- */
 let sysCur="models";
@@ -629,6 +629,32 @@ async function loadZDigest(){const el=$("#z-digest");if(!el)return;try{const d=a
  el.innerHTML='<div><b>'+d.tasks_done_count+'</b> Aufgaben erledigt &middot; <b>'+d.planned+'</b> geplant &middot; Fehler: <b style="color:'+(d.errors?"var(--danger)":"var(--ok)")+'">'+d.errors+'</b></div>'
   +((d.tasks_done&&d.tasks_done.length)?('<ul style="margin:6px 0 0;padding-left:16px;font-size:12px">'+d.tasks_done.slice(0,6).map(t=>'<li>'+(""+t).replace(/</g,"&lt;")+'</li>').join("")+'</ul>'):'')
   +'<div class="muted" style="margin-top:6px;font-size:12px">Kosten heute: '+d.spend_usd+' &euro;</div>';}catch(e){}}
+
+/* ---- Wissen (S5.4): fuettern, suchen, verwalten ---- */
+async function loadWissen(){try{const d=await (await fetch("/api/knowledge")).json();const docs=d.docs||[];
+ const kc=$("#kn-count");if(kc)kc.textContent=docs.length?(docs.length+" Dokumente, "+docs.reduce((a,x)=>a+(x.chunks||0),0)+" Abschnitte"):"";
+ $("#kn-docs").innerHTML=docs.length?docs.map(x=>'<div class="memrow"><div class="mh"><span class="badge kind">'+x.source+'</span><b>'+(x.title||"").replace(/</g,"&lt;").slice(0,80)+'</b><span style="flex:1"></span><span class="muted">'+Math.round((x.bytes||0)/1024)+' KB &middot; '+x.chunks+' Abschnitte</span> <a data-kdel="'+x.id+'" style="cursor:pointer;color:var(--muted)" title="loeschen">&#10005;</a></div></div>').join("")
+  :'<div class="emptybox">Archiv ist leer<br>Fuettere mich: Datei, Notiz oder Telegram-Anhang.</div>';
+ $$('#kn-docs [data-kdel]').forEach(a=>a.onclick=async()=>{await fetch("/api/knowledge/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.kdel})});loadWissen();});
+}catch(e){}}
+$("#kn-add")&&($("#kn-add").onclick=async()=>{const txt=$("#kn-text").value.trim();if(!txt)return;
+ $("#kn-hint").textContent="…";
+ const r=await (await fetch("/api/knowledge/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:$("#kn-title").value.trim()||"Notiz",text:txt})})).json();
+ $("#kn-hint").textContent=r.ok?(r.duplicate?"kenne ich schon (Duplikat)":"&#10003; abgelegt ("+r.chunks+" Abschnitte)"):("Fehler: "+(r.error||"?"));
+ if(r.ok&&!r.duplicate){$("#kn-text").value="";$("#kn-title").value="";}loadWissen();});
+$("#kn-file")&&($("#kn-file").onchange=async()=>{const f=$("#kn-file").files[0];if(!f)return;
+ $("#kn-file-hint").textContent="… lade "+f.name+" …";
+ const fd=new FormData();fd.append("file",f);
+ const r=await (await fetch("/api/knowledge/upload",{method:"POST",body:fd})).json();
+ $("#kn-file-hint").textContent=r.ok?(r.duplicate?"kenne ich schon (Duplikat)":"&#10003; "+f.name+" ("+r.chunks+" Abschnitte)"):("Fehler: "+(r.error||"?"));
+ $("#kn-file").value="";loadWissen();});
+let knTimer=null;
+$("#kn-q")&&($("#kn-q").oninput=()=>{clearTimeout(knTimer);knTimer=setTimeout(async()=>{
+ const q=$("#kn-q").value.trim();const el=$("#kn-results");
+ if(q.length<3){el.innerHTML='<span class="muted">&hellip;</span>';return;}
+ const d=await (await fetch("/api/knowledge/search?q="+encodeURIComponent(q))).json();
+ el.innerHTML=(d.hits||[]).length?d.hits.map(h=>'<div class="memrow"><div class="mh"><b>'+(h.title||"").replace(/</g,"&lt;").slice(0,60)+'</b><span class="muted"> &middot; Abschnitt '+(h.chunk_no+1)+(h.score!=null?(' &middot; '+h.score):'')+'</span></div><div class="muted" style="font-size:12px;margin-top:3px">'+(h.text||"").replace(/</g,"&lt;").slice(0,260)+'&hellip;</div></div>').join("")
+  :'<span class="muted">nichts gefunden</span>';},350);});
 
 refreshStatus();loadCommand();
 setInterval(()=>{refreshStatus();if(cur==="system"&&sysCur==="log"&&logRaw.length<=100)loadEvents();if(cur==="system"&&sysCur==="gov")loadGov();if(cur==="home"){loadHud();loadOps();loadNeeds();}},5000);

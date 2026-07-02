@@ -157,8 +157,27 @@ VIEWS = r"""</head><body>
   </div>
 
   <div class="view" id="v-wissen">
-    <div class="panel"><div class="panel-h">◈ WISSEN — dein Archiv</div>
-      <div class="panel-b"><span class="muted">Dokumente/Notizen hochladen + durchsuchen kommt in S5.4 (inkl. PDF und Telegram-Anhaenge).</span></div></div>
+    <div class="mgrid">
+      <div class="panel"><div class="panel-h">◈ FUETTERN — Datei oder Notiz</div>
+        <div class="panel-b">
+          <div class="row" style="flex-wrap:wrap">
+            <label class="ghost" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer">📄 Datei waehlen<input id="kn-file" type="file" accept=".txt,.md,.markdown,.html,.htm,.pdf,.csv,.log,.json,.yaml,.yml" style="display:none"/></label>
+            <span class="muted" id="kn-file-hint" style="align-self:center">txt · md · html · pdf (max 15 MB) — oder per Telegram schicken</span>
+          </div>
+          <input id="kn-title" placeholder="Titel der Notiz" style="margin-top:10px;width:100%"/>
+          <textarea id="kn-text" class="k" style="margin-top:6px;min-height:90px" placeholder="… oder hier Text/Wissen einfuegen …"></textarea>
+          <div class="row" style="margin-top:6px"><button id="kn-add">+ Ins Archiv</button><span class="muted" id="kn-hint" style="align-self:center"></span></div>
+        </div>
+      </div>
+      <div class="panel"><div class="panel-h">◈ SUCHEN</div>
+        <div class="panel-b">
+          <input id="kn-q" placeholder="🔍 Was suchst du im Archiv?" style="width:100%"/>
+          <div id="kn-results" style="margin-top:8px"><span class="muted">…</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel"><div class="panel-h">◈ ARCHIV <span class="sp"></span><span class="muted" id="kn-count" style="font-size:11px"></span></div>
+      <div id="kn-docs" class="panel-b"><span class="muted">…</span></div></div>
   </div>
 
   <div class="view" id="v-radar">

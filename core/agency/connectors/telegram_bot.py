@@ -157,6 +157,11 @@ def _handle(client: httpx.Client, update: dict) -> None:
         _handle_photo(client, chat_id, msg)
         return
 
+    # Dokument -> Wissens-Archiv (S5: der 'fertige Schreibtisch')
+    if "document" in msg:
+        _handle_document(client, chat_id, msg)
+        return
+
     text = msg.get("text")
     voice_text = None
     if not text and "voice" in msg and _cfg().get("voice", True):
@@ -173,8 +178,51 @@ def _handle(client: httpx.Client, update: dict) -> None:
         _handle_command(client, chat_id, text)
         return
 
+    # 'merke:'-Fast-Path: lange Texte deterministisch ins Archiv (kein LLM noetig)
+    if text.lower().startswith("merke:") and len(text) > 400:
+        try:
+            from core.mind import knowledge
+
+            body_text = text.split(":", 1)[1].strip()
+            title = body_text.splitlines()[0][:80] or "Telegram-Notiz"
+            res = knowledge.ingest_text(title, body_text, source="telegram")
+            if res.get("ok"):
+                _send(client, chat_id, ("Kenne ich schon (Duplikat)." if res.get("duplicate")
+                                        else f"Im Archiv abgelegt: {title} ({res.get('chunks', '?')} Abschnitte) 📚"))
+                return
+        except Exception as e:  # noqa: BLE001
+            events.emit("knowledge_error", {"error": str(e)[:200]})
+
     events.emit("telegram_in", {"chat_id": chat_id, "text": text}, session_id=f"telegram-{chat_id}")
     _agentic_reply(client, chat_id, f"telegram-{chat_id}", text, voice_text=voice_text)
+
+
+def _handle_document(client: httpx.Client, chat_id: int, msg: dict) -> None:
+    """Telegram-Anhang -> Wissens-Archiv (txt/md/html/pdf, max 15 MB)."""
+    doc = msg.get("document") or {}
+    fname = doc.get("file_name") or "anhang.txt"
+    if (doc.get("file_size") or 0) > 15 * 1024 * 1024:
+        _send(client, chat_id, "Zu gross (max 15 MB) — schick mir eine kleinere Datei.")
+        return
+    try:
+        info = client.get(f"{API}/getFile", params={"file_id": doc.get("file_id")}).json()
+        fpath = info.get("result", {}).get("file_path")
+        if not fpath:
+            _send(client, chat_id, "Konnte die Datei nicht abrufen.")
+            return
+        data = client.get(f"https://api.telegram.org/file/bot{TOKEN}/{fpath}").content
+        from core.mind import knowledge
+
+        res = knowledge.ingest_file(data, fname, source="telegram")
+        if res.get("ok"):
+            _send(client, chat_id, ("Kenne ich schon (Duplikat). 📚" if res.get("duplicate")
+                                    else f"📚 Im Archiv: {fname} ({res.get('chunks', '?')} Abschnitte). "
+                                         f"Frag mich einfach danach."))
+        else:
+            _send(client, chat_id, f"Konnte {fname} nicht ablegen: {res.get('error')}")
+    except Exception as e:  # noqa: BLE001
+        events.emit("knowledge_error", {"error": str(e)[:200]})
+        _send(client, chat_id, f"Fehler beim Ablegen: {str(e)[:150]}")
 
 
 def _clean(t: str) -> str:
