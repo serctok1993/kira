@@ -18,6 +18,7 @@ import httpx
 
 from core.config import CONFIG, ROOT
 from core.kernel import events, llm_router
+from core.kernel.fs import atomic_write
 
 _UA = {"User-Agent": "Mozilla/5.0 (Kira News Monitor)"}
 WATCHES = ROOT / "data" / "watches.json"
@@ -33,8 +34,7 @@ def _load() -> list[dict]:
 
 
 def _save(w: list[dict]) -> None:
-    WATCHES.parent.mkdir(parents=True, exist_ok=True)
-    WATCHES.write_text(json.dumps(w, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write(WATCHES, json.dumps(w, ensure_ascii=False, indent=2))
 
 
 def _hash(s: str) -> str:

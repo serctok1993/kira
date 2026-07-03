@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 
 from core.config import DATA_DIR
+from core.kernel.fs import atomic_write
 
 _PATH = DATA_DIR / "autonomy.json"
 _DEFAULT = {
@@ -52,6 +53,5 @@ def set_config(chains_off: bool | None = None, hard_gate: list[str] | None = Non
         d["chains_off"] = bool(chains_off)
     if hard_gate is not None:
         d["hard_gate"] = list(hard_gate)
-    _PATH.parent.mkdir(parents=True, exist_ok=True)
-    _PATH.write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
+    atomic_write(_PATH, json.dumps(d, indent=2, ensure_ascii=False))
     return d

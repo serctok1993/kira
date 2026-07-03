@@ -21,6 +21,7 @@ import httpx
 
 from core.config import CONFIG, DATA_DIR, apply_model_overrides
 from core.kernel.llm_router import _PROVIDER_KEYS
+from core.kernel.fs import atomic_write
 
 OVERRIDE = DATA_DIR / "models.json"
 _MAIN_SCOPES = ("chat", "reason", "bulk")  # diese Routing-Pfade folgen dem Default
@@ -36,7 +37,7 @@ def _load() -> dict:
 
 
 def _save(d: dict) -> None:
-    OVERRIDE.write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
+    atomic_write(OVERRIDE, json.dumps(d, indent=2, ensure_ascii=False))
 
 
 def ollama_models() -> list[str]:

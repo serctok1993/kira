@@ -429,8 +429,8 @@ def load_and_bridge(config_path: str = "data/mcp_servers.json") -> dict[str, int
     path = Path(config_path)
     if not path.exists():
         try:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(_EXAMPLE_CONFIG.read_text(encoding="utf-8"), encoding="utf-8")
+            from core.kernel.fs import atomic_write
+            atomic_write(path, _EXAMPLE_CONFIG.read_text(encoding="utf-8"))
         except Exception:  # noqa: BLE001
             return {}
 
@@ -479,12 +479,23 @@ def init_background() -> None:
 
 
 def server_status() -> dict[str, dict]:
-    """Liefert Status aller konfigurierten Server (fürs Cockpit)."""
+    """Liefert Status aller konfigurierten Server (fürs Cockpit).
+
+    S8.0: defensiv gegen korrupte Config — vorher warf ein halb geschriebenes
+    JSON hier 'Expecting value: line 1 column 1' bis in die API hoch."""
     path = Path("data/mcp_servers.json")
-    configs = json.loads(path.read_text()) if path.exists() else {}
+    try:
+        configs = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    except (json.JSONDecodeError, OSError) as e:
+        _emit("mcp_bridge_error", {"error": f"Config unlesbar (server_status): {e}"})
+        return {}
+    if not isinstance(configs, dict):
+        return {}
 
     status = {}
     for name, cfg in configs.items():
+        if not isinstance(cfg, dict):
+            continue
         running = name in _servers
         tool_count = len([
             t for t, s in _tool_registry.items()

@@ -21,6 +21,7 @@ import httpx
 
 from core.config import CONFIG, ROOT
 from core.kernel import events
+from core.kernel.fs import atomic_write
 
 JOBS = ROOT / "data" / "cron.json"
 
@@ -35,8 +36,7 @@ def _load() -> list[dict]:
 
 
 def _save(jobs: list[dict]) -> None:
-    JOBS.parent.mkdir(parents=True, exist_ok=True)
-    JOBS.write_text(json.dumps(jobs, ensure_ascii=False, indent=2), encoding="utf-8")
+    atomic_write(JOBS, json.dumps(jobs, ensure_ascii=False, indent=2))
 
 
 def _hash(s: str) -> str:

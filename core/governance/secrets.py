@@ -13,6 +13,7 @@ import time
 
 from core.config import DATA_DIR
 from core.kernel import events
+from core.kernel.fs import atomic_write
 
 SECRETS_FILE = DATA_DIR / "secrets.json"
 
@@ -27,7 +28,7 @@ def _load() -> dict:
 
 
 def _save(d: dict) -> None:
-    SECRETS_FILE.write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
+    atomic_write(SECRETS_FILE, json.dumps(d, indent=2, ensure_ascii=False))
 
 
 def load_into_env() -> None:

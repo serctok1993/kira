@@ -1237,8 +1237,7 @@ def _chat_meta() -> dict:
 
 
 def _save_chat_meta(meta: dict) -> None:
-    _CHAT_META.parent.mkdir(parents=True, exist_ok=True)
-    _CHAT_META.write_text(json.dumps(meta, indent=1, ensure_ascii=False), encoding="utf-8")
+    atomic_write(_CHAT_META, json.dumps(meta, indent=1, ensure_ascii=False))
 
 
 @app.get("/api/chat/sessions")
@@ -1325,3 +1324,4 @@ def index() -> str:
 # script.py) — drei handliche Module statt einer 90-KB-Wand hier. Der Export bleibt
 # identisch: DASHBOARD_HTML ist weiterhin ueber core.api.server importierbar.
 from core.api.ui import DASHBOARD_HTML  # noqa: E402
+from core.kernel.fs import atomic_write

@@ -563,6 +563,34 @@ def _dispatch(client: httpx.Client, update: dict) -> None:
     threading.Thread(target=_worker, args=(client, chat_id, update), daemon=True).start()
 
 
+def _backoff_next(cur: float) -> float:
+    """S8.0: exponentielles Backoff fuer den Poll-Loop (2s -> 60s Cap)."""
+    return min(max(cur, 2.0) * 2, 60.0)
+
+
+def _bundle(state: dict, error: str | None) -> dict | None:
+    """Stoerungs-Buendelung (S8.0): gleichartige Loop-Fehler werden gesammelt.
+
+    Liefert hoechstens EIN Event-Payload (mit 'type'-Schluessel): beim ERSTEN
+    Fehler einer Serie und bei der Erholung eine Zusammenfassung ('12x in 600s').
+    Dazwischen: None — kein Event-Spam mehr im Live-Ops-Feed."""
+    if error is not None:
+        state["count"] = state.get("count", 0) + 1
+        state.setdefault("first", time.time())
+        state["last_error"] = error[:200]
+        if state["count"] == 1:
+            return {"type": "telegram_loop_error", "error": error[:200],
+                    "note": "weitere gleichartige Fehler werden gebuendelt"}
+        return None
+    if state.get("count"):
+        out = {"type": "telegram_loop_recovered", "count": state["count"],
+               "seconds": round(time.time() - state.get("first", time.time())),
+               "last_error": state.get("last_error", "")}
+        state.clear()
+        return out
+    return None
+
+
 def run() -> None:
     if not TOKEN:
         print("TELEGRAM_BOT_TOKEN fehlt in .env — Bot via @BotFather anlegen und Token eintragen.")
@@ -576,6 +604,8 @@ def run() -> None:
     from core.kernel import runstate
     runstate.start_watchdog()  # festgefahrene Chat-Zuege erkennen -> Force-Restart (kein wedged Bot)
     offset: int | None = None
+    backoff = 2.0      # S8.0: exponentiell bei Stoerungen (2s -> 60s), Reset bei Erfolg
+    err_state: dict = {}
     print("Telegram-Bot laeuft (Long-Polling). Strg+C zum Stoppen.")
     with httpx.Client(timeout=75) as client:
         while True:
@@ -587,13 +617,21 @@ def run() -> None:
                 for update in resp.json().get("result", []):
                     offset = update["update_id"] + 1
                     _dispatch(client, update)
+                ev = _bundle(err_state, None)  # Erholung -> EIN Sammel-Event statt Spam
+                if ev:
+                    events.emit(ev.pop("type"), ev)
+                backoff = 2.0
             except httpx.ReadTimeout:
-                continue
+                continue  # normales Long-Polling-Ende, kein Fehler
             except KeyboardInterrupt:
                 print("\nBot gestoppt.")
                 break
             except Exception as e:
-                events.emit("telegram_loop_error", {"error": str(e)})
+                ev = _bundle(err_state, str(e))
+                if ev:
+                    events.emit(ev.pop("type"), ev)
+                time.sleep(backoff)  # S8.0: vorher Hammer-Loop ohne Pause
+                backoff = _backoff_next(backoff)
 
 
 if __name__ == "__main__":

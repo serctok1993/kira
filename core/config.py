@@ -83,7 +83,8 @@ def set_override(path: str, value) -> None:
         except Exception:
             ov = {}
     ov[path] = value
-    _OVERRIDE_FILE.write_text(_jo.dumps(ov, indent=2, ensure_ascii=False), encoding="utf-8")
+    from core.kernel.fs import atomic_write as _aw
+    _aw(_OVERRIDE_FILE, _jo.dumps(ov, indent=2, ensure_ascii=False))
     _apply_overrides(CONFIG, {path: value})
 
 

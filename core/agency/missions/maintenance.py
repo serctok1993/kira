@@ -10,6 +10,7 @@ import json
 import time
 
 from core.config import DATA_DIR
+from core.kernel.fs import atomic_write
 
 _STATE_PATH = DATA_DIR / "maintenance.json"
 
@@ -32,5 +33,5 @@ def maybe_run(name: str, interval_s: int = 86400) -> bool:
     if now - last < interval_s:
         return False
     state[name] = now
-    _STATE_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
+    atomic_write(_STATE_PATH, json.dumps(state, indent=2))
     return True

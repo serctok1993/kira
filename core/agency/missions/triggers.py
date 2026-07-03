@@ -18,6 +18,7 @@ import uuid
 
 from core.config import CONFIG, DATA_DIR
 from core.kernel import events
+from core.kernel.fs import atomic_write
 
 _PATH = DATA_DIR / "triggers.json"
 
@@ -31,8 +32,7 @@ def _load() -> dict:
 
 
 def _save(state: dict) -> None:
-    _PATH.parent.mkdir(parents=True, exist_ok=True)
-    _PATH.write_text(json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8")
+    atomic_write(_PATH, json.dumps(state, indent=2, ensure_ascii=False))
 
 
 def _mission_name() -> str:
