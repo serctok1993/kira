@@ -122,7 +122,9 @@ def main() -> None:
             # 2) Restart-Flag (z.B. nach self_edit): sicherer Bounce der genannten Dienste
             if RESTART_FLAG.exists():
                 try:
-                    want = RESTART_FLAG.read_text(encoding="utf-8").strip().lower()
+                    # utf-8-sig: schluckt ein BOM (PowerShell 5.1 schreibt utf8 MIT BOM ->
+                    # '﻿all' matchte sonst kein Ziel und der Bounce lief ins Leere).
+                    want = RESTART_FLAG.read_text(encoding="utf-8-sig").strip().lower()
                     RESTART_FLAG.unlink()
                 except Exception:  # noqa: BLE001
                     want = "all"

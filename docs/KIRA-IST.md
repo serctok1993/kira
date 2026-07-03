@@ -203,6 +203,7 @@ core/
 - **radar.scan:** Events erst NACH dem Transaktions-Block emittieren (DB-Lock).
 - **mcp_servers.json transient korrupt** („Expecting value") — Ursache nicht-atomare Writes; seit S8.0 atomic_write überall + defensives server_status().
 - **10x-GOAL-Apply:** Vorschläge werden beim Anwenden konsumiert, Freigaben idempotent (S6.1).
+- **restart.flag mit BOM = stiller Leerlauf:** PowerShell 5.1 schreibt `-Encoding utf8` MIT BOM → Supervisor las `﻿all`, fand kein gültiges Ziel, konsumierte den Flag und bouncte NICHTS (kein Fehler sichtbar). Seit S11.1 liest der Supervisor `utf-8-sig`; Flags aus PowerShell trotzdem BOM-frei schreiben (`[IO.File]::WriteAllText(pfad,"all")`).
 - **OFFEN — Test-Events im Live-Log:** einige Tests (autonomy-Roundtrip, cron-Scope) patchen zwar die Sidecar-Pfade, aber NICHT `events.DB_PATH` — pytest-Läufe emittieren `autonomy_changed`/`cron_added` in die echte state.db; zusätzlich bootet `TestClient(server.app)` beim Startup die ECHTE MCP-Brücke (`mcp_bridge_ready`-Events, npx-Prozesse). Verwirrt jede Audit-Sicht. Fix: events.DB_PATH konsequent mitpatchen + Startup-Hook hinter Env-Flag.
 
 ## 11. Nützliche Read-Only-Checks für den Einstieg
