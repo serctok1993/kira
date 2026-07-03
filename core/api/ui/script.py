@@ -140,33 +140,24 @@ $("#cr-add").onclick=async()=>{const p=$("#cr-prompt").value.trim();if(!p)return
  cancelEditCron();loadCron();};
 
 /* ---- Uebersicht ---- */
-async function loadHome(){const o=await (await fetch("/api/overview")).json();const b=o.budget;
- const sv=await (await fetch("/api/services")).json();
+/* S6.7b: Zentrale entruempelt — System/Modell/Budget/Vertrauen leben im HUD-Streifen,
+   die 73-Werkzeuge-Wolke gehoert (gruppiert) nach Kira->Anatomie. Hier nur noch:
+   Fokus-Hinweis, Lektionen (3) und Schnellzugriff. */
+async function loadHome(){const o=await (await fetch("/api/overview")).json();
  try{const dz=await (await fetch("/api/direktive")).json();const dh=$("#dir-hint");if(dh&&dz.focus)dh.textContent="🧭 Aktueller Fokus: "+dz.focus.slice(0,140);}catch(e){}
  const card=(t,c)=>'<div class="card"><h3>'+t+'</h3>'+c+'</div>';
- const kill=o.kill_switch?'<b style="color:var(--danger)">⛔ NOT-AUS aktiv</b>':'<span style="color:var(--ok)">einsatzbereit</span>';
- let h='<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px"><span class="dot"></span>'
-  +'<h2 style="margin:0">'+o.partner+'</h2><span class=muted>'+kill+'</span></div>'
-  +'<div style="display:flex;flex-direction:column;gap:10px">';
- const sdot=(ok)=>'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;vertical-align:middle;background:'+(ok?'var(--ok)':'var(--danger)')+';margin-right:5px"></span>';
- const svc=sv.services||{};
- h+=card("System",sdot(sv.supervisor)+'Supervisor '+sdot(svc.cockpit!==false)+'Cockpit '+sdot(svc.bot)+'Bot '+sdot(svc.runner)+'Runner '+sdot(sv.ollama)+'Ollama'
-   +'<div style="margin-top:10px;display:flex;gap:8px"><button class=ghost id="sys-restart">↻ Neustart</button></div>');
- h+=card("Modell &amp; Budget","Modell: <b>"+o.model+"</b><br><span class=muted>Heute "+b.day_spent+" / "+(b.day_limit??"-")
-   +" € · Monat "+b.month_spent+" / "+(b.month_limit??"-")+" €</span>");
- h+=card("Vertrauen","Stufe <b>"+o.trust.level+"</b><br><span class=muted>"+o.trust.label+"</span>");
- h+=card("Werkzeuge ("+o.tools.length+")", o.tools.map(t=>'<span class="pill">'+t+'</span>').join(" "));
- h+=card("Letzte Lektionen", o.lessons.length?('<ul style="margin:0;padding-left:18px">'
-   +o.lessons.map(l=>'<li>'+l.slice(0,140).replace(/</g,"&lt;")+'</li>').join("")+'</ul>'):'<span class=muted>(noch keine)</span>');
+ let h='<div style="display:flex;flex-direction:column;gap:10px">';
+ h+=card("Letzte Lektionen", (o.lessons||[]).length?('<ul style="margin:0;padding-left:18px">'
+   +o.lessons.slice(0,3).map(l=>'<li>'+esc(l.slice(0,140))+'</li>').join("")+'</ul>'):'<span class=muted>(noch keine)</span>');
  h+=card("Schnellzugriff",'<button class=ghost data-go="chat">Chat</button> '
    +'<button class=ghost data-go="models">Modelle</button> '
    +'<button class=ghost data-go="gov">Gewissen</button> '
+   +'<button class=ghost data-go="stats">Statistik</button> '
    +'<button class=ghost data-go="todo">To-Do</button>');
  h+='</div>';$("#home").innerHTML=h;
- /* Fix S6.6a: nav('models'/'gov') waren kaputt (Subtabs, keine Views) -> gezielte Spruenge */
+ /* Subtab-Ziele brauchen nav(config)+syst — nackte nav() darauf war der Weisser-Screen-Bug */
  $$('#home [data-go]').forEach(b=>b.onclick=()=>{const g=b.dataset.go;
-  if(g==="models"||g==="gov"){nav("config");syst(g);}else nav(g);});
- const rb=$("#sys-restart"); if(rb) rb.onclick=async()=>{if(!confirm("Kira neu starten? Dienste bouncen in ~20s."))return;await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});rb.textContent="↻ Neustart angefordert …";};}
+  if(g==="models"||g==="gov"||g==="stats"){nav("config");syst(g);}else nav(g);});}
 
 /* ---- Kira-Avatar (S6.6d): einmal proben, Hero + Chat nutzen ihn ---- */
 let hasAvatar=false;
@@ -178,7 +169,12 @@ let hasAvatar=false;
 let opsFilter="all";
 async function loadHud(){const el=$("#hud-strip");if(!el)return;
  try{const o=await (await fetch("/api/overview")).json();const st=await (await fetch("/api/status")).json();
+  let sv=null;try{sv=await (await fetch("/api/services")).json();}catch(e){}
   const b=o.budget||{};const ec=st.events||{};
+  const dd=(ok,name)=>'<span title="'+name+'" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;background:'+(ok?'var(--ok)':'var(--danger)')+'"></span>';
+  const svc=(sv&&sv.services)||{};
+  const dienste=sv?('<div class="hud-cell"><span class="k">Dienste</span><span class="val">'
+   +dd(sv.supervisor,"Supervisor")+dd(svc.cockpit!==false,"Cockpit")+dd(svc.bot,"Telegram-Bot")+dd(svc.runner,"Runner")+dd(sv.ollama,"Ollama")+'</span></div>'):'';
   const errs=(ec.turn_timeout||0)+(ec.llm_call_timeout||0)+(ec.service_crash||0)+(ec.act_degraded||0);
   const dayPct=b.day_limit?Math.min(100,Math.round(100*(b.day_spent||0)/b.day_limit)):0;
   const warn=dayPct>=85?" warn":"";
@@ -189,6 +185,7 @@ async function loadHud(){const el=$("#hud-strip");if(!el)return;
    +'<div class="hud-cell"><span class="k">Budget heute</span><span class="val">'+(b.day_spent||0)+' / '+(b.day_limit==null?"-":b.day_limit)+' €</span><div class="mini-bar'+warn+'"><i style="width:'+dayPct+'%"></i></div></div>'
    +'<div class="hud-cell"><span class="k">Monat</span><span class="val">'+(b.month_spent||0)+' / '+(b.month_limit==null?"-":b.month_limit)+' €</span></div>'
    +'<div class="hud-cell"><span class="k">Vertrauen</span><span class="val">Stufe '+((o.trust||{}).level==null?"-":o.trust.level)+'</span></div>'
+   +dienste
    +'<div class="hud-cell"><span class="k">Fehler-Signale</span><span class="val" style="color:'+(errs?"var(--warn)":"var(--ok)")+'">'+errs+'</span></div>'
    +'<div class="hud-cell spacer"></div>'
    +'<div class="hud-cell"><span class="k">Aktion</span><span class="val"><a id="hud-restart" style="cursor:pointer;color:var(--hud)">↻ Neustart</a></span></div>';
@@ -710,6 +707,17 @@ async function loadLeben(){
  }catch(e){}}
 
 /* ---- Agenten (S5.3b): Organe, Dienste, MCP ---- */
+/* S6.7b: Werkzeug-Wolke gruppieren — 'mcp github ×12' statt zwoelf mcp_github_*-Pillen.
+   Hover auf der Gruppen-Pille zeigt die vollen Namen (title). */
+function toolGroups(names){
+ const groups={};
+ (names||[]).forEach(n=>{
+  const m=n.match(/^mcp_([a-z0-9]+)_/);
+  const p=m?("mcp "+m[1]):((n.match(/^(venture|todo|metric|knowledge|trigger|watch|cron|opportunity|email)_/)||[])[1]||null);
+  const key=p||n;(groups[key]=groups[key]||[]).push(n);});
+ return Object.keys(groups).sort().map(k=>{const g=groups[k];
+  return g.length>1?'<span class="pill" title="'+esc(g.join(", "))+'">'+esc(k)+' ×'+g.length+'</span>'
+                   :'<span class="pill">'+esc(g[0])+'</span>';}).join(" ");}
 async function loadAgenten(){try{const d=await (await fetch("/api/agents")).json();
  const rel=ts=>{if(!ts)return "noch nie";const x=(Date.now()/1000-ts);return x<90?"gerade eben":x<3600?Math.round(x/60)+" min":x<86400?Math.round(x/3600)+" h":Math.round(x/86400)+" Tage";};
  $("#ag-organs").innerHTML=(d.organs||[]).map(o=>'<div class="memrow"><div class="mh"><span class="badge kind">'+o.name+'</span><span class="muted" style="font-size:11px">'+(o.event||"&mdash;")+'</span><span style="flex:1"></span><span class="muted">'+rel(o.ts)+'</span></div></div>').join("");
@@ -719,7 +727,11 @@ async function loadAgenten(){try{const d=await (await fetch("/api/agents")).json
  h+='<div class="muted" style="font-size:11px;letter-spacing:1px;margin:8px 0 4px">MCP-SERVER</div>';
  const mk=Object.keys(d.mcp||{});
  h+=mk.length?mk.map(n=>{const st=d.mcp[n];return '<div class="memrow"><div class="mh">'+dot(st.running)+'<b>'+n+'</b><span style="flex:1"></span><span class="muted">'+(st.enabled?"aktiv":"aus")+' &middot; '+(st.tools||0)+' Tools</span></div></div>';}).join(""):'<span class="muted">(keine konfiguriert)</span>';
- h+='<div class="muted" style="margin-top:8px;font-size:12px">'+d.tools_total+' Werkzeuge &middot; '+d.skills_total+' Skills</div>';
+ try{const ov=await (await fetch("/api/overview")).json();
+  h+='<div class="muted" style="font-size:11px;letter-spacing:1px;margin:10px 0 4px">WERKZEUGKASTEN ('+((ov.tools||[]).length||d.tools_total)+')</div>';
+  h+='<div>'+toolGroups(ov.tools)+'</div>';
+ }catch(e){h+='<div class="muted" style="margin-top:8px;font-size:12px">'+d.tools_total+' Werkzeuge</div>';}
+ h+='<div class="muted" style="margin-top:6px;font-size:12px">'+d.skills_total+' Skills gelernt</div>';
  if(d.doctor){const dr=d.doctor;const okd=dr.ok;
   h+='<div class="muted" style="font-size:11px;letter-spacing:1px;margin:10px 0 4px">SELBST-CHECK</div>';
   h+='<div>'+dot(okd)+(okd?'alles gesund':((dr.problems||[]).length+' Problem(e)'))+'</div>';

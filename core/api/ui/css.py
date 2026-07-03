@@ -324,5 +324,15 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
 .msg.bot.withav .mav{position:absolute;left:-36px;top:2px;width:27px;height:27px;border-radius:50%;
  object-fit:cover;border:1px solid var(--line)}
 @media (prefers-reduced-motion: reduce){#hero-av.aura{animation:none;box-shadow:0 0 14px var(--glow)}}
+/* ===== S6.7b · Zentrale als FESTER Kommandostand (kein Seiten-Scroll, Panels scrollen innen) ===== */
+@media(min-width:1050px){
+ #v-home.on{overflow:hidden}
+ #v-home .cmd-grid{flex:1;min-height:0;align-items:stretch;flex-wrap:nowrap;max-width:none}
+ #v-home .cmd-main{min-height:0}
+ #v-home .cmd-main .panel{flex:1;display:flex;flex-direction:column;min-height:0;margin:0}
+ #v-home #ops-feed{flex:1;max-height:none;overflow:auto}
+ #v-home .cmd-side{min-height:0;overflow:auto;padding-right:2px}
+ #v-home #news-list{max-height:30vh;overflow:auto}
+}
 
 </style>"""

@@ -222,6 +222,19 @@ def test_stats_tab_and_endpoint():
     assert TestClient(s.app).get("/api/insights", params={"days": 999}).json()["days"] == 90  # Clamp
 
 
+def test_fixed_dashboard_and_tool_groups():
+    """S6.7b: Zentrale ist ein fester Kommandostand — Dopplungs-Karten raus (System/Modell/
+    Vertrauen/Werkzeug-Wolke), Dienste-Punkte im HUD, Werkzeuge gruppiert in der Anatomie."""
+    html = _page()
+    for marker in ("function toolGroups", '<span class="k">Dienste</span>', "WERKZEUGKASTEN",
+                   "#v-home .cmd-grid{flex:1"):
+        assert marker in html, f"S6.7b-Marker fehlt: {marker}"
+    # Die alte 73-Pillen-Wolke und die HUD-Dopplungs-Karten sind wirklich raus
+    assert "o.tools.map(t=>" not in html
+    for gone in ('card("System"', 'card("Modell', 'card("Vertrauen"', 'card("Werkzeuge'):
+        assert gone not in html, f"Dopplungs-Karte lebt noch: {gone}"
+
+
 def test_avatar_hero_and_endpoints():
     """S6.6d: Hero in der Zentrale + Avatar-Endpoints (Upload/Serve/Clear, bg-Muster)."""
     html = _page()
