@@ -3,10 +3,10 @@
 > Einstiegspunkt für jedes Modell in diesem Harness und für Sergen in Obsidian.
 > Lies von oben nach unten: erst Identität, dann Prozeduren, dann laufende Arbeit.
 
-1. **Identität & Regeln** → `core/mind/` (constitution, SOUL, GOAL, USER, BODY)
-2. **Prozeduren** → `playbooks/` (feste Abläufe mit Reifegrad — Tabelle unten)
-3. **Laufende Arbeit** → `data/workspace/` (Objectives + Venture-Briefings)
-4. **Wissen & Referenz** → `docs/` (KIRA-IST.md = Übergabe-Dossier)
+1. **Identität & Regeln** → [[core/mind/constitution|Verfassung]] · [[core/mind/SOUL|Seele]] · [[core/mind/GOAL|Ziel]] · [[core/mind/USER|Sergen]] · [[core/mind/BODY|Körper]]
+2. **Prozeduren** → [[playbooks/_VORLAGE|Playbook-Vorlage]] + Tabelle unten (jedes Playbook verlinkt)
+3. **Laufende Arbeit** → `data/workspace/` (Objectives + Venture-Briefings, wechseln ständig)
+4. **Wissen & Referenz** → [[docs/KIRA-IST|Übergabe-Dossier KIRA-IST]]
 
 **Spielregeln:** Ein Playbook = ein Ablauf. Passt eines zur Aufgabe, wird es GENAU befolgt
 und das Ergebnis mit `playbook_result` zurückgemeldet — daraus lernt es. Reifegrade:
@@ -15,7 +15,7 @@ und das Ergebnis mit `playbook_result` zurückgemeldet — daraus lernt es. Reif
 Fehlschlag stuft automatisch zurück. Neues Playbook: `playbooks/_VORLAGE.md` kopieren.
 
 <!-- AUTO:START -->
-Stand: 03.07.2026 14:31 (automatisch generiert — nicht von Hand editieren)
+Stand: 03.07.2026 15:31 (automatisch generiert — nicht von Hand editieren)
 
 ## Playbooks (2)
 
