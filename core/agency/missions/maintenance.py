@@ -35,3 +35,13 @@ def maybe_run(name: str, interval_s: int = 86400) -> bool:
     state[name] = now
     atomic_write(_STATE_PATH, json.dumps(state, indent=2))
     return True
+
+
+def bump_counter(name: str) -> int:
+    """Persistenter Zaehler (ueberlebt Neustarts) — S8.1: fuer den Selbst-Tick-Rhythmus.
+    Erhoeht um 1 und gibt den neuen Wert zurueck."""
+    state = _load()
+    n = int(state.get("_c_" + name) or 0) + 1
+    state["_c_" + name] = n
+    atomic_write(_STATE_PATH, json.dumps(state, indent=2))
+    return n

@@ -70,22 +70,25 @@ heartbeat:
   enabled: true                   # Baseline an — aber inert bis der Flag "on" ist
   interval_seconds: 1800          # alle 30 min ein Mission-Schritt
 
-# Die aktuelle 24/7-Mission
+# Die 24/7-Mission — Zweck: Sergen dienen + dich verbessern (Geld ist nur Mittel).
 mission:
-  name: "Wachstum"
+  name: "Assistenz & Evolution"
+  self_every: 3                   # S8.1: jeder 3. Tick ist ein Selbst-Optimierungs-Tick
   goal: >
-    Laufe 24/7 und arbeite pro Tick EINEN abgeschlossenen Schritt am dringendsten aktiven Ziel.
-    Reihenfolge, wenn nichts dringlicher ist:
-    (1) Aktives Kundenprojekt/Venture voranbringen (z.B. QS-Transporte-Website + SEO) — konkrete Teilschritte.
-    (2) An dir selbst arbeiten: Schwaechen/Bugs finden (health, read_logs) und beheben, neue Werkzeuge/Skills bauen.
-    (3) Aktuell bleiben: KI-Markt/News, GitHub-Trends, Hardware-Preis/Leistung — konkrete Erkenntnisse ziehen.
-    (4) Planen & neue Skills lernen.
-    Aussen-Aktionen (Mails, Posts, Publish, Geld) sind ERLAUBT, aber AUSSCHLIESSLICH ueber die
-    bestehenden Gates: jede solche Aktion laeuft durch die Freigabe-Inbox bzw. das Gate
-    (publish/email/email_stranger/money), Geld zusaetzlich durch den Rat. Nichts Irreversibles
-    ohne Freigabe. Halte dich strikt an Budget (treasury) und Verfassung.
+    Laufe 24/7 und arbeite pro Tick EINEN abgeschlossenen, gemeldeten Schritt. Prioritaet:
+    (1) SERGEN DIENEN: seine offenen Auftraege/Todos und sein aktueller Fokus zuerst —
+    organisieren, planen, erinnern, recherchieren, vorbereiten (Briefe/Mails/Termine/Dossiers).
+    (2) DICH VERBESSERN: Schwaechen/Bugs finden (health, read_logs, doctor) und beheben,
+    fehlende Werkzeuge/Skills bauen. Du sollst robust sein, nicht nur clever.
+    (3) GENEHMIGTE PROJEKTE voranbringen — konkrete Teilschritte, im Rahmen des Projekt-Briefings.
+    Die 10k-Autonomie-Etappe ist EIN Projekt hierunter, kein Selbstzweck.
+    (4) AKTUELL BLEIBEN: gezielt KI/Tech/Hardware, nur wenn es Sergen oder einem Projekt dient.
+    MELDE-REGELN (bindend): jeden fertigen Schritt knapp per Telegram melden; Fehler SOFORT und
+    ehrlich; NIE Erfolg behaupten ohne Beleg; nichts erfinden; bei Unsicherheit sagen, dass du
+    unsicher bist. Denk NICHT in Kasse/Meilenstein/ROI — rechne hoechstens, was etwas gekostet hat.
+    Aussen-Aktionen (Mails, Posts, Publish, Geld) nur ueber die bestehenden Gates (Freigabe-Inbox;
+    Geld zusaetzlich durch den Rat). Nichts Irreversibles ohne Freigabe. Budget + Verfassung strikt.
     Bevorzuge billige lokale Schritte; eskaliere nur, wenn das Ergebnis es rechtfertigt.
-    Berichte das Ergebnis jedes Schritts knapp per Telegram.
   notify_telegram: true           # AN: knappe Mission-Reports per Telegram (im Dashboard/Mission-Tab umschaltbar)
 
 api:

@@ -100,8 +100,9 @@ def test_planner_prompt_gets_budget_and_insights(monkeypatch):
         insights="ERKENNTNISSE AUS BISHERIGEN ERGEBNISSEN: Task-Art produce scheitert oft")
     assert tasks == ["Aufgabe eins", "Aufgabe zwei"]
     p = prompts[0]
-    assert "BUDGET: heute noch 2.0 von 20.0 EUR" in p
-    assert "BUDGET FAST ERSCHOEPFT" in p  # 2.0 < 20% von 20
+    # S8.1: KEINE Budget-Kalkulation im Prompt mehr — nur die Schutz-Warnung bei knapp.
+    assert "BUDGET: heute noch" not in p
+    assert "Tagesbudget fast erschoepft" in p  # 2.0 < 20% von 20
     assert "ERKENNTNISSE" in p
 
 
@@ -114,7 +115,7 @@ def test_planner_backward_compatible(monkeypatch):
 
     monkeypatch.setattr(llm_router, "complete", fake)
     planner.generate_tasks("Ziel", "Kontext")  # alte Signatur ohne kwargs
-    assert "BUDGET" not in prompts[0] and "ERKENNTNISSE" not in prompts[0]
+    assert "Tagesbudget" not in prompts[0] and "ERKENNTNISSE" not in prompts[0]
 
 
 def test_planner_no_warning_when_budget_comfortable(monkeypatch):
@@ -127,8 +128,9 @@ def test_planner_no_warning_when_budget_comfortable(monkeypatch):
     monkeypatch.setattr(llm_router, "complete", fake)
     planner.generate_tasks("Ziel", "Kontext",
                            budget={"day_limit": 20.0, "day_remaining": 15.0, "month_remaining": 100.0})
-    assert "BUDGET: heute noch 15.0" in prompts[0]
-    assert "FAST ERSCHOEPFT" not in prompts[0]
+    # S8.1: komfortables Budget -> gar keine Budget-Zeile (Sergen kalkuliert, nicht Kira)
+    assert "Tagesbudget" not in prompts[0]
+    assert "erschoepft" not in prompts[0]
 
 
 # --- Runner-Verdrahtung -------------------------------------------------------------

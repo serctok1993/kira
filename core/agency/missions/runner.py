@@ -77,6 +77,49 @@ def _notify(text: str) -> None:
 _KIND_RANK = {"weekly": 0, "monthly": 1, "big": 2}
 
 
+def _self_improve_tick(mission: str, escalate: bool) -> dict:
+    """S8.1: Selbstoptimierungs-Tick — Kira arbeitet an SICH statt an Projekten.
+
+    Kontext = Doctor-Report + Erkenntnisse (insights) + letzte Fehler-Signale.
+    Bewusst schlank: EIN konkreter, abgeschlossener Verbesserungs-Schritt, gemeldet."""
+    sid = f"mission-{mission}"
+    parts = ["SELBST-OPTIMIERUNG (dieser Tick gehoert DIR, nicht den Projekten). "
+             "Waehle EINE konkrete, abgeschlossene Verbesserung an dir selbst: einen Bug beheben, "
+             "eine Schwaeche schliessen, ein fehlendes Werkzeug bauen oder einen Skill lernen. "
+             "Klein und fertig, kein Marathon. Melde am Ende knapp, was du verbessert hast."]
+    try:
+        from core.kernel import doctor
+
+        rep = doctor.check()
+        if rep.get("problems"):
+            parts.append("DOCTOR meldet:\n- " + "\n- ".join(map(str, rep["problems"][:6])))
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from core.agency import insights
+
+        brief = insights.render_brief(days=14, max_chars=500)
+        if brief:
+            parts.append(brief)
+    except Exception:  # noqa: BLE001
+        pass
+    errs = [e for e in events.recent(120) if (e.get("sev") == "error"
+            or e["type"] in ("act_degraded", "task_failed_final", "self_tick_error",
+                              "mcp_bridge_error", "heartbeat_error"))]
+    if errs:
+        parts.append("LETZTE FEHLER-SIGNALE:\n" + "\n".join(
+            f"- {e['type']}: {str(e.get('payload') or '')[:120]}" for e in errs[:5]))
+    prompt = "\n\n".join(parts)
+    events.emit("self_tick", {"problems": len((locals().get("rep") or {}).get("problems", []))},
+                session_id=sid)
+    result = act(prompt, session_id=sid, escalate=escalate, task_type="reason")
+    text = result["text"]
+    events.emit("mission_task_done", {"id": "self", "summary": text[:300], "self": True},
+                session_id=sid)
+    _notify(f"🔧 Selbst-Optimierung:\n{text[:1000]}")
+    return {"self_tick": True, "result": text[:400]}
+
+
 def _pick_objective(actives: list[dict]) -> dict | None:
     """Waehlt das naechste aktive Ziel (S6.3: Blaetter zuerst).
 
@@ -233,6 +276,18 @@ def run_once(escalate: bool = False) -> dict:
         goal = f"AKTUELLER FOKUS von Sergen (hat Vorrang vor dem Dauer-Ziel): {focus}\n\n{goal}"
     queue.init_queue()
 
+    # S8.1: jeder N-te Tick (mission.self_every) gehoert der Selbstoptimierung —
+    # NUR wenn keine offene Arbeit wartet und Sergen keinen Fokus gesetzt hat.
+    self_every = int(m.get("self_every") or 0)
+    if self_every > 1 and not focus and not queue.pending(mission):
+        try:
+            from core.agency.missions import maintenance as _maint
+
+            if _maint.bump_counter("mission_tick") % self_every == 0:
+                return _self_improve_tick(mission, escalate)
+        except Exception as e:  # noqa: BLE001
+            events.emit("self_tick_error", {"error": str(e)[:200]})
+
     if not queue.pending(mission):
         # Ziel-gerichtet planen: existieren aktive Objectives, arbeite aufs DRINGENDSTE hin
         # und verknuepfe die Tasks (objective_id) -> der Fortschritt fuellt sich automatisch.
@@ -268,16 +323,27 @@ def run_once(escalate: bool = False) -> dict:
                          + f"\n\nUEBERGEORDNETE MISSION:\n{goal}")
             oid = target["id"]
             if target.get("venture_id"):
-                # Unternehmer-Kontext: Kira plant mit Blick auf Kasse + Meilenstein (ROI statt Aktivitaet).
+                # S8.1: Projekt-Kontext OHNE Kasse/Meilenstein/ROI — Name, Hypothese,
+                # Sergens Briefing (bindende Daueranweisungen) und was es bislang gekostet hat.
                 try:
                     from core.agency import ventures as _ventures
 
                     v = _ventures.get(target["venture_id"])
                     if v:
-                        plan_goal = (f"VENTURE: {v['name']} — {v.get('hypothesis') or ''} "
-                                     f"(Kasse: {_ventures.balance(v['id']):.2f} EUR"
-                                     + (f", Meilenstein {v['milestone_eur']:.0f} EUR" if v.get("milestone_eur") else "")
-                                     + ")\n" + plan_goal)
+                        head = f"PROJEKT: {v['name']} — {v.get('hypothesis') or ''}\n"
+                        try:
+                            brief = _ventures.briefing(v["id"])
+                            if brief:
+                                head += "ANWEISUNGEN VON SERGEN (bindend):\n" + brief.strip() + "\n"
+                        except Exception:  # noqa: BLE001 — Briefing ist optional (S8.2)
+                            pass
+                        try:
+                            c = _ventures.costs(v["id"])
+                            if c:
+                                head += f"Kosten bislang: {c:.2f} EUR.\n"
+                        except Exception:  # noqa: BLE001
+                            pass
+                        plan_goal = head + plan_goal
                 except Exception as e:  # noqa: BLE001
                     events.emit("venture_context_error", {"error": str(e)[:200]})
             ws = workingset.render(oid)

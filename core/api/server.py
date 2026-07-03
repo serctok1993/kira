@@ -1030,6 +1030,31 @@ def api_insights(days: int = 14) -> dict:
     }
 
 
+@app.get("/api/evolution")
+def api_evolution(limit: int = 40) -> dict:
+    """S8.1: 'Was ich zuletzt an mir verbessert habe' — Timeline aus dem Event-Log
+    (self_edit/selfdev/self_tick/learn_skill/self_update/insights) + Skills + Lektionen."""
+    _KINDS = {
+        "self_tick": "🔧 Selbst-Optimierung", "selfdev_applied": "✅ Code geaendert",
+        "selfdev_rejected": "↩ Aenderung verworfen (Test rot)", "selfdev_verify_failed": "↩ Verify fehlgeschlagen",
+        "self_update_proposed": "🧬 Selbst-Update vorgeschlagen", "self_update_applied": "🧬 Selbst-Update angewendet",
+        "insights_weekly": "💡 Wochen-Lektionen gezogen", "insights_lessons": "💡 Lektionen gezogen",
+        "write_blocked": "🛡 Schreibschutz griff", "evolution_blocked": "🛡 Evolution blockiert",
+    }
+    timeline = []
+    for e in events.recent(600):
+        lbl = _KINDS.get(e["type"])
+        if not lbl:
+            continue
+        p = e.get("payload") or {}
+        detail = p.get("summary") or p.get("file") or p.get("doc") or p.get("name") or ""
+        timeline.append({"ts": e["ts"], "type": e["type"], "label": lbl, "detail": str(detail)[:200]})
+        if len(timeline) >= limit:
+            break
+    skills = memory.all_skills()[:20] if hasattr(memory, "all_skills") else []
+    return {"timeline": timeline, "skills": skills, "lessons": memory.recall_lessons(8)}
+
+
 _NEWS_CACHE: dict = {"ts": 0.0, "data": None}
 _NEWS_FEEDS = [
     ("HN", "https://hnrss.org/frontpage"),

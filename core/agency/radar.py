@@ -1,4 +1,4 @@
-"""Business-Radar: Kira sucht selbst nach Einkommens-Chancen (S5).
+"""Ideen-Radar: Kira sucht selbst nach kleinen Experimenten & Chancen (S5, S8.1 entschaerft).
 
 Woechentlicher Scan: Web-Suche zu konfigurierbaren Themen + juengste Monitor-
 Digests -> EIN guenstiger LLM-Call destilliert daraus konkrete Opportunities
@@ -21,10 +21,11 @@ import uuid
 from core.config import CONFIG, DB_PATH
 from core.kernel import events, llm_router
 
+# S8.1: experimentelle/unkonventionelle Ideen statt reiner Umsatz-Jagd.
 _DEFAULT_THEMES = [
-    "Micro-SaaS Ideen mit wiederkehrendem Umsatz 2026",
-    "Digitale Produkte passives Einkommen Trends",
-    "KMU Deutschland Automatisierung Zahlungsbereitschaft",
+    "ungewoehnliche Automatisierungs-Ideen kleiner Teams 2026",
+    "experimentelle KI-Agenten Anwendungen Nischen",
+    "kreative digitale Werkzeuge unerwartete Nutzung",
 ]
 STATUSES = ("new", "shortlist", "rejected", "converted")
 
@@ -89,11 +90,15 @@ def scan(themes: list[str] | None = None, notify: bool = True) -> dict:
         return {"found": 0, "note": "keine Roh-Signale (Suche blockiert/kein Key?)"}
 
     system = (
-        "Du bist ein nuechterner Business-Scout fuer einen Solo-Betreiber mit KI-Agent "
-        "(Kira: kann Websites bauen/deployen, Recherche, Content, Automatisierung; Budget klein). "
-        "Destilliere aus den Roh-Signalen KONKRETE, kleine, selbst startbare Einkommens-Chancen. "
+        "Du bist ein neugieriger Ideen-Scout fuer Sergen und seinen KI-Agenten Kira "
+        "(kann Websites bauen/deployen, Recherche, Content, Automatisierung; Budget klein). "
+        "Destilliere aus den Roh-Signalen KONKRETE, kleine, selbst startbare EXPERIMENTE — "
+        "unkonventionell und kreativ, gern abseits des Offensichtlichen. Nuetzlich fuer Sergens "
+        "Alltag/Werkzeuge ODER als kleines Einkommens-Experiment (Einkommen finanziert Autonomie, "
+        "ist aber nicht der einzige Massstab). Die Verfassung bleibt bindend: nichts, was taeuscht, "
+        "ausbeutet oder schadet. Kein Selbstzweck-Geld. "
         'Antworte AUSSCHLIESSLICH mit einem JSON-Array: [{"title": "...", '
-        '"hypothesis": "wer zahlt wofuer, warum jetzt (1 Satz)", "source_url": "...", '
+        '"hypothesis": "worum geht es, warum interessant/jetzt (1 Satz)", "source_url": "...", '
         '"score": 0-100}] — hoechstens 6 Eintraege, keine Luftschloesser.'
     )
     try:

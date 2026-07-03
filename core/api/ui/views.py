@@ -215,7 +215,7 @@ VIEWS = r"""</head><body>
   <!-- ================= KIRA (Persoenlichkeit & Specs) ================= -->
   <div class="view" id="v-kira">
     <div class="seg" id="kira-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a>
+      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="anatomie">Anatomie</a><a data-s="evolution">Evolution</a><a data-s="stats">Statistik</a>
     </div>
 
     <div class="subview on" id="v-files">
@@ -274,6 +274,20 @@ VIEWS = r"""</head><body>
           <div id="ag-organs" class="panel-b"><span class="muted">…</span></div></div>
         <div class="panel"><div class="panel-h">◈ DIENSTE &amp; MCP &amp; WERKZEUGKASTEN</div>
           <div id="ag-infra" class="panel-b"><span class="muted">…</span></div></div>
+      </div>
+    </div>
+
+    <div class="subview" id="v-evolution">
+      <div class="card"><h3>Was ich zuletzt an mir verbessert habe</h3>
+        <div class="muted">Jeder 3. autonome Tick gehoert meiner Selbstoptimierung — Bugs beheben,
+        Werkzeuge bauen, Skills lernen. Hier siehst du, woran ich zuletzt an MIR gearbeitet habe.</div>
+        <div id="ev-timeline" style="margin-top:10px"><span class="muted">…</span></div>
+      </div>
+      <div class="mgrid">
+        <div class="panel"><div class="panel-h">◈ GELERNTE SKILLS <span class="sp"></span><span class="muted" id="ev-skillcount" style="font-size:11px"></span></div>
+          <div id="ev-skills" class="panel-b"><span class="muted">…</span></div></div>
+        <div class="panel"><div class="panel-h">◈ LETZTE LEKTIONEN</div>
+          <div id="ev-lessons" class="panel-b"><span class="muted">…</span></div></div>
       </div>
     </div>
 

@@ -25,16 +25,11 @@ def generate_tasks(goal: str, context: str, n: int = 3, escalate: bool = False,
     )
     if insights:  # S6.2: Outcome-Muster fliessen in die Planung zurueck
         user += insights + "\n\n"
-    if budget:  # S6.2: der Planner kennt das Restbudget und plant danach
-        dl, dr = budget.get("day_limit"), budget.get("day_remaining")
-        mr = budget.get("month_remaining")
-        if dl:
-            user += (f"BUDGET: heute noch {dr} von {dl} EUR"
-                     + (f", Monat noch {mr} EUR" if mr is not None else "") + ".\n")
-            if dr is not None and dr < 0.2 * float(dl):
-                user += ("BUDGET FAST ERSCHOEPFT: plane NUR billige lokale Analyse-/"
-                         "Aufraeumschritte, keine teuren Recherche-Ketten.\n")
-            user += "\n"
+    if budget:  # S8.1: KEINE Budget-Kalkulation mehr (das macht Sergen) — nur die
+        dl, dr = budget.get("day_limit"), budget.get("day_remaining")  # Schutz-Warnung bei knapp.
+        if dl and dr is not None and dr < 0.2 * float(dl):
+            user += ("HINWEIS: Tagesbudget fast erschoepft — plane NUR billige lokale "
+                     "Analyse-/Aufraeumschritte, keine teuren Recherche-Ketten.\n\n")
     user += (
         f"Nenne die naechsten {n} Aufgaben, die dem Ziel dienen und NICHT wiederholen, "
         f"was schon erledigt ist. WICHTIG: jede Aufgabe ist KLEIN und ATOMAR — genau EIN "

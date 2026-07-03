@@ -40,7 +40,7 @@ function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle(
 const SUBTABS={
  kira:    {bar:"#kira-tabs", cur:"files",
            loaders:{files:()=>loadFiles(),mem:()=>loadMem(),wissen:()=>loadWissen(),
-                    anatomie:()=>loadAgenten(),stats:()=>loadStats()}},
+                    anatomie:()=>loadAgenten(),evolution:()=>loadEvolution(),stats:()=>loadStats()}},
  projekte:{bar:"#proj-tabs", cur:"standbeine",
            loaders:{standbeine:()=>loadVentures(),ziele:()=>loadMission(),radar:()=>loadRadar()}},
  config:  {bar:"#sys-tabs",  cur:"models",
@@ -58,6 +58,24 @@ applyIcons();
 
 /* ---- Me (S7a): beide Todo-Richtungen + Zugangs-Anfragen + Mails ---- */
 function loadMe(){loadInbox();loadTodoSecrets();loadLeben();}
+
+/* ---- Evolution (S8.1): was Kira zuletzt an sich verbessert hat ---- */
+async function loadEvolution(){try{
+ const d=await J("/api/evolution");
+ const rel=ts=>{const s=Date.now()/1000-ts;return s<3600?Math.round(s/60)+" min":s<86400?Math.round(s/3600)+" h":Math.round(s/86400)+" Tg";};
+ const tl=d.timeline||[];
+ $("#ev-timeline").innerHTML=tl.length?tl.map(e=>
+  '<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--line);font-size:12.5px">'
+  +'<span style="min-width:70px;color:var(--muted)">'+rel(e.ts)+'</span>'
+  +'<span style="flex:1"><b>'+esc(e.label)+'</b>'+(e.detail?' <span class="muted">— '+esc(e.detail)+'</span>':'')+'</span></div>').join("")
+  :'<div class="emptybox">Noch keine Selbst-Verbesserungen aufgezeichnet.<br>Fuellt sich, sobald der Heartbeat laeuft (jeder 3. Tick).</div>';
+ const sk=d.skills||[];
+ const scnt=$("#ev-skillcount");if(scnt)scnt.textContent=sk.length?(sk.length+" Skills"):"";
+ $("#ev-skills").innerHTML=sk.length?sk.map(s=>'<div class="memrow"><div style="font-size:12.5px">'+esc((""+(s.text||s)).slice(0,180))+'</div></div>').join("")
+  :'<span class="muted">(noch keine Skills gelernt)</span>';
+ $("#ev-lessons").innerHTML=(d.lessons||[]).length?'<ul style="margin:0;padding-left:18px;font-size:12.5px">'
+  +d.lessons.map(l=>'<li>'+esc((""+l).slice(0,160))+'</li>').join("")+'</ul>':'<span class="muted">(noch keine)</span>';
+}catch(e){}}
 
 /* ---- Statistik (S6.6c): Lern-Kurve aus dem Outcome-Ledger ---- */
 async function loadStats(){try{
