@@ -325,8 +325,14 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
 .msg:hover .mmeta .mcopy{visibility:visible}
 .mmeta .mcopy:hover{color:var(--accent)}
 #chips{display:flex;gap:8px;max-width:880px;margin:0 auto 6px;width:100%;flex-wrap:wrap}
-.chip{cursor:pointer;border:1px solid var(--line);border-radius:14px;padding:2px 11px;font-size:11.5px;color:var(--hud)}
+/* S9.2: Werkzeug-Leiste unter dem Verlauf */
+#chat-tools{display:flex;gap:8px;align-items:center;max-width:880px;margin:0 auto 6px;width:100%;flex-wrap:wrap}
+#chat-tools select{max-width:190px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font-size:12px;outline:none}
+.chip{cursor:pointer;border:1px solid var(--line);border-radius:14px;padding:3px 11px;font-size:11.5px;color:var(--hud);white-space:nowrap}
 .chip:hover{border-color:var(--accent);background:rgba(168,85,247,.10)}
+.chip.tog{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}
+.chip.tog input{margin:0}
+.chip.tog.on{color:var(--accent);border-color:var(--accent)}
 @media(max-width:900px){#sess-panel.open{display:none}}
 /* ===== S6.6d · Kira-Avatar: Hero in der Zentrale + Mini-Avatar im Chat ===== */
 #hero{display:flex;align-items:center;gap:16px;margin:2px 0 14px}

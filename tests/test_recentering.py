@@ -316,3 +316,42 @@ def test_ia_shift_ui_markers():
     for marker in ('id="me-crons"', 'id="me-brief-setup"', "Morgen-Briefing",
                    'data-at="rout"', "loadMeCrons"):
         assert marker in html, f"S8.4-Marker fehlt: {marker}"
+
+
+# ==== S9.2: Chat — Reasoning-Prefix + Werkzeug-Leiste ==============================
+
+def test_reason_prefix_escalates(monkeypatch, tmp_path):
+    from core.agency import act
+    from core.mind.memory import store as mem
+    from core.kernel import events
+
+    db = str(tmp_path / "state.db")
+    for m in (mem, events):
+        monkeypatch.setattr(m, "DB_PATH", db)
+    events.init_db(); mem.init_memory()
+
+    seen = {}
+    def fake_cloud(escalate, role):
+        seen["escalate"] = escalate
+        return False  # -> lokaler Pfad, kein echter Call noetig fuer den Test
+    monkeypatch.setattr(act, "_cloud", fake_cloud)
+    monkeypatch.setattr(act, "build_system_prompt", lambda *a, **k: "SYS")
+    monkeypatch.setattr(act.llm_router, "stream_tagged",
+                        lambda *a, **k: iter([{"kind": "text", "text": "Antwort"}]))
+
+    act.act_chat("reason: erklaer mir X", "s1")
+    assert seen["escalate"] is True
+    # ohne Prefix bleibt es beim Default
+    act.act_chat("erklaer mir Y", "s1")
+    assert seen["escalate"] is False
+
+
+def test_chat_tools_moved_below():
+    html = TestClient(s.app).get("/").text
+    assert 'id="chat-tools"' in html
+    for marker in ('id="chip-mission"', 'id="chip-status"', 'id="reason-on"', "chipInsert"):
+        assert marker in html, f"Chat-Tool-Marker fehlt: {marker}"
+    # Modell-Select sitzt jetzt in der unteren Werkzeug-Leiste, nicht mehr in der Topbar
+    tools_pos = html.find('id="chat-tools"')
+    model_pos = html.find('id="chat-model"')
+    assert tools_pos < model_pos < html.find('id="cform"')

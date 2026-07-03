@@ -105,17 +105,22 @@ VIEWS = r"""</head><body>
       <div id="chat-main">
         <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:4px 0 8px;flex-wrap:wrap">
           <button type="button" class="ghost" id="sess-toggle" title="Gespraeche ein-/ausklappen" style="padding:5px 10px">🗂</button>
-          <span class="seg" id="chat-mode-seg" title="Modus: Chat = Dialog · Research = volles Werkzeug-Budget (lesend) · Coding = erst Plan, dann Schritte">
+          <span class="seg" id="chat-mode-seg" title="Modus: Chat = Dialog · Research = volles Werkzeug-Budget (lesend) · Coding = erst Plan, dann Schritte mit starkem Modell">
             <a data-m="chat" class="on">💬 Chat</a><a data-m="research">🔍 Research</a><a data-m="coding">🛠 Coding</a>
           </span>
           <span style="flex:1"></span>
-          <small class="muted">Hirn:</small>
-          <select id="chat-model" style="max-width:200px"></select>
+          <span class="muted" id="mode-hint" style="font-size:11px">Dialog — kurz &amp; direkt.</span>
         </div>
         <div id="log"></div>
-        <div id="chips">
-          <a class="chip" id="chip-ziel" title="Arbeit einem Ziel zuordnen: @ziel:&lt;Titel-Teil oder ID&gt;">@ziel:</a>
-          <span class="muted" id="mode-hint" style="font-size:11px;align-self:center">Dialog — kurz &amp; direkt. Research/Coding fuer echte Arbeitsauftraege.</span>
+        <!-- S9.2: Werkzeug-Leiste UNTER dem Verlauf (wie ChatGPT/Claude): Befehle, Reasoning, Modell -->
+        <div id="chat-tools">
+          <span class="chip" id="chip-ziel" title="Arbeit einem Ziel zuordnen">@ziel:</span>
+          <span class="chip" id="chip-mission" title="Kiras Missions-/Ziel-Lage abfragen">/mission</span>
+          <span class="chip" id="chip-status" title="Status &amp; Selbst-Check">/status</span>
+          <span class="chip" id="chip-plan" title="Erst Plan, dann Schritte">/plan</span>
+          <span style="flex:1"></span>
+          <label class="chip tog" id="chip-reason" title="Reasoning: staerkeres Modell, denkt gruendlicher"><input type="checkbox" id="reason-on"/> 🧠 Reasoning</label>
+          <select id="chat-model" title="Modell fuer diesen Chat" style="max-width:190px"></select>
         </div>
         <form id="cform">
           <input id="cin" placeholder="Schreib mir…" autocomplete="off" autofocus/>

@@ -518,12 +518,22 @@ const MODE_HINT={chat:"Dialog — kurz & direkt. Research/Coding fuer echte Arbe
 $$("#chat-mode-seg a").forEach(a=>a.onclick=()=>{chatMode=a.dataset.m;
  $$("#chat-mode-seg a").forEach(x=>x.classList.toggle("on",x===a));
  const h=$("#mode-hint");if(h)h.textContent=MODE_HINT[chatMode]||"";});
-$("#chip-ziel")&&($("#chip-ziel").onclick=()=>{const i=$("#cin");if(!i.value.includes("@ziel:"))i.value=(i.value+" @ziel:").replace(/^\s+/,"");i.focus();});
+/* S9.2: Befehls-Chips fuegen Kuerzel ins Eingabefeld ein (nicht sofort senden) */
+function chipInsert(txt,prefix){const i=$("#cin");
+ if(prefix){if(!new RegExp("^"+txt.replace(/[./]/g,"\\$&")).test(i.value.trim()))i.value=(txt+" "+i.value).trim();}
+ else if(!i.value.includes(txt))i.value=(i.value+" "+txt).replace(/^\s+/,"");
+ i.focus();}
+$("#chip-ziel")&&($("#chip-ziel").onclick=()=>chipInsert("@ziel:",false));
+$("#chip-mission")&&($("#chip-mission").onclick=()=>chipInsert("/mission",true));
+$("#chip-status")&&($("#chip-status").onclick=()=>chipInsert("/status",true));
+$("#chip-plan")&&($("#chip-plan").onclick=()=>chipInsert("/plan",true));
+$("#reason-on")&&($("#reason-on").onchange=()=>{const l=$("#chip-reason");if(l)l.classList.toggle("on",$("#reason-on").checked);});
 $("#cform").onsubmit=e=>{e.preventDefault();const raw=$("#cin").value.trim();if(!raw||!ws||ws.readyState!==1)return;
  msgEl(raw,"me");startThinking();
  let t=raw;
  if(chatMode==="research"&&!/^(\/work|work:|plan:|\/plan)/i.test(raw))t="/work "+raw;
  if(chatMode==="coding"&&!/^(plan:|\/plan)/i.test(raw))t="plan: "+raw;
+ if($("#reason-on")&&$("#reason-on").checked&&!/^reason:/i.test(t))t="reason: "+t;  /* S9.2: staerkeres Modell */
  ws.send(t);$("#cin").value="";curBot=null;curThink=null;};
 
 /* ---- Sprachmemo (Aufnahme -> Whisper -> Eingabefeld) ---- */

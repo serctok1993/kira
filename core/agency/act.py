@@ -440,6 +440,12 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
             except Exception:
                 pass
 
+    # S9.2: Reasoning-Regler — Prefix "reason:" hebt auf das staerkere Modell (escalate),
+    # komponierbar mit den Modi (z.B. "reason: plan: ..."). Wird hier abgestreift.
+    if user_message.lstrip().lower().startswith("reason:"):
+        escalate = True
+        user_message = re.sub(r"^\s*reason:\s*", "", user_message, flags=re.IGNORECASE)
+
     events.emit("user_message", {"text": user_message}, session_id=session_id)
     history = memory.recent_dialogue(session_id, limit=10)
     memory.remember(user_message, role="user", session_id=session_id)
