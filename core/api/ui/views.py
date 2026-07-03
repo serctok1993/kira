@@ -397,16 +397,13 @@ VIEWS = r"""</head><body>
         <button id="g-budget-save">Speichern</button>
         <span class="muted" id="g-budget-hint" style="align-self:center"></span>
       </div></div>
-    <div class="card"><h3>Vertrauen (Trust-Level)</h3><div id="g-trust" class="muted">…</div>
+    <div class="card"><h3>Autonomie — was braucht deine Freigabe?</h3>
+      <div class="muted">Vertrauen entsteht durchs Nachpruefen, nicht durch ein Barometer. Hier stellst
+      du ein, WAS Kira dir vorlegen MUSS — alles andere tut sie eigenstaendig (mit Audit-Spur unten).</div>
+      <div id="au-box" style="margin-top:10px" class="muted">…</div>
       <div class="row" style="margin-top:10px">
-        <select id="g-trust-sel">
-          <option value="0">0 — alles vorlegen</option>
-          <option value="1">1 — Reversibles autonom</option>
-          <option value="2">2 — meiste autonom, Geld/Posts vorlegen</option>
-          <option value="3">3 — voll-autonom (nur Budget begrenzt)</option>
-        </select>
-        <button id="g-trust-save">Speichern</button>
-        <span class="muted" id="g-trust-hint" style="align-self:center"></span>
+        <button id="au-save">Speichern (greift sofort)</button>
+        <span class="muted" id="au-hint" style="align-self:center"></span>
       </div></div>
     <div class="card"><h3>Audit — protokollierte Aussen-Aktionen</h3><div id="g-audit" class="muted">…</div></div>
     <div class="card"><h3>💶 Kosten-Aufschluesselung (heute · 7 Tage)</h3><div id="g-costs" class="muted">…</div></div>

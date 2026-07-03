@@ -208,7 +208,6 @@ async function loadHud(){const el=$("#hud-strip");if(!el)return;
    +'<div class="hud-cell"><span class="k">Hirn</span><span class="val">'+model+'</span></div>'
    +'<div class="hud-cell"><span class="k">Budget heute</span><span class="val">'+(b.day_spent||0)+' / '+(b.day_limit==null?"-":b.day_limit)+' €</span><div class="mini-bar'+warn+'"><i style="width:'+dayPct+'%"></i></div></div>'
    +'<div class="hud-cell"><span class="k">Monat</span><span class="val">'+(b.month_spent||0)+' / '+(b.month_limit==null?"-":b.month_limit)+' €</span></div>'
-   +'<div class="hud-cell"><span class="k">Vertrauen</span><span class="val">Stufe '+((o.trust||{}).level==null?"-":o.trust.level)+'</span></div>'
    +dienste
    +'<div class="hud-cell"><span class="k">Fehler-Signale</span><span class="val" style="color:'+(errs?"var(--warn)":"var(--ok)")+'">'+errs+'</span></div>'
    +'<div class="hud-cell spacer"></div>'
@@ -601,14 +600,30 @@ function bar(spent,limit){if(limit==null)return '<span class=muted>kein Limit</s
   +'<small class=muted>'+spent.toFixed(4)+' / '+limit+' € ('+pct+'%)</small>';}
 async function cfgSet(path,value){return (await fetch("/api/config/set",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path,value})})).json();}
 async function doRestart(e){if(e&&e.preventDefault)e.preventDefault();await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});alert("Neustart angefordert — Dienste bouncen in ~20s.");}
+/* S8.3: Autonomie-Karte — echte Schalter statt Vertrauensbarometer */
+const GATE_KINDS={money:"💶 Geld bewegen",email_stranger:"✉️ Mails/Nachrichten an Fremde",
+ publish:"📮 Veroeffentlichen (Posts, Deploys nach aussen)",external:"🌐 Externe Dienste schreiben",
+ email:"📧 Mails an dich/Bekannte"};
+async function loadAutonomy(){try{const d=await J("/api/autonomy");
+ const box=$("#au-box");if(!box)return;
+ let h='<label style="cursor:pointer;display:flex;gap:8px;align-items:center"><input type="checkbox" id="au-chains" '+(d.chains_off?"":"checked")+'/> '
+  +'<span><b>Ketten an</b> — ALLES Externe braucht deine Freigabe (Vorsichts-Modus)</span></label>'
+  +'<div class="muted" style="margin:10px 0 4px;font-size:11px;letter-spacing:1px">FREIGABE-PFLICHT (wenn Ketten aus):</div>';
+ (d.kinds||[]).forEach(k=>{h+='<label style="cursor:pointer;display:flex;gap:8px;align-items:center;padding:2px 0">'
+  +'<input type="checkbox" data-gate="'+k+'" '+((d.hard_gate||[]).includes(k)?"checked":"")+'/> <span>'+(GATE_KINDS[k]||k)+'</span></label>';});
+ h+='<div class="muted" style="margin-top:8px;font-size:12px">Vor Geld-Aktionen debattiert zusaetzlich der Rat: '+esc((d.council_gate||[]).join(", ")||"aus")+'</div>';
+ box.innerHTML=h;
+}catch(e){}}
+$("#au-save")&&($("#au-save").onclick=async()=>{
+ const hard=[...document.querySelectorAll('#au-box [data-gate]')].filter(x=>x.checked).map(x=>x.dataset.gate);
+ const chains_off=!$("#au-chains").checked;
+ await fetch("/api/autonomy",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({chains_off:chains_off,hard_gate:hard})});
+ $("#au-hint").textContent="✓ gespeichert — greift sofort";toast("Autonomie-Schalter gespeichert","ok");});
 async function loadGov(){const g=await (await fetch("/api/governance")).json();const t=g.treasury;
  $("#g-budget").innerHTML="Heute:<br>"+bar(t.day_spent,t.day_limit)+"<br><br>Diesen Monat:<br>"+bar(t.month_spent,t.month_limit);
  if($("#g-day")&&document.activeElement!==$("#g-day"))$("#g-day").value=t.day_limit!=null?t.day_limit:"";
  if($("#g-month")&&document.activeElement!==$("#g-month"))$("#g-month").value=t.month_limit!=null?t.month_limit:"";
- $("#g-trust").innerHTML="Stufe <b>"+g.trust.level+"</b> — "+g.trust.label
-  +'<br><span class=muted>Erfolge: '+g.trust.success+' · Fehlschlaege: '+g.trust.fail+'</span>'
-  +'<br><span class=muted>Bei Stufe 3 begrenzt nur das Budget; Außen-Aktionen brauchen kein Go.</span>';
- if($("#g-trust-sel"))$("#g-trust-sel").value=String(g.trust.level);
+ loadAutonomy();
  const a=$("#g-audit");a.innerHTML=g.audit.length?g.audit.map(e=>{const ts=new Date(e.ts*1000).toLocaleString();const p=e.payload;
    return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>'+esc(p.action)+'</b> '+esc(p.target||'')
     +' <small class=muted>'+ts+(p.reversible?' · rückrollbar':'')+'</small></div>';}).join(""):'<span class=muted>(noch keine Außen-Aktionen protokolliert)</span>';loadCosts();}
@@ -624,8 +639,6 @@ $("#g-budget-save")&&($("#g-budget-save").onclick=async()=>{const d=parseFloat($
  if(!isNaN(d))await cfgSet("governance.budget.daily_eur",d);
  if(!isNaN(mo))await cfgSet("governance.budget.monthly_eur",mo);
  $("#g-budget-hint").innerHTML='gespeichert · <a href="#" onclick="doRestart(event)">Neustart, damit es ueberall greift</a>';});
-$("#g-trust-save")&&($("#g-trust-save").onclick=async()=>{await cfgSet("governance.trust_level",parseInt($("#g-trust-sel").value));
- $("#g-trust-hint").innerHTML='gespeichert · <a href="#" onclick="doRestart(event)">Neustart</a>';});
 
 /* ---- Zugaenge ---- */
 async function loadKeys(){const s=await (await fetch("/api/secrets")).json();

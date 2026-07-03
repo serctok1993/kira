@@ -41,9 +41,10 @@ agency:
 selfdev:
   verify_cmd: '.venv\Scripts\python.exe -m pytest tests -q'
 
-# Autonomie & Sicherung (greift voll ab Phase 5)
+# Autonomie & Sicherung
 governance:
-  trust_level: 3                  # voll-autonom (Nutzerwahl)
+  trust_level: 3                  # DEPRECATED (S8.3): Gating laeuft ueber data/autonomy.json
+                                  # (hard_gate im Cockpit unter Gewissen->Autonomie einstellbar)
   budget:
     daily_eur: 20.0              # Experimentier-Topf 300 EUR: 20/Tag = mutig, aber begrenzt (Live-Override gleichgezogen)
     monthly_eur: 150.0           # harter Monatsdeckel — DIE eigentliche Kostenbremse

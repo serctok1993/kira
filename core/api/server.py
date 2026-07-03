@@ -16,7 +16,7 @@ from core.agency.tools import builtin as _builtin  # noqa: F401  (registriert ei
 from core.agency.tools import registry
 from core.agency.tools import synthesize as _synth
 from core.config import CONFIG, MIND_DIR, ROOT
-from core.governance import audit, secrets, treasury, trust
+from core.governance import audit, secrets, treasury
 from core.kernel import events, models
 from core.kernel.llm_router import today_spend_usd
 from core.kernel.phrases import THINKING_PHRASES
@@ -80,7 +80,6 @@ def api_status() -> dict:
         "whisper": CONFIG.get("channels", {}).get("telegram", {}).get("whisper_model"),
         "spend_usd_today": round(today_spend_usd(), 4),
         "budget": treasury.status(),
-        "trust_level": trust.level(),
         "kill_switch": kill_switch_active(),
         "events": events.counts_by_type(),
         "lessons": memory.recall_lessons(8),
@@ -99,7 +98,6 @@ def api_overview() -> dict:
         "model": models.status()["default"],
         "kill_switch": kill_switch_active(),
         "budget": treasury.status(),
-        "trust": {"level": trust.level(), "label": trust.LEVELS.get(trust.level(), "?")},
         "mission": {"name": CONFIG.get("mission", {}).get("name"), "heartbeat": heartbeat_on()},
         "tools": [t.name for t in registry.all_tools()],
         "lessons": memory.recall_lessons(5),
@@ -110,12 +108,37 @@ def api_overview() -> dict:
 
 @app.get("/api/governance")
 def api_governance() -> dict:
-    lv = trust.level()
     return {
         "treasury": treasury.status(),
-        "trust": {"level": lv, "label": trust.LEVELS.get(lv, "?"), **trust.stats()},
         "audit": audit.recent(30),
     }
+
+
+# S8.3: echte Autonomie-Schalter statt Vertrauensbarometer (trust.py ist deprecated —
+# das Gating lief ohnehin schon ueber autonomy.needs_approval, die Stufe war Deko).
+@app.get("/api/autonomy")
+def api_autonomy() -> dict:
+    from core.governance import autonomy
+
+    d = autonomy._load()
+    council = (CONFIG.get("governance", {}) or {}).get("council_gate", ["money"])
+    return {"chains_off": bool(d.get("chains_off", True)),
+            "hard_gate": list(d.get("hard_gate", [])),
+            "council_gate": list(council) if isinstance(council, (list, tuple)) else ["money"],
+            "kinds": ["money", "email_stranger", "publish", "external", "email"]}
+
+
+@app.post("/api/autonomy")
+async def api_autonomy_set(body: dict) -> dict:
+    from core.governance import autonomy
+
+    hard = body.get("hard_gate")
+    if hard is not None and not isinstance(hard, list):
+        return {"ok": False, "error": "hard_gate muss eine Liste sein"}
+    d = autonomy.set_config(chains_off=body.get("chains_off"), hard_gate=hard)
+    events.emit("autonomy_changed", {"chains_off": d.get("chains_off"),
+                                     "hard_gate": d.get("hard_gate")})
+    return {"ok": True, **d}
 
 
 @app.get("/api/files")

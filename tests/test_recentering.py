@@ -229,3 +229,36 @@ def test_akte_ui_markers():
     for marker in ('id="akte-tabs"', "ak-brief-save", "ak-note-add", "ak-file",
                    "Kosten bislang", "api/ventures/briefing", "api/ventures/upload"):
         assert marker in html, f"Akte-Marker fehlt: {marker}"
+
+
+# ==== S8.3: Autonomie-Schalter statt Vertrauensbarometer ===========================
+
+def test_autonomy_endpoint_roundtrip(monkeypatch, tmp_path):
+    from core.governance import autonomy
+
+    monkeypatch.setattr(autonomy, "_PATH", tmp_path / "autonomy.json")
+    client = TestClient(s.app)
+
+    d = client.get("/api/autonomy").json()
+    assert d["chains_off"] is True and "money" in d["kinds"]
+
+    r = client.post("/api/autonomy", json={"chains_off": True,
+                                           "hard_gate": ["money", "email_stranger", "publish"]}).json()
+    assert r["ok"] is True and "publish" in r["hard_gate"]
+    # greift SOFORT im echten Gating (autonomy.needs_approval)
+    assert autonomy.needs_approval("publish") is True
+    assert autonomy.needs_approval("external") is False
+
+    bad = client.post("/api/autonomy", json={"hard_gate": "keine-liste"}).json()
+    assert bad["ok"] is False
+
+
+def test_trust_removed_from_apis_and_ui():
+    client = TestClient(s.app)
+    assert "trust_level" not in client.get("/api/status").json()
+    assert "trust" not in client.get("/api/overview").json()
+    assert "trust" not in client.get("/api/governance").json()
+    html = client.get("/").text
+    assert 'id="g-trust"' not in html and "Vertrauen</span>" not in html  # Barometer weg
+    for marker in ('id="au-box"', 'id="au-save"', "GATE_KINDS", "api/autonomy"):
+        assert marker in html, f"Autonomie-Marker fehlt: {marker}"
