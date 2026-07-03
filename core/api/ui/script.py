@@ -168,6 +168,12 @@ async function loadHome(){const o=await (await fetch("/api/overview")).json();co
   if(g==="models"||g==="gov"){nav("config");syst(g);}else nav(g);});
  const rb=$("#sys-restart"); if(rb) rb.onclick=async()=>{if(!confirm("Kira neu starten? Dienste bouncen in ~20s."))return;await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});rb.textContent="↻ Neustart angefordert …";};}
 
+/* ---- Kira-Avatar (S6.6d): einmal proben, Hero + Chat nutzen ihn ---- */
+let hasAvatar=false;
+(function(){const hv=$("#hero-av");if(!hv)return;
+ hv.onerror=()=>{hasAvatar=false;hv.style.display="none";};
+ hv.onload=()=>{hasAvatar=true;hv.style.display="";};})();
+
 /* ---- Kommandozentrale (HUD) ---- */
 let opsFilter="all";
 async function loadHud(){const el=$("#hud-strip");if(!el)return;
@@ -187,6 +193,12 @@ async function loadHud(){const el=$("#hud-strip");if(!el)return;
    +'<div class="hud-cell spacer"></div>'
    +'<div class="hud-cell"><span class="k">Aktion</span><span class="val"><a id="hud-restart" style="cursor:pointer;color:var(--hud)">↻ Neustart</a></span></div>';
   const rb=$("#hud-restart");if(rb)rb.onclick=async()=>{if(!confirm("Kira neu starten? Dienste bouncen in ~20s."))return;await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});rb.textContent="↻ …";};
+  /* S6.6d: Hero-Status + Aura (Motor an = Avatar leuchtet) */
+  const hs=$("#hero-status");
+  if(hs){const on=o.mission&&o.mission.heartbeat;
+   hs.textContent=(o.kill_switch?"⛔ NOT-AUS aktiv":(on?"Motor laeuft — arbeitet autonom":"Motor aus — wartet auf dich"))
+    +" · Budget heute "+(b.day_spent||0)+" / "+(b.day_limit==null?"-":b.day_limit)+" €";
+   const hv=$("#hero-av");if(hv)hv.classList.toggle("aura",!!on&&!o.kill_switch);}
  }catch(e){}}
 async function loadOps(){const el=$("#ops-feed");if(!el)return;
  try{const es=await (await fetch("/api/events?limit=70")).json();
@@ -340,6 +352,8 @@ function md(src){
  return s.replace(/@@MDB(\d+)@@/g,(w,i)=>'<pre class="mdc"><code>'+blocks[+i]+'</code></pre>');}
 /* Nachricht mit Koerper + Meta (Uhrzeit, Kopieren). Bot-Antworten rendern Markdown. */
 function msgEl(text,cls,ts){const d=document.createElement("div");d.className="msg "+cls;
+ if(cls==="bot"&&hasAvatar){d.classList.add("withav");
+  const av=document.createElement("img");av.className="mav";av.src="/api/avatar";d.appendChild(av);}
  const body=document.createElement("div");body.className="mbody";
  if(cls==="bot")body.innerHTML=md(text);else body.textContent=text;
  d.appendChild(body);
@@ -803,6 +817,14 @@ $("#set-restart")&&($("#set-restart").onclick=async()=>{if(!confirm("Kira neu st
  $("#set-restart-hint").textContent="↻ Neustart angefordert …";});
 $("#set-bg-clear")&&($("#set-bg-clear").onclick=async()=>{await fetch("/api/bg/clear",{method:"POST"});
  $("#set-optik-hint").textContent="✓ Hintergrund entfernt";document.body.style.backgroundImage="";});
+$("#set-avatar")&&($("#set-avatar").onchange=e=>{const f=e.target.files[0];if(!f)return;
+ const rd=new FileReader();rd.onload=async()=>{
+  const r=await (await fetch("/api/avatar/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dataurl:rd.result})})).json();
+  $("#set-avatar-hint").textContent=r.ok?"✓ Avatar gesetzt":("Fehler: "+(r.error||"?"));
+  if(r.ok){hasAvatar=true;const hv=$("#hero-av");if(hv){hv.style.display="";hv.src="/api/avatar?t="+Date.now();}}};
+ rd.readAsDataURL(f);e.target.value="";});
+$("#set-avatar-clear")&&($("#set-avatar-clear").onclick=async()=>{await fetch("/api/avatar/clear",{method:"POST"});
+ hasAvatar=false;const hv=$("#hero-av");if(hv)hv.style.display="none";$("#set-avatar-hint").textContent="✓ entfernt";});
 
 refreshStatus();loadCommand();
 /* ---- S6.4: EIN Poll-Scheduler statt zweier nackter setInterval ----

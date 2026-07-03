@@ -312,5 +312,17 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
 .chip{cursor:pointer;border:1px solid var(--line);border-radius:14px;padding:2px 11px;font-size:11.5px;color:var(--hud)}
 .chip:hover{border-color:var(--accent);background:rgba(168,85,247,.10)}
 @media(max-width:900px){#sess-panel{display:none}}
+/* ===== S6.6d · Kira-Avatar: Hero in der Zentrale + Mini-Avatar im Chat ===== */
+#hero{display:flex;align-items:center;gap:16px;margin:2px 0 14px}
+#hero-av{width:74px;height:74px;border-radius:50%;object-fit:cover;border:2px solid var(--line);
+ box-shadow:0 0 0 2px rgba(0,0,0,.35);background:var(--panel)}
+#hero-av.aura{border-color:var(--accent);animation:aurapulse 3.2s ease-in-out infinite}
+@keyframes aurapulse{0%,100%{box-shadow:0 0 10px var(--glow)}50%{box-shadow:0 0 26px var(--glow)}}
+#hero-name{font-size:21px;letter-spacing:5px;color:#fff;text-shadow:0 0 12px rgba(139,92,246,.40)}
+#hero-status{font-size:12px;margin-top:2px}
+.msg.bot.withav{position:relative;margin-left:36px}
+.msg.bot.withav .mav{position:absolute;left:-36px;top:2px;width:27px;height:27px;border-radius:50%;
+ object-fit:cover;border:1px solid var(--line)}
+@media (prefers-reduced-motion: reduce){#hero-av.aura{animation:none;box-shadow:0 0 14px var(--glow)}}
 
 </style>"""

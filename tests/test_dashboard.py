@@ -222,6 +222,19 @@ def test_stats_tab_and_endpoint():
     assert TestClient(s.app).get("/api/insights", params={"days": 999}).json()["days"] == 90  # Clamp
 
 
+def test_avatar_hero_and_endpoints():
+    """S6.6d: Hero in der Zentrale + Avatar-Endpoints (Upload/Serve/Clear, bg-Muster)."""
+    html = _page()
+    for marker in ('id="hero"', 'id="hero-av"', 'id="hero-status"', "hasAvatar",
+                   'id="set-avatar"', 'id="set-avatar-clear"', "aurapulse", 'className="mav"'):
+        assert marker in html, f"Avatar-Marker fehlt: {marker}"
+    client = TestClient(s.app)
+    bad = client.post("/api/avatar/upload", json={"dataurl": "kein-bild"}).json()
+    assert bad["ok"] is False  # Format-Wache; kein Schreiben auf Muell
+    r = client.get("/api/avatar")
+    assert r.status_code in (200, 404)  # 404 solange Sergen noch kein Bild hochgeladen hat
+
+
 def test_ws_roundtrip_contract(monkeypatch):
     """Pinnt den WS-Vertrag {role, kind: think|tool|obs|final, done} VOR jedem Restyling."""
     import core.agency.act as act_mod

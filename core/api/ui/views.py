@@ -45,6 +45,13 @@ VIEWS = r"""</head><body>
 
   <!-- ================= ZENTRALE ================= -->
   <div class="view on" id="v-home">
+    <div id="hero">
+      <img id="hero-av" alt="" src="/api/avatar"/>
+      <div id="hero-txt">
+        <div id="hero-name">KIRA</div>
+        <div id="hero-status" class="muted">…</div>
+      </div>
+    </div>
     <div class="hud-strip" id="hud-strip"></div>
     <div class="direktive">
       <h3>🎯 Befehl an Kira</h3>
@@ -402,8 +409,17 @@ VIEWS = r"""</head><body>
 
   <!-- ================= EINSTELLUNGEN (Cockpit) ================= -->
   <div class="view" id="v-settings">
+    <div class="card"><h3>Kira-Avatar</h3>
+      <div class="muted">Ihr Gesicht im Cockpit: erscheint gross in der Zentrale und klein an ihren
+      Chat-Antworten. Erzeuge Bilder z.B. in <b>Higgsfield</b> und lade sie hier hoch (quadratisch wirkt am besten).</div>
+      <div class="row" style="margin-top:8px">
+        <label class="ghost" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer">🖼 Avatar waehlen<input id="set-avatar" type="file" accept="image/*" style="display:none"/></label>
+        <button class="ghost" id="set-avatar-clear">Avatar entfernen</button>
+        <span class="muted" id="set-avatar-hint" style="align-self:center"></span>
+      </div>
+    </div>
     <div class="card"><h3>Optik</h3>
-      <div class="muted">Farbschema und Kira-Bild wechselst du unten links in der Seitenleiste (Farbpunkte + 📷).
+      <div class="muted">Farbschema und Hintergrund-Bild wechselst du unten links in der Seitenleiste (Farbpunkte + 📷).
       Der <b>Kira-Modus</b> nutzt dein hochgeladenes Bild als Hintergrund.</div>
       <div class="row" style="margin-top:8px">
         <button class="ghost" id="set-bg-clear">Hintergrundbild entfernen</button>

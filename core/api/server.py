@@ -1138,6 +1138,46 @@ async def api_bg_clear(body: dict) -> dict:
     return {"ok": True}
 
 
+# ---------- Kira-Avatar (S6.6d) — Sergens Higgsfield-Bild fuer Hero + Chat ----------
+@app.get("/api/avatar")
+def api_avatar():
+    for ext in ("jpg", "jpeg", "png", "webp", "gif"):
+        p = ROOT / "data" / f"avatar.{ext}"
+        if p.exists():
+            return FileResponse(str(p))
+    return Response(status_code=404)
+
+
+@app.post("/api/avatar/upload")
+async def api_avatar_upload(body: dict) -> dict:
+    import base64
+    import re
+
+    m = re.match(r"data:image/(\w+);base64,(.+)$", body.get("dataurl", ""), re.DOTALL)
+    if not m:
+        return {"ok": False, "error": "kein gueltiges Bild"}
+    ext = m.group(1).lower().replace("jpeg", "jpg")
+    raw = base64.b64decode(m.group(2))
+    data_dir = ROOT / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    for e in ("jpg", "jpeg", "png", "webp", "gif"):
+        old = data_dir / f"avatar.{e}"
+        if old.exists():
+            old.unlink()
+    (data_dir / f"avatar.{ext}").write_bytes(raw)
+    events.emit("avatar_set", {"ext": ext, "bytes": len(raw)})
+    return {"ok": True, "ext": ext, "bytes": len(raw)}
+
+
+@app.post("/api/avatar/clear")
+async def api_avatar_clear(body: dict) -> dict:
+    for e in ("jpg", "jpeg", "png", "webp", "gif"):
+        p = ROOT / "data" / f"avatar.{e}"
+        if p.exists():
+            p.unlink()
+    return {"ok": True}
+
+
 @app.post("/api/transcribe")
 async def api_transcribe(body: dict) -> dict:
     import base64
