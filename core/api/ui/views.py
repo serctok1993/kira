@@ -1,34 +1,29 @@
 """Cockpit-Markup: Sidebar-Navigation + alle View-Container.
 
-S6.6a — Informationsarchitektur nach Sergens Zuschnitt (7 Bereiche):
-  Zentrale (home)    Tag auf einen Blick: HUD, Befehl, Live-Ops, News, Tages-Digest
-  Chat (chat)        Gespraech mit Kira
-  Kira (kira)        Persoenlichkeit & Specs: Seele/Dateien, Gedaechtnis, Anatomie
-  Workspace (work)   Kiras Arbeit: Ventures, Ziele, Backlog, Radar, Wissens-Archiv
-  To-Do (todo)       Was Kira von Sergen braucht (Freigaben, Zugaenge) + Leben-Board
-  Config (config)    Kira konfigurieren: Modelle, Gewissen, Cron, Monitor, Zugaenge, Protokoll
-  Einstellungen      Cockpit-Optik + System (Neustart)
-Panel-IDs sind stabil (Loader haengen daran) — Panels ziehen nur um.
+S7a — Cockpit 2.0, modulare Shell (Sergens Redesign-Auftrag):
+  Zentrale (home)      fester Kommandostand: Hero, HUD, Befehl, Live-Ops, Digest, News
+  Chat (chat)          Hauptdialog (Chat 2.0 folgt in S7c)
+  Projekte (projekte)  Subtabs: Standbeine (Ventures) / Ziele & Aufgaben / Radar
+  Me (me)              beides getrennt: deine Auftraege an Kira / was Kira von dir braucht
+                       + Zugangs-Anfragen, E-Mail-Bereich (Empty-State bis Postfach), Metriken
+  Kira (kira)          Subtabs: Seele & Dateien / Gedaechtnis / Wissen / Anatomie / Statistik
+  Config (config)      rein technisch: Modelle / Zugaenge / Gewissen / Cron / Monitor /
+                       Protokoll / Cockpit (Avatar, Optik, Icons, Neustart)
+Shell-Prinzip: EINE Subtab-Mechanik (script.py SUBTABS-Registry); neuer Bereich oder
+Unterreiter = Registry-Eintrag + <div class="subview" id="v-...">. Theme-Umschalter
+sitzt als Icon+Popover in der Topbar (nicht mehr in der Nav). Panel-IDs sind stabil.
 """
 
 VIEWS = r"""</head><body>
 <div id="side">
   <h1>KIRA</h1><div class="sub" id="who">cockpit</div>
-  <a data-v="home" class="on" title="Tag auf einen Blick: Status, Befehl, Live-Ops, Digest">◈ Zentrale</a>
-  <a data-v="chat" title="Mit mir reden">› Chat</a>
-  <a data-v="kira" title="Wer ich bin: Seele, Gedaechtnis, Anatomie">✦ Kira</a>
-  <a data-v="work" title="Mein Workspace: Ventures, Ziele, Radar, Wissen">◈ Workspace</a>
-  <a data-v="todo" title="Was ich von dir brauche + dein Leben-Board">› To-Do</a>
-  <a data-v="config" title="Modelle, Gewissen, Cron, Monitor, Zugaenge, Protokoll">⚙ Config</a>
-  <a data-v="settings" title="Cockpit-Optik und System">› Einstellungen</a>
+  <a data-v="home" class="on" title="Kommandostand: Status, Befehl, Live-Ops, Digest"><i class="ti">◈</i> Zentrale</a>
+  <a data-v="chat" title="Mit mir reden"><i class="ti">›</i> Chat</a>
+  <a data-v="projekte" title="Standbeine, Ziele, Radar-Chancen"><i class="ti">◈</i> Projekte</a>
+  <a data-v="me" title="Dein Bereich: Todos beidseitig, Mails, Metriken"><i class="ti">☰</i> Me</a>
+  <a data-v="kira" title="Wer ich bin: Seele, Gedaechtnis, Wissen, Anatomie, Lernkurve"><i class="ti">✦</i> Kira</a>
+  <a data-v="config" title="Technik: Modelle, Zugaenge, Gewissen, Cron, Monitor, Protokoll"><i class="ti">⚙</i> Config</a>
   <div class="spacer"></div>
-  <div class="look">
-    <button class="thm on" data-theme="" title="Schwarz / Lila (Standard)"><span class="td" style="background:#8b5cf6"></span></button>
-    <button class="thm" data-theme="gruen" title="Schwarz / Gruen"><span class="td" style="background:#22c55e"></span></button>
-    <button class="thm" data-theme="blau" title="Schwarz / Blau"><span class="td" style="background:#3b82f6"></span></button>
-    <button class="thm kira" id="thm-kira" data-theme="kira" title="Kira-Modus (Bild-Hintergrund)"></button>
-    <label id="bgup" title="Kira-Bild waehlen / aendern" style="cursor:pointer;color:var(--muted);margin-left:2px;font-size:15px">📷<input id="bgquick" type="file" accept="image/*" style="display:none"/></label>
-  </div>
   <div class="kill" id="kill">Not-Aus: aus</div>
 </div>
 <div id="main">
@@ -41,6 +36,16 @@ VIEWS = r"""</head><body>
     <span class="muted"><b id="b-model">…</b></span>
     <span class="muted">heute <b id="b-spend">…</b></span>
     <span id="b-kill"></span>
+    <span id="theme-wrap">
+      <a id="theme-btn" title="Optik anpassen">◐</a>
+      <div id="theme-pop" class="look">
+        <button class="thm on" data-theme="" title="Schwarz / Lila (Standard)"><span class="td" style="background:#8b5cf6"></span></button>
+        <button class="thm" data-theme="gruen" title="Schwarz / Gruen"><span class="td" style="background:#22c55e"></span></button>
+        <button class="thm" data-theme="blau" title="Schwarz / Blau"><span class="td" style="background:#3b82f6"></span></button>
+        <button class="thm kira" id="thm-kira" data-theme="kira" title="Kira-Modus (Bild-Hintergrund)"></button>
+        <label id="bgup" title="Hintergrund-Bild waehlen" style="cursor:pointer;color:var(--muted);font-size:15px">📷<input id="bgquick" type="file" accept="image/*" style="display:none"/></label>
+      </div>
+    </span>
   </div>
 
   <!-- ================= ZENTRALE ================= -->
@@ -75,7 +80,7 @@ VIEWS = r"""</head><body>
       </div>
       <div class="cmd-side">
         <div class="panel">
-          <div class="panel-h">◈ Heute <span class="sp"></span><a id="go-todo" class="muted" style="cursor:pointer;font-size:10px">→ To-Do</a></div>
+          <div class="panel-h">◈ Heute <span class="sp"></span><a id="go-todo" class="muted" style="cursor:pointer;font-size:10px">→ Me</a></div>
           <div id="digest" class="panel-b"><span class="muted">…</span></div>
         </div>
         <div class="panel">
@@ -88,7 +93,7 @@ VIEWS = r"""</head><body>
     </div>
   </div>
 
-  <!-- ================= CHAT (S6.6b: Session-Panel + Markdown) ================= -->
+  <!-- ================= CHAT ================= -->
   <div class="view" id="v-chat">
     <div id="chat-wrap">
       <div id="sess-panel">
@@ -119,10 +124,95 @@ VIEWS = r"""</head><body>
     </div>
   </div>
 
+  <!-- ================= PROJEKTE ================= -->
+  <div class="view" id="v-projekte">
+    <div class="seg" id="proj-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
+      <a data-s="standbeine" class="on">◈ Standbeine</a><a data-s="ziele">Ziele &amp; Aufgaben</a><a data-s="radar">Radar</a>
+    </div>
+
+    <div class="subview on" id="v-standbeine">
+      <div class="panel" style="margin-bottom:14px">
+        <div class="panel-h">◈ VENTURES — Standbeine <span class="sp"></span><span class="muted" id="vent-sum" style="font-size:11px"></span></div>
+        <div id="vent-list" class="panel-b"><span class="muted">…</span></div>
+        <div id="vent-detail" class="panel-b" style="display:none;border-top:1px solid var(--line)"></div>
+      </div>
+    </div>
+
+    <div class="subview" id="v-ziele">
+      <div class="mgrid">
+        <div class="panel">
+          <div class="panel-h">◈ ZIELE / PROJEKTE <span class="sp"></span><a id="obj-new-btn" class="muted" style="cursor:pointer;font-size:11px">+ ZIEL</a></div>
+          <div class="panel-b" id="obj-form" style="display:none">
+            <div class="row" style="flex-wrap:wrap">
+              <input id="obj-title" placeholder="Ziel/Projekt-Titel" style="flex:1;min-width:180px"/>
+              <select id="obj-kind"><option value="big">Big Project</option><option value="monthly">Monatsziel</option><option value="weekly" selected>Wochenziel</option></select>
+              <input id="obj-date" type="date" title="Zieldatum"/>
+              <button id="obj-add">Anlegen</button>
+            </div>
+          </div>
+          <div id="obj-list" class="panel-b"><span class="muted">…</span></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h">◈ KIRAS BACKLOG <span class="sp"></span><a id="todo-new-btn" class="muted" style="cursor:pointer;font-size:11px">+ AUFGABE</a></div>
+          <div class="panel-b" id="todo-form" style="display:none">
+            <div class="row" style="flex-wrap:wrap">
+              <input id="todo-desc" placeholder="Was zu tun ist" style="flex:1;min-width:170px"/>
+              <select id="todo-prio"><option value="1">P1</option><option value="2">P2</option><option value="3" selected>P3</option><option value="4">P4</option></select>
+              <input id="todo-due" type="date" title="faellig"/>
+              <button id="todo-add">+</button>
+            </div>
+            <div class="muted" style="margin-top:5px;font-size:11px">Ziel zuordnen (optional): <select id="todo-obj"><option value="">— keins —</option></select></div>
+          </div>
+          <div id="todo-board" class="panel-b"><span class="muted">…</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="subview" id="v-radar">
+      <div class="panel"><div class="panel-h">◈ RADAR — Business-Chancen <span class="sp"></span>
+        <a id="rd-scan" class="muted" style="cursor:pointer;font-size:11px">⚡ jetzt scannen</a></div>
+        <div class="panel-b"><span class="muted" id="rd-hint">Automatischer Scan laeuft woechentlich — Chancen landen hier als Pipeline. Convert = ich mache ein Standbein draus (mit deiner Freigabe fuer Aussen-Aktionen).</span></div>
+        <div id="rd-list" class="panel-b"><span class="muted">…</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ME (dein Bereich) ================= -->
+  <div class="view" id="v-me">
+    <div class="mgrid">
+      <div class="panel">
+        <div class="panel-h">◈ AN KIRA — deine Auftraege &amp; Todos <span class="sp"></span><span class="muted" style="font-size:11px">Erfassen: Chat, Telegram oder Sprachmemo</span></div>
+        <div id="life-board" class="panel-b"><span class="muted">…</span></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h">◈ VON KIRA — braucht dich <span class="live"></span><span class="sp"></span><span class="muted" id="inbox-count" style="font-size:11px"></span></div>
+        <div id="inbox-list" class="panel-b"><span class="muted">…</span></div>
+      </div>
+    </div>
+    <div class="mgrid">
+      <div class="panel">
+        <div class="panel-h">◈ ZUGANGS-ANFRAGEN <span class="sp"></span><a id="go-keys" class="muted" style="cursor:pointer;font-size:10px">→ eintragen unter Config</a></div>
+        <div id="todo-secrets" class="panel-b"><span class="muted">…</span></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h">◈ E-MAILS <span class="sp"></span><span class="muted" style="font-size:11px">gesendet · empfangen · wichtig</span></div>
+        <div id="me-mails" class="panel-b"><div class="emptybox">Noch kein Postfach verbunden.<br>
+          Sobald du IMAP/SMTP-Zugaenge eintraegst (Config → Zugaenge), laufen hier Kiras
+          gesendete und empfangene Mails auf — pro Projekt gefiltert in der Projekt-Akte.</div></div>
+      </div>
+    </div>
+    <div class="mgrid">
+      <div class="panel"><div class="panel-h">◈ MISSIONEN &amp; ZIELE (Leben)</div>
+        <div id="life-goals" class="panel-b"><span class="muted">…</span></div></div>
+      <div class="panel"><div class="panel-h">◈ METRIKEN <span class="sp"></span><span class="muted" style="font-size:11px">z.B. „Kira, Gewicht heute 91.4“</span></div>
+        <div id="life-metrics" class="panel-b"><span class="muted">…</span></div></div>
+    </div>
+  </div>
+
   <!-- ================= KIRA (Persoenlichkeit & Specs) ================= -->
   <div class="view" id="v-kira">
     <div class="seg" id="kira-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-k="files" class="on">✦ Seele &amp; Dateien</a><a data-k="mem">Gedaechtnis</a><a data-k="anatomie">Anatomie</a>
+      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a>
     </div>
 
     <div class="subview on" id="v-files">
@@ -151,118 +241,58 @@ VIEWS = r"""</head><body>
       <div class="panel" style="margin-top:16px;max-width:980px"><div class="panel-h">◈ Verlauf · Aenderungen (vorher → nachher)</div><div id="memhist" class="panel-b"><span class="muted">…</span></div></div>
     </div>
 
+    <div class="subview" id="v-wissen">
+      <div class="mgrid">
+        <div class="panel"><div class="panel-h">◈ WISSEN FUETTERN — Datei oder Notiz</div>
+          <div class="panel-b">
+            <div class="row" style="flex-wrap:wrap">
+              <label class="ghost" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer">📄 Datei waehlen<input id="kn-file" type="file" accept=".txt,.md,.markdown,.html,.htm,.pdf,.csv,.log,.json,.yaml,.yml" style="display:none"/></label>
+              <span class="muted" id="kn-file-hint" style="align-self:center">txt · md · html · pdf (max 15 MB) — oder per Telegram schicken</span>
+            </div>
+            <input id="kn-title" placeholder="Titel der Notiz" style="margin-top:10px;width:100%"/>
+            <textarea id="kn-text" class="k" style="margin-top:6px;min-height:90px" placeholder="… oder hier Text/Wissen einfuegen …"></textarea>
+            <div class="row" style="margin-top:6px"><button id="kn-add">+ Ins Archiv</button><span class="muted" id="kn-hint" style="align-self:center"></span></div>
+          </div>
+        </div>
+        <div class="panel"><div class="panel-h">◈ IM ARCHIV SUCHEN</div>
+          <div class="panel-b">
+            <input id="kn-q" placeholder="🔍 Was suchst du im Archiv?" style="width:100%"/>
+            <div id="kn-results" style="margin-top:8px"><span class="muted">…</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel"><div class="panel-h">◈ ARCHIV <span class="sp"></span><span class="muted" id="kn-count" style="font-size:11px"></span></div>
+        <div id="kn-docs" class="panel-b"><span class="muted">…</span></div></div>
+    </div>
+
     <div class="subview" id="v-anatomie">
       <div class="mgrid">
         <div class="panel"><div class="panel-h">◈ ORGANE — wer zuletzt gearbeitet hat</div>
           <div id="ag-organs" class="panel-b"><span class="muted">…</span></div></div>
-        <div class="panel"><div class="panel-h">◈ DIENSTE &amp; MCP</div>
+        <div class="panel"><div class="panel-h">◈ DIENSTE &amp; MCP &amp; WERKZEUGKASTEN</div>
           <div id="ag-infra" class="panel-b"><span class="muted">…</span></div></div>
       </div>
     </div>
+
+    <div class="subview" id="v-stats">
+      <div class="card"><h3>Lern-Kurve — besteht Kira ihre eigene Pruefung?</h3>
+        <div class="muted">Jeder Mission-Task wird gegen Akzeptanzkriterien geprueft (Score 0-100).
+        Hier siehst du, ob sie <b>besser</b> wird — nicht nur fleissiger.</div>
+        <div id="st-kpi" style="display:flex;gap:26px;flex-wrap:wrap;margin-top:12px"><span class="muted">…</span></div>
+      </div>
+      <div class="card"><h3>Task-Arten — was klappt, was hakt</h3><div id="st-kinds" class="muted">…</div></div>
+      <div class="card"><h3>Zaehe Ziele</h3><div id="st-objs" class="muted">…</div></div>
+      <div class="card"><h3>Wiederkehrende Pruefer-Kritik</h3><div id="st-themes" class="muted">…</div></div>
+      <div class="card"><h3>Strategien — lohnt Eskalation?</h3><div id="st-strats" class="muted">…</div></div>
+      <div class="card"><h3>💶 Kosten je Modell (7 Tage)</h3><div id="st-costs" class="muted">…</div></div>
+    </div>
   </div>
 
-  <!-- ================= WORKSPACE (Kiras Arbeit) ================= -->
-  <div class="view" id="v-work">
-    <div class="panel" style="margin-bottom:14px">
-      <div class="panel-h">◈ VENTURES — Standbeine <span class="sp"></span><span class="muted" id="vent-sum" style="font-size:11px"></span></div>
-      <div id="vent-list" class="panel-b"><span class="muted">…</span></div>
-      <div id="vent-detail" class="panel-b" style="display:none;border-top:1px solid var(--line)"></div>
-    </div>
-    <div class="mgrid">
-      <div class="panel">
-        <div class="panel-h">◈ ZIELE / PROJEKTE <span class="sp"></span><a id="obj-new-btn" class="muted" style="cursor:pointer;font-size:11px">+ ZIEL</a></div>
-        <div class="panel-b" id="obj-form" style="display:none">
-          <div class="row" style="flex-wrap:wrap">
-            <input id="obj-title" placeholder="Ziel/Projekt-Titel" style="flex:1;min-width:180px"/>
-            <select id="obj-kind"><option value="big">Big Project</option><option value="monthly">Monatsziel</option><option value="weekly" selected>Wochenziel</option></select>
-            <input id="obj-date" type="date" title="Zieldatum"/>
-            <button id="obj-add">Anlegen</button>
-          </div>
-        </div>
-        <div id="obj-list" class="panel-b"><span class="muted">…</span></div>
-      </div>
-      <div class="panel">
-        <div class="panel-h">◈ KIRAS BACKLOG <span class="sp"></span><a id="todo-new-btn" class="muted" style="cursor:pointer;font-size:11px">+ AUFGABE</a></div>
-        <div class="panel-b" id="todo-form" style="display:none">
-          <div class="row" style="flex-wrap:wrap">
-            <input id="todo-desc" placeholder="Was zu tun ist" style="flex:1;min-width:170px"/>
-            <select id="todo-prio"><option value="1">P1</option><option value="2">P2</option><option value="3" selected>P3</option><option value="4">P4</option></select>
-            <input id="todo-due" type="date" title="faellig"/>
-            <button id="todo-add">+</button>
-          </div>
-          <div class="muted" style="margin-top:5px;font-size:11px">Ziel zuordnen (optional): <select id="todo-obj"><option value="">— keins —</option></select></div>
-        </div>
-        <div id="todo-board" class="panel-b"><span class="muted">…</span></div>
-      </div>
-    </div>
-    <div class="panel" style="margin-bottom:14px"><div class="panel-h">◈ RADAR — Business-Chancen <span class="sp"></span>
-      <a id="rd-scan" class="muted" style="cursor:pointer;font-size:11px">⚡ jetzt scannen</a></div>
-      <div class="panel-b"><span class="muted" id="rd-hint">Automatischer Scan laeuft woechentlich — Chancen landen hier als Pipeline.</span></div>
-      <div id="rd-list" class="panel-b"><span class="muted">…</span></div>
-    </div>
-    <div class="mgrid">
-      <div class="panel"><div class="panel-h">◈ WISSEN FUETTERN — Datei oder Notiz</div>
-        <div class="panel-b">
-          <div class="row" style="flex-wrap:wrap">
-            <label class="ghost" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer">📄 Datei waehlen<input id="kn-file" type="file" accept=".txt,.md,.markdown,.html,.htm,.pdf,.csv,.log,.json,.yaml,.yml" style="display:none"/></label>
-            <span class="muted" id="kn-file-hint" style="align-self:center">txt · md · html · pdf (max 15 MB) — oder per Telegram schicken</span>
-          </div>
-          <input id="kn-title" placeholder="Titel der Notiz" style="margin-top:10px;width:100%"/>
-          <textarea id="kn-text" class="k" style="margin-top:6px;min-height:90px" placeholder="… oder hier Text/Wissen einfuegen …"></textarea>
-          <div class="row" style="margin-top:6px"><button id="kn-add">+ Ins Archiv</button><span class="muted" id="kn-hint" style="align-self:center"></span></div>
-        </div>
-      </div>
-      <div class="panel"><div class="panel-h">◈ IM ARCHIV SUCHEN</div>
-        <div class="panel-b">
-          <input id="kn-q" placeholder="🔍 Was suchst du im Archiv?" style="width:100%"/>
-          <div id="kn-results" style="margin-top:8px"><span class="muted">…</span></div>
-        </div>
-      </div>
-    </div>
-    <div class="panel"><div class="panel-h">◈ ARCHIV <span class="sp"></span><span class="muted" id="kn-count" style="font-size:11px"></span></div>
-      <div id="kn-docs" class="panel-b"><span class="muted">…</span></div></div>
-  </div>
-
-  <!-- ================= TO-DO (braucht dich + Leben) ================= -->
-  <div class="view" id="v-todo">
-    <div class="mgrid">
-      <div class="panel">
-        <div class="panel-h">◈ FREIGABE-INBOX <span class="live"></span><span class="sp"></span><span class="muted" id="inbox-count" style="font-size:11px"></span></div>
-        <div id="inbox-list" class="panel-b"><span class="muted">…</span></div>
-      </div>
-      <div class="panel">
-        <div class="panel-h">◈ ZUGANGS-ANFRAGEN <span class="sp"></span><a id="go-keys" class="muted" style="cursor:pointer;font-size:10px">→ eintragen unter Config</a></div>
-        <div id="todo-secrets" class="panel-b"><span class="muted">…</span></div>
-      </div>
-    </div>
-    <div class="mgrid">
-      <div class="panel"><div class="panel-h">◈ DEINE TODOS <span class="sp"></span><span class="muted" style="font-size:11px">Erfassen: sag es mir einfach (Chat/Telegram/Sprachmemo)</span></div>
-        <div id="life-board" class="panel-b"><span class="muted">…</span></div></div>
-      <div class="panel"><div class="panel-h">◈ MISSIONEN &amp; ZIELE</div>
-        <div id="life-goals" class="panel-b"><span class="muted">…</span></div></div>
-    </div>
-    <div class="panel"><div class="panel-h">◈ METRIKEN <span class="sp"></span><span class="muted" style="font-size:11px">z.B. „Kira, Gewicht heute 91.4“</span></div>
-      <div id="life-metrics" class="panel-b"><span class="muted">…</span></div></div>
-  </div>
-
-  <!-- ================= CONFIG (Kira konfigurieren) ================= -->
+  <!-- ================= CONFIG (rein technisch) ================= -->
   <div class="view" id="v-config">
     <div class="seg" id="sys-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="models" class="on">⚙ Modelle</a><a data-s="gov">Gewissen</a><a data-s="stats">Statistik</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="keys">Zugaenge</a><a data-s="log">Protokoll</a>
+      <a data-s="models" class="on">⚙ Modelle</a><a data-s="keys">Zugaenge</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="log">Protokoll</a><a data-s="cockpit">Cockpit</a>
     </div>
-
-  <div class="subview" id="v-stats">
-    <div class="card"><h3>Lern-Kurve — besteht Kira ihre eigene Pruefung?</h3>
-      <div class="muted">Jeder Mission-Task wird gegen Akzeptanzkriterien geprueft (Score 0-100).
-      Hier siehst du, ob sie <b>besser</b> wird — nicht nur fleissiger.</div>
-      <div id="st-kpi" style="display:flex;gap:26px;flex-wrap:wrap;margin-top:12px"><span class="muted">…</span></div>
-    </div>
-    <div class="card"><h3>Task-Arten — was klappt, was hakt</h3><div id="st-kinds" class="muted">…</div></div>
-    <div class="card"><h3>Zaehe Ziele</h3><div id="st-objs" class="muted">…</div></div>
-    <div class="card"><h3>Wiederkehrende Pruefer-Kritik</h3><div id="st-themes" class="muted">…</div></div>
-    <div class="card"><h3>Strategien — lohnt Eskalation?</h3><div id="st-strats" class="muted">…</div></div>
-    <div class="card"><h3>💶 Kosten je Modell (7 Tage)</h3><div id="st-costs" class="muted">…</div></div>
-  </div>
 
   <div class="subview on" id="v-models">
     <div class="card"><h3>Aktives Modell</h3><div id="m-active" class="muted">…</div></div>
@@ -327,6 +357,17 @@ VIEWS = r"""</head><body>
     </div>
   </div>
 
+  <div class="subview" id="v-keys">
+    <div class="card"><h3>Von Kira angefordert</h3><div id="k-pending" class="muted">…</div></div>
+    <div class="card"><h3>Zugang eintragen / aktualisieren</h3>
+      <div class="muted">Werte sind write-only — werden nie angezeigt oder protokolliert. NIEMALS im Chat eingeben.</div>
+      <div class="row"><input id="k-name" placeholder="Name, z.B. OPENROUTER_API_KEY"/>
+        <input id="k-val" type="password" placeholder="Wert / Key / Passwort"/>
+        <button id="k-save">Speichern</button></div>
+      <div id="k-sugg" class="muted" style="margin-top:8px"></div></div>
+    <div class="card"><h3>Vorhandene Zugaenge</h3><div id="k-set"></div></div>
+  </div>
+
   <div class="subview" id="v-gov">
     <div class="card"><h3>Was ist das „Gewissen"?</h3>
       <div class="muted">Meine <b>Leitplanken</b> — womit du steuerst, wie weit ich gehen darf:
@@ -384,17 +425,6 @@ VIEWS = r"""</head><body>
     <div class="card"><h3>Zuletzt gemeldet</h3><div id="mo-recent" class="muted">…</div></div>
   </div>
 
-  <div class="subview" id="v-keys">
-    <div class="card"><h3>Von Kira angefordert</h3><div id="k-pending" class="muted">…</div></div>
-    <div class="card"><h3>Zugang eintragen / aktualisieren</h3>
-      <div class="muted">Werte sind write-only — werden nie angezeigt oder protokolliert. NIEMALS im Chat eingeben.</div>
-      <div class="row"><input id="k-name" placeholder="Name, z.B. OPENROUTER_API_KEY"/>
-        <input id="k-val" type="password" placeholder="Wert / Key / Passwort"/>
-        <button id="k-save">Speichern</button></div>
-      <div id="k-sugg" class="muted" style="margin-top:8px"></div></div>
-    <div class="card"><h3>Vorhandene Zugaenge</h3><div id="k-set"></div></div>
-  </div>
-
   <div class="subview" id="v-log">
     <div id="log-filters" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
       <a href="#" data-f="all" class="pill on">Alles</a>
@@ -405,13 +435,11 @@ VIEWS = r"""</head><body>
     <div id="evlog"></div>
     <div style="text-align:center;margin-top:12px"><button class="ghost" id="log-more">mehr laden ↓</button></div>
   </div>
-  </div>
 
-  <!-- ================= EINSTELLUNGEN (Cockpit) ================= -->
-  <div class="view" id="v-settings">
+  <div class="subview" id="v-cockpit">
     <div class="card"><h3>Kira-Avatar</h3>
-      <div class="muted">Ihr Gesicht im Cockpit: erscheint gross in der Zentrale und klein an ihren
-      Chat-Antworten. Erzeuge Bilder z.B. in <b>Higgsfield</b> und lade sie hier hoch (quadratisch wirkt am besten).</div>
+      <div class="muted">Ihr Gesicht im Cockpit: gross in der Zentrale, klein an ihren Chat-Antworten.
+      Erzeuge Bilder z.B. in <b>Higgsfield</b> und lade sie hier hoch (quadratisch wirkt am besten).</div>
       <div class="row" style="margin-top:8px">
         <label class="ghost" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer">🖼 Avatar waehlen<input id="set-avatar" type="file" accept="image/*" style="display:none"/></label>
         <button class="ghost" id="set-avatar-clear">Avatar entfernen</button>
@@ -419,11 +447,24 @@ VIEWS = r"""</head><body>
       </div>
     </div>
     <div class="card"><h3>Optik</h3>
-      <div class="muted">Farbschema und Hintergrund-Bild wechselst du unten links in der Seitenleiste (Farbpunkte + 📷).
+      <div class="muted">Farbschema + Hintergrund-Bild wechselst du oben rechts ueber das ◐-Icon.
       Der <b>Kira-Modus</b> nutzt dein hochgeladenes Bild als Hintergrund.</div>
       <div class="row" style="margin-top:8px">
         <button class="ghost" id="set-bg-clear">Hintergrundbild entfernen</button>
         <span class="muted" id="set-optik-hint" style="align-self:center"></span>
+      </div>
+    </div>
+    <div class="card"><h3>Tab-Icons</h3>
+      <div class="muted">Ein Zeichen/Emoji pro Bereich (wird lokal im Browser gespeichert).</div>
+      <div class="row" style="margin-top:8px;flex-wrap:wrap" id="icon-row">
+        <input data-ic="home" placeholder="Zentrale" style="max-width:110px"/>
+        <input data-ic="chat" placeholder="Chat" style="max-width:110px"/>
+        <input data-ic="projekte" placeholder="Projekte" style="max-width:110px"/>
+        <input data-ic="me" placeholder="Me" style="max-width:110px"/>
+        <input data-ic="kira" placeholder="Kira" style="max-width:110px"/>
+        <input data-ic="config" placeholder="Config" style="max-width:110px"/>
+        <button id="icons-save">Icons speichern</button>
+        <button class="ghost" id="icons-reset">Zuruecksetzen</button>
       </div>
     </div>
     <div class="card"><h3>System</h3>
@@ -433,6 +474,7 @@ VIEWS = r"""</head><body>
         <span class="muted" id="set-restart-hint" style="align-self:center"></span>
       </div>
     </div>
+  </div>
   </div>
 </div>
 """

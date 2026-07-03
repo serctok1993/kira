@@ -31,14 +31,33 @@ function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle(
  if(document.startViewTransition&&!matchMedia("(prefers-reduced-motion: reduce)").matches){document.startViewTransition(go);}else{go();}
  if(v==="home")loadCommand();
  if(v==="chat"){loadChatModels();loadChatSessions();}
- if(v==="kira")kirat(kiraCur);
- if(v==="work"){loadMission();loadRadar();loadWissen();}
- if(v==="todo"){loadInbox();loadTodoSecrets();loadLeben();}
- if(v==="config")syst(sysCur);}
+ if(v==="me")loadMe();
+ if(SUBTABS[v])subnav(v,SUBTABS[v].cur);}
 
-/* ---- Config-Bereich: Sub-Tabs (Modelle/Gewissen/Cron/Monitor/Zugaenge/Protokoll) ---- */
-let sysCur="models";
-const SYS_LOADERS={models:()=>loadModels(),gov:()=>loadGov(),stats:()=>loadStats(),cron:()=>loadCron(),monitor:()=>loadMonitor(),keys:()=>loadKeys(),log:()=>loadEvents()};
+/* ==== S7a: modulare Shell — EINE Subtab-Mechanik fuer alle Bereiche ====
+   Neue Bereiche/Unterreiter andocken = Eintrag hier + Markup (subview id="v-<s>").
+   Kein Spezialcode pro Tab mehr (vorher: syst() + kirat() doppelt). */
+const SUBTABS={
+ kira:    {bar:"#kira-tabs", cur:"files",
+           loaders:{files:()=>loadFiles(),mem:()=>loadMem(),wissen:()=>loadWissen(),
+                    anatomie:()=>loadAgenten(),stats:()=>loadStats()}},
+ projekte:{bar:"#proj-tabs", cur:"standbeine",
+           loaders:{standbeine:()=>loadVentures(),ziele:()=>loadMission(),radar:()=>loadRadar()}},
+ config:  {bar:"#sys-tabs",  cur:"models",
+           loaders:{models:()=>loadModels(),keys:()=>loadKeys(),gov:()=>loadGov(),
+                    cron:()=>loadCron(),monitor:()=>loadMonitor(),log:()=>loadEvents(),cockpit:()=>{}}}};
+function subnav(tab,s){const g=SUBTABS[tab];if(!g)return;g.cur=s;
+ $$(g.bar+" a").forEach(a=>a.classList.toggle("on",a.dataset.s===s));
+ $$("#v-"+tab+" .subview").forEach(x=>x.classList.toggle("on",x.id==="v-"+s));
+ (g.loaders[s]||(()=>{}))();}
+Object.keys(SUBTABS).forEach(t=>$$(SUBTABS[t].bar+" a").forEach(a=>a.onclick=()=>subnav(t,a.dataset.s)));
+/* Icons pro Tab anpassbar (localStorage kira_icons: {"home":"◈",...}) — Pflege in Config->Cockpit */
+function applyIcons(){try{const ic=JSON.parse(localStorage.getItem("kira_icons")||"{}");
+ $$("#side a .ti").forEach(i=>{const v=i.closest("a").dataset.v;if(ic[v])i.textContent=ic[v];});}catch(e){}}
+applyIcons();
+
+/* ---- Me (S7a): beide Todo-Richtungen + Zugangs-Anfragen + Mails ---- */
+function loadMe(){loadInbox();loadTodoSecrets();loadLeben();}
 
 /* ---- Statistik (S6.6c): Lern-Kurve aus dem Outcome-Ledger ---- */
 async function loadStats(){try{
@@ -78,21 +97,6 @@ async function loadStats(){try{
     +'<div class="muted" style="margin-top:6px;font-size:12px">7-Tage-Summe: <b>$'+(c.week.total||0).toFixed(3)+'</b> · heute: $'+(c.today.total||0).toFixed(3)+'</div>'
   : '<span class="muted">(noch keine Cloud-Kosten)</span>';
 }catch(e){}}
-function syst(s){sysCur=s;
- $$("#sys-tabs a").forEach(a=>a.classList.toggle("on",a.dataset.s===s));
- $$("#v-config .subview").forEach(x=>x.classList.toggle("on",x.id==="v-"+s));
- (SYS_LOADERS[s]||(()=>{}))();}
-$$("#sys-tabs a").forEach(a=>a.onclick=()=>syst(a.dataset.s));
-
-/* ---- Kira-Bereich: Sub-Tabs (Seele & Dateien / Gedaechtnis / Anatomie) ---- */
-let kiraCur="files";
-const KIRA_LOADERS={files:()=>loadFiles(),mem:()=>loadMem(),anatomie:()=>loadAgenten()};
-function kirat(k){kiraCur=k;
- $$("#kira-tabs a").forEach(a=>a.classList.toggle("on",a.dataset.k===k));
- $$("#v-kira .subview").forEach(x=>x.classList.toggle("on",x.id==="v-"+k));
- (KIRA_LOADERS[k]||(()=>{}))();}
-$$("#kira-tabs a").forEach(a=>a.onclick=()=>kirat(a.dataset.k));
-
 /* ---- Modell-Umschalter in der Chat-Pane ---- */
 async function loadChatModels(){const s=await (await fetch("/api/status")).json();
  const sel=$("#chat-model"); if(!sel) return;
@@ -153,11 +157,13 @@ async function loadHome(){const o=await (await fetch("/api/overview")).json();
    +'<button class=ghost data-go="models">Modelle</button> '
    +'<button class=ghost data-go="gov">Gewissen</button> '
    +'<button class=ghost data-go="stats">Statistik</button> '
-   +'<button class=ghost data-go="todo">To-Do</button>');
+   +'<button class=ghost data-go="me">Me</button>');
  h+='</div>';$("#home").innerHTML=h;
  /* Subtab-Ziele brauchen nav(config)+syst — nackte nav() darauf war der Weisser-Screen-Bug */
  $$('#home [data-go]').forEach(b=>b.onclick=()=>{const g=b.dataset.go;
-  if(g==="models"||g==="gov"||g==="stats"){nav("config");syst(g);}else nav(g);});}
+  if(g==="stats"){nav("kira");subnav("kira","stats");}
+  else if(g==="models"||g==="gov"){nav("config");subnav("config",g);}
+  else nav(g);});}
 
 /* ---- Kira-Avatar (S6.6d): einmal proben, Hero + Chat nutzen ihn ---- */
 let hasAvatar=false;
@@ -822,8 +828,17 @@ $("#m-or-add")&&($("#m-or-add").onclick=async()=>{const id=$("#m-or").value.trim
  try{const r=await J("/api/model/openrouter",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:id})});
   $("#m-or-hint").textContent="✓ aktiv: "+(r.active||id);refreshStatus();loadModels();
  }catch(e){$("#m-or-hint").textContent="Fehler — Modell-ID pruefen";}});
-$("#go-todo")&&($("#go-todo").onclick=()=>nav("todo"));
-$("#go-keys")&&($("#go-keys").onclick=()=>{nav("config");syst("keys");});
+$("#go-todo")&&($("#go-todo").onclick=()=>nav("me"));
+/* Theme-Popover (S7a): dezentes ◐-Icon in der Topbar statt praesenter Leiste in der Nav */
+$("#theme-btn")&&($("#theme-btn").onclick=e=>{e.stopPropagation();const p=$("#theme-pop");p.classList.toggle("open");});
+document.addEventListener("click",e=>{const p=$("#theme-pop");
+ if(p&&p.classList.contains("open")&&!e.target.closest("#theme-wrap"))p.classList.remove("open");});
+/* Tab-Icons anpassen (Config -> Cockpit) */
+$("#icons-save")&&($("#icons-save").onclick=()=>{const ic={};
+ $$('#icon-row input[data-ic]').forEach(i=>{const v=i.value.trim();if(v)ic[i.dataset.ic]=v.slice(0,3);});
+ localStorage.setItem("kira_icons",JSON.stringify(ic));applyIcons();toast("Icons gespeichert","ok");});
+$("#icons-reset")&&($("#icons-reset").onclick=()=>{localStorage.removeItem("kira_icons");location.reload();});
+$("#go-keys")&&($("#go-keys").onclick=()=>{nav("config");subnav("config","keys");});
 $("#set-restart")&&($("#set-restart").onclick=async()=>{if(!confirm("Kira neu starten? Dienste bouncen in ~20s."))return;
  await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
  $("#set-restart-hint").textContent="↻ Neustart angefordert …";});
@@ -849,8 +864,8 @@ function pollTick(){
  if(!document.hidden){
    updatePulse();
    refreshStatus();
-   if(cur==="config"&&sysCur==="log"&&logRaw.length<=100)loadEvents();
-   if(cur==="config"&&sysCur==="gov")loadGov();
+   if(cur==="config"&&SUBTABS.config.cur==="log"&&logRaw.length<=100)loadEvents();
+   if(cur==="config"&&SUBTABS.config.cur==="gov")loadGov();
    if(cur==="home"){loadHud();loadOps();loadNeeds();}
    if(cur==="home"&&(_pollN%6===0))loadNews();  // News seltener (~alle 30s)
    _pollN++;

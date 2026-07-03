@@ -11,18 +11,31 @@ def _page() -> str:
 
 
 def test_page_boots_with_new_ia():
-    """S6.6a: Sergens 7-Bereiche-Zuschnitt (Zentrale/Chat/Kira/Workspace/To-Do/Config/Einstellungen)."""
+    """S7a: Sergens 6-Tab-Zuschnitt (Zentrale/Chat/Projekte/Me/Kira/Config) + modulare Shell."""
     html = _page()
     assert "KIRA" in html
-    for vid in ("v-home", "v-chat", "v-kira", "v-work", "v-todo", "v-config", "v-settings"):
+    for vid in ("v-home", "v-chat", "v-projekte", "v-me", "v-kira", "v-config"):
         assert f'id="{vid}"' in html, f"View fehlt: {vid}"
-    # Config-Subtabs (Modelle/Gewissen/Cron/Monitor/Zugaenge/Protokoll)
-    for sub in ("v-models", "v-gov", "v-cron", "v-monitor", "v-keys", "v-log"):
-        assert f'id="{sub}"' in html, f"Config-Subview fehlt: {sub}"
-    # Kira-Subtabs (Seele & Dateien / Gedaechtnis / Anatomie)
-    for sub in ("v-files", "v-mem", "v-anatomie"):
-        assert f'id="{sub}"' in html, f"Kira-Subview fehlt: {sub}"
-    assert 'id="sys-tabs"' in html and 'id="kira-tabs"' in html
+    for gone in ("v-work", "v-todo", "v-settings"):
+        assert f'id="{gone}"' not in html, f"Alt-View lebt noch: {gone}"
+    # Subviews je Bereich (EINE Mechanik: SUBTABS-Registry)
+    for sub in ("v-models", "v-keys", "v-gov", "v-cron", "v-monitor", "v-log", "v-cockpit",  # Config
+                "v-files", "v-mem", "v-wissen", "v-anatomie", "v-stats",                      # Kira
+                "v-standbeine", "v-ziele", "v-radar"):                                        # Projekte
+        assert f'id="{sub}"' in html, f"Subview fehlt: {sub}"
+    for bar in ("sys-tabs", "kira-tabs", "proj-tabs"):
+        assert f'id="{bar}"' in html, f"Subtab-Leiste fehlt: {bar}"
+    assert "const SUBTABS=" in html and "function subnav(" in html  # generische Shell
+
+
+def test_s7a_shell_features():
+    """S7a: Theme-Popover statt Nav-Leiste, Me-Bereich mit beiden Todo-Richtungen, Icon-Editor."""
+    html = _page()
+    for marker in ('id="theme-btn"', 'id="theme-pop"', 'id="me-mails"', 'id="icon-row"',
+                   "applyIcons", "kira_icons", 'class="ti"', "AN KIRA", "VON KIRA"):
+        assert marker in html, f"S7a-Marker fehlt: {marker}"
+    # Theme-Leiste haengt nicht mehr in der Sidebar
+    assert html.find('class="look"') > html.find('id="bar"')
 
 
 def test_cockpit_js_is_syntactically_valid(tmp_path):

@@ -104,9 +104,17 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 #side{background:linear-gradient(180deg,rgba(14,14,18,.92),rgba(8,8,11,.86))}
 .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--danger)}
 .look{display:flex;gap:10px;align-items:center;justify-content:center;padding:8px 12px;
- margin:0 12px 6px;border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:12px}
+ border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:12px}
 .look label,.look a{cursor:pointer;color:var(--muted);text-decoration:none}
 .look label:hover,.look a:hover{color:var(--accent)}
+/* S7a: Theme-Umschalter als dezentes Popover in der Topbar (statt Dauer-Leiste in der Nav) */
+#theme-wrap{position:relative}
+#theme-btn{cursor:pointer;color:var(--muted);font-size:15px;user-select:none;line-height:1}
+#theme-btn:hover{color:var(--accent)}
+#theme-pop{display:none;position:absolute;top:26px;right:0;z-index:500;background:var(--panel);
+ box-shadow:0 12px 34px rgba(0,0,0,.6)}
+#theme-pop.open{display:flex}
+#side a .ti{display:inline-block;width:18px;text-align:center;margin-right:2px;color:var(--accent)}
 .direktive{max-width:1120px;margin:0 0 16px;border:1px solid var(--line);border-radius:12px;
  padding:14px;background:rgba(16,16,20,.72)}
 .direktive h3{margin:0 0 8px;color:var(--amber)}
