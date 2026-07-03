@@ -11,15 +11,18 @@ def _page() -> str:
 
 
 def test_page_boots_with_new_ia():
+    """S6.6a: Sergens 7-Bereiche-Zuschnitt (Zentrale/Chat/Kira/Workspace/To-Do/Config/Einstellungen)."""
     html = _page()
     assert "KIRA" in html
-    for vid in ("v-home", "v-chat", "v-leben", "v-mission", "v-agenten",
-                "v-wissen", "v-radar", "v-system"):
+    for vid in ("v-home", "v-chat", "v-kira", "v-work", "v-todo", "v-config", "v-settings"):
         assert f'id="{vid}"' in html, f"View fehlt: {vid}"
-    # System-Subtabs tragen die alten Panes weiter (IDs + Loader ueberleben)
-    for sub in ("v-models", "v-gov", "v-cron", "v-monitor", "v-keys", "v-mem", "v-files", "v-log"):
-        assert f'class="subview" id="{sub}"' in html, f"Subview fehlt: {sub}"
-    assert 'id="sys-tabs"' in html
+    # Config-Subtabs (Modelle/Gewissen/Cron/Monitor/Zugaenge/Protokoll)
+    for sub in ("v-models", "v-gov", "v-cron", "v-monitor", "v-keys", "v-log"):
+        assert f'id="{sub}"' in html, f"Config-Subview fehlt: {sub}"
+    # Kira-Subtabs (Seele & Dateien / Gedaechtnis / Anatomie)
+    for sub in ("v-files", "v-mem", "v-anatomie"):
+        assert f'id="{sub}"' in html, f"Kira-Subview fehlt: {sub}"
+    assert 'id="sys-tabs"' in html and 'id="kira-tabs"' in html
 
 
 def test_cockpit_js_is_syntactically_valid(tmp_path):
@@ -85,16 +88,20 @@ def test_phrases_injected():
 
 
 def test_new_panes_have_containers():
-    """S5.3b: die neuen Panes sind echte Container mit Loader-Verdrahtung."""
+    """S6.6a: alle Panels haben Container + Loader in der neuen IA."""
     html = _page()
-    for el in ("life-board", "life-goals", "life-metrics",       # Leben
-               "ag-organs", "ag-infra",                            # Agenten
-               "vent-list", "vent-detail",                         # Projekte
-               "needs-list", "z-digest"):                          # Zentrale
+    for el in ("life-board", "life-goals", "life-metrics",       # To-Do (Leben)
+               "inbox-list", "todo-secrets",                       # To-Do (braucht dich)
+               "ag-organs", "ag-infra",                            # Kira (Anatomie)
+               "vent-list", "vent-detail", "rd-list", "kn-docs",   # Workspace
+               "digest", "hud-strip", "ops-feed",                  # Zentrale
+               "m-or"):                                            # Config (S6.6a: UI wiederhergestellt)
         assert f'id="{el}"' in html, f"Container fehlt: {el}"
     for fn in ("loadLeben", "loadAgenten", "loadVentures", "loadVentureTrace",
-               "loadNeeds", "loadZDigest", "function spark"):
+               "loadTodoSecrets", "loadDigest", "kirat(", "function spark"):
         assert fn in html, f"Loader fehlt: {fn}"
+    # Die alten Dopplungen sind wirklich raus (Zentrale zeigte Freigaben ohne Buttons)
+    assert 'id="needs-list"' not in html and 'id="z-digest"' not in html
 
 
 def test_agents_endpoint_shape():

@@ -159,8 +159,8 @@ def test_resolve_objective_token(monkeypatch, tmp_path):
     from core.agency import act
 
     _iso(monkeypatch, tmp_path)
-    qs = objectives.add("QS-Transporte SEO", kind="weekly")
-    objectives.add("Playbook schreiben", kind="weekly")
+    qs = objectives.add("Projekt QS-Transporte SEO", kind="weekly")
+    objectives.add("Projekt Playbook schreiben", kind="weekly")
 
     text, oid = act._resolve_objective_token(f"Baue die Sitemap @ziel:{qs[:8]} fertig")
     assert oid == qs and "@ziel:" not in text and "Baue die Sitemap" in text
@@ -168,7 +168,9 @@ def test_resolve_objective_token(monkeypatch, tmp_path):
     text, oid = act._resolve_objective_token("Schreib Kapitel 1 @ziel:playbook")
     assert oid and "@ziel:" not in text
 
-    _, oid = act._resolve_objective_token("Irgendwas @ziel:e")  # mehrdeutig -> None
+    # mehrdeutig -> None. Token bewusst NICHT-hex ('projekt' trifft beide Titel,
+    # kann aber nie eine uuid-hex-ID praefixen — sonst flakt der Test ~12%/Lauf)
+    _, oid = act._resolve_objective_token("Irgendwas @ziel:projekt")
     assert oid is None
 
     text, oid = act._resolve_objective_token("ohne Token")

@@ -29,16 +29,30 @@ $("#burger")&&($("#burger").onclick=()=>document.body.classList.toggle("side-ope
 function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");};
  if(document.startViewTransition&&!matchMedia("(prefers-reduced-motion: reduce)").matches){document.startViewTransition(go);}else{go();}
- if(v==="home")loadCommand(); if(v==="mission")loadMission(); if(v==="chat"){loadChatModels();loadChatSessions();} if(v==="system")syst(sysCur); if(v==="leben")loadLeben(); if(v==="agenten")loadAgenten(); if(v==="wissen")loadWissen(); if(v==="radar")loadRadar();}
+ if(v==="home")loadCommand();
+ if(v==="chat"){loadChatModels();loadChatSessions();}
+ if(v==="kira")kirat(kiraCur);
+ if(v==="work"){loadMission();loadRadar();loadWissen();}
+ if(v==="todo"){loadInbox();loadTodoSecrets();loadLeben();}
+ if(v==="config")syst(sysCur);}
 
-/* ---- System-Bereich: Sub-Tabs (Modelle/Gewissen/Cron/Monitor/Zugaenge/Gedaechtnis/Dateien/Protokoll) ---- */
+/* ---- Config-Bereich: Sub-Tabs (Modelle/Gewissen/Cron/Monitor/Zugaenge/Protokoll) ---- */
 let sysCur="models";
-const SYS_LOADERS={models:()=>loadModels(),gov:()=>loadGov(),cron:()=>loadCron(),monitor:()=>loadMonitor(),keys:()=>loadKeys(),mem:()=>loadMem(),files:()=>loadFiles(),log:()=>loadEvents()};
+const SYS_LOADERS={models:()=>loadModels(),gov:()=>loadGov(),cron:()=>loadCron(),monitor:()=>loadMonitor(),keys:()=>loadKeys(),log:()=>loadEvents()};
 function syst(s){sysCur=s;
  $$("#sys-tabs a").forEach(a=>a.classList.toggle("on",a.dataset.s===s));
- $$(".subview").forEach(x=>x.classList.toggle("on",x.id==="v-"+s));
+ $$("#v-config .subview").forEach(x=>x.classList.toggle("on",x.id==="v-"+s));
  (SYS_LOADERS[s]||(()=>{}))();}
 $$("#sys-tabs a").forEach(a=>a.onclick=()=>syst(a.dataset.s));
+
+/* ---- Kira-Bereich: Sub-Tabs (Seele & Dateien / Gedaechtnis / Anatomie) ---- */
+let kiraCur="files";
+const KIRA_LOADERS={files:()=>loadFiles(),mem:()=>loadMem(),anatomie:()=>loadAgenten()};
+function kirat(k){kiraCur=k;
+ $$("#kira-tabs a").forEach(a=>a.classList.toggle("on",a.dataset.k===k));
+ $$("#v-kira .subview").forEach(x=>x.classList.toggle("on",x.id==="v-"+k));
+ (KIRA_LOADERS[k]||(()=>{}))();}
+$$("#kira-tabs a").forEach(a=>a.onclick=()=>kirat(a.dataset.k));
 
 /* ---- Modell-Umschalter in der Chat-Pane ---- */
 async function loadChatModels(){const s=await (await fetch("/api/status")).json();
@@ -54,12 +68,6 @@ async function loadChatModels(){const s=await (await fetch("/api/status")).json(
 $("#chat-model")&&($("#chat-model").onchange=async(e)=>{const id=e.target.value;
  await fetch("/api/model/use",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
  refreshStatus();});
-
-/* ---- Hintergrundbild hochladen ---- */
-$("#bgfile")&&($("#bgfile").onchange=(e)=>{const f=e.target.files[0];if(!f)return;
- const rd=new FileReader();rd.onload=async()=>{await fetch("/api/bg/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dataurl:rd.result})});
-  document.body.style.backgroundImage="linear-gradient(rgba(10,7,16,.80),rgba(10,7,16,.93)),url('/api/bg?t="+Date.now()+"')";};
- rd.readAsDataURL(f);});
 
 /* ---- Monitor ---- */
 async function loadMonitor(){const m=await (await fetch("/api/monitor")).json();
@@ -111,10 +119,14 @@ async function loadHome(){const o=await (await fetch("/api/overview")).json();co
  h+=card("Werkzeuge ("+o.tools.length+")", o.tools.map(t=>'<span class="pill">'+t+'</span>').join(" "));
  h+=card("Letzte Lektionen", o.lessons.length?('<ul style="margin:0;padding-left:18px">'
    +o.lessons.map(l=>'<li>'+l.slice(0,140).replace(/</g,"&lt;")+'</li>').join("")+'</ul>'):'<span class=muted>(noch keine)</span>');
- h+=card("Schnellzugriff",'<button class=ghost onclick="nav(\'chat\')">Chat</button> '
-   +'<button class=ghost onclick="nav(\'models\')">Modelle</button> '
-   +'<button class=ghost onclick="nav(\'gov\')">Gewissen</button>');
+ h+=card("Schnellzugriff",'<button class=ghost data-go="chat">Chat</button> '
+   +'<button class=ghost data-go="models">Modelle</button> '
+   +'<button class=ghost data-go="gov">Gewissen</button> '
+   +'<button class=ghost data-go="todo">To-Do</button>');
  h+='</div>';$("#home").innerHTML=h;
+ /* Fix S6.6a: nav('models'/'gov') waren kaputt (Subtabs, keine Views) -> gezielte Spruenge */
+ $$('#home [data-go]').forEach(b=>b.onclick=()=>{const g=b.dataset.go;
+  if(g==="models"||g==="gov"){nav("config");syst(g);}else nav(g);});
  const rb=$("#sys-restart"); if(rb) rb.onclick=async()=>{if(!confirm("Kira neu starten? Dienste bouncen in ~20s."))return;await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});rb.textContent="↻ Neustart angefordert …";};}
 
 /* ---- Kommandozentrale (HUD) ---- */
@@ -159,7 +171,7 @@ function bindNewsSeed(){const s=$("#news-seed");if(!s)return;s.onclick=async()=>
   for(const f of DEFAULT_FEEDS){try{await fetch("/api/monitor/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(f)});}catch(e){}}
   s.textContent="✓ hinzugefuegt";loadNews();};}
 function bindOpsFilter(){$$("#ops-filter a").forEach(a=>a.onclick=()=>{opsFilter=a.dataset.of;$$("#ops-filter a").forEach(x=>x.classList.toggle("on",x===a));loadOps();});}
-function loadCommand(){loadHud();loadOps();loadNews();loadHome();loadNeeds();loadZDigest();bindNewsSeed();bindOpsFilter();}
+function loadCommand(){loadHud();loadOps();loadNews();loadHome();loadDigest();bindNewsSeed();bindOpsFilter();}
 
 /* ---- Mission-Workspace (Ziele + To-Do-Board) ---- */
 const KIND_LABEL={big:"BIG",monthly:"MONAT",weekly:"WOCHE"};
@@ -642,20 +654,14 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
  const cl=$("#vent-close");if(cl)cl.onclick=()=>{el.style.display="none";};
 }catch(e){}}
 
-/* ---- Zentrale (S5.3b): Brauche-von-dir + Heute-erledigt ---- */
-async function loadNeeds(){const el=$("#needs-list");if(!el)return;try{
- const a=await (await fetch("/api/approvals")).json();
+/* ---- To-Do (S6.6a): Zugangs-Anfragen — was Kira an Keys/Zugaengen braucht ---- */
+async function loadTodoSecrets(){const el=$("#todo-secrets");if(!el)return;try{
  const k=await (await fetch("/api/secrets")).json();
- const items=[];
- (a.pending||[]).forEach(p=>items.push('<div class="op"><span class="od" style="background:var(--warn)"></span><span class="opx">&#128272; Freigabe: '+(p.title||"").replace(/</g,"&lt;").slice(0,110)+'</span></div>'));
- (k.pending||[]).forEach(p=>items.push('<div class="op"><span class="od" style="background:var(--warn)"></span><span class="opx">&#128273; Zugang: '+((p.name||"")+" &mdash; "+(p.reason||"")).replace(/</g,"&lt;").slice(0,110)+'</span></div>'));
- const nc=$("#needs-count");if(nc)nc.textContent=items.length?(items.length+" offen"):"";
- el.innerHTML=items.join("")||'<div class="emptybox">Nichts offen &mdash; alles bei mir.</div>';
+ el.innerHTML=(k.pending||[]).length?k.pending.map(p=>
+  '<div class="memrow"><div class="mh"><span class="badge kind">&#128273;</span><b>'+esc(p.name||"")+'</b></div>'
+  +'<div class="muted" style="font-size:12px;margin-top:3px">'+esc((p.reason||"").slice(0,300))+'</div></div>').join("")
+  :'<div class="emptybox">Keine offenen Zugangs-Anfragen.</div>';
 }catch(e){}}
-async function loadZDigest(){const el=$("#z-digest");if(!el)return;try{const d=await (await fetch("/api/digest")).json();
- el.innerHTML='<div><b>'+d.tasks_done_count+'</b> Aufgaben erledigt &middot; <b>'+d.planned+'</b> geplant &middot; Fehler: <b style="color:'+(d.errors?"var(--danger)":"var(--ok)")+'">'+d.errors+'</b></div>'
-  +((d.tasks_done&&d.tasks_done.length)?('<ul style="margin:6px 0 0;padding-left:16px;font-size:12px">'+d.tasks_done.slice(0,6).map(t=>'<li>'+(""+t).replace(/</g,"&lt;")+'</li>').join("")+'</ul>'):'')
-  +'<div class="muted" style="margin-top:6px;font-size:12px">Kosten heute: '+d.spend_usd+' &euro;</div>';}catch(e){}}
 
 /* ---- Wissen (S5.4): fuettern, suchen, verwalten ---- */
 async function loadWissen(){try{const d=await (await fetch("/api/knowledge")).json();const docs=d.docs||[];
@@ -703,6 +709,20 @@ $("#rd-scan")&&($("#rd-scan").onclick=async()=>{$("#rd-hint").textContent="… s
  const r=await (await fetch("/api/radar/scan",{method:"POST"})).json();
  $("#rd-hint").textContent=r.error?("Fehler: "+r.error):("Scan fertig — "+(r.found||0)+" neue Chance(n).");loadRadar();});
 
+/* ---- S6.6a: neue Quer-Verdrahtungen ---- */
+$("#m-or-add")&&($("#m-or-add").onclick=async()=>{const id=$("#m-or").value.trim();if(!id)return;
+ $("#m-or-hint").textContent="…";
+ try{const r=await J("/api/model/openrouter",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:id})});
+  $("#m-or-hint").textContent="✓ aktiv: "+(r.active||id);refreshStatus();loadModels();
+ }catch(e){$("#m-or-hint").textContent="Fehler — Modell-ID pruefen";}});
+$("#go-todo")&&($("#go-todo").onclick=()=>nav("todo"));
+$("#go-keys")&&($("#go-keys").onclick=()=>{nav("config");syst("keys");});
+$("#set-restart")&&($("#set-restart").onclick=async()=>{if(!confirm("Kira neu starten? Dienste bouncen in ~20s."))return;
+ await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+ $("#set-restart-hint").textContent="↻ Neustart angefordert …";});
+$("#set-bg-clear")&&($("#set-bg-clear").onclick=async()=>{await fetch("/api/bg/clear",{method:"POST"});
+ $("#set-optik-hint").textContent="✓ Hintergrund entfernt";document.body.style.backgroundImage="";});
+
 refreshStatus();loadCommand();
 /* ---- S6.4: EIN Poll-Scheduler statt zweier nackter setInterval ----
    - pausiert bei document.hidden (kein Polling im Hintergrund-Tab)
@@ -714,8 +734,8 @@ function pollTick(){
  if(!document.hidden){
    updatePulse();
    refreshStatus();
-   if(cur==="system"&&sysCur==="log"&&logRaw.length<=100)loadEvents();
-   if(cur==="system"&&sysCur==="gov")loadGov();
+   if(cur==="config"&&sysCur==="log"&&logRaw.length<=100)loadEvents();
+   if(cur==="config"&&sysCur==="gov")loadGov();
    if(cur==="home"){loadHud();loadOps();loadNeeds();}
    if(cur==="home"&&(_pollN%6===0))loadNews();  // News seltener (~alle 30s)
    _pollN++;
