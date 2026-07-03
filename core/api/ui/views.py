@@ -396,7 +396,7 @@ VIEWS = r"""</head><body>
     <div class="card"><h3>Was ist das „Gewissen"?</h3>
       <div class="muted">Meine <b>Leitplanken</b> — womit du steuerst, wie weit ich gehen darf:
       <b class="ok">Budget</b> = wie viel Geld sie pro Tag/Monat ausgeben darf (danach faellt sie automatisch auf lokal/0&nbsp;€).
-      <b class="ok">Vertrauen</b> = wie autonom sie handeln darf. <b class="ok">Audit</b> = Protokoll ihrer Aussen-Aktionen.</div></div>
+      <b class="ok">Autonomie</b> = welche Aktionsarten deine Freigabe brauchen. <b class="ok">Audit</b> = Protokoll ihrer Aussen-Aktionen.</div></div>
     <div class="card"><h3>Budget (Treasury)</h3><div id="g-budget" class="muted">…</div>
       <div class="row" style="margin-top:10px">
         <input id="g-day" type="number" step="0.5" placeholder="Tag €" style="max-width:120px"/>
