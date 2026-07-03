@@ -5,9 +5,10 @@ HEAD_AND_CSS = r"""<!doctype html>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Kira Cockpit</title>
 <style>
-:root{--bg:#04040a;--panel:#0d0d16;--panel2:#08080f;--line:#241b3a;--ink:#eceef4;
- --muted:#8a86a0;--accent:#b026ff;--accent2:#7c3aed;--hud:#22d3ee;--glow:#b026ff;
- --amber:#d8b4fe;--danger:#ff3d68;--ok:#34ff9e;--warn:#f5a623;}
+:root{--bg:#0a0a0d;--panel:#0e0e13;--panel2:#0a0a0e;--line:#26203a;--ink:#eceef4;
+ --muted:#8a86a0;--accent:#b026ff;--accent2:#7c3aed;--hud:#c084fc;--glow:#b026ff;
+ --amber:#d8b4fe;--danger:#ff3d68;--ok:#39ff8e;--warn:#f5a623;}
+/* S6.7: Tuerkis raus — --hud ist helles Lila; Neon-Gruen lebt in --ok (live/positiv/Budget). */
 html[data-theme="gruen"]{--accent:#39ff14;--accent2:#16a34a;--hud:#adff2f;--glow:#39ff14;--amber:#bbf7d0;}
 html[data-theme="blau"]{--accent:#22d3ee;--accent2:#0891b2;--hud:#38bdf8;--glow:#22d3ee;--amber:#a5f3fc;}
 .thm{width:30px;height:30px;border-radius:8px;cursor:pointer;padding:0;border:2px solid var(--line);background:var(--panel);
@@ -26,7 +27,7 @@ html[data-theme="blau"]{--accent:#22d3ee;--accent2:#0891b2;--hud:#38bdf8;--glow:
 .fd.error .fdx{color:var(--danger)} .fd.chat .fdx{color:var(--accent)} .fd.info .fdx{color:var(--muted)}
 *{box-sizing:border-box}
 body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Code",Consolas,monospace;
- background:radial-gradient(1100px 620px at 78% -12%, rgba(90,60,150,.16), #07070a 62%) fixed;color:var(--ink)}
+ background:var(--bg);color:var(--ink)}  /* S6.7: flaches Schwarz/Anthrazit statt Glow-Gradient */
 #side{width:210px;flex-shrink:0;border-right:1px solid var(--line);background:rgba(13,9,20,.72);
  backdrop-filter:blur(8px);display:flex;flex-direction:column}
 #side h1{font-size:19px;letter-spacing:4px;padding:16px 16px 2px;color:#fff;margin:0;
@@ -124,12 +125,7 @@ textarea.k:focus{border-color:var(--accent2)}
 :root{--mono:ui-monospace,"Cascadia Code",Consolas,monospace}
 body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,"Helvetica Neue",Arial,sans-serif}
 .think,#farea,#evlog,#memlist,#feed-list,.e{font-family:var(--mono)}
-/* NEON-BG: kein Grid mehr -> theme-farbiger Glow + dezente STATISCHE Scanline (kein Flackern) */
-body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
- background:
-  radial-gradient(1200px 800px at 82% -14%, color-mix(in srgb, var(--glow) 16%, transparent), transparent 60%),
-  radial-gradient(900px 700px at 10% 110%, color-mix(in srgb, var(--hud) 9%, transparent), transparent 60%),
-  repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 3px)}
+/* S6.7: Scanline-/Karo-Overlay und Farb-Glows entfernt — Sergen will glattes Schwarz/Anthrazit. */
 #side h1{font-size:24px;letter-spacing:6px;text-shadow:0 0 18px var(--glow),0 0 42px var(--glow);animation:flickerin 1.3s ease both}
 @keyframes flickerin{0%{opacity:0}10%{opacity:.6}13%{opacity:.2}22%{opacity:.95}27%{opacity:.4}33%,100%{opacity:1}}
 #side a{transition:background .18s ease,border-color .18s ease,color .18s ease}
@@ -161,19 +157,19 @@ button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)
 /* ===== HUD-Kommandozentrale ===== */
 /* --hud kommt jetzt pro Theme aus dem :root/data-theme oben (faerbt beim Wechsel mit) */
 .hud-strip{display:flex;flex-wrap:wrap;align-items:stretch;margin-bottom:14px;border:1px solid var(--line);
- border-radius:10px;overflow:hidden;background:rgba(10,12,16,.7);font-family:var(--mono)}
+ border-radius:10px;overflow:hidden;background:var(--panel);font-family:var(--mono)}
 .hud-cell{padding:8px 14px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:3px;min-width:118px}
 .hud-cell:last-child{border-right:none}
 .hud-cell .k{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
 .hud-cell .val{font-size:13px;color:var(--ink)}
 .hud-cell.spacer{flex:1;min-width:0}
 .mini-bar{height:5px;border-radius:3px;background:rgba(255,255,255,.08);overflow:hidden;margin-top:5px;min-width:96px}
-.mini-bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--hud),var(--accent))}
+.mini-bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--ok),var(--accent))}  /* neon-gruen -> lila */
 .mini-bar.warn>i{background:linear-gradient(90deg,var(--warn),var(--danger))}
 .cmd-grid{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;max-width:1500px}
 .cmd-main{flex:2 1 520px;min-width:0;display:flex;flex-direction:column;gap:14px}
 .cmd-side{flex:1 1 320px;min-width:300px;display:flex;flex-direction:column;gap:14px}
-.panel{position:relative;border:1px solid var(--line);border-radius:10px;background:rgba(12,14,18,.66);backdrop-filter:blur(4px)}
+.panel{position:relative;border:1px solid var(--line);border-radius:10px;background:var(--panel)}  /* S6.7: opak statt milchig */
 .panel::before,.panel::after{content:"";position:absolute;width:9px;height:9px;border:1px solid var(--hud);opacity:.5}
 .panel::before{top:-1px;left:-1px;border-right:none;border-bottom:none}
 .panel::after{bottom:-1px;right:-1px;border-left:none;border-top:none}
@@ -197,16 +193,20 @@ button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)
 .news-item b{color:var(--ink)} .news-item small{color:var(--muted)}
 .badge{display:inline-block;font-size:10px;padding:1px 7px;border-radius:10px;letter-spacing:.5px;border:1px solid var(--line);font-family:var(--mono)}
 .badge.kira{color:var(--accent);border-color:var(--accent2)}
-.badge.you{color:var(--hud);border-color:rgba(94,234,212,.4)}
+.badge.you{color:var(--hud);border-color:color-mix(in srgb,var(--hud) 40%,transparent)}
 .badge.kind{color:var(--muted)}
 .memrow{border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px;background:rgba(16,16,20,.5)}
 .memrow .mh{display:flex;gap:7px;align-items:center;margin-bottom:5px;font-size:11px;color:var(--muted);flex-wrap:wrap}
 .hist .old{color:var(--danger);text-decoration:line-through;opacity:.75}
 .hist .new{color:var(--ok)}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;font-family:var(--mono);font-size:11px}
+/* S6.7-BUGFIX: Subtab-Leisten (Kira/Config) leben in einer Flex-Spalte (.view.on) — ohne
+   flex-shrink:0 quetscht ein grosser Subview-Inhalt die Leiste auf 2px (Rand) zusammen ->
+   'Gedaechtnis-Falle': man kommt nicht mehr aus dem Tab raus. */
+#sys-tabs,#kira-tabs{flex-shrink:0;align-self:flex-start}
 .seg a{padding:5px 10px;color:var(--muted);cursor:pointer;border-right:1px solid var(--line)}
 .seg a:last-child{border-right:none}
-.seg a.on{background:rgba(94,234,212,.12);color:var(--hud)}
+.seg a.on{background:color-mix(in srgb,var(--hud) 14%,transparent);color:var(--hud)}
 .thinking .tx{color:var(--hud)}
 /* ===== NEON v2: Scrollbars + Panel-Glow + Theme-follow + Mission-Grid ===== */
 *{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--accent) 45%,#2a2440) transparent}
