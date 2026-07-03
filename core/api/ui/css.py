@@ -194,9 +194,9 @@ button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)
 .op .od{width:6px;height:6px;border-radius:50%;margin-top:6px;background:var(--muted);flex-shrink:0}
 .op.action .od{background:var(--hud)} .op.error .od{background:var(--danger)} .op.chat .od{background:var(--accent)}
 .ticker{overflow:hidden;white-space:nowrap;border-bottom:1px solid var(--line);background:rgba(0,0,0,.25)}
-.ticker>span{display:inline-block;padding:7px 0;font-family:var(--mono);font-size:12px;color:var(--hud);animation:tick 42s linear infinite}
+.ticker>span{display:inline-block;padding:7px 0;font-family:var(--mono);font-size:12px;color:var(--hud);animation:tick 140s linear infinite}
 @keyframes tick{from{transform:translateX(100%)}to{transform:translateX(-100%)}}
-.ticker:hover>span{animation-play-state:paused}
+.ticker:hover>span{animation-play-state:paused}  /* S9.1: viel langsamer (140s) + Hover pausiert */
 .news-item{padding:8px 13px;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px}
 .news-item b{color:var(--ink)} .news-item small{color:var(--muted)}
 .badge{display:inline-block;font-size:10px;padding:1px 7px;border-radius:10px;letter-spacing:.5px;border:1px solid var(--line);font-family:var(--mono)}

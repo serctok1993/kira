@@ -234,6 +234,10 @@ let opsFilter="all";
 async function loadHud(){const el=$("#hud-strip");if(!el)return;
  try{const o=await (await fetch("/api/overview")).json();const st=await (await fetch("/api/status")).json();
   let sv=null;try{sv=await (await fetch("/api/services")).json();}catch(e){}
+  /* S9.1: HUD-Streifen erweitert — Motor, offene Aufgaben/Todos, letzte Aktion */
+  let mb=null,lb=null;
+  try{mb=await (await fetch("/api/mission/board")).json();}catch(e){}
+  try{lb=await (await fetch("/api/life/board")).json();}catch(e){}
   const b=o.budget||{};const ec=st.events||{};
   const dd=(ok,name)=>'<span title="'+name+'" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;background:'+(ok?'var(--ok)':'var(--danger)')+'"></span>';
   const svc=(sv&&sv.services)||{};
@@ -244,14 +248,23 @@ async function loadHud(){const el=$("#hud-strip");if(!el)return;
   const warn=dayPct>=85?" warn":"";
   const kill=o.kill_switch?'<span style="color:var(--danger)">⛔ NOT-AUS</span>':'<span style="color:var(--ok)">● bereit</span>';
   const model=(""+(o.model||"")).split("/").pop();
-  el.innerHTML='<div class="hud-cell"><span class="k">Status</span><span class="val">'+kill+'</span></div>'
-   +'<div class="hud-cell"><span class="k">Hirn</span><span class="val">'+model+'</span></div>'
-   +'<div class="hud-cell"><span class="k">Budget heute</span><span class="val">'+(b.day_spent||0)+' / '+(b.day_limit==null?"-":b.day_limit)+' €</span><div class="mini-bar'+warn+'"><i style="width:'+dayPct+'%"></i></div></div>'
-   +'<div class="hud-cell"><span class="k">Monat</span><span class="val">'+(b.month_spent||0)+' / '+(b.month_limit==null?"-":b.month_limit)+' €</span></div>'
+  const on=o.mission&&o.mission.heartbeat;
+  const motor='<span style="color:'+(on?"var(--ok)":"var(--muted)")+'">'+(on?"● laeuft":"○ aus")+'</span>';
+  const jobs=mb?((mb.board&&(((mb.board.today||[]).length)+((mb.board.week||[]).length)+((mb.board.later||[]).length)))||0):0;
+  const running=mb&&mb.board?((mb.board.running||[]).length):0;
+  const todos=lb&&lb.board?(((lb.board.today||[]).length)+((lb.board.week||[]).length)):0;
+  const cell=(k,v,extra)=>'<div class="hud-cell"><span class="k">'+k+'</span><span class="val">'+v+'</span>'+(extra||"")+'</div>';
+  el.innerHTML=cell("Status",kill)
+   +cell("Motor",motor)
+   +cell("Hirn",esc(model))
+   +cell("Budget heute",(b.day_spent||0)+' / '+(b.day_limit==null?"-":b.day_limit)+' €','<div class="mini-bar'+warn+'"><i style="width:'+dayPct+'%"></i></div>')
+   +cell("Monat",(b.month_spent||0)+' / '+(b.month_limit==null?"-":b.month_limit)+' €')
+   +cell("Aufgaben",'<b style="color:var(--hud)">'+jobs+'</b> offen'+(running?' · '+running+' laeuft':''))
+   +cell("Deine Todos",'<b>'+todos+'</b>')
    +dienste
-   +'<div class="hud-cell"><span class="k">Fehler-Signale</span><span class="val" style="color:'+(errs?"var(--warn)":"var(--ok)")+'">'+errs+'</span></div>'
+   +cell("Fehler",'<span style="color:'+(errs?"var(--warn)":"var(--ok)")+'">'+errs+'</span>')
    +'<div class="hud-cell spacer"></div>'
-   +'<div class="hud-cell"><span class="k">Aktion</span><span class="val"><a id="hud-restart" style="cursor:pointer;color:var(--hud)">↻ Neustart</a></span></div>';
+   +cell("Aktion",'<a id="hud-restart" style="cursor:pointer;color:var(--hud)">↻ Neustart</a>');
   const rb=$("#hud-restart");if(rb)rb.onclick=async()=>{if(!confirm("Kira neu starten? Dienste bouncen in ~20s."))return;await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});rb.textContent="↻ …";};
   /* S6.6d: Hero-Status + Aura (Motor an = Avatar leuchtet) */
   const hs=$("#hero-status");
@@ -266,13 +279,15 @@ async function loadOps(){const el=$("#ops-feed");if(!el)return;
   el.innerHTML=keep.length?keep.map(e=>{const t=new Date(e.ts*1000).toLocaleTimeString();
    return '<div class="op '+(e.sev||"info")+'"><span class="od"></span><span class="opt">'+t+'</span><span class="opx">'+pulsePhrase(e).replace(/</g,"&lt;")+'</span></div>';}).join(""):'<span class="muted" style="padding:10px 13px;display:block">(ruhig — keine Aktivitaet)</span>';
  }catch(e){}}
+/* S9.1: Intel zeigt KIRAS eigene Monitor-News (kuratiert, mit Zusammenfassung) statt roher RSS. */
 async function loadNews(){const tk=$("#news-ticker"),ls=$("#news-list");if(!ls)return;
- try{const d=await (await fetch("/api/news")).json();const it=d.items||[];
-  if(!it.length){if(tk)tk.innerHTML='<span>… Feeds nicht erreichbar …</span>';ls.innerHTML='<span class="muted">Keine News geladen.</span>';return;}
-  const head=it.map(x=>'▟ '+x.source+': '+x.title).join('    ◆    ').replace(/</g,"&lt;");
-  if(tk)tk.innerHTML='<span>'+head+'    ◆    '+head+'</span>';
-  ls.innerHTML=it.slice(0,10).map(x=>{const t=(""+x.title).replace(/</g,"&lt;");const s=(""+x.source).replace(/</g,"&lt;");
-   return '<div class="news-item"><small>'+s+'</small> '+(x.link?'<a href="'+x.link+'" target="_blank" rel="noopener" style="color:var(--ink);text-decoration:none">'+t+'</a>':'<b>'+t+'</b>')+'</div>';}).join("");
+ try{const d=await (await fetch("/api/monitor")).json();const rec=d.recent||[];
+  if(!rec.length){if(tk)tk.innerHTML='<span>Noch keine Meldungen — Kira faellt hier ein, was ihre Beobachtungen ergeben (Monitor unter Config).</span>';
+   ls.innerHTML='<div class="emptybox" style="min-height:80px">Kira hat noch nichts gemeldet.<br>Themen/Feeds richtest du unter Config → Monitor ein.</div>';return;}
+  const head=rec.map(x=>'▟ '+(x.label||"")+': '+((x.summary||"").replace(/\n/g," ").slice(0,90))).join('     ◆     ');
+  if(tk)tk.innerHTML='<span>'+esc(head)+'</span>';
+  ls.innerHTML=rec.slice(0,8).map(x=>{const t=new Date(x.ts*1000).toLocaleString([], {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+   return '<div class="news-item"><small>'+esc(x.label||"")+' · '+t+' · '+(x.count||0)+' neu</small><br>'+esc((x.summary||"").slice(0,220))+'</div>';}).join("");
  }catch(e){}}
 const DEFAULT_FEEDS=[{kind:"feed",value:"https://hnrss.org/frontpage",label:"Hacker News"},
  {kind:"feed",value:"https://www.theverge.com/rss/index.xml",label:"The Verge"},
@@ -370,7 +385,7 @@ async function loadDigest(){const el=$("#digest");if(!el)return;
   h+='<div style="margin:6px 0"><b>'+d.tasks_done_count+'</b> Aufgaben erledigt · <b>'+d.planned+'</b> geplant · <b>'+d.news+'</b> News</div>';
   if(d.tasks_done&&d.tasks_done.length)h+='<ul style="margin:4px 0;padding-left:16px;font-size:12px">'+d.tasks_done.map(t=>'<li>'+(""+t).replace(/</g,"&lt;")+'</li>').join("")+'</ul>';
   h+='<div style="margin-top:6px;font-size:12px">Freigaben offen: <b style="color:'+(d.pending_approvals?"var(--warn)":"var(--ok)")+'">'+d.pending_approvals+'</b> · Fehler heute: <b style="color:'+(d.errors?"var(--danger)":"var(--ok)")+'">'+d.errors+'</b></div>';
-  h+='<div style="margin-top:4px;font-size:12px" class="muted">Kosten heute: '+d.spend_usd+' € · Budget '+(b.day_spent||0)+'/'+(b.day_limit==null?"-":b.day_limit)+' €</div>';
+  /* S9.1: Budget-Dopplung raus — steht schon im HUD-Streifen oben. */
   el.innerHTML=h;
  }catch(e){}}
 
