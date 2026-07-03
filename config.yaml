@@ -62,25 +62,31 @@ outcomes:
   verifier_task_type: bulk    # Route des Pruefers (bulk=flash; nicht classify/8B — muss striktes JSON koennen)
 
 # Heartbeat / autonomer Takt
+# WICHTIG (Sicherheits-Eigenschaft): der Laufzeit-Flag data/heartbeat.flag hat VORRANG
+# vor diesem Wert (scheduler.heartbeat_on). Steht der Flag auf "off", bleibt der Motor
+# aus, auch wenn hier true steht. Scharf wird der 24/7-Betrieb erst per Cockpit-Toggle
+# (schreibt "on") — nach gruenem Doctor-Check und unter Sergens Aufsicht (S6.5).
 heartbeat:
-  enabled: false                  # Auto-Start erst, wenn du bereit bist
+  enabled: true                   # Baseline an — aber inert bis der Flag "on" ist
   interval_seconds: 1800          # alle 30 min ein Mission-Schritt
 
-# Die aktuelle 24/7-Mission (Phase 4)
+# Die aktuelle 24/7-Mission
 mission:
   name: "Wachstum"
   goal: >
-    Laufe 24/7 und priorisiere WACHSTUM in dieser Reihenfolge, pro Tick EIN sinnvoller,
-    abgeschlossener Schritt:
-    (1) Aktives Kundenprojekt voranbringen (z.B. QS-Transporte-Website + SEO) — konkrete Teilschritte.
+    Laufe 24/7 und arbeite pro Tick EINEN abgeschlossenen Schritt am dringendsten aktiven Ziel.
+    Reihenfolge, wenn nichts dringlicher ist:
+    (1) Aktives Kundenprojekt/Venture voranbringen (z.B. QS-Transporte-Website + SEO) — konkrete Teilschritte.
     (2) An dir selbst arbeiten: Schwaechen/Bugs finden (health, read_logs) und beheben, neue Werkzeuge/Skills bauen.
-    (3) Aktuell bleiben: recherchiere KI-Markt/News, GitHub-Trends, Hardware-Preis/Leistung, Geopolitik
-    und ziehe konkrete Erkenntnisse fuer uns.
+    (3) Aktuell bleiben: KI-Markt/News, GitHub-Trends, Hardware-Preis/Leistung — konkrete Erkenntnisse ziehen.
     (4) Planen & neue Skills lernen.
-    Berichte das Ergebnis jedes Schritts knapp per Telegram. Nur lesende Recherche/Analyse + Arbeit an
-    dir selbst/Projekten — KEINE Aussen-Aktionen (kein Geld senden, keine Mails/Posts ohne Sergens Go).
-    Bleibe effizient und budgetbewusst.
-  notify_telegram: false          # AUS: keine unaufgeforderten Mission-Reports per Telegram (im Dashboard/Mission-Tab umschaltbar)
+    Aussen-Aktionen (Mails, Posts, Publish, Geld) sind ERLAUBT, aber AUSSCHLIESSLICH ueber die
+    bestehenden Gates: jede solche Aktion laeuft durch die Freigabe-Inbox bzw. das Gate
+    (publish/email/email_stranger/money), Geld zusaetzlich durch den Rat. Nichts Irreversibles
+    ohne Freigabe. Halte dich strikt an Budget (treasury) und Verfassung.
+    Bevorzuge billige lokale Schritte; eskaliere nur, wenn das Ergebnis es rechtfertigt.
+    Berichte das Ergebnis jedes Schritts knapp per Telegram.
+  notify_telegram: true           # AN: knappe Mission-Reports per Telegram (im Dashboard/Mission-Tab umschaltbar)
 
 api:
   host: 127.0.0.1
