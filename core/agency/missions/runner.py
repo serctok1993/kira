@@ -156,6 +156,19 @@ def _attempt_prompt(task: dict, criteria: list[dict], attempt: int) -> str:
     nur der Arbeits-Prompt des Versuchs traegt die Zusaetze."""
     parts = []
     if task.get("objective_id"):
+        # S8.2: Projekt-Briefing (Sergens Daueranweisungen) gilt fuer JEDEN Task des Projekts.
+        try:
+            from core.agency import ventures as _v
+            from core.agency.missions import objectives as _o
+
+            obj = next((o for o in _o.list_all() if o["id"] == task["objective_id"]), None)
+            if obj and obj.get("venture_id"):
+                brief = _v.briefing(obj["venture_id"])
+                if brief:
+                    parts.append("ANWEISUNGEN VON SERGEN ZU DIESEM PROJEKT (bindend):\n"
+                                 + brief + "\n---")
+        except Exception:  # noqa: BLE001 — Briefing ist Zusatz, nie Blocker
+            pass
         ws = workingset.render(task["objective_id"])
         if ws:
             parts.append("ARBEITSSTAND ZUM ZIEL (darauf aufbauen, nichts wiederholen):\n" + ws + "\n---")

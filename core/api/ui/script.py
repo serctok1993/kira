@@ -804,16 +804,47 @@ async function loadVentures(){const el=$("#vent-list");if(!el)return;try{
   :'<div class="emptybox">Noch keine Ventures<br>Kira, leg ein Venture an: &hellip;</div>';
  $$('#vent-list [data-vent]').forEach(r=>r.onclick=()=>loadVentureTrace(r.dataset.vent));
 }catch(e){}}
+/* S8.2: Projekt-AKTE — Unterreiter Uebersicht/Ziele/Aktivitaet/Finanzen je Venture */
 async function loadVentureTrace(id){const el=$("#vent-detail");try{
  const d=await (await fetch("/api/venture/trace?id="+encodeURIComponent(id))).json();
  if(d.error){el.style.display="none";return;}
- let h='<div style="display:flex;align-items:center;gap:8px"><b>'+(d.venture.name||"").replace(/</g,"&lt;")+'</b><span class="muted">Kasse '+d.balance.toFixed(2)+' &euro;</span><span style="flex:1"></span><a id="vent-close" style="cursor:pointer;color:var(--muted)">&#10005;</a></div>';
- if(!(d.objectives||[]).length)h+='<div class="muted" style="margin-top:6px">Noch keine Ziele an diesem Venture.</div>';
+ const v=d.venture;
+ let goals='',act='';
+ if(!(d.objectives||[]).length)goals='<div class="muted">Noch keine Ziele an diesem Projekt.</div>';
  (d.objectives||[]).forEach(o=>{
-  h+='<div style="margin-top:8px"><span class="badge kind">'+(KIND_LABEL[o.kind]||o.kind)+'</span> <b>'+(o.title||"").replace(/</g,"&lt;")+'</b> <span class="muted">'+o.progress+'%</span></div>';
-  (o.tasks||[]).slice(0,6).forEach(t=>{h+='<div class="muted" style="font-size:12px;margin-left:12px">'+(t.status==="done"?"&#10003;":"&middot;")+' '+(t.description||"").replace(/</g,"&lt;").slice(0,110)+(t.score!=null?(' <span style="color:var(--hud)">['+t.score+']</span>'):'')+'</div>';});
-  if(o.workingset)h+='<div class="muted" style="font-size:11px;margin:4px 0 0 12px;white-space:pre-wrap;border-left:2px solid var(--line);padding-left:8px">'+o.workingset.replace(/</g,"&lt;").slice(-500)+'</div>';});
- el.innerHTML=h;el.style.display="block";
+  goals+='<div style="margin-top:8px"><span class="badge kind">'+(KIND_LABEL[o.kind]||o.kind)+'</span> <b>'+esc(o.title||"")+'</b> <span class="muted">'+o.progress+'%</span></div>';
+  (o.tasks||[]).slice(0,6).forEach(t=>{goals+='<div class="muted" style="font-size:12px;margin-left:12px">'+(t.status==="done"?"&#10003;":"&middot;")+' '+esc((t.description||"").slice(0,110))+(t.score!=null?(' <span style="color:var(--hud)">['+t.score+']</span>'):'')+'</div>';});
+  if(o.workingset)act+='<div style="margin-top:6px"><b style="font-size:12px">'+esc(o.title||"")+'</b><div class="muted" style="font-size:11px;white-space:pre-wrap;border-left:2px solid var(--line);padding-left:8px;margin-top:3px">'+esc(o.workingset.slice(-700))+'</div></div>';});
+ if(!act)act='<div class="muted">Noch kein Arbeitsstand aufgezeichnet.</div>';
+ const files=(d.files||[]).map(f=>'<div class="muted" style="font-size:12px">📎 '+esc(f.name)+' <span style="opacity:.6">('+Math.round(f.bytes/1024)+' KB)</span></div>').join("")||'<div class="muted" style="font-size:12px">(keine Dateien)</div>';
+ const ueb='<div class="muted" style="margin-bottom:6px">'+esc(v.hypothesis||"(keine Hypothese)")+' · Status: <b>'+esc(v.status||"?")+'</b></div>'
+  +'<div class="muted" style="font-size:11px;letter-spacing:1px;margin:8px 0 4px">ANWEISUNGEN AN KIRA (fliessen in jeden Projekt-Task)</div>'
+  +'<textarea id="ak-brief" class="k" style="min-height:90px"></textarea>'
+  +'<div class="row" style="margin-top:6px"><button class="ghost" id="ak-brief-save">Briefing speichern</button>'
+  +'<input id="ak-note" placeholder="Neue Daueranweisung (eine Zeile)…" style="flex:1;min-width:200px"/><button id="ak-note-add">+ Notiz</button></div>'
+  +'<div class="muted" style="font-size:11px;letter-spacing:1px;margin:12px 0 4px">DATEIEN</div>'+files
+  +'<div class="row" style="margin-top:6px"><label class="ghost" style="display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px solid var(--line);border-radius:8px;cursor:pointer">📎 Datei hochladen<input id="ak-file" type="file" style="display:none"/></label><span class="muted" id="ak-hint" style="align-self:center;font-size:12px"></span></div>';
+ const fin='<div style="font-size:13px"><b>Kosten bislang:</b> '+(d.costs||0).toFixed(2)+' € <span class="muted">(LLM-Arbeit an diesem Projekt)</span></div>'
+  +'<div class="muted" style="font-size:12px;margin-top:4px">Einnahmen/Ausgaben: Kasse '+d.balance.toFixed(2)+' €</div>'
+  +((d.ledger||[]).slice(0,8).map(l=>'<div class="muted" style="font-size:12px">'+(l.direction==="in"?"+":"−")+(l.amount_eur||0).toFixed(2)+' € · '+esc((l.note||l.category||"").slice(0,60))+'</div>').join("")||'');
+ el.innerHTML='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><b>'+esc(v.name||"")+'</b>'
+  +'<span class="seg" id="akte-tabs"><a data-at="ueb" class="on">Uebersicht</a><a data-at="ziele">Ziele &amp; Tasks</a><a data-at="akt">Aktivitaet</a><a data-at="fin">Finanzen</a></span>'
+  +'<span style="flex:1"></span><a id="vent-close" style="cursor:pointer;color:var(--muted)">&#10005;</a></div>'
+  +'<div class="at" id="at-ueb">'+ueb+'</div><div class="at" id="at-ziele" style="display:none">'+goals+'</div>'
+  +'<div class="at" id="at-akt" style="display:none">'+act+'</div><div class="at" id="at-fin" style="display:none">'+fin+'</div>';
+ el.style.display="block";
+ $("#ak-brief").value=d.briefing||"";
+ $$("#akte-tabs a").forEach(a=>a.onclick=()=>{$$("#akte-tabs a").forEach(x=>x.classList.toggle("on",x===a));
+  el.querySelectorAll(".at").forEach(x=>x.style.display="none");$("#at-"+a.dataset.at).style.display="block";});
+ $("#ak-brief-save").onclick=async()=>{await fetch("/api/ventures/briefing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:v.id,text:$("#ak-brief").value})});toast("Briefing gespeichert","ok");};
+ $("#ak-note-add").onclick=async()=>{const n=$("#ak-note").value.trim();if(!n)return;
+  await fetch("/api/ventures/briefing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:v.id,note:n})});
+  toast("Notiert — gilt ab jetzt fuer jeden Projekt-Task","ok");loadVentureTrace(v.id);};
+ $("#ak-file").onchange=async e2=>{const f=e2.target.files[0];if(!f)return;
+  $("#ak-hint").textContent="… lade "+f.name;
+  const fd=new FormData();fd.append("id",v.id);fd.append("file",f);
+  const r=await (await fetch("/api/ventures/upload",{method:"POST",body:fd})).json();
+  $("#ak-hint").textContent=r.ok?"✓ "+f.name:"Fehler: "+(r.error||"?");if(r.ok)loadVentureTrace(v.id);};
  const cl=$("#vent-close");if(cl)cl.onclick=()=>{el.style.display="none";};
 }catch(e){}}
 

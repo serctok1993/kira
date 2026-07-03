@@ -878,7 +878,45 @@ def api_venture_trace(id: str) -> dict:
         out_objs.append({**o, "tasks": tasks[:20],
                          "workingset": workingset.render(o["id"], max_chars=1000)})
     return {"venture": v, "balance": ventures.balance(id),
-            "ledger": ventures.ledger(id, limit=15), "objectives": out_objs}
+            "ledger": ventures.ledger(id, limit=15), "objectives": out_objs,
+            # S8.2: Projekt-Akte — Briefing, Kosten bislang, Dateien
+            "briefing": ventures.briefing(id, max_chars=4000),
+            "costs": ventures.costs(id),
+            "files": ventures.list_files(id)}
+
+
+@app.post("/api/ventures/briefing")
+async def api_venture_briefing(body: dict) -> dict:
+    """S8.2: Briefing (Sergens Daueranweisungen) komplett setzen ODER Notiz anhaengen."""
+    from core.agency import ventures
+
+    vid = str(body.get("id", "")).strip()
+    if not ventures.get(vid):
+        return {"ok": False, "error": "unbekanntes Venture"}
+    if body.get("note"):
+        ventures.append_briefing(vid, str(body["note"]))
+    else:
+        ventures.set_briefing(vid, str(body.get("text", "")))
+    return {"ok": True, "briefing": ventures.briefing(vid, max_chars=4000)}
+
+
+@app.post("/api/ventures/upload")
+async def api_venture_upload(id: str = Form(...), file: UploadFile = File(...)) -> dict:
+    """S8.2: Datei in die Projekt-Akte legen (Bilder/Anhaenge fuer spaetere Mails etc.)."""
+    from core.agency import ventures
+
+    if not ventures.get(id):
+        return {"ok": False, "error": "unbekanntes Venture"}
+    raw = await file.read()
+    if len(raw) > 15 * 1024 * 1024:
+        return {"ok": False, "error": "Datei zu gross (max 15 MB)"}
+    import re as _re
+
+    safe = _re.sub(r"[^A-Za-z0-9._ -]", "_", file.filename or "datei")[:120] or "datei"
+    dest = ventures.files_dir(id) / safe
+    dest.write_bytes(raw)
+    events.emit("venture_file_added", {"venture_id": id, "name": safe, "bytes": len(raw)})
+    return {"ok": True, "files": ventures.list_files(id)}
 
 
 # ---------- Freigabe-Inbox + Tages-Digest (Phase 2) ----------

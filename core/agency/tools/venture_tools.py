@@ -107,3 +107,36 @@ def _resolve(ventures_mod, vid: str) -> dict | None:
         return v
     matches = [x for x in ventures_mod.list_all(include_dead=True) if x["id"].startswith(vid)]
     return matches[0] if len(matches) == 1 else None
+
+
+@tool("project_note",
+      "Legt eine DAUERANWEISUNG von Sergen ins Projekt-Gedaechtnis (Briefing) eines Ventures ab — "
+      "z.B. 'haeng bei Kaltakquise immer unseren Website-Link an'. Sie fliesst danach in JEDEN "
+      "Task dieses Projekts ein. project = Name-Teil oder Id; ist es mehrdeutig, bekommst du "
+      "eine Rueckfrage-Liste zurueck: frag Sergen kurz, welches Projekt gemeint ist.",
+      {"project": "Venture-Name (Teil reicht) oder Id/Kurzform",
+       "note": "die Daueranweisung, eine klare Zeile"})
+def project_note(project: str, note: str) -> str:
+    from core.agency import ventures
+
+    note = (note or "").strip()
+    if not note:
+        return "Keine Anweisung uebergeben — note ist leer."
+    token = (project or "").strip()
+    cands = ventures.list_all()
+    hits = [v for v in cands if v["id"].startswith(token)] if token else []
+    if not hits and token:
+        low = token.lower()
+        hits = [v for v in cands if low in (v.get("name") or "").lower()]
+    if len(hits) == 1:
+        v = hits[0]
+        ventures.append_briefing(v["id"], note)
+        return (f"Notiert im Projekt-Gedaechtnis von '{v['name']}': {note[:120]} — "
+                f"gilt ab jetzt fuer jeden Task dieses Projekts.")
+    if len(hits) > 1:
+        names = ", ".join(v["name"] for v in hits[:5])
+        return (f"MEHRDEUTIG: '{token}' passt auf mehrere Projekte ({names}). "
+                f"Frag Sergen kurz, welches gemeint ist, und ruf project_note erneut auf.")
+    names = ", ".join(v["name"] for v in cands[:6]) or "(noch keine Projekte angelegt)"
+    return (f"KEIN TREFFER fuer '{token}'. Vorhandene Projekte: {names}. "
+            f"Frag Sergen kurz, welches gemeint ist.")

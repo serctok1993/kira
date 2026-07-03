@@ -191,3 +191,84 @@ def summary() -> list[dict]:
             })
             out.append(v2)
     return out
+
+
+# ---- Projekt-Gedaechtnis (S8.2): Briefing + Dateien + Kosten je Venture -----------
+
+def _briefing_path(vid: str):
+    """Pfad des Projekt-Briefings (Sergens Daueranweisungen) — Muster: workingset."""
+    import re as _re
+    from pathlib import Path as _Path
+
+    from core.config import DATA_DIR
+    safe = _re.sub(r"[^A-Za-z0-9_-]", "", str(vid))[:64] or "unbekannt"
+    return _Path(DATA_DIR) / "workspace" / f"venture-{safe}-briefing.md"
+
+
+def briefing(vid: str, max_chars: int = 1500) -> str:
+    """Sergens Projekt-Anweisungen (bindend), fuer die Prompt-Injektion. '' wenn leer."""
+    p = _briefing_path(vid)
+    if not p.is_file():
+        return ""
+    text = p.read_text(encoding="utf-8", errors="replace").strip()
+    if len(text) <= max_chars:
+        return text
+    tail = text[-max_chars:]
+    nl = tail.find("\n")
+    return tail[nl + 1:] if 0 <= nl < len(tail) - 1 else tail
+
+
+def set_briefing(vid: str, text: str) -> None:
+    from core.kernel.fs import atomic_write
+
+    atomic_write(_briefing_path(vid), (text or "").strip() + "\n")
+    events.emit("venture_briefing_set", {"venture_id": vid, "chars": len(text or "")})
+
+
+def append_briefing(vid: str, note: str) -> None:
+    """Eine Daueranweisung mit Datum anhaengen (project_note-Pfad)."""
+    p = _briefing_path(vid)
+    old = p.read_text(encoding="utf-8", errors="replace") if p.is_file() else ""
+    stamp = time.strftime("%Y-%m-%d")
+    from core.kernel.fs import atomic_write
+
+    atomic_write(p, old + f"- [{stamp}] {note.strip()}\n")
+    events.emit("venture_briefing_note", {"venture_id": vid, "note": note[:160]})
+
+
+def files_dir(vid: str):
+    """Ablage fuer Projekt-Dateien (Anhaenge, Bilder) — wird bei Bedarf angelegt."""
+    import re as _re
+    from pathlib import Path as _Path
+
+    from core.config import DATA_DIR
+    safe = _re.sub(r"[^A-Za-z0-9_-]", "", str(vid))[:64] or "unbekannt"
+    d = _Path(DATA_DIR) / "workspace" / f"venture-{safe}-files"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def list_files(vid: str) -> list[dict]:
+    d = files_dir(vid)
+    out = []
+    for f in sorted(d.iterdir()):
+        if f.is_file():
+            out.append({"name": f.name, "bytes": f.stat().st_size, "path": str(f)})
+    return out
+
+
+def costs(vid: str) -> float:
+    """LLM-Kosten des Projekts bislang (S8.2): Summe der Task-Versuche ueber die Kette
+    outcomes.cost_usd -> tasks.objective_id -> objectives.venture_id. Kein ROI-Denken —
+    nur 'was hat es gekostet'."""
+    with _conn() as c:
+        try:
+            row = c.execute(
+                "SELECT COALESCE(SUM(o.cost_usd), 0) FROM outcomes o "
+                "JOIN tasks t ON t.id = o.task_id "
+                "JOIN objectives ob ON ob.id = t.objective_id "
+                "WHERE ob.venture_id = ?", (vid,),
+            ).fetchone()
+        except sqlite3.OperationalError:  # Tabellen fehlen noch (frische DB)
+            return 0.0
+    return round(float(row[0] or 0.0), 4)

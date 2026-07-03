@@ -146,3 +146,86 @@ def test_radar_prompt_is_experimental():
     assert "EXPERIMENTE" in src
     assert "Verfassung bleibt bindend" in src
     assert "Einkommens-Chancen" not in src  # alte reine Umsatz-Jagd raus
+
+
+# ==== S8.2: Projekt-Gedaechtnis & Projekt-Akte =====================================
+
+def _iso_ventures(monkeypatch, tmp_path):
+    from core.agency import outcomes, ventures
+    from core.agency.missions import objectives, queue
+    from core.kernel import events
+    import core.agency.ventures as vmod
+
+    db = str(tmp_path / "state.db")
+    for mod in (ventures, objectives, queue, outcomes, events):
+        monkeypatch.setattr(mod, "DB_PATH", db)
+    events.init_db()
+    queue.init_queue()
+    objectives.init_objectives()
+    ventures.init_ventures()
+    # Briefing-Dateien in die Sandbox lenken
+    monkeypatch.setattr(vmod, "_briefing_path",
+                        lambda vid: tmp_path / f"venture-{vid[:8]}-briefing.md")
+    return ventures, objectives, queue, outcomes
+
+
+def test_briefing_roundtrip_and_append(monkeypatch, tmp_path):
+    ventures, *_ = _iso_ventures(monkeypatch, tmp_path)
+    vid = ventures.add("Kaltakquise", hypothesis="KMU-Sichtbarkeit")
+    assert ventures.briefing(vid) == ""
+    ventures.set_briefing(vid, "Tonalitaet: locker, per Du.")
+    ventures.append_briefing(vid, "Immer Website-Link anhaengen.")
+    b = ventures.briefing(vid)
+    assert "Tonalitaet" in b and "Website-Link" in b
+
+
+def test_project_note_matching(monkeypatch, tmp_path):
+    ventures, *_ = _iso_ventures(monkeypatch, tmp_path)
+    from core.agency.tools import venture_tools as vt
+
+    ventures.add("Projekt Kaltakquise")
+    ventures.add("Projekt Playbooks")
+
+    out = vt.project_note("kaltakquise", "Immer Link anhaengen")
+    assert "Notiert im Projekt-Gedaechtnis" in out and "Kaltakquise" in out
+    out2 = vt.project_note("projekt", "egal")  # trifft beide -> Rueckfrage
+    assert "MEHRDEUTIG" in out2 and "Kaltakquise" in out2
+    out3 = vt.project_note("gibtsnicht", "egal")
+    assert "KEIN TREFFER" in out3
+    out4 = vt.project_note("kaltakquise", "   ")
+    assert "leer" in out4
+
+
+def test_costs_join_over_chain(monkeypatch, tmp_path):
+    ventures, objectives, queue, outcomes = _iso_ventures(monkeypatch, tmp_path)
+    vid = ventures.add("Testbein")
+    oid = objectives.add("Woche 1", kind="weekly", venture_id=vid)
+    t1 = queue.add("Task A", mission="m", objective_id=oid)
+    t2 = queue.add("Task B", mission="m", objective_id=oid)
+    tx = queue.add("fremder Task", mission="m")  # ohne Ziel -> zaehlt nicht
+    outcomes.record(t1, 1, [], [], 80, "pass", cost_usd=0.30)
+    outcomes.record(t2, 1, [], [], 70, "pass", cost_usd=0.20)
+    outcomes.record(tx, 1, [], [], 60, "pass", cost_usd=9.99)
+    assert ventures.costs(vid) == 0.50
+
+
+def test_briefing_injected_into_attempt_prompt(monkeypatch, tmp_path):
+    ventures, objectives, queue, _ = _iso_ventures(monkeypatch, tmp_path)
+    from core.agency.missions import runner
+
+    vid = ventures.add("Kaltakquise")
+    ventures.set_briefing(vid, "Immer den Website-Link anhaengen.")
+    oid = objectives.add("Erste Leads", kind="weekly", venture_id=vid)
+    tid = queue.add("Schreibe Entwurf", mission="m", objective_id=oid)
+    task = queue.get_task(tid)
+
+    prompt = runner._attempt_prompt(task, [], attempt=1)
+    assert "ANWEISUNGEN VON SERGEN ZU DIESEM PROJEKT" in prompt
+    assert "Website-Link" in prompt
+
+
+def test_akte_ui_markers():
+    html = TestClient(s.app).get("/").text
+    for marker in ('id="akte-tabs"', "ak-brief-save", "ak-note-add", "ak-file",
+                   "Kosten bislang", "api/ventures/briefing", "api/ventures/upload"):
+        assert marker in html, f"Akte-Marker fehlt: {marker}"
