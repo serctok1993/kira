@@ -357,6 +357,10 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
  #v-home #news-list{max-height:30vh;overflow:auto}
 }
 /* ===== S9.3/S9.5 · Kein-Scroll-Disziplin: Seite scrollt nicht, Panels scrollen innen ===== */
+/* Basis (schmal, gestapelt) MUSS vor der Media-Query stehen — sonst ueberstimmt die
+   spaetere 1fr-Regel bei gleicher Spezifitaet die 3-Spalten in der @media (Quell-Reihenfolge). */
+.proj-cols{display:grid;grid-template-columns:1fr;gap:14px}
+.me-grid{display:grid;grid-template-columns:1fr;gap:14px}
 @media(min-width:1050px){
  /* Projekte: Standbeine oben, darunter 3 Spalten (Ziele/Backlog/Radar) — alles auf einem Screen */
  #v-projekte.on{overflow:hidden;gap:14px}
@@ -377,7 +381,5 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
  #v-kira.on{overflow:hidden}
  #v-kira .subview.on{flex:1;min-height:0;overflow:auto;padding-right:2px}
 }
-.me-grid{display:grid;grid-template-columns:1fr;gap:14px}       /* Fallback schmal: gestapelt */
-.proj-cols{display:grid;grid-template-columns:1fr;gap:14px}  /* Fallback schmal: gestapelt */
 
 </style>"""
