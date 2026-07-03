@@ -81,24 +81,35 @@ VIEWS = r"""</head><body>
     </div>
   </div>
 
-  <!-- ================= CHAT ================= -->
+  <!-- ================= CHAT (S6.6b: Session-Panel + Markdown) ================= -->
   <div class="view" id="v-chat">
-    <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:4px 0 8px;flex-wrap:wrap">
-      <select id="sess-list" style="max-width:300px" title="Unterhaltung waehlen"></select>
-      <button type="button" class="ghost" id="sess-new" title="Neue Unterhaltung" style="padding:6px 10px">＋ Neu</button>
-      <button type="button" class="ghost" id="sess-del" title="Diese Unterhaltung loeschen" style="padding:6px 10px">🗑</button>
-      <span style="flex:1"></span>
-      <small class="muted">Hirn:</small>
-      <select id="chat-model" style="max-width:200px"></select>
-      <label class="muted" title="Plan-Modus: erst Plan, dann Schritt fuer Schritt" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="planmode"/> 🧭 Plan</label>
+    <div id="chat-wrap">
+      <div id="sess-panel">
+        <div class="sp-h"><span class="muted" style="font-size:11px;letter-spacing:1px">GESPRAECHE</span>
+          <span style="flex:1"></span><button type="button" class="ghost" id="sess-new" title="Neue Unterhaltung" style="padding:4px 9px">＋</button></div>
+        <div id="sess-items"><div class="muted" style="padding:10px">…</div></div>
+      </div>
+      <div id="chat-main">
+        <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:4px 0 8px;flex-wrap:wrap">
+          <span style="flex:1"></span>
+          <small class="muted">Hirn:</small>
+          <select id="chat-model" style="max-width:200px"></select>
+          <label class="muted" title="Plan-Modus: erst Plan, dann Schritt fuer Schritt" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="planmode"/> 🧭 Plan</label>
+        </div>
+        <div id="log"></div>
+        <div id="chips">
+          <a class="chip" id="chip-work" title="Arbeits-Modus: volles Werkzeug-Budget, Claude-Code-Stil">/work</a>
+          <a class="chip" id="chip-ziel" title="Arbeit einem Ziel zuordnen: @ziel:&lt;Titel-Teil oder ID&gt;">@ziel:</a>
+          <span class="muted" style="font-size:11px;align-self:center">Arbeits-Auftraege zaehlen mit @ziel: auf den Ziel-Fortschritt</span>
+        </div>
+        <form id="cform">
+          <input id="cin" placeholder="Schreib mir…" autocomplete="off" autofocus/>
+          <button type="button" id="micbtn" class="ghost" title="Sprachmemo aufnehmen">🎤</button>
+          <label id="imgbtn" class="ghost" title="Bild an Kira" style="display:flex;align-items:center;padding:0 14px;border-radius:10px;cursor:pointer">📎<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
+          <button>Senden</button>
+        </form>
+      </div>
     </div>
-    <div id="log"></div>
-    <form id="cform">
-      <input id="cin" placeholder="Schreib mir…" autocomplete="off" autofocus/>
-      <button type="button" id="micbtn" class="ghost" title="Sprachmemo aufnehmen">🎤</button>
-      <label id="imgbtn" class="ghost" title="Bild an Kira" style="display:flex;align-items:center;padding:0 14px;border-radius:10px;cursor:pointer">📎<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
-      <button>Senden</button>
-    </form>
   </div>
 
   <!-- ================= KIRA (Persoenlichkeit & Specs) ================= -->

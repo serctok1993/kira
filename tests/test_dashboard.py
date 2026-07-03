@@ -166,6 +166,50 @@ def test_single_poll_scheduler_no_naked_intervals():
     assert js.count("setInterval(") <= 1  # nur thinkTimer
 
 
+def test_chat_v3_markers():
+    """S6.6b: Markdown-Renderer, Nachrichten-Meta, Session-Panel, Chips sind verdrahtet."""
+    html = _page()
+    for marker in ("function md(", "function msgEl(", 'id="sess-panel"', 'id="sess-items"',
+                   'id="chip-work"', 'id="chip-ziel"', "markActiveSession", "mcopy"):
+        assert marker in html, f"Chat-v3-Marker fehlt: {marker}"
+    assert 'id="sess-list"' not in html  # Dropdown ist durch das Panel ersetzt
+
+
+def test_md_renderer_semantics(tmp_path):
+    """Fuehrt md()+esc() in node aus: Markdown wird gerendert, Injection bleibt escaped."""
+    import re
+    import shutil
+    import subprocess
+
+    node = shutil.which("node")
+    if not node:
+        import pytest
+        pytest.skip("node nicht verfuegbar")
+    html = _page()
+    js = html[html.find("<script>") + 8:html.rfind("</script>")]
+    esc_src = re.search(r"^function esc\(x\).*$", js, re.M).group(0)
+    md_src = js[js.find("function md(src){"):js.find("/* Nachricht mit Koerper")]
+    checks = r"""
+const a=md("**fett** und `code` mit [Link](https://example.de)\n- eins\n- zwei\n## Titel");
+if(!a.includes("<b>fett</b>"))throw new Error("bold fehlt: "+a);
+if(!a.includes("<code>code</code>"))throw new Error("code fehlt");
+if(!a.includes("<ul><li>eins</li>"))throw new Error("liste fehlt: "+a);
+if(!a.includes('rel="noopener"'))throw new Error("link unsicher");
+if(!a.includes('class="mdh"'))throw new Error("ueberschrift fehlt");
+const b=md("vorher <script>alert(1)</script> nachher");
+if(b.includes("<script>"))throw new Error("XSS! script nicht escaped");
+if(!b.includes("&lt;script&gt;"))throw new Error("escaping fehlt");
+const c=md("```\nif (x<y) {}\n```");
+if(!c.includes('<pre class="mdc">'))throw new Error("codeblock fehlt");
+if(!c.includes("x&lt;y"))throw new Error("codeblock nicht escaped");
+console.log("md ok");
+"""
+    f = tmp_path / "md_test.js"
+    f.write_text(esc_src + "\n" + md_src + "\n" + checks, encoding="utf-8")
+    r = subprocess.run([node, str(f)], capture_output=True, text=True)
+    assert r.returncode == 0, f"md()-Semantik verletzt:\n{r.stderr[:500]}"
+
+
 def test_ws_roundtrip_contract(monkeypatch):
     """Pinnt den WS-Vertrag {role, kind: think|tool|obs|final, done} VOR jedem Restyling."""
     import core.agency.act as act_mod

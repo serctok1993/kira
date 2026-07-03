@@ -280,5 +280,37 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
  .view{padding:12px}
 }
 @media (prefers-reduced-motion: reduce){#side{transition:none}.toast{animation:none}}
+/* ===== S6.6b · Chat: Session-Panel, Markdown, Nachrichten-Meta, Chips ===== */
+#chat-wrap{flex:1;display:flex;gap:14px;min-height:0}
+#chat-main{flex:1;display:flex;flex-direction:column;min-width:0}
+#sess-panel{width:232px;flex-shrink:0;border:1px solid var(--line);border-radius:12px;background:var(--panel);
+ display:flex;flex-direction:column;overflow:hidden}
+#sess-panel .sp-h{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--line)}
+#sess-items{flex:1;overflow:auto}
+.sess{display:flex;align-items:center;gap:7px;padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--line);font-size:12.5px}
+.sess:hover{background:rgba(168,85,247,.08)}
+.sess.on{background:rgba(168,85,247,.14);border-left:3px solid var(--accent);padding-left:7px}
+.sess .st{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sess .sd{color:var(--muted);font-size:10.5px;flex-shrink:0}
+.sess .sx{color:var(--muted);visibility:hidden;padding:0 2px}
+.sess:hover .sx{visibility:visible}
+.sess .sx:hover{color:var(--danger)}
+.msg .mbody{min-width:0}
+.msg.bot .mbody{white-space:normal;line-height:1.55}
+.msg.bot .mbody ul{margin:6px 0;padding-left:20px}
+.msg.bot .mbody .mdh{display:block;margin:8px 0 2px;color:var(--accent)}
+.msg .mbody code{background:rgba(124,58,237,.16);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:12.5px}
+.msg .mbody pre.mdc{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;
+ overflow:auto;margin:8px 0;white-space:pre}
+.msg .mbody pre.mdc code{background:none;border:none;padding:0}
+.msg .mbody a{color:var(--hud)}
+.mmeta{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:6px;font-size:10.5px;color:var(--muted)}
+.mmeta .mcopy{cursor:pointer;visibility:hidden}
+.msg:hover .mmeta .mcopy{visibility:visible}
+.mmeta .mcopy:hover{color:var(--accent)}
+#chips{display:flex;gap:8px;max-width:880px;margin:0 auto 6px;width:100%;flex-wrap:wrap}
+.chip{cursor:pointer;border:1px solid var(--line);border-radius:14px;padding:2px 11px;font-size:11.5px;color:var(--hud)}
+.chip:hover{border-color:var(--accent);background:rgba(168,85,247,.10)}
+@media(max-width:900px){#sess-panel{display:none}}
 
 </style>"""

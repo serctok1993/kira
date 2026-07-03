@@ -277,6 +277,39 @@ $("#kill").onclick=async()=>{const on=!$("#kill").classList.contains("active");
 /* ---- Chat ---- */
 const log=$("#log");
 function add(t,c){const d=document.createElement("div");d.className="msg "+c;d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight;return d;}
+/* S6.6b: Mini-Markdown fuer Kiras Antworten — sicher (esc() ZUERST), keine Bibliothek.
+   Kann: **fett**, *kursiv*, `code`, ```bloecke```, - Listen, ## Ueberschriften, [Links](https://…) */
+function md(src){
+ let s=esc(""+(src||""));
+ const blocks=[];
+ s=s.replace(/```[a-zA-Z0-9_-]*\n?([\s\S]*?)```/g,(w,code)=>{blocks.push(code.replace(/^\n+|\n+$/g,""));return "@@MDB"+(blocks.length-1)+"@@";});
+ s=s.replace(/`([^`\n]+)`/g,'<code>$1</code>');
+ s=s.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
+ s=s.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,!?:;]|$)/gm,'$1<i>$2</i>');
+ s=s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
+ const out=[];let ul=false;
+ for(const line of s.split("\n")){
+  const li=line.match(/^\s*[-*•]\s+(.+)$/);
+  if(li){if(!ul){out.push("<ul>");ul=true;}out.push("<li>"+li[1]+"</li>");continue;}
+  if(ul){out.push("</ul>");ul=false;}
+  const hd=line.match(/^\s*#{1,4}\s+(.+)$/);
+  out.push(hd?('<b class="mdh">'+hd[1]+"</b>"):line);
+ }
+ if(ul)out.push("</ul>");
+ s=out.join("\n").replace(/\n?(<\/?ul>)\n?/g,"$1").replace(/(<\/li>)\n/g,"$1");
+ s=s.replace(/\n/g,"<br>");
+ return s.replace(/@@MDB(\d+)@@/g,(w,i)=>'<pre class="mdc"><code>'+blocks[+i]+'</code></pre>');}
+/* Nachricht mit Koerper + Meta (Uhrzeit, Kopieren). Bot-Antworten rendern Markdown. */
+function msgEl(text,cls,ts){const d=document.createElement("div");d.className="msg "+cls;
+ const body=document.createElement("div");body.className="mbody";
+ if(cls==="bot")body.innerHTML=md(text);else body.textContent=text;
+ d.appendChild(body);
+ const meta=document.createElement("div");meta.className="mmeta";
+ const t=new Date((ts?ts*1000:Date.now()));
+ meta.innerHTML='<span>'+t.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})+'</span><a class="mcopy" title="Nachricht kopieren">⧉</a>';
+ meta.querySelector(".mcopy").onclick=()=>{if(navigator.clipboard){navigator.clipboard.writeText(text);toast("kopiert","ok");}};
+ d.appendChild(meta);
+ log.appendChild(d);log.scrollTop=log.scrollHeight;return d;}
 /* Shimmernder Denk-Indikator: rotierender Spruch, solange Kira arbeitet */
 let thinkTimer=null,thinkEl=null;
 function startThinking(){stopThinking();thinkEl=document.createElement("div");thinkEl.className="thinking";
@@ -301,28 +334,37 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
   if(m.kind==="think"){ensureTrace();thinkBuf+=m.text;traceSet();return;}
   if(m.kind==="tool"){ensureTrace();thinkBuf+="\n🔧 "+m.name+" "+JSON.stringify(m.args);traceSet();return;}
   if(m.kind==="obs"){ensureTrace();thinkBuf+="\n   ✓ "+(m.text||"").slice(0,120);traceSet();return;}
-  if(m.kind==="final"||m.kind==="answer"){stopThinking();const b=add("","bot");b.textContent=(m.text||"").replace(/\*\*/g,"");log.scrollTop=log.scrollHeight;}};
+  if(m.kind==="final"||m.kind==="answer"){stopThinking();msgEl(m.text||"","bot");}};
  ws.onclose=()=>{wsDot(false);if(!wsIntentional){wsDelay=Math.min(wsDelay*2,30000);setTimeout(connect,wsDelay);}};}
 function reconnect(){wsIntentional=true;if(ws){try{ws.close();}catch(e){}}connect();}
 function relTime(ts){const s=Date.now()/1000-ts;if(s<90)return "gerade";if(s<3600)return Math.round(s/60)+" Min";if(s<86400)return Math.round(s/3600)+" Std";return Math.round(s/86400)+" Tg";}
-async function loadChatSessions(){const sel=$("#sess-list");if(!sel)return;
+/* S6.6b: Session-Seitenpanel (Liste statt Dropdown), Loeschen pro Zeile */
+function markActiveSession(){$$("#sess-items .sess").forEach(r=>r.classList.toggle("on",r.dataset.sid===curSid));}
+async function loadChatSessions(){const box=$("#sess-items");if(!box)return;
  const d=await (await fetch("/api/chat/sessions")).json();const ss=d.sessions||[];
- sel.innerHTML=ss.map(s=>'<option value="'+s.session_id+'">'+(s.channel==="telegram"?"✈️ ":"💬 ")+((s.title||s.session_id).replace(/</g,"&lt;"))+' · vor '+relTime(s.last)+'</option>').join("");
+ box.innerHTML=ss.map(s=>{const t=esc(((s.title||s.session_id)+"").slice(0,44));
+  return '<div class="sess" data-sid="'+esc(s.session_id)+'"><span class="si">'+(s.channel==="telegram"?"✈️":"💬")+'</span>'
+   +'<span class="st">'+t+'</span><span class="sd">'+relTime(s.last)+'</span><a class="sx" title="loeschen">✕</a></div>';}).join("")
+  ||'<div class="muted" style="padding:10px">noch keine Unterhaltungen</div>';
+ box.querySelectorAll(".sess").forEach(r=>{
+  r.onclick=e=>{if(e.target.classList.contains("sx"))return;openSession(r.dataset.sid);};
+  r.querySelector(".sx").onclick=async e=>{e.stopPropagation();if(!confirm("Diese Unterhaltung loeschen?"))return;
+   await fetch("/api/chat/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sid:r.dataset.sid})});
+   if(curSid===r.dataset.sid){curSid=null;log.innerHTML="";}
+   loadChatSessions();};});
  if(!curSid){if(ss.length){await openSession(ss[0].session_id);}else{newSession();}}
- else{sel.value=curSid;}}
+ else markActiveSession();}
 async function openSession(sid){curSid=sid;log.innerHTML="";curBot=null;curThink=null;
  try{const h=await (await fetch("/api/chat/history?sid="+encodeURIComponent(sid))).json();
-  (h.messages||[]).forEach(m=>add((m.text||"").replace(/\*\*/g,""),m.role==="user"?"me":"bot"));}catch(e){}
- const sel=$("#sess-list");if(sel)sel.value=sid;reconnect();}
-function newSession(){curSid="cockpit-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;reconnect();}
-async function deleteSession(){if(!curSid)return;if(!confirm("Diese Unterhaltung wirklich loeschen?"))return;
- await fetch("/api/chat/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sid:curSid})});
- curSid=null;log.innerHTML="";loadChatSessions();}
-$("#sess-list")&&($("#sess-list").onchange=e=>openSession(e.target.value));
+  (h.messages||[]).forEach(m=>msgEl(m.text||"",m.role==="user"?"me":"bot",m.ts));}catch(e){}
+ markActiveSession();reconnect();}
+function newSession(){curSid="cockpit-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;markActiveSession();reconnect();}
 $("#sess-new")&&($("#sess-new").onclick=()=>newSession());
-$("#sess-del")&&($("#sess-del").onclick=()=>deleteSession());
+/* Chips: /work-Modus + @ziel:-Verknuepfung schnell einfuegen */
+$("#chip-work")&&($("#chip-work").onclick=()=>{const i=$("#cin");if(!/^\/work\s/.test(i.value))i.value="/work "+i.value;i.focus();});
+$("#chip-ziel")&&($("#chip-ziel").onclick=()=>{const i=$("#cin");if(!i.value.includes("@ziel:"))i.value=(i.value+" @ziel:").replace(/^\s+/,"");i.focus();});
 $("#cform").onsubmit=e=>{e.preventDefault();const raw=$("#cin").value.trim();if(!raw||!ws||ws.readyState!==1)return;
- add(raw,"me");startThinking();const t=($("#planmode")&&$("#planmode").checked?"plan: ":"")+raw;ws.send(t);$("#cin").value="";curBot=null;curThink=null;};
+ msgEl(raw,"me");startThinking();const t=($("#planmode")&&$("#planmode").checked?"plan: ":"")+raw;ws.send(t);$("#cin").value="";curBot=null;curThink=null;};
 
 /* ---- Sprachmemo (Aufnahme -> Whisper -> Eingabefeld) ---- */
 let mediaRec=null,chunks=[];
@@ -345,10 +387,10 @@ $("#imgfile")&&($("#imgfile").onchange=ev=>{const f=ev.target.files[0];if(!f)ret
   const im=document.createElement("div");im.className="msg me";
   im.innerHTML='<img src="'+rd.result+'" style="max-width:240px;border-radius:8px;display:block"/>';log.appendChild(im);log.scrollTop=log.scrollHeight;
   const prompt=$("#cin").value.trim();$("#cin").value="";
-  const b=add("… Kira betrachtet das Bild …","bot");
+  const b=msgEl("… Kira betrachtet das Bild …","bot");
   try{const r=await (await fetch("/api/vision",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:prompt,image:rd.result})})).json();
-   b.textContent=r.ok?(r.text||""):("(Bild-Fehler: "+(r.error||"")+")");}
-  catch(err){b.textContent="(Bild-Fehler: "+err+")";}
+   b.querySelector(".mbody").innerHTML=md(r.ok?(r.text||""):("(Bild-Fehler: "+(r.error||"")+")"));}
+  catch(err){b.querySelector(".mbody").textContent="(Bild-Fehler: "+err+")";}
   log.scrollTop=log.scrollHeight;};
  rd.readAsDataURL(f);ev.target.value="";});
 
