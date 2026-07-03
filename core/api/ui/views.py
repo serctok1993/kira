@@ -488,6 +488,18 @@ VIEWS = r"""</head><body>
         <button class="ghost" id="icons-reset">Zuruecksetzen</button>
       </div>
     </div>
+    <div class="card"><h3>Desktop-Pflege</h3>
+      <div class="muted">Ich sehe mir taeglich lose Dateien in deinen Ordnern an und schlage eine
+      Einsortierung vor — <b>verschoben wird nichts ohne deine Freigabe</b> (Vorschlag landet in „Von Kira").
+      Lokal, 0&nbsp;€.</div>
+      <div class="row" style="margin-top:8px;flex-wrap:wrap">
+        <label class="muted" style="cursor:pointer;align-self:center"><input type="checkbox" id="dw-enabled"/> aktiv</label>
+        <input id="dw-folders" placeholder="Ordner (mit ; trennen)" style="flex:1;min-width:240px"/>
+        <button id="dw-save">Speichern</button>
+        <button class="ghost" id="dw-scan">Jetzt scannen</button>
+      </div>
+      <div class="muted" id="dw-status" style="margin-top:8px;font-size:12px">…</div>
+    </div>
     <div class="card"><h3>System</h3>
       <div class="muted">Neustart bounct Cockpit, Telegram-Bot und Runner sauber (~20 s). Der Not-Aus unten links haelt alles sofort an.</div>
       <div class="row" style="margin-top:8px">

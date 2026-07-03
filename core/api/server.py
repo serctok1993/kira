@@ -1093,6 +1093,37 @@ def api_insights(days: int = 14) -> dict:
     }
 
 
+@app.get("/api/desktop")
+def api_desktop() -> dict:
+    """S8.5: Desktop-Pflege-Config + Vorschau des naechsten Scans (read-only)."""
+    from core.agency import desktop_watch
+
+    cfg = desktop_watch.load_cfg()
+    preview = desktop_watch.scan(cfg) if cfg.get("enabled") else {"scanned": 0, "suggestions": []}
+    return {"config": cfg, "preview": preview}
+
+
+@app.post("/api/desktop/config")
+async def api_desktop_config(body: dict) -> dict:
+    from core.agency import desktop_watch
+
+    cfg = desktop_watch.load_cfg()
+    if "enabled" in body:
+        cfg["enabled"] = bool(body["enabled"])
+    if isinstance(body.get("folders"), list):
+        cfg["folders"] = [str(f) for f in body["folders"] if str(f).strip()]
+    desktop_watch.save_cfg(cfg)
+    return {"ok": True, "config": cfg}
+
+
+@app.post("/api/desktop/scan")
+async def api_desktop_scan(body: dict) -> dict:
+    """Sofort einen Sortiervorschlag erzeugen (landet in der Freigabe-Inbox)."""
+    from core.agency import desktop_watch
+
+    return await anyio.to_thread.run_sync(desktop_watch.propose)
+
+
 @app.get("/api/evolution")
 def api_evolution(limit: int = 40) -> dict:
     """S8.1: 'Was ich zuletzt an mir verbessert habe' — Timeline aus dem Event-Log

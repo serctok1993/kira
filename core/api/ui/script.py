@@ -46,7 +46,23 @@ const SUBTABS={
            loaders:{standbeine:()=>loadVentures(),ziele:()=>loadMission(),radar:()=>loadRadar()}},
  config:  {bar:"#sys-tabs",  cur:"models",
            loaders:{models:()=>loadModels(),gov:()=>loadGov(),
-                    cron:()=>loadCron(),monitor:()=>loadMonitor(),log:()=>loadEvents(),cockpit:()=>{}}}};
+                    cron:()=>loadCron(),monitor:()=>loadMonitor(),log:()=>loadEvents(),cockpit:()=>loadDesktop()}}};
+
+/* ---- Desktop-Pflege (S8.5) ---- */
+async function loadDesktop(){const st=$("#dw-status");if(!st)return;try{
+ const d=await (await fetch("/api/desktop")).json();const c=d.config||{};
+ if($("#dw-enabled"))$("#dw-enabled").checked=!!c.enabled;
+ if($("#dw-folders")&&document.activeElement!==$("#dw-folders"))$("#dw-folders").value=(c.folders||[]).join("; ");
+ const p=d.preview||{};
+ st.textContent=c.enabled?((p.suggestions||[]).length+" von "+(p.scanned||0)+" Dateien haetten einen Sortier-Vorschlag"):"aus — aktiviere, damit ich aufraeume";
+}catch(e){}}
+$("#dw-save")&&($("#dw-save").onclick=async()=>{
+ const folders=$("#dw-folders").value.split(";").map(x=>x.trim()).filter(Boolean);
+ await fetch("/api/desktop/config",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({enabled:$("#dw-enabled").checked,folders})});
+ toast("Desktop-Pflege gespeichert","ok");loadDesktop();});
+$("#dw-scan")&&($("#dw-scan").onclick=async()=>{$("#dw-status").textContent="… scanne";
+ const r=await (await fetch("/api/desktop/scan",{method:"POST"})).json();
+ $("#dw-status").textContent=r.suggestions?("✓ "+r.suggestions+" Dateien — Vorschlag liegt bei Me unter Von Kira"):(r.skipped?"erst aktivieren":"nichts zu sortieren");});
 function subnav(tab,s){const g=SUBTABS[tab];if(!g)return;g.cur=s;
  $$(g.bar+" a").forEach(a=>a.classList.toggle("on",a.dataset.s===s));
  $$("#v-"+tab+" .subview").forEach(x=>x.classList.toggle("on",x.id==="v-"+s));

@@ -498,6 +498,15 @@ def run_forever(interval: int | None = None) -> None:
                                                   "ok": rep.get("ok")})
                     if rep.get("problems"):
                         _notify("🩺 Selbst-Check meldet:\n- " + "\n- ".join(rep["problems"][:5]))
+                if maintenance.maybe_run("desktop_watch", interval_s=86400):
+                    # S8.5: Desktop-Pflege — taeglicher lokaler Scan -> Sortiervorschlag (kein Move).
+                    from core.agency import desktop_watch
+
+                    res = desktop_watch.propose()
+                    if res.get("suggestions"):
+                        events.emit("desktop_watch_done", res)
+                        _notify(f"🗂 Aufraeum-Vorschlag: {res['suggestions']} Dateien "
+                                "warten in der Freigabe-Inbox auf dein OK.")
             except Exception as e:  # noqa: BLE001
                 events.emit("maintenance_error", {"error": str(e)})
             try:
