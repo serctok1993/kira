@@ -23,7 +23,7 @@ Dazu **Melde-Regeln** (in Persona + Mission verankert): jeder fertige Task wird 
 
 ## 2. Wo alles liegt / Starten / Testen
 
-- **Repo:** `C:\Users\serge\Desktop\Kira` (git, Branch `main`). Python, uv-verwaltet, `.venv` vorhanden.
+- **Repo:** `C:\Users\serge\Desktop\Kira` (git, Branch `main`). Python, uv-verwaltet, `.venv` vorhanden. Remote: `origin` = github.com/serctok1993/kira (PRIVAT, seit S11.5) — Handy-/Cloud-Sessions bauen auf Branches gegen dieses Remote; NUR die Desktop-Session fasst das Live-System an (state.db/Neustarts). Desktop-Workflow: `git pull` am Anfang, `git push` am Ende. data/, .env, Secrets sind gitignored und verlassen den PC nie.
 - **Zustand:** alles in `data/state.db` (SQLite, WAL) + JSON-Sidecars in `data/` (seit S8.0 ALLE atomar via `core/kernel/fs.atomic_write`).
 - **Identität (frisch pro Turn gelesen):** `core/mind/{constitution.md, SOUL.md, GOAL.md, USER.md, BODY.md}`. Änderungen an diesen Dateien wirken OHNE Neustart.
 - **Starten (Autostart eingerichtet):** Windows-Login → `Startup\Kira.lnk` → `start-all.ps1` → Ollama + `python -m core.kernel.supervisor`. Der **Supervisor** hält Cockpit (127.0.0.1:8000), Telegram-Bot und Mission-Runner am Leben. Der Mission-Loop läuft NUR wenn `data/heartbeat.flag` ≠ off (das Flag überstimmt `config.heartbeat.enabled`).
