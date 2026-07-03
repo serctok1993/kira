@@ -32,6 +32,7 @@ function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle(
  if(v==="home")loadCommand();
  if(v==="chat"){loadChatModels();loadChatSessions();}
  if(v==="me")loadMe();
+ if(v==="projekte")loadProjekte();  /* S9.3: eine Uebersicht statt Subtabs */
  if(SUBTABS[v])subnav(v,SUBTABS[v].cur);}
 
 /* ==== S7a: modulare Shell — EINE Subtab-Mechanik fuer alle Bereiche ====
@@ -42,8 +43,6 @@ const SUBTABS={
            loaders:{files:()=>loadFiles(),mem:()=>loadMem(),wissen:()=>loadWissen(),
                     anatomie:()=>loadAgenten(),evolution:()=>loadEvolution(),stats:()=>loadStats(),
                     keys:()=>loadKeys()}},
- projekte:{bar:"#proj-tabs", cur:"standbeine",
-           loaders:{standbeine:()=>loadVentures(),ziele:()=>loadMission(),radar:()=>loadRadar()}},
  config:  {bar:"#sys-tabs",  cur:"models",
            loaders:{models:()=>loadModels(),gov:()=>loadGov(),
                     cron:()=>loadCron(),monitor:()=>loadMonitor(),log:()=>loadEvents(),cockpit:()=>loadDesktop()}}};
@@ -298,6 +297,9 @@ function bindNewsSeed(){const s=$("#news-seed");if(!s)return;s.onclick=async()=>
   s.textContent="✓ hinzugefuegt";loadNews();};}
 function bindOpsFilter(){$$("#ops-filter a").forEach(a=>a.onclick=()=>{opsFilter=a.dataset.of;$$("#ops-filter a").forEach(x=>x.classList.toggle("on",x===a));loadOps();});}
 function loadCommand(){loadHud();loadOps();loadNews();loadHome();loadDigest();bindNewsSeed();bindOpsFilter();}
+
+/* ---- Projekte (S9.3): eine Uebersicht — Standbeine + Ziele/Backlog + Radar zusammen ---- */
+function loadProjekte(){loadVentures();loadMission();loadRadar();}
 
 /* ---- Mission-Workspace (Ziele + To-Do-Board) ---- */
 const KIND_LABEL={big:"BIG",monthly:"MONAT",weekly:"WOCHE"};

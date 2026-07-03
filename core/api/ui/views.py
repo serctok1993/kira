@@ -132,55 +132,43 @@ VIEWS = r"""</head><body>
     </div>
   </div>
 
-  <!-- ================= PROJEKTE ================= -->
+  <!-- ================= PROJEKTE (S9.3: eine Uebersicht, kein Subtab-Umweg) ================= -->
   <div class="view" id="v-projekte">
-    <div class="seg" id="proj-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="standbeine" class="on">◈ Standbeine</a><a data-s="ziele">Ziele &amp; Aufgaben</a><a data-s="radar">Radar</a>
-    </div>
-
-    <div class="subview on" id="v-standbeine">
-      <div class="panel" style="margin-bottom:14px">
-        <div class="panel-h">◈ VENTURES — Standbeine <span class="sp"></span><span class="muted" id="vent-sum" style="font-size:11px"></span></div>
-        <div id="vent-list" class="panel-b"><span class="muted">…</span></div>
-        <div id="vent-detail" class="panel-b" style="display:none;border-top:1px solid var(--line)"></div>
-      </div>
-    </div>
-
-    <div class="subview" id="v-ziele">
-      <div class="mgrid">
-        <div class="panel">
-          <div class="panel-h">◈ ZIELE / PROJEKTE <span class="sp"></span><a id="obj-new-btn" class="muted" style="cursor:pointer;font-size:11px">+ ZIEL</a></div>
-          <div class="panel-b" id="obj-form" style="display:none">
-            <div class="row" style="flex-wrap:wrap">
-              <input id="obj-title" placeholder="Ziel/Projekt-Titel" style="flex:1;min-width:180px"/>
-              <select id="obj-kind"><option value="big">Big Project</option><option value="monthly">Monatsziel</option><option value="weekly" selected>Wochenziel</option></select>
-              <input id="obj-date" type="date" title="Zieldatum"/>
-              <button id="obj-add">Anlegen</button>
-            </div>
-          </div>
-          <div id="obj-list" class="panel-b"><span class="muted">…</span></div>
-        </div>
-        <div class="panel">
-          <div class="panel-h">◈ KIRAS BACKLOG <span class="sp"></span><a id="todo-new-btn" class="muted" style="cursor:pointer;font-size:11px">+ AUFGABE</a></div>
-          <div class="panel-b" id="todo-form" style="display:none">
-            <div class="row" style="flex-wrap:wrap">
-              <input id="todo-desc" placeholder="Was zu tun ist" style="flex:1;min-width:170px"/>
-              <select id="todo-prio"><option value="1">P1</option><option value="2">P2</option><option value="3" selected>P3</option><option value="4">P4</option></select>
-              <input id="todo-due" type="date" title="faellig"/>
-              <button id="todo-add">+</button>
-            </div>
-            <div class="muted" style="margin-top:5px;font-size:11px">Ziel zuordnen (optional): <select id="todo-obj"><option value="">— keins —</option></select></div>
-          </div>
-          <div id="todo-board" class="panel-b"><span class="muted">…</span></div>
+    <div class="panel" id="proj-top">
+      <div class="panel-h">◈ STANDBEINE <span class="sp"></span><span class="muted" id="vent-sum" style="font-size:11px"></span>
+        <a id="obj-new-btn" class="muted" style="cursor:pointer;font-size:11px;margin-left:10px">+ Ziel</a></div>
+      <div id="vent-list" class="panel-b"><span class="muted">…</span></div>
+      <div id="vent-detail" class="panel-b" style="display:none;border-top:1px solid var(--line)"></div>
+      <div class="panel-b" id="obj-form" style="display:none;border-top:1px solid var(--line)">
+        <div class="row" style="flex-wrap:wrap">
+          <input id="obj-title" placeholder="Ziel/Projekt-Titel" style="flex:1;min-width:180px"/>
+          <select id="obj-kind"><option value="big">Big Project</option><option value="monthly">Monatsziel</option><option value="weekly" selected>Wochenziel</option></select>
+          <input id="obj-date" type="date" title="Zieldatum"/>
+          <button id="obj-add">Anlegen</button>
         </div>
       </div>
     </div>
-
-    <div class="subview" id="v-radar">
-      <div class="panel"><div class="panel-h">◈ RADAR — Business-Chancen <span class="sp"></span>
-        <a id="rd-scan" class="muted" style="cursor:pointer;font-size:11px">⚡ jetzt scannen</a></div>
-        <div class="panel-b"><span class="muted" id="rd-hint">Automatischer Scan laeuft woechentlich — Chancen landen hier als Pipeline. Convert = ich mache ein Standbein draus (mit deiner Freigabe fuer Aussen-Aktionen).</span></div>
-        <div id="rd-list" class="panel-b"><span class="muted">…</span></div>
+    <div class="proj-cols">
+      <div class="panel">
+        <div class="panel-h">◈ ZIELE / PROJEKTE</div>
+        <div id="obj-list" class="panel-b"><span class="muted">…</span></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h">◈ BACKLOG <span class="sp"></span><a id="todo-new-btn" class="muted" style="cursor:pointer;font-size:11px">+ Aufgabe</a></div>
+        <div class="panel-b" id="todo-form" style="display:none">
+          <div class="row" style="flex-wrap:wrap">
+            <input id="todo-desc" placeholder="Was zu tun ist" style="flex:1;min-width:150px"/>
+            <select id="todo-prio"><option value="1">P1</option><option value="2">P2</option><option value="3" selected>P3</option><option value="4">P4</option></select>
+            <input id="todo-due" type="date" title="faellig"/>
+            <button id="todo-add">+</button>
+          </div>
+          <div class="muted" style="margin-top:5px;font-size:11px">Ziel zuordnen: <select id="todo-obj"><option value="">— keins —</option></select></div>
+        </div>
+        <div id="todo-board" class="panel-b"><span class="muted">…</span></div>
+      </div>
+      <div class="panel">
+        <div class="panel-h">◈ RADAR <span class="sp"></span><a id="rd-scan" class="muted" style="cursor:pointer;font-size:11px">⚡ scannen</a></div>
+        <div id="rd-list" class="panel-b"><span class="muted" id="rd-hint">Woechentlicher Chancen-Scan. Convert = Standbein draus machen.</span></div>
       </div>
     </div>
   </div>

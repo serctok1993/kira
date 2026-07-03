@@ -20,12 +20,14 @@ def test_page_boots_with_new_ia():
         assert f'id="{gone}"' not in html, f"Alt-View lebt noch: {gone}"
     # Subviews je Bereich (EINE Mechanik: SUBTABS-Registry)
     for sub in ("v-models", "v-keys", "v-gov", "v-cron", "v-monitor", "v-log", "v-cockpit",  # Config
-                "v-files", "v-mem", "v-wissen", "v-anatomie", "v-stats",                      # Kira
-                "v-standbeine", "v-ziele", "v-radar"):                                        # Projekte
+                "v-files", "v-mem", "v-wissen", "v-anatomie", "v-stats"):                     # Kira
         assert f'id="{sub}"' in html, f"Subview fehlt: {sub}"
-    for bar in ("sys-tabs", "kira-tabs", "proj-tabs"):
+    for bar in ("sys-tabs", "kira-tabs"):
         assert f'id="{bar}"' in html, f"Subtab-Leiste fehlt: {bar}"
     assert "const SUBTABS=" in html and "function subnav(" in html  # generische Shell
+    # S9.3: Projekte ist EINE Uebersicht (keine Subtabs mehr) -> Radar-Einbahn-Bug weg
+    assert 'id="proj-tabs"' not in html and "loadProjekte" in html
+    assert 'class="proj-cols"' in html and 'id="rd-list"' in html and 'id="vent-list"' in html
 
 
 def test_s7a_shell_features():

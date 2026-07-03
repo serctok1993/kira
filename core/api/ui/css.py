@@ -356,5 +356,17 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
  #v-home .cmd-side{min-height:0;overflow:auto;padding-right:2px}
  #v-home #news-list{max-height:30vh;overflow:auto}
 }
+/* ===== S9.3/S9.5 · Kein-Scroll-Disziplin: Seite scrollt nicht, Panels scrollen innen ===== */
+@media(min-width:1050px){
+ /* Projekte: Standbeine oben, darunter 3 Spalten (Ziele/Backlog/Radar) — alles auf einem Screen */
+ #v-projekte.on{overflow:hidden;gap:14px}
+ #proj-top{flex-shrink:0;max-height:40%;display:flex;flex-direction:column;min-height:0;margin:0}
+ #proj-top #vent-list{overflow:auto}
+ #proj-top #vent-detail{overflow:auto;max-height:60vh}
+ .proj-cols{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+ .proj-cols>.panel{min-height:0;display:flex;flex-direction:column;margin:0}
+ .proj-cols>.panel>[class*="-list"],.proj-cols>.panel>#todo-board,.proj-cols>.panel>#obj-list{flex:1;overflow:auto}
+}
+.proj-cols{display:grid;grid-template-columns:1fr;gap:14px}  /* Fallback schmal: gestapelt */
 
 </style>"""
