@@ -173,12 +173,14 @@ def recent_dialogue(session_id: str, limit: int = 10) -> list[dict]:
 def clear_session(session_id: str) -> int:
     """Loescht das episodische Gedaechtnis EINER Session (frischer Start im Chat).
 
-    Identitaet (Verfassung/Seele/Ziel) bleibt unberuehrt; nur der Gespraechsverlauf
-    dieser Session wird vergessen. Gibt die Anzahl geloeschter Eintraege zurueck.
+    S7c-Haertung: NUR kind='episodic' wird geloescht — semantisches Wissen
+    (Fakten/Lektionen/Skills) ist damit technisch garantiert sicher, selbst wenn
+    es je eine session_id truege. Gibt die Anzahl geloeschter Eintraege zurueck.
     """
     with _conn() as c:
-        n = c.execute("SELECT COUNT(*) FROM memory WHERE session_id=?", (session_id,)).fetchone()[0]
-        c.execute("DELETE FROM memory WHERE session_id=?", (session_id,))
+        n = c.execute("SELECT COUNT(*) FROM memory WHERE session_id=? AND kind='episodic'",
+                      (session_id,)).fetchone()[0]
+        c.execute("DELETE FROM memory WHERE session_id=? AND kind='episodic'", (session_id,))
     return int(n)
 
 

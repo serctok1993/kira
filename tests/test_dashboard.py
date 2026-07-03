@@ -180,12 +180,48 @@ def test_single_poll_scheduler_no_naked_intervals():
 
 
 def test_chat_v3_markers():
-    """S6.6b: Markdown-Renderer, Nachrichten-Meta, Session-Panel, Chips sind verdrahtet."""
+    """S6.6b: Markdown-Renderer, Nachrichten-Meta, Session-Panel sind verdrahtet."""
     html = _page()
     for marker in ("function md(", "function msgEl(", 'id="sess-panel"', 'id="sess-items"',
-                   'id="chip-work"', 'id="chip-ziel"', "markActiveSession", "mcopy"):
+                   'id="chip-ziel"', "markActiveSession", "mcopy"):
         assert marker in html, f"Chat-v3-Marker fehlt: {marker}"
     assert 'id="sess-list"' not in html  # Dropdown ist durch das Panel ersetzt
+
+
+def test_chat_v4_daily_sessions_and_modes(monkeypatch, tmp_path):
+    """S7c: Tages-Session als Standard, Panel auf Klick, Archiv-Flow, Modus-Schalter."""
+    html = _page()
+    for marker in ("function dailySid(", 'id="sess-toggle"', 'id="sess-archtoggle"',
+                   'id="chat-mode-seg"', 'data-m="research"', 'data-m="coding"',
+                   "api/chat/archive", 'class="sday"'):
+        assert marker in html, f"Chat-2.0-Marker fehlt: {marker}"
+    assert 'id="planmode"' not in html  # Checkbox ist im Modus-Schalter aufgegangen
+    # Archiv-Roundtrip gegen Sandbox-Sidecar (kein Live-Write)
+    monkeypatch.setattr(s, "_CHAT_META", tmp_path / "chat_meta.json")
+    client = TestClient(s.app)
+    r = client.post("/api/chat/archive", json={"sid": "cockpit-2026-07-01", "archived": True}).json()
+    assert r["ok"] is True and r["archived"] is True
+    import json as _json
+    assert _json.loads((tmp_path / "chat_meta.json").read_text(encoding="utf-8"))["cockpit-2026-07-01"]["archived"] is True
+    r2 = client.post("/api/chat/archive", json={"sid": "cockpit-2026-07-01", "archived": False}).json()
+    assert r2["archived"] is False
+
+
+def test_clear_session_only_episodic(monkeypatch, tmp_path):
+    """S7c-Haertung: Session-Loeschen entfernt NUR den Verlauf — Fakten/Lektionen ueberleben,
+    selbst wenn sie (theoretisch) eine session_id tragen."""
+    from core.mind.memory import store as mem
+
+    monkeypatch.setattr(mem, "DB_PATH", str(tmp_path / "state.db"))
+    mem.init_memory()
+    mem.remember("Hallo", role="user", kind="episodic", session_id="s1")
+    mem.remember("Antwort", role="partner", kind="episodic", session_id="s1")
+    mem.remember("Sergen mag direkte Antworten", role="user", kind="fact", session_id="s1")
+
+    deleted = mem.clear_session("s1")
+    assert deleted == 2  # nur der Verlauf
+    left = [m for m in mem.recent(20) if "direkte Antworten" in (m.get("text") or "")]
+    assert left, "Fakt wurde faelschlich mitgeloescht!"
 
 
 def test_md_renderer_semantics(tmp_path):

@@ -98,21 +98,24 @@ VIEWS = r"""</head><body>
     <div id="chat-wrap">
       <div id="sess-panel">
         <div class="sp-h"><span class="muted" style="font-size:11px;letter-spacing:1px">GESPRAECHE</span>
-          <span style="flex:1"></span><button type="button" class="ghost" id="sess-new" title="Neue Unterhaltung" style="padding:4px 9px">＋</button></div>
+          <span style="flex:1"></span><button type="button" class="ghost" id="sess-new" title="Neue Unterhaltung (getrennt von der Tages-Session)" style="padding:4px 9px">＋</button></div>
         <div id="sess-items"><div class="muted" style="padding:10px">…</div></div>
+        <div class="sp-f"><a id="sess-archtoggle" class="muted" style="cursor:pointer;font-size:11px">Archiv anzeigen</a></div>
       </div>
       <div id="chat-main">
         <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:4px 0 8px;flex-wrap:wrap">
+          <button type="button" class="ghost" id="sess-toggle" title="Gespraeche ein-/ausklappen" style="padding:5px 10px">🗂</button>
+          <span class="seg" id="chat-mode-seg" title="Modus: Chat = Dialog · Research = volles Werkzeug-Budget (lesend) · Coding = erst Plan, dann Schritte">
+            <a data-m="chat" class="on">💬 Chat</a><a data-m="research">🔍 Research</a><a data-m="coding">🛠 Coding</a>
+          </span>
           <span style="flex:1"></span>
           <small class="muted">Hirn:</small>
           <select id="chat-model" style="max-width:200px"></select>
-          <label class="muted" title="Plan-Modus: erst Plan, dann Schritt fuer Schritt" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="planmode"/> 🧭 Plan</label>
         </div>
         <div id="log"></div>
         <div id="chips">
-          <a class="chip" id="chip-work" title="Arbeits-Modus: volles Werkzeug-Budget, Claude-Code-Stil">/work</a>
           <a class="chip" id="chip-ziel" title="Arbeit einem Ziel zuordnen: @ziel:&lt;Titel-Teil oder ID&gt;">@ziel:</a>
-          <span class="muted" style="font-size:11px;align-self:center">Arbeits-Auftraege zaehlen mit @ziel: auf den Ziel-Fortschritt</span>
+          <span class="muted" id="mode-hint" style="font-size:11px;align-self:center">Dialog — kurz &amp; direkt. Research/Coding fuer echte Arbeitsauftraege.</span>
         </div>
         <form id="cform">
           <input id="cin" placeholder="Schreib mir…" autocomplete="off" autofocus/>

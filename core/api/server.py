@@ -1225,9 +1225,44 @@ async def api_vision(body: dict) -> dict:
     return {"ok": True, "text": txt}
 
 
+# S7c: Session-Metadaten (Archiv-Flag) als Sidecar — Sessions selbst leben im Memory.
+_CHAT_META = ROOT / "data" / "chat_meta.json"
+
+
+def _chat_meta() -> dict:
+    try:
+        return json.loads(_CHAT_META.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _save_chat_meta(meta: dict) -> None:
+    _CHAT_META.parent.mkdir(parents=True, exist_ok=True)
+    _CHAT_META.write_text(json.dumps(meta, indent=1, ensure_ascii=False), encoding="utf-8")
+
+
 @app.get("/api/chat/sessions")
-def api_chat_sessions() -> dict:
-    return {"sessions": memory.sessions()}
+def api_chat_sessions(archived: int = 0) -> dict:
+    """Sessions-Liste; archivierte sind standardmaessig ausgeblendet (archived=1 zeigt alle)."""
+    meta = _chat_meta()
+    out = []
+    for s in memory.sessions(limit=60):
+        arch = bool((meta.get(s["session_id"]) or {}).get("archived"))
+        if arch and not archived:
+            continue
+        out.append({**s, "archived": arch})
+    return {"sessions": out}
+
+
+@app.post("/api/chat/archive")
+async def api_chat_archive(body: dict) -> dict:
+    sid = str(body.get("sid", "")).strip()
+    if not sid:
+        return {"ok": False, "error": "sid fehlt"}
+    meta = _chat_meta()
+    meta.setdefault(sid, {})["archived"] = bool(body.get("archived", True))
+    _save_chat_meta(meta)
+    return {"ok": True, "archived": meta[sid]["archived"]}
 
 
 @app.get("/api/chat/history")

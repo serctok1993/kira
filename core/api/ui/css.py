@@ -292,7 +292,15 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
 #chat-wrap{flex:1;display:flex;gap:14px;min-height:0}
 #chat-main{flex:1;display:flex;flex-direction:column;min-width:0}
 #sess-panel{width:232px;flex-shrink:0;border:1px solid var(--line);border-radius:12px;background:var(--panel);
- display:flex;flex-direction:column;overflow:hidden}
+ display:none;flex-direction:column;overflow:hidden}
+#sess-panel.open{display:flex}  /* S7c: Gespraeche nur auf Klick (🗂), nicht dauer-praesent */
+#sess-panel .sp-f{padding:7px 12px;border-top:1px solid var(--line);text-align:center}
+.sday{padding:7px 12px 3px;font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;
+ border-bottom:1px solid var(--line);background:var(--panel2)}
+.sess .sa{color:var(--muted);visibility:hidden;padding:0 2px}
+.sess:hover .sa{visibility:visible}
+.sess .sa:hover{color:var(--hud)}
+.sess.arch{opacity:.55}
 #sess-panel .sp-h{display:flex;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--line)}
 #sess-items{flex:1;overflow:auto}
 .sess{display:flex;align-items:center;gap:7px;padding:8px 10px;cursor:pointer;border-bottom:1px solid var(--line);font-size:12.5px}
@@ -319,7 +327,7 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
 #chips{display:flex;gap:8px;max-width:880px;margin:0 auto 6px;width:100%;flex-wrap:wrap}
 .chip{cursor:pointer;border:1px solid var(--line);border-radius:14px;padding:2px 11px;font-size:11.5px;color:var(--hud)}
 .chip:hover{border-color:var(--accent);background:rgba(168,85,247,.10)}
-@media(max-width:900px){#sess-panel{display:none}}
+@media(max-width:900px){#sess-panel.open{display:none}}
 /* ===== S6.6d · Kira-Avatar: Hero in der Zentrale + Mini-Avatar im Chat ===== */
 #hero{display:flex;align-items:center;gap:16px;margin:2px 0 14px}
 #hero-av{width:74px;height:74px;border-radius:50%;object-fit:cover;border:2px solid var(--line);

@@ -394,21 +394,37 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
  ws.onclose=()=>{wsDot(false);if(!wsIntentional){wsDelay=Math.min(wsDelay*2,30000);setTimeout(connect,wsDelay);}};}
 function reconnect(){wsIntentional=true;if(ws){try{ws.close();}catch(e){}}connect();}
 function relTime(ts){const s=Date.now()/1000-ts;if(s<90)return "gerade";if(s<3600)return Math.round(s/60)+" Min";if(s<86400)return Math.round(s/3600)+" Std";return Math.round(s/86400)+" Tg";}
-/* S6.6b: Session-Seitenpanel (Liste statt Dropdown), Loeschen pro Zeile */
+/* ==== S7c: Chat 2.0 — Tages-Sessions, aufklappbares Panel, Archiv, Modus-Schalter ==== */
+function dailySid(){const d=new Date();const p=n=>(""+n).padStart(2,"0");
+ return "cockpit-"+d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());}
+function dayLabel(ts){const d=new Date(ts*1000);const today=new Date();const y=new Date(Date.now()-86400000);
+ const same=(a,b)=>a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
+ if(same(d,today))return "Heute";if(same(d,y))return "Gestern";
+ return d.toLocaleDateString([], {day:"2-digit",month:"2-digit",year:"2-digit"});}
+let showArchived=false;
 function markActiveSession(){$$("#sess-items .sess").forEach(r=>r.classList.toggle("on",r.dataset.sid===curSid));}
 async function loadChatSessions(){const box=$("#sess-items");if(!box)return;
- const d=await (await fetch("/api/chat/sessions")).json();const ss=d.sessions||[];
- box.innerHTML=ss.map(s=>{const t=esc(((s.title||s.session_id)+"").slice(0,44));
-  return '<div class="sess" data-sid="'+esc(s.session_id)+'"><span class="si">'+(s.channel==="telegram"?"✈️":"💬")+'</span>'
-   +'<span class="st">'+t+'</span><span class="sd">'+relTime(s.last)+'</span><a class="sx" title="loeschen">✕</a></div>';}).join("")
-  ||'<div class="muted" style="padding:10px">noch keine Unterhaltungen</div>';
+ const d=await (await fetch("/api/chat/sessions"+(showArchived?"?archived=1":""))).json();const ss=d.sessions||[];
+ let html="",lastDay=null;
+ ss.forEach(s=>{const dl=dayLabel(s.last);
+  if(dl!==lastDay){html+='<div class="sday">'+dl+'</div>';lastDay=dl;}
+  const t=esc(((s.title||s.session_id)+"").slice(0,44));
+  html+='<div class="sess'+(s.archived?" arch":"")+'" data-sid="'+esc(s.session_id)+'"><span class="si">'+(s.channel==="telegram"?"✈️":"💬")+'</span>'
+   +'<span class="st">'+t+'</span><span class="sd">'+relTime(s.last)+'</span>'
+   +'<a class="sa" title="'+(s.archived?"aus dem Archiv holen":"archivieren")+'">'+(s.archived?"↩":"🗄")+'</a>'
+   +'<a class="sx" title="loeschen">✕</a></div>';});
+ box.innerHTML=html||'<div class="muted" style="padding:10px">noch keine Unterhaltungen</div>';
  box.querySelectorAll(".sess").forEach(r=>{
-  r.onclick=e=>{if(e.target.classList.contains("sx"))return;openSession(r.dataset.sid);};
-  r.querySelector(".sx").onclick=async e=>{e.stopPropagation();if(!confirm("Diese Unterhaltung loeschen?"))return;
+  r.onclick=e=>{if(e.target.classList.contains("sx")||e.target.classList.contains("sa"))return;openSession(r.dataset.sid);};
+  r.querySelector(".sa").onclick=async e=>{e.stopPropagation();
+   const wasArch=r.classList.contains("arch");
+   await fetch("/api/chat/archive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sid:r.dataset.sid,archived:!wasArch})});
+   loadChatSessions();};
+  r.querySelector(".sx").onclick=async e=>{e.stopPropagation();if(!confirm("Diese Unterhaltung loeschen? (Verlauf weg — Kiras Fakten/Lektionen bleiben)"))return;
    await fetch("/api/chat/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sid:r.dataset.sid})});
    if(curSid===r.dataset.sid){curSid=null;log.innerHTML="";}
    loadChatSessions();};});
- if(!curSid){if(ss.length){await openSession(ss[0].session_id);}else{newSession();}}
+ if(!curSid)await openSession(dailySid());  /* Standard: EINE Session pro Tag */
  else markActiveSession();}
 async function openSession(sid){curSid=sid;log.innerHTML="";curBot=null;curThink=null;
  try{const h=await (await fetch("/api/chat/history?sid="+encodeURIComponent(sid))).json();
@@ -416,11 +432,27 @@ async function openSession(sid){curSid=sid;log.innerHTML="";curBot=null;curThink
  markActiveSession();reconnect();}
 function newSession(){curSid="cockpit-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;markActiveSession();reconnect();}
 $("#sess-new")&&($("#sess-new").onclick=()=>newSession());
-/* Chips: /work-Modus + @ziel:-Verknuepfung schnell einfuegen */
-$("#chip-work")&&($("#chip-work").onclick=()=>{const i=$("#cin");if(!/^\/work\s/.test(i.value))i.value="/work "+i.value;i.focus();});
+/* Panel nur auf Klick (Zustand merken) */
+$("#sess-toggle")&&($("#sess-toggle").onclick=()=>{const p=$("#sess-panel");p.classList.toggle("open");
+ localStorage.setItem("kira_sess_open",p.classList.contains("open")?"1":"0");});
+(localStorage.getItem("kira_sess_open")==="1")&&$("#sess-panel")&&$("#sess-panel").classList.add("open");
+$("#sess-archtoggle")&&($("#sess-archtoggle").onclick=()=>{showArchived=!showArchived;
+ $("#sess-archtoggle").textContent=showArchived?"Archiv ausblenden":"Archiv anzeigen";loadChatSessions();});
+/* Modus-Schalter: Chat = Dialog · Research = /work (Werkzeug-Budget) · Coding = plan: (Plan->Schritte) */
+let chatMode="chat";
+const MODE_HINT={chat:"Dialog — kurz & direkt. Research/Coding fuer echte Arbeitsauftraege.",
+ research:"Volles Werkzeug-Budget: recherchiert, liest, fasst zusammen. Mit @ziel: zaehlt es aufs Ziel.",
+ coding:"Claude-Code-Stil: erst Plan, dann Schritt fuer Schritt mit starkem Modell."};
+$$("#chat-mode-seg a").forEach(a=>a.onclick=()=>{chatMode=a.dataset.m;
+ $$("#chat-mode-seg a").forEach(x=>x.classList.toggle("on",x===a));
+ const h=$("#mode-hint");if(h)h.textContent=MODE_HINT[chatMode]||"";});
 $("#chip-ziel")&&($("#chip-ziel").onclick=()=>{const i=$("#cin");if(!i.value.includes("@ziel:"))i.value=(i.value+" @ziel:").replace(/^\s+/,"");i.focus();});
 $("#cform").onsubmit=e=>{e.preventDefault();const raw=$("#cin").value.trim();if(!raw||!ws||ws.readyState!==1)return;
- msgEl(raw,"me");startThinking();const t=($("#planmode")&&$("#planmode").checked?"plan: ":"")+raw;ws.send(t);$("#cin").value="";curBot=null;curThink=null;};
+ msgEl(raw,"me");startThinking();
+ let t=raw;
+ if(chatMode==="research"&&!/^(\/work|work:|plan:|\/plan)/i.test(raw))t="/work "+raw;
+ if(chatMode==="coding"&&!/^(plan:|\/plan)/i.test(raw))t="plan: "+raw;
+ ws.send(t);$("#cin").value="";curBot=null;curThink=null;};
 
 /* ---- Sprachmemo (Aufnahme -> Whisper -> Eingabefeld) ---- */
 let mediaRec=null,chunks=[];
