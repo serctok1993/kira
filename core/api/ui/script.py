@@ -70,11 +70,11 @@ async function loadPlaybooks(){const el=$("#pb-list");if(!el)return;try{
  const badge=g=>g==="autonom"?"kira":(g==="begleitet"?"you":"kind");
  el.innerHTML=pbs.map(p=>'<div class="memrow"><div class="mh">'
   +'<span class="badge '+badge(p.reifegrad)+'">'+esc(p.reifegrad)+'</span>'
-  +'<b>'+esc(p.titel||p.name)+'</b>'
+  +'<b style="color:var(--ink);font-size:13px">'+esc(p.titel||p.name)+'</b>'
   +'<span class="muted" style="font-size:11px">'+(p.erfolge|0)+' Erfolge · '+(p.fehlschlaege|0)+' Fehlschlaege · '
   +(p.lektionen|0)+' Lektionen · Serie '+(p.serie|0)+'/'+(d.promote_after||5)
   +(p.letzte?(' · zuletzt '+esc(p.letzte)):'')+'</span>'
-  +'</div><div class="muted">'+esc(p.wann||'')+'</div></div>').join("");
+  +'</div><div style="font-size:12.5px">'+esc(p.wann||'')+'</div></div>').join("");
 }catch(e){el.innerHTML='<span class="muted">Playbooks nicht ladbar.</span>';}}
 function subnav(tab,s){const g=SUBTABS[tab];if(!g)return;g.cur=s;
  $$(g.bar+" a").forEach(a=>a.classList.toggle("on",a.dataset.s===s));
