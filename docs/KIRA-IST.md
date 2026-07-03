@@ -148,6 +148,7 @@ core/
 - **Aktiv genutzt wird sie längst:** Telegram-Chat täglich; drei LIVE-Crons in data/cron.json — Sunrise Schlafzimmer 05:55 (steuert `core/tools/sunrise_hue.py`, Kiras eigenes Werk), Morgen-Briefing 08:00 (läuft, liefert per Telegram), Abend-Briefing 20:00. Crons laufen UNABHÄNGIG vom Heartbeat (run_forever: Monitor/Cron/Trigger/Wartung immer).
 - **Offen bei Sergen:** ① Kiras GOAL.md-Neufassung wartet in der Freigabe-Inbox (`data/proposals/GOAL.md`, Me → „Von Kira"). ② Secrets: IMAP_/SMTP_* (Postfach), RESEND_API_KEY, STRIPE_RESTRICTED_KEY. ③ Begleitete Heartbeat-Aktivierung.
 - **Verfassung (unantastbar, nur via Git):** kein irreversibler Schaden, Budget heilig, alles loggen, Not-Aus absolut, Ehrlichkeit vor Gefälligkeit, Legalität/Ethik.
+- **Verbesserungs-Loop (Cloud):** Eine Claude-Routine arbeitet alle 4 h eine Iteration auf dem Sammel-Branch `kira/loop` ab (Betriebsanleitung `loop/LOOP.md`, Journal `loop/LOOP-LOG.md`, Steuerung über den JETZT-Eimer in `loop/BACKLOG.md`). Cloud baut nur auf Branches — Merge und Live-System bleiben beim Desktop.
 
 ## 6. Fähigkeiten & Schwächen (ehrlich, Stand S10)
 
@@ -182,6 +183,7 @@ core/
 - **Fehler immer taggen: Modell / Harness / Provider.**
 - **Haus-Stil:** `_conn()`-Helper, `CREATE TABLE IF NOT EXISTS` + defensive `ALTER`, Modul-Funktionen, **deutsche Docstrings ohne Umlaute**, Werkzeuge liefern **Strings, raisen nie**, `events.emit()` überall, JSON-Sidecars NUR über `fs.atomic_write`. Kein Build-Schritt/npm fürs Cockpit. **In UI-Strings nur ASCII-Platzhalter** (NUL-Byte-Falle, §10).
 - **Secrets sind write-only** — niemals Werte in Chat/Logs/Commits.
+- **Cloud-Loop-Sessions** (Branch `kira/loop`) folgen zusätzlich `loop/LOOP.md`; Message-Stil dort `LOOP-<n>: …` statt `S<stufe>: …`.
 
 ## 9. Test-Muster (für schnelles Weiterbauen)
 
