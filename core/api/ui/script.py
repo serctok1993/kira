@@ -38,7 +38,46 @@ function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle(
 
 /* ---- Config-Bereich: Sub-Tabs (Modelle/Gewissen/Cron/Monitor/Zugaenge/Protokoll) ---- */
 let sysCur="models";
-const SYS_LOADERS={models:()=>loadModels(),gov:()=>loadGov(),cron:()=>loadCron(),monitor:()=>loadMonitor(),keys:()=>loadKeys(),log:()=>loadEvents()};
+const SYS_LOADERS={models:()=>loadModels(),gov:()=>loadGov(),stats:()=>loadStats(),cron:()=>loadCron(),monitor:()=>loadMonitor(),keys:()=>loadKeys(),log:()=>loadEvents()};
+
+/* ---- Statistik (S6.6c): Lern-Kurve aus dem Outcome-Ledger ---- */
+async function loadStats(){try{
+ const d=await J("/api/insights");const st=d.stats||{};const pat=d.patterns||{};
+ const pct=v=>v==null?"—":Math.round(v*100)+"%";
+ const kpi=(label,val,sub)=>'<div><div class="muted" style="font-size:11px;letter-spacing:1px">'+label+'</div>'
+  +'<div style="font-size:26px;font-weight:600;color:var(--hud)">'+val+'</div>'
+  +(sub?('<div class="muted" style="font-size:11px">'+sub+'</div>'):'')+'</div>';
+ $("#st-kpi").innerHTML=st.attempts
+  ? kpi("PASS-RATE",pct(st.pass_rate),st.passed+" von "+st.attempts+" Versuchen")
+    +kpi("Ø-SCORE",st.avg_score==null?"—":st.avg_score,"Ziel: ueber 70")
+    +kpi("ZEITRAUM",d.days+" Tage","")
+  : '<span class="muted">Noch keine gepruefte Arbeit — Statistik fuellt sich, sobald der Heartbeat Aufgaben abarbeitet.</span>';
+ const row=(cells,head)=>'<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid var(--line);font-size:12.5px'+(head?';color:var(--muted)':'')+'">'
+  +cells.map((c,i)=>'<span style="'+(i===0?'flex:1':'min-width:92px;text-align:right')+'">'+c+'</span>').join("")+'</div>';
+ const kinds=pat.by_kind||[];
+ $("#st-kinds").innerHTML=kinds.length
+  ? row(["Task-Art","Versuche","bestanden","Ø-Score","$/Erfolg"],true)
+    +kinds.map(g=>row([esc(g.key),g.attempts,pct(g.pass_rate),g.avg_score==null?"—":g.avg_score,
+      g.cost_per_success==null?"—":("$"+g.cost_per_success)])).join("")
+  : '<span class="muted">(keine Daten)</span>';
+ const objs=(pat.by_objective||[]).filter(g=>g.attempts>=2).slice(0,5);
+ $("#st-objs").innerHTML=objs.length
+  ? objs.map(g=>row([esc((""+(g.title||g.key)).slice(0,70)),g.attempts+" Versuche",pct(g.pass_rate)])).join("")
+  : '<span class="muted">(kein Ziel auffaellig)</span>';
+ $("#st-themes").innerHTML=(pat.themes||[]).length
+  ? pat.themes.map(t=>'<span class="pill">'+esc(t)+'</span>').join(" ")
+  : '<span class="muted">(keine wiederkehrende Kritik)</span>';
+ const strats=d.strategies||{};const sk=Object.keys(strats);
+ $("#st-strats").innerHTML=sk.length
+  ? sk.map(s=>row([esc(s),strats[s].attempts+" Versuche",pct(strats[s].pass_rate)])).join("")
+  : '<span class="muted">(noch keine Retries — gut!)</span>';
+ const c=await J("/api/costs");const wk=(c.week&&c.week.by_model)||[];
+ $("#st-costs").innerHTML=wk.length
+  ? row(["Modell","Calls","Kosten"],true)
+    +wk.map(m=>row([esc((""+m.model).replace(/^openrouter\//,"")),m.calls,"$"+m.cost.toFixed(3)])).join("")
+    +'<div class="muted" style="margin-top:6px;font-size:12px">7-Tage-Summe: <b>$'+(c.week.total||0).toFixed(3)+'</b> · heute: $'+(c.today.total||0).toFixed(3)+'</div>'
+  : '<span class="muted">(noch keine Cloud-Kosten)</span>';
+}catch(e){}}
 function syst(s){sysCur=s;
  $$("#sys-tabs a").forEach(a=>a.classList.toggle("on",a.dataset.s===s));
  $$("#v-config .subview").forEach(x=>x.classList.toggle("on",x.id==="v-"+s));

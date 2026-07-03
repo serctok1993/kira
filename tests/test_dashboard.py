@@ -210,6 +210,18 @@ console.log("md ok");
     assert r.returncode == 0, f"md()-Semantik verletzt:\n{r.stderr[:500]}"
 
 
+def test_stats_tab_and_endpoint():
+    """S6.6c: Statistik-Subtab (Lern-Kurve aus dem Outcome-Ledger) + /api/insights."""
+    html = _page()
+    for marker in ('data-s="stats"', 'id="v-stats"', "loadStats", 'id="st-kpi"',
+                   'id="st-kinds"', 'id="st-costs"'):
+        assert marker in html, f"Statistik-Marker fehlt: {marker}"
+    d = TestClient(s.app).get("/api/insights").json()  # rein lesend gegen echte DB
+    assert set(d) >= {"days", "stats", "patterns", "strategies", "brief"}
+    assert "by_kind" in d["patterns"] and "by_objective" in d["patterns"]
+    assert TestClient(s.app).get("/api/insights", params={"days": 999}).json()["days"] == 90  # Clamp
+
+
 def test_ws_roundtrip_contract(monkeypatch):
     """Pinnt den WS-Vertrag {role, kind: think|tool|obs|final, done} VOR jedem Restyling."""
     import core.agency.act as act_mod

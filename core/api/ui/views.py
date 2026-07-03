@@ -241,8 +241,21 @@ VIEWS = r"""</head><body>
   <!-- ================= CONFIG (Kira konfigurieren) ================= -->
   <div class="view" id="v-config">
     <div class="seg" id="sys-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="models" class="on">⚙ Modelle</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="keys">Zugaenge</a><a data-s="log">Protokoll</a>
+      <a data-s="models" class="on">⚙ Modelle</a><a data-s="gov">Gewissen</a><a data-s="stats">Statistik</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="keys">Zugaenge</a><a data-s="log">Protokoll</a>
     </div>
+
+  <div class="subview" id="v-stats">
+    <div class="card"><h3>Lern-Kurve — besteht Kira ihre eigene Pruefung?</h3>
+      <div class="muted">Jeder Mission-Task wird gegen Akzeptanzkriterien geprueft (Score 0-100).
+      Hier siehst du, ob sie <b>besser</b> wird — nicht nur fleissiger.</div>
+      <div id="st-kpi" style="display:flex;gap:26px;flex-wrap:wrap;margin-top:12px"><span class="muted">…</span></div>
+    </div>
+    <div class="card"><h3>Task-Arten — was klappt, was hakt</h3><div id="st-kinds" class="muted">…</div></div>
+    <div class="card"><h3>Zaehe Ziele</h3><div id="st-objs" class="muted">…</div></div>
+    <div class="card"><h3>Wiederkehrende Pruefer-Kritik</h3><div id="st-themes" class="muted">…</div></div>
+    <div class="card"><h3>Strategien — lohnt Eskalation?</h3><div id="st-strats" class="muted">…</div></div>
+    <div class="card"><h3>💶 Kosten je Modell (7 Tage)</h3><div id="st-costs" class="muted">…</div></div>
+  </div>
 
   <div class="subview on" id="v-models">
     <div class="card"><h3>Aktives Modell</h3><div id="m-active" class="muted">…</div></div>
