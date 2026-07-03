@@ -74,11 +74,22 @@ def _public(j: dict) -> dict:
     return out
 
 
-def list_jobs() -> list[dict]:
-    return [_public(j) for j in _load()]
+def list_jobs(scope: str | None = None) -> list[dict]:
+    """Alle Jobs; scope filtert (S8.4): 'me' (Sergens Routinen) | 'projekt:<vid>' |
+    'system'. Alt-Jobs ohne scope-Feld gelten defensiv als 'system'."""
+    out = []
+    for j in _load():
+        s = j.get("scope") or "system"
+        if scope and s != scope:
+            continue
+        p = _public(j)
+        p["scope"] = s
+        out.append(p)
+    return out
 
 
-def add_job(label: str, prompt: str, schedule: str, escalate: bool = False) -> dict:
+def add_job(label: str, prompt: str, schedule: str, escalate: bool = False,
+            scope: str = "system", enabled: bool = True) -> dict:
     jobs = _load()
     sched = parse_schedule(schedule)
     job = {
@@ -87,15 +98,17 @@ def add_job(label: str, prompt: str, schedule: str, escalate: bool = False) -> d
         "prompt": prompt.strip(),
         "schedule": sched,
         "schedule_text": (schedule or "").strip(),
-        "enabled": True,
+        "enabled": bool(enabled),
         "escalate": bool(escalate),
+        "scope": (scope or "system").strip(),  # S8.4: me | projekt:<vid> | system
         "last_run": 0,
         "next_run": _next_run(sched),
         "runs": [],
     }
     jobs.append(job)
     _save(jobs)
-    events.emit("cron_added", {"label": job["label"], "schedule": job["schedule_text"]})
+    events.emit("cron_added", {"label": job["label"], "schedule": job["schedule_text"],
+                               "scope": job["scope"]})
     return _public(job)
 
 

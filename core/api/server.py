@@ -363,7 +363,9 @@ def api_cron() -> dict:
 async def api_cron_add(body: dict) -> dict:
     from core.agency.missions import cron
 
-    return {"ok": True, "job": cron.add_job(body.get("label", ""), body.get("prompt", ""), body.get("schedule", "60m"))}
+    return {"ok": True, "job": cron.add_job(
+        body.get("label", ""), body.get("prompt", ""), body.get("schedule", "60m"),
+        scope=body.get("scope", "system"), enabled=bool(body.get("enabled", True)))}
 
 
 @app.post("/api/cron/remove")

@@ -205,17 +205,35 @@ VIEWS = r"""</head><body>
       </div>
     </div>
     <div class="mgrid">
+      <div class="panel"><div class="panel-h">◈ DEINE ROUTINEN <span class="sp"></span><span class="muted" style="font-size:11px">auch per Telegram diktierbar („richte mir … ein“)</span></div>
+        <div id="me-crons" class="panel-b"><span class="muted">…</span></div>
+        <div class="panel-b" style="border-top:1px solid var(--line)">
+          <button class="ghost" id="me-brief-setup">☀ Morgen-Briefing einrichten (08:00, startet AUS)</button>
+          <span class="muted" id="me-brief-hint" style="font-size:12px;margin-left:8px"></span>
+        </div>
+      </div>
       <div class="panel"><div class="panel-h">◈ MISSIONEN &amp; ZIELE (Leben)</div>
         <div id="life-goals" class="panel-b"><span class="muted">…</span></div></div>
-      <div class="panel"><div class="panel-h">◈ METRIKEN <span class="sp"></span><span class="muted" style="font-size:11px">z.B. „Kira, Gewicht heute 91.4“</span></div>
-        <div id="life-metrics" class="panel-b"><span class="muted">…</span></div></div>
     </div>
+    <div class="panel"><div class="panel-h">◈ METRIKEN <span class="sp"></span><span class="muted" style="font-size:11px">z.B. „Kira, Gewicht heute 91.4“</span></div>
+      <div id="life-metrics" class="panel-b"><span class="muted">…</span></div></div>
   </div>
 
   <!-- ================= KIRA (Persoenlichkeit & Specs) ================= -->
   <div class="view" id="v-kira">
     <div class="seg" id="kira-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="anatomie">Anatomie</a><a data-s="evolution">Evolution</a><a data-s="stats">Statistik</a>
+      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="anatomie">Anatomie</a><a data-s="evolution">Evolution</a><a data-s="stats">Statistik</a><a data-s="keys">Zugaenge</a>
+    </div>
+
+    <div class="subview" id="v-keys">
+      <div class="card"><h3>Von Kira angefordert</h3><div id="k-pending" class="muted">…</div></div>
+      <div class="card"><h3>Zugang eintragen / aktualisieren</h3>
+        <div class="muted">Werte sind write-only — werden nie angezeigt oder protokolliert. NIEMALS im Chat eingeben.</div>
+        <div class="row"><input id="k-name" placeholder="Name, z.B. OPENROUTER_API_KEY"/>
+          <input id="k-val" type="password" placeholder="Wert / Key / Passwort"/>
+          <button id="k-save">Speichern</button></div>
+        <div id="k-sugg" class="muted" style="margin-top:8px"></div></div>
+      <div class="card"><h3>Vorhandene Zugaenge</h3><div id="k-set"></div></div>
     </div>
 
     <div class="subview on" id="v-files">
@@ -308,7 +326,7 @@ VIEWS = r"""</head><body>
   <!-- ================= CONFIG (rein technisch) ================= -->
   <div class="view" id="v-config">
     <div class="seg" id="sys-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="models" class="on">⚙ Modelle</a><a data-s="keys">Zugaenge</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="log">Protokoll</a><a data-s="cockpit">Cockpit</a>
+      <a data-s="models" class="on">⚙ Modelle</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="log">Protokoll</a><a data-s="cockpit">Cockpit</a>
     </div>
 
   <div class="subview on" id="v-models">
@@ -372,17 +390,6 @@ VIEWS = r"""</head><body>
       <div id="cat-list" style="max-height:340px;overflow:auto;margin-top:8px;font-size:12px"></div>
       <div class="muted" id="cat-hint" style="margin-top:6px"></div>
     </div>
-  </div>
-
-  <div class="subview" id="v-keys">
-    <div class="card"><h3>Von Kira angefordert</h3><div id="k-pending" class="muted">…</div></div>
-    <div class="card"><h3>Zugang eintragen / aktualisieren</h3>
-      <div class="muted">Werte sind write-only — werden nie angezeigt oder protokolliert. NIEMALS im Chat eingeben.</div>
-      <div class="row"><input id="k-name" placeholder="Name, z.B. OPENROUTER_API_KEY"/>
-        <input id="k-val" type="password" placeholder="Wert / Key / Passwort"/>
-        <button id="k-save">Speichern</button></div>
-      <div id="k-sugg" class="muted" style="margin-top:8px"></div></div>
-    <div class="card"><h3>Vorhandene Zugaenge</h3><div id="k-set"></div></div>
   </div>
 
   <div class="subview" id="v-gov">

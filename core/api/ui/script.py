@@ -40,11 +40,12 @@ function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle(
 const SUBTABS={
  kira:    {bar:"#kira-tabs", cur:"files",
            loaders:{files:()=>loadFiles(),mem:()=>loadMem(),wissen:()=>loadWissen(),
-                    anatomie:()=>loadAgenten(),evolution:()=>loadEvolution(),stats:()=>loadStats()}},
+                    anatomie:()=>loadAgenten(),evolution:()=>loadEvolution(),stats:()=>loadStats(),
+                    keys:()=>loadKeys()}},
  projekte:{bar:"#proj-tabs", cur:"standbeine",
            loaders:{standbeine:()=>loadVentures(),ziele:()=>loadMission(),radar:()=>loadRadar()}},
  config:  {bar:"#sys-tabs",  cur:"models",
-           loaders:{models:()=>loadModels(),keys:()=>loadKeys(),gov:()=>loadGov(),
+           loaders:{models:()=>loadModels(),gov:()=>loadGov(),
                     cron:()=>loadCron(),monitor:()=>loadMonitor(),log:()=>loadEvents(),cockpit:()=>{}}}};
 function subnav(tab,s){const g=SUBTABS[tab];if(!g)return;g.cur=s;
  $$(g.bar+" a").forEach(a=>a.classList.toggle("on",a.dataset.s===s));
@@ -56,8 +57,29 @@ function applyIcons(){try{const ic=JSON.parse(localStorage.getItem("kira_icons")
  $$("#side a .ti").forEach(i=>{const v=i.closest("a").dataset.v;if(ic[v])i.textContent=ic[v];});}catch(e){}}
 applyIcons();
 
-/* ---- Me (S7a): beide Todo-Richtungen + Zugangs-Anfragen + Mails ---- */
-function loadMe(){loadInbox();loadTodoSecrets();loadLeben();}
+/* ---- Me (S7a/S8.4): beide Todo-Richtungen + Zugangs-Anfragen + Mails + Routinen ---- */
+function loadMe(){loadInbox();loadTodoSecrets();loadLeben();loadMeCrons();}
+async function loadMeCrons(){const el=$("#me-crons");if(!el)return;try{
+ const d=await (await fetch("/api/cron")).json();
+ const mine=(d.jobs||[]).filter(j=>(j.scope||"system")==="me");
+ el.innerHTML=mine.length?mine.map(j=>{
+  const nxt=j.next_run?new Date(j.next_run*1000).toLocaleString([],{weekday:"short",hour:"2-digit",minute:"2-digit"}):"—";
+  return '<div class="memrow"><div class="mh"><span class="badge kind">'+(j.enabled?"AN":"aus")+'</span>'
+   +'<b>'+esc(j.label||"")+'</b><span class="muted" style="font-size:11px">'+esc(j.schedule_text||"")+' · naechster: '+nxt+'</span>'
+   +'<span style="flex:1"></span><a data-ctog="'+esc(j.id)+'" style="cursor:pointer;color:var(--hud)">'+(j.enabled?"pausieren":"aktivieren")+'</a></div></div>';}).join("")
+  :'<div class="emptybox">Noch keine Routinen.<br>Unten das Morgen-Briefing einrichten — oder sag es mir per Telegram.</div>';
+ el.querySelectorAll("[data-ctog]").forEach(a=>a.onclick=async()=>{
+  await fetch("/api/cron/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.ctog})});loadMeCrons();});
+}catch(e){}}
+$("#me-brief-setup")&&($("#me-brief-setup").onclick=async()=>{
+ const prompt="Guten Morgen! Erstelle Sergens Tages-Briefing aus dem Lagebericht:\n{{standup}}\n"
+  +"Struktur: 1) Wie sieht der Tag aus (Termine, faellige Todos, was ansteht). "
+  +"2) Was ICH (Kira) heute vorhabe. 3) EIN konkreter, proaktiver Vorschlag fuer den Tag. "
+  +"Warm, knapp, strukturiert — dann per Telegram senden.";
+ const r=await (await fetch("/api/cron/add",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({label:"Morgen-Briefing",prompt:prompt,schedule:"08:00",scope:"me",enabled:false})})).json();
+ $("#me-brief-hint").textContent=r.ok?"✓ angelegt (AUS) — oben aktivieren, wenn du bereit bist":"Fehler";
+ loadMeCrons();});
 
 /* ---- Evolution (S8.1): was Kira zuletzt an sich verbessert hat ---- */
 async function loadEvolution(){try{
@@ -140,7 +162,9 @@ $("#mo-check").onclick=async()=>{$("#mo-hint").textContent="… prueft alle Beob
 
 /* ---- Cron / geplante Aufgaben ---- */
 let cronJobs=[], cronEdit=null;
-async function loadCron(){const d=await (await fetch("/api/cron")).json();cronJobs=d.jobs;const fmt=ts=>ts?new Date(ts*1000).toLocaleString():"—";
+async function loadCron(){const d0=await (await fetch("/api/cron")).json();cronJobs=d0.jobs;const fmt=ts=>ts?new Date(ts*1000).toLocaleString():"—";
+ /* S8.4: Config zeigt nur System-Jobs — Me-Routinen leben bei Me, Projekt-Crons in der Akte */
+ const d={jobs:(d0.jobs||[]).filter(j=>(j.scope||"system")==="system")};
  $("#cr-list").innerHTML=d.jobs.length?d.jobs.map(j=>{const last=(j.recent_runs&&j.recent_runs.length)?j.recent_runs[j.recent_runs.length-1]:null;
    return '<div style="padding:8px 0;border-bottom:1px solid var(--line)"><b>'+(j.label||"").replace(/</g,"&lt;")+'</b> <small class=muted>'+(j.schedule_text||"")+' · '+(j.enabled?"an":"aus")+' · naechster: '+fmt(j.next_run)+'</small>'
      +'<span style="float:right"><a href="#" data-run="'+j.id+'">jetzt</a> · <a href="#" data-edit="'+j.id+'">bearbeiten</a> · <a href="#" data-tog="'+j.id+'">'+(j.enabled?"pausieren":"aktivieren")+'</a> · <a href="#" data-rm="'+j.id+'" style="color:var(--warn)">entfernen</a></span>'
@@ -840,11 +864,18 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
  const fin='<div style="font-size:13px"><b>Kosten bislang:</b> '+(d.costs||0).toFixed(2)+' € <span class="muted">(LLM-Arbeit an diesem Projekt)</span></div>'
   +'<div class="muted" style="font-size:12px;margin-top:4px">Einnahmen/Ausgaben: Kasse '+d.balance.toFixed(2)+' €</div>'
   +((d.ledger||[]).slice(0,8).map(l=>'<div class="muted" style="font-size:12px">'+(l.direction==="in"?"+":"−")+(l.amount_eur||0).toFixed(2)+' € · '+esc((l.note||l.category||"").slice(0,60))+'</div>').join("")||'');
+ /* S8.4: Projekt-Routinen (Crons mit scope projekt:<id>) */
+ let rout='<div class="muted">Keine Projekt-Routinen. Sag mir z.B. per Telegram: "richte fuer '+esc(v.name||"")+' woechentlich einen Status-Check ein".</div>';
+ try{const cj=await (await fetch("/api/cron")).json();
+  const mine=(cj.jobs||[]).filter(j=>(j.scope||"")==="projekt:"+v.id);
+  if(mine.length)rout=mine.map(j=>'<div class="memrow"><div class="mh"><span class="badge kind">'+(j.enabled?"AN":"aus")+'</span><b>'+esc(j.label||"")+'</b><span class="muted" style="font-size:11px">'+esc(j.schedule_text||"")+'</span></div></div>').join("");
+ }catch(e2){}
  el.innerHTML='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><b>'+esc(v.name||"")+'</b>'
-  +'<span class="seg" id="akte-tabs"><a data-at="ueb" class="on">Uebersicht</a><a data-at="ziele">Ziele &amp; Tasks</a><a data-at="akt">Aktivitaet</a><a data-at="fin">Finanzen</a></span>'
+  +'<span class="seg" id="akte-tabs"><a data-at="ueb" class="on">Uebersicht</a><a data-at="ziele">Ziele &amp; Tasks</a><a data-at="akt">Aktivitaet</a><a data-at="fin">Finanzen</a><a data-at="rout">Routinen</a></span>'
   +'<span style="flex:1"></span><a id="vent-close" style="cursor:pointer;color:var(--muted)">&#10005;</a></div>'
   +'<div class="at" id="at-ueb">'+ueb+'</div><div class="at" id="at-ziele" style="display:none">'+goals+'</div>'
-  +'<div class="at" id="at-akt" style="display:none">'+act+'</div><div class="at" id="at-fin" style="display:none">'+fin+'</div>';
+  +'<div class="at" id="at-akt" style="display:none">'+act+'</div><div class="at" id="at-fin" style="display:none">'+fin+'</div>'
+  +'<div class="at" id="at-rout" style="display:none">'+rout+'</div>';
  el.style.display="block";
  $("#ak-brief").value=d.briefing||"";
  $$("#akte-tabs a").forEach(a=>a.onclick=()=>{$$("#akte-tabs a").forEach(x=>x.classList.toggle("on",x===a));
@@ -932,7 +963,7 @@ $("#icons-save")&&($("#icons-save").onclick=()=>{const ic={};
  $$('#icon-row input[data-ic]').forEach(i=>{const v=i.value.trim();if(v)ic[i.dataset.ic]=v.slice(0,3);});
  localStorage.setItem("kira_icons",JSON.stringify(ic));applyIcons();toast("Icons gespeichert","ok");});
 $("#icons-reset")&&($("#icons-reset").onclick=()=>{localStorage.removeItem("kira_icons");location.reload();});
-$("#go-keys")&&($("#go-keys").onclick=()=>{nav("config");subnav("config","keys");});
+$("#go-keys")&&($("#go-keys").onclick=()=>{nav("kira");subnav("kira","keys");});  /* S8.4: Zugaenge leben bei Kira */
 $("#set-restart")&&($("#set-restart").onclick=async()=>{if(!confirm("Kira neu starten? Dienste bouncen in ~20s."))return;
  await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
  $("#set-restart-hint").textContent="↻ Neustart angefordert …";});

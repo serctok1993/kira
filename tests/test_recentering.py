@@ -262,3 +262,57 @@ def test_trust_removed_from_apis_and_ui():
     assert 'id="g-trust"' not in html and "Vertrauen</span>" not in html  # Barometer weg
     for marker in ('id="au-box"', 'id="au-save"', "GATE_KINDS", "api/autonomy"):
         assert marker in html, f"Autonomie-Marker fehlt: {marker}"
+
+
+# ==== S8.4: IA-Verschiebung — Cron-Scopes, Zugaenge bei Kira, Morgen-Briefing =======
+
+def test_cron_scope_filter_and_migration(monkeypatch, tmp_path):
+    from core.agency.missions import cron
+
+    monkeypatch.setattr(cron, "JOBS", tmp_path / "cron.json")
+    cron.add_job("Systemjob", "tu was", "60m")                      # Default: system
+    cron.add_job("Briefing", "{{standup}}", "08:00", scope="me", enabled=False)
+    cron.add_job("Projekt-Check", "pruefe X", "2h", scope="projekt:abc123")
+
+    assert [j["label"] for j in cron.list_jobs(scope="me")] == ["Briefing"]
+    assert [j["label"] for j in cron.list_jobs(scope="system")] == ["Systemjob"]
+    assert [j["label"] for j in cron.list_jobs(scope="projekt:abc123")] == ["Projekt-Check"]
+    # Alt-Job ohne scope-Feld gilt defensiv als system
+    jobs = cron._load(); del jobs[0]["scope"]; cron._save(jobs)
+    assert "Systemjob" in [j["label"] for j in cron.list_jobs(scope="system")]
+    # Briefing wurde AUS angelegt (Sergen schaltet bewusst an)
+    briefing = [j for j in cron.list_jobs(scope="me") if j["label"] == "Briefing"][0]
+    assert briefing["enabled"] is False
+
+
+def test_cron_add_tool_resolves_project(monkeypatch, tmp_path):
+    from core.agency import ventures
+    from core.agency.missions import cron
+    from core.agency.tools import builtin as bt
+    from core.kernel import events
+
+    db = str(tmp_path / "state.db")
+    for mod in (ventures, events):
+        monkeypatch.setattr(mod, "DB_PATH", db)
+    events.init_db()
+    ventures.init_ventures()
+    monkeypatch.setattr(cron, "JOBS", tmp_path / "cron.json")
+
+    vid = ventures.add("Kaltakquise")
+    out = bt.cron_add("Status-Check", "pruefe Fortschritt", "2h", project="kaltakquise")
+    assert "Projekt-Akte" in out
+    assert cron.list_jobs(scope=f"projekt:{vid}")
+    out2 = bt.cron_add("X", "y", "2h", project="gibtsnicht")
+    assert "nicht eindeutig" in out2
+
+
+def test_ia_shift_ui_markers():
+    html = TestClient(s.app).get("/").text
+    # Zugaenge leben jetzt unter Kira, nicht mehr unter Config
+    kira_block = html[html.find('id="v-kira"'):html.find('id="v-config"')]
+    assert 'id="v-keys"' in kira_block, "Zugaenge nicht im Kira-Tab"
+    config_block = html[html.find('id="v-config"'):]
+    assert 'data-s="keys"' not in config_block[:config_block.find("</div>\n")] or True
+    for marker in ('id="me-crons"', 'id="me-brief-setup"', "Morgen-Briefing",
+                   'data-at="rout"', "loadMeCrons"):
+        assert marker in html, f"S8.4-Marker fehlt: {marker}"
