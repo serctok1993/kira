@@ -674,6 +674,21 @@ def api_life_board() -> dict:
             "board": mqueue.board("leben")}
 
 
+@app.post("/api/life/add")
+async def api_life_add(body: dict) -> dict:
+    """S9.4: Todo/Auftrag direkt im Me-Bereich anlegen (mission='leben' = dein Leben-Board)."""
+    from core.agency.missions import queue as mqueue
+
+    desc = str(body.get("description", "")).strip()
+    if not desc:
+        return {"ok": False, "error": "leer"}
+    mqueue.init_queue()
+    tid = mqueue.add(desc, mission="leben", priority=int(body.get("priority", 3)),
+                     due_date=body.get("due_date") or None)
+    events.emit("life_todo_added", {"id": tid, "via": "cockpit"})
+    return {"ok": True, "id": tid}
+
+
 @app.get("/api/metrics")
 def api_metrics(name: str = "", days: int = 90) -> dict:
     from core.agency.missions import metrics

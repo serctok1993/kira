@@ -175,41 +175,50 @@ VIEWS = r"""</head><body>
 
   <!-- ================= ME (dein Bereich) ================= -->
   <div class="view" id="v-me">
-    <div class="mgrid">
-      <div class="panel">
-        <div class="panel-h">◈ AN KIRA — deine Auftraege &amp; Todos <span class="sp"></span><span class="muted" style="font-size:11px">Erfassen: Chat, Telegram oder Sprachmemo</span></div>
-        <div id="life-board" class="panel-b"><span class="muted">…</span></div>
+    <div class="me-grid">
+      <!-- Spalte 1: was DU zu tun gibst -->
+      <div class="me-col">
+        <div class="panel me-grow">
+          <div class="panel-h">◈ AN KIRA — deine Auftraege</div>
+          <div class="panel-b" style="border-bottom:1px solid var(--line)">
+            <div class="row"><input id="me-todo-in" placeholder="Todo/Auftrag… (Enter)" style="flex:1"/><button id="me-todo-add">+</button></div>
+          </div>
+          <div id="life-board" class="panel-b me-scroll"><span class="muted">…</span></div>
+        </div>
+        <div class="panel me-grow"><div class="panel-h">◈ MISSIONEN &amp; ZIELE</div>
+          <div id="life-goals" class="panel-b me-scroll"><span class="muted">…</span></div></div>
       </div>
-      <div class="panel">
-        <div class="panel-h">◈ VON KIRA — braucht dich <span class="live"></span><span class="sp"></span><span class="muted" id="inbox-count" style="font-size:11px"></span></div>
-        <div id="inbox-list" class="panel-b"><span class="muted">…</span></div>
-      </div>
-    </div>
-    <div class="mgrid">
-      <div class="panel">
-        <div class="panel-h">◈ ZUGANGS-ANFRAGEN <span class="sp"></span><a id="go-keys" class="muted" style="cursor:pointer;font-size:10px">→ eintragen unter Config</a></div>
-        <div id="todo-secrets" class="panel-b"><span class="muted">…</span></div>
-      </div>
-      <div class="panel">
-        <div class="panel-h">◈ E-MAILS <span class="sp"></span><span class="muted" style="font-size:11px">gesendet · empfangen · wichtig</span></div>
-        <div id="me-mails" class="panel-b"><div class="emptybox">Noch kein Postfach verbunden.<br>
-          Sobald du IMAP/SMTP-Zugaenge eintraegst (Config → Zugaenge), laufen hier Kiras
-          gesendete und empfangene Mails auf — pro Projekt gefiltert in der Projekt-Akte.</div></div>
-      </div>
-    </div>
-    <div class="mgrid">
-      <div class="panel"><div class="panel-h">◈ DEINE ROUTINEN <span class="sp"></span><span class="muted" style="font-size:11px">auch per Telegram diktierbar („richte mir … ein“)</span></div>
-        <div id="me-crons" class="panel-b"><span class="muted">…</span></div>
-        <div class="panel-b" style="border-top:1px solid var(--line)">
-          <button class="ghost" id="me-brief-setup">☀ Morgen-Briefing einrichten (08:00, startet AUS)</button>
-          <span class="muted" id="me-brief-hint" style="font-size:12px;margin-left:8px"></span>
+      <!-- Spalte 2: was KIRA von dir braucht -->
+      <div class="me-col">
+        <div class="panel me-grow">
+          <div class="panel-h">◈ VON KIRA — braucht dich <span class="live"></span><span class="sp"></span><span class="muted" id="inbox-count" style="font-size:11px"></span></div>
+          <div id="inbox-list" class="panel-b me-scroll"><span class="muted">…</span></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h">◈ ZUGANGS-ANFRAGEN <span class="sp"></span><a id="go-keys" class="muted" style="cursor:pointer;font-size:10px">→ Kira · Zugaenge</a></div>
+          <div id="todo-secrets" class="panel-b me-scroll" style="max-height:22vh"><span class="muted">…</span></div>
         </div>
       </div>
-      <div class="panel"><div class="panel-h">◈ MISSIONEN &amp; ZIELE (Leben)</div>
-        <div id="life-goals" class="panel-b"><span class="muted">…</span></div></div>
+      <!-- Spalte 3: Routine, Mails, Metriken (schlank) -->
+      <div class="me-col">
+        <div class="panel">
+          <div class="panel-h">◈ DEINE ROUTINEN <span class="sp"></span><span class="muted" style="font-size:10px">per Telegram diktierbar</span></div>
+          <div id="me-crons" class="panel-b me-scroll" style="max-height:20vh"><span class="muted">…</span></div>
+          <div class="panel-b" style="border-top:1px solid var(--line)">
+            <button class="ghost" id="me-brief-setup" style="font-size:12px">☀ Morgen-Briefing (08:00, aus)</button>
+            <span class="muted" id="me-brief-hint" style="font-size:11px;margin-left:6px"></span>
+          </div>
+        </div>
+        <div class="panel me-grow">
+          <div class="panel-h">◈ E-MAILS <span class="sp"></span><span class="muted" style="font-size:10px">bald</span></div>
+          <div id="me-mails" class="panel-b me-scroll"><div class="emptybox" style="min-height:80px;font-size:12px">Kein Postfach verbunden.<br>IMAP/SMTP unter Kira → Zugaenge eintragen.</div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-h">◈ METRIKEN <span class="sp"></span><span class="muted" style="font-size:10px">„Gewicht heute 91.4“</span></div>
+          <div id="life-metrics" class="panel-b me-scroll" style="max-height:20vh"><span class="muted">…</span></div>
+        </div>
+      </div>
     </div>
-    <div class="panel"><div class="panel-h">◈ METRIKEN <span class="sp"></span><span class="muted" style="font-size:11px">z.B. „Kira, Gewicht heute 91.4“</span></div>
-      <div id="life-metrics" class="panel-b"><span class="muted">…</span></div></div>
   </div>
 
   <!-- ================= KIRA (Persoenlichkeit & Specs) ================= -->

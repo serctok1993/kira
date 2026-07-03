@@ -366,7 +366,18 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
  .proj-cols{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
  .proj-cols>.panel{min-height:0;display:flex;flex-direction:column;margin:0}
  .proj-cols>.panel>[class*="-list"],.proj-cols>.panel>#todo-board,.proj-cols>.panel>#obj-list{flex:1;overflow:auto}
+ /* Me: 3 App-Style-Spalten, jede stapelt schlanke Panels mit internem Scroll — kein Seiten-Scroll */
+ #v-me.on{overflow:hidden}
+ .me-grid{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+ .me-col{min-height:0;display:flex;flex-direction:column;gap:14px}
+ .me-col>.panel{display:flex;flex-direction:column;min-height:0;margin:0}
+ .me-col>.panel.me-grow{flex:1}
+ .me-scroll{overflow:auto}
+ /* Kira: Subtab-Leiste fest, aktiver Unterreiter scrollt intern (kein Seiten-Scroll) */
+ #v-kira.on{overflow:hidden}
+ #v-kira .subview.on{flex:1;min-height:0;overflow:auto;padding-right:2px}
 }
+.me-grid{display:grid;grid-template-columns:1fr;gap:14px}       /* Fallback schmal: gestapelt */
 .proj-cols{display:grid;grid-template-columns:1fr;gap:14px}  /* Fallback schmal: gestapelt */
 
 </style>"""

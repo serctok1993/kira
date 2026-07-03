@@ -72,8 +72,14 @@ function applyIcons(){try{const ic=JSON.parse(localStorage.getItem("kira_icons")
  $$("#side a .ti").forEach(i=>{const v=i.closest("a").dataset.v;if(ic[v])i.textContent=ic[v];});}catch(e){}}
 applyIcons();
 
-/* ---- Me (S7a/S8.4): beide Todo-Richtungen + Zugangs-Anfragen + Mails + Routinen ---- */
+/* ---- Me (S7a/S8.4/S9.4): beide Todo-Richtungen + Zugangs-Anfragen + Mails + Routinen ---- */
 function loadMe(){loadInbox();loadTodoSecrets();loadLeben();loadMeCrons();}
+/* S9.4: Todo direkt anlegen (Enter oder +) */
+async function meTodoAdd(){const i=$("#me-todo-in");const t=(i.value||"").trim();if(!t)return;
+ await fetch("/api/life/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({description:t})});
+ i.value="";toast("notiert","ok");loadLeben();}
+$("#me-todo-add")&&($("#me-todo-add").onclick=meTodoAdd);
+$("#me-todo-in")&&($("#me-todo-in").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();meTodoAdd();}}));
 async function loadMeCrons(){const el=$("#me-crons");if(!el)return;try{
  const d=await (await fetch("/api/cron")).json();
  const mine=(d.jobs||[]).filter(j=>(j.scope||"system")==="me");
