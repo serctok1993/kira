@@ -268,7 +268,7 @@ async function loadHud(){const el=$("#hud-strip");if(!el)return;
   const kill=o.kill_switch?'<span style="color:var(--danger)">⛔ NOT-AUS</span>':'<span style="color:var(--ok)">● bereit</span>';
   const model=(""+(o.model||"")).split("/").pop();
   const on=o.mission&&o.mission.heartbeat;
-  const motor='<span style="color:'+(on?"var(--ok)":"var(--muted)")+'">'+(on?"● laeuft":"○ aus")+'</span>';
+  const motor='<a id="hud-motor" title="Klicken zum Umschalten" style="cursor:pointer;border-bottom:1px dotted var(--muted);color:'+(on?"var(--ok)":"var(--muted)")+'">'+(on?"● laeuft · AUS?":"○ aus · AN?")+'</a>';
   const jobs=mb?((mb.board&&(((mb.board.today||[]).length)+((mb.board.week||[]).length)+((mb.board.later||[]).length)))||0):0;
   const running=mb&&mb.board?((mb.board.running||[]).length):0;
   const todos=lb&&lb.board?(((lb.board.today||[]).length)+((lb.board.week||[]).length)):0;
@@ -285,6 +285,11 @@ async function loadHud(){const el=$("#hud-strip");if(!el)return;
    +'<div class="hud-cell spacer"></div>'
    +cell("Aktion",'<a id="hud-restart" style="cursor:pointer;color:var(--hud)">↻ Neustart</a>');
   const rb=$("#hud-restart");if(rb)rb.onclick=async()=>{if(!confirm("Kira neu starten? Dienste bouncen in ~20s."))return;await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});rb.textContent="↻ …";};
+  /* S11.4: DER Motor-Schalter — begleitete Aktivierung passiert hier, bewusst per Klick. */
+  const mt=$("#hud-motor");if(mt)mt.onclick=async()=>{const to=!on;
+   if(!confirm(to?"Motor EINSCHALTEN?\n\nKira plant und arbeitet dann autonom im Takt (alle 30 min). Budget-Bremse, Freigabe-Gates und Not-Aus bleiben aktiv.":"Motor ausschalten? Der aktuelle Tick laeuft noch zu Ende."))return;
+   await fetch("/api/mission/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({on:to})});
+   toast(to?"Motor AN — erster Tick startet im Takt":"Motor aus","ok");loadCommand();};
   /* S6.6d: Hero-Status + Aura (Motor an = Avatar leuchtet) */
   const hs=$("#hero-status");
   if(hs){const on=o.mission&&o.mission.heartbeat;
@@ -386,8 +391,13 @@ async function loadInbox(){const el=$("#inbox-list");if(!el)return;
   const cnt=$("#inbox-count");if(cnt)cnt.textContent=p.length?(p.length+" warten"):"leer";
   if(!p.length){el.innerHTML='<span class="muted">Nichts wartet auf Freigabe. Kira legt hier Aussen-Aktionen/Entwuerfe zum GO ab.</span>';return;}
   el.innerHTML=p.map(a=>{const ts=new Date(a.ts*1000).toLocaleString();
-   const kb={publish:"📮",email:"✉️",external:"🌐",evolution:"🧬",generic:"📝"}[a.kind]||"📝";
-   const det=esc((""+(a.detail||"")).slice(0,500));
+   const kb={publish:"📮",email:"✉️",email_stranger:"✉️",external:"🌐",evolution:"🧬",playbook:"📘",generic:"📝"}[a.kind]||"📝";
+   /* S11.4: E-Mail-Entwuerfe lesbar rendern (An/Betreff/Text) statt rohem JSON */
+   let raw=(""+(a.detail||""));
+   if(a.kind==="email"||a.kind==="email_stranger"){
+    try{const m=JSON.parse((raw.match(/\{[\s\S]*\}/)||[raw])[0]);
+     if(m&&(m.to||m.subject||m.body))raw="An: "+(m.to||"?")+"\nBetreff: "+(m.subject||"")+"\n\n"+(m.body||"");}catch(e){}}
+   const det=esc(raw.slice(0,900));
    return '<div class="memrow"><div class="mh"><span class="badge kind">'+kb+' '+esc(a.kind)+'</span><b style="color:var(--ink)">'+esc(a.title||"")+'</b><span style="flex:1"></span><span class="muted">'+ts+'</span></div>'
     +(det?'<div style="white-space:pre-wrap;font-size:12px;color:var(--muted);max-height:130px;overflow:auto;border-left:2px solid var(--line);padding-left:8px;margin:4px 0">'+det+'</div>':'')
     +'<div class="row" style="margin-top:6px"><button data-appr="'+a.id+'">✓ Freigeben</button><button class="ghost" data-rej="'+a.id+'">✕ Verwerfen</button></div></div>';
