@@ -59,6 +59,16 @@ core/
     evolution.py     Selbst-Update NUR von MUTABLE={SOUL,GOAL,BODY}.md via data/proposals/ +
                      Freigabe-Inbox; constitution.md auf ALLEN Software-Pfaden schreibgeschützt
     curator.py       curate_skills()/curate_lessons() (löscht nie blind)
+    playbooks.py     Playbook-System (S11): Prozeduren in playbooks/*.md (Frontmatter:
+                     wann/reifegrad/zaehler + Schritte/Akzeptanzkriterien/Lektionen);
+                     router_block() haengt NUR Kopfzeilen an beide Prompt-Pfade
+                     (agent.build_system_prompt + act._identity), Details via playbook_read;
+                     Reifegrade entwurf->begleitet->autonom: Befoerderung NUR via Freigabe-
+                     Inbox (kind 'playbook', 5 Erfolge in Serie), Fehlschlag stuft sofort
+                     zurueck; record_result/add_lesson schreiben in die DATEI zurueck
+                     (Lernen in Dateien statt Gewichten); refresh_index() pflegt INDEX.md
+                     (Vault-Einstieg im Root, taeglich via Wartung). Obsidian zeigt den
+                     Repo-Ordner als Vault — Dateisystem = Schnittstelle, kein Sync.
   agency/        Hände
     act.py           ReAct-Loop act(); act_chat mit Prefixen: "reason:" → escalate (S9.2),
                      "plan:" → Plan-Modus, "/work" → Werkzeugbudget; _resolve_objective_token (@ziel:)
@@ -123,7 +133,8 @@ core/
 - **S6.6–S7 — Cockpit 2.0** (1f15c25 → b0754a3): IA nach Sergens Zuschnitt, sicherer Markdown-Chat, Statistik (/api/insights), Avatar; Neon-Lila/Schwarz-Theme (Türkis raus, Karo raus); generische Tab/Subtab-Registry; 6-Tab-IA; Chat 2.0 (Tages-Sessions, Archiv, Modus-Schalter Chat/Research/Coding).
 - **S8 — Re-Zentrierung** (0b99b4a → d7d68af): S8.0 Reparatur (atomic_write überall, Telegram-Backoff+Bündelung); S8.1 Identität & Takt (Zweck-Hierarchie, Melde-Regeln, Selbst-Tick jeder 3., Radar experimentell, /api/evolution + Evolution-Subtab); S8.2 Projekt-Gedächtnis (Briefing bindend in Planung+Task, project_note, Kosten je Projekt, Datei-Ablage, Projekt-Akte); S8.3 Autonomie-Schalter statt Vertrauensbarometer; S8.4 IA-Verschiebung (Zugänge→Kira, Cron-Scopes, Morgen-Briefing-Vorlage); S8.5 Desktop-Pflege (Vorschlag-first, lokal).
 - **S9 — Dashboard-Feinschliff** (fbf2f42 → 9516726): Zentrale (Kiras kuratierte Monitor-News statt RSS, Ticker 140s, HUD erweitert, Dopplungen raus); Chat-Werkzeugleiste unten (Modell + Reasoning-Toggle „reason:" + Chips @ziel//mission//status//plan); Projekte = EINE Übersicht (Radar-Einbahn-Bug strukturell weg); Me = 3-Spalten-App-Layout + Quick-Add; Kein-Scroll-Disziplin überall.
-- **S10 — Bestandsaufnahme** (diese Stufe): BODY.md auf S8/S9-Realität, dieses Dossier, Kiras eigene Reflexion.
+- **S10 — Bestandsaufnahme**: BODY.md auf S8/S9-Realität, dieses Dossier, Kiras eigene Reflexion; S10.1: Kiras genehmigte GOAL/SOUL-Neufassung angewendet.
+- **S11 — Playbook-System**: Vault-Struktur (INDEX.md + playbooks/ mit _VORLAGE, akquise-email, wochen-review); core/mind/playbooks.py (Router + Reifegrade + Lernschleife + Index-Refresh); 4 Werkzeuge (playbook_list/read/result/lesson); Beförderung über Freigabe-Inbox (kind playbook), Rückstufung automatisch; Cockpit: Kira→Playbooks + /api/playbooks; tägliche Index-Wartung im Runner.
 
 ## 5. Aktueller Live-Zustand (verifiziert 2026-07-03, read-only)
 
@@ -131,7 +142,7 @@ core/
 - **Budget:** 20 €/Tag, 150 €/Monat (harte Bremse, setzt Sergen). Monat bislang: ~40,6 €.
 - **Autonomie:** `chains_off: true`, `hard_gate: ["money","email_stranger"]`, Council-Gate auf money. Steuerbar über die Schalter-Karte (Cockpit → Gewissen).
 - **Motor:** `config heartbeat.enabled: true`, aber **`data/heartbeat.flag` = off → Motor AUS**. Die begleitete Erst-Aktivierung (Doctor grün → Cockpit-Toggle → erste Ticks beaufsichtigen) steht noch aus.
-- **Werkzeuge:** 56 builtin registriert; mit MCP-Brücke zur Laufzeit ~73 (Cockpit → Kira → Anatomie zeigt den gruppierten Werkzeugkasten).
+- **Werkzeuge:** 60 builtin registriert (S11: +4 Playbook-Werkzeuge); mit MCP-Brücke zur Laufzeit ~77 (Cockpit → Kira → Anatomie zeigt den gruppierten Werkzeugkasten).
 - **MCP:** github AN, supabase AN, stripe/vercel/filesystem AUS.
 - **Datenlage (state.db):** 36 Tasks (32 done, 4 pending — alle via Chat/Cron, **0 Outcomes: der bewertete Heartbeat-Pfad ist noch NIE gelaufen**); 2 aktive Monats-Ziele (Validierungs-Experimente); 3 Ventures (alle Status „idea"); 625+ Memory-Einträge (8 Lektionen, 6 Skills, seit S10 sechs Selbst-Fakten); Wissens-Archiv leer (0 Docs); 12 Radar-Opportunities.
 - **Aktiv genutzt wird sie längst:** Telegram-Chat täglich; drei LIVE-Crons in data/cron.json — Sunrise Schlafzimmer 05:55 (steuert `core/tools/sunrise_hue.py`, Kiras eigenes Werk), Morgen-Briefing 08:00 (läuft, liefert per Telegram), Abend-Briefing 20:00. Crons laufen UNABHÄNGIG vom Heartbeat (run_forever: Monitor/Cron/Trigger/Wartung immer).

@@ -1108,6 +1108,16 @@ def api_insights(days: int = 14) -> dict:
     }
 
 
+@app.get("/api/playbooks")
+def api_playbooks() -> dict:
+    """S11: Playbook-Uebersicht (rein lesend) — Reifegrade, Zaehler, Lektionen fuers Cockpit."""
+    from core.mind import playbooks
+
+    return {"playbooks": playbooks.list_playbooks(),
+            "grades": list(playbooks.GRADES),
+            "promote_after": playbooks.PROMOTE_AFTER}
+
+
 @app.get("/api/desktop")
 def api_desktop() -> dict:
     """S8.5: Desktop-Pflege-Config + Vorschau des naechsten Scans (read-only)."""

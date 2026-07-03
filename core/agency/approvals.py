@@ -18,7 +18,7 @@ import uuid
 from core.config import DB_PATH
 from core.kernel import events
 
-KINDS = ("publish", "external", "email", "email_stranger", "money", "evolution", "generic")
+KINDS = ("publish", "external", "email", "email_stranger", "money", "evolution", "playbook", "generic")
 
 
 def _conn() -> sqlite3.Connection:
@@ -116,6 +116,13 @@ def decide(aid: str, approved: bool, note: str | None = None) -> dict:
         try:
             from core.mind import evolution
             applied = evolution.apply_update(entry["ref"], reason="Freigabe via Inbox")
+        except Exception as e:  # noqa: BLE001
+            applied = {"error": str(e)}
+    if approved and entry.get("kind") == "playbook" and entry.get("ref"):
+        # S11: Befoerderungs-Vorschlag angenommen -> Playbook eine Stufe hoch.
+        try:
+            from core.mind import playbooks
+            applied = playbooks.promote(entry["ref"])
         except Exception as e:  # noqa: BLE001
             applied = {"error": str(e)}
     events.emit("approval_decided", {"id": aid, "status": status, "kind": entry.get("kind"),

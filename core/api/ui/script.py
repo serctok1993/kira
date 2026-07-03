@@ -41,6 +41,7 @@ function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle(
 const SUBTABS={
  kira:    {bar:"#kira-tabs", cur:"files",
            loaders:{files:()=>loadFiles(),mem:()=>loadMem(),wissen:()=>loadWissen(),
+                    playbooks:()=>loadPlaybooks(),
                     anatomie:()=>loadAgenten(),evolution:()=>loadEvolution(),stats:()=>loadStats(),
                     keys:()=>loadKeys()}},
  config:  {bar:"#sys-tabs",  cur:"models",
@@ -62,6 +63,19 @@ $("#dw-save")&&($("#dw-save").onclick=async()=>{
 $("#dw-scan")&&($("#dw-scan").onclick=async()=>{$("#dw-status").textContent="… scanne";
  const r=await (await fetch("/api/desktop/scan",{method:"POST"})).json();
  $("#dw-status").textContent=r.suggestions?("✓ "+r.suggestions+" Dateien — Vorschlag liegt bei Me unter Von Kira"):(r.skipped?"erst aktivieren":"nichts zu sortieren");});
+/* ---- Playbooks (S11): feste Ablaeufe mit Reifegrad + Lernschleife ---- */
+async function loadPlaybooks(){const el=$("#pb-list");if(!el)return;try{
+ const d=await (await fetch("/api/playbooks")).json();const pbs=d.playbooks||[];
+ if(!pbs.length){el.innerHTML='<span class="muted">Noch keine Playbooks — kopiere playbooks/_VORLAGE.md als Start.</span>';return;}
+ const badge=g=>g==="autonom"?"kira":(g==="begleitet"?"you":"kind");
+ el.innerHTML=pbs.map(p=>'<div class="memrow"><div class="mh">'
+  +'<span class="badge '+badge(p.reifegrad)+'">'+esc(p.reifegrad)+'</span>'
+  +'<b>'+esc(p.titel||p.name)+'</b>'
+  +'<span class="muted" style="font-size:11px">'+(p.erfolge|0)+' Erfolge · '+(p.fehlschlaege|0)+' Fehlschlaege · '
+  +(p.lektionen|0)+' Lektionen · Serie '+(p.serie|0)+'/'+(d.promote_after||5)
+  +(p.letzte?(' · zuletzt '+esc(p.letzte)):'')+'</span>'
+  +'</div><div class="muted">'+esc(p.wann||'')+'</div></div>').join("");
+}catch(e){el.innerHTML='<span class="muted">Playbooks nicht ladbar.</span>';}}
 function subnav(tab,s){const g=SUBTABS[tab];if(!g)return;g.cur=s;
  $$(g.bar+" a").forEach(a=>a.classList.toggle("on",a.dataset.s===s));
  $$("#v-"+tab+" .subview").forEach(x=>x.classList.toggle("on",x.id==="v-"+s));

@@ -468,6 +468,11 @@ def run_forever(interval: int | None = None) -> None:
 
                     res = body.refresh()  # Anatomie-Fakten frisch abschreiben (S5)
                     events.emit("body_refreshed", res)
+                if maintenance.maybe_run("playbook_index"):
+                    from core.mind import playbooks as _pb
+
+                    res = _pb.refresh_index()  # Vault-INDEX frisch abschreiben (S11)
+                    events.emit("playbook_index_refreshed", res)
                 if maintenance.maybe_run("insights_weekly", interval_s=7 * 86400):
                     from core.agency import insights as _ins
 

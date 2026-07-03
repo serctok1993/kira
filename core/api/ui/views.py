@@ -224,7 +224,7 @@ VIEWS = r"""</head><body>
   <!-- ================= KIRA (Persoenlichkeit & Specs) ================= -->
   <div class="view" id="v-kira">
     <div class="seg" id="kira-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="anatomie">Anatomie</a><a data-s="evolution">Evolution</a><a data-s="stats">Statistik</a><a data-s="keys">Zugaenge</a>
+      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="playbooks">Playbooks</a><a data-s="anatomie">Anatomie</a><a data-s="evolution">Evolution</a><a data-s="stats">Statistik</a><a data-s="keys">Zugaenge</a>
     </div>
 
     <div class="subview" id="v-keys">
@@ -286,6 +286,17 @@ VIEWS = r"""</head><body>
       </div>
       <div class="panel"><div class="panel-h">◈ ARCHIV <span class="sp"></span><span class="muted" id="kn-count" style="font-size:11px"></span></div>
         <div id="kn-docs" class="panel-b"><span class="muted">…</span></div></div>
+    </div>
+
+    <div class="subview" id="v-playbooks">
+      <div class="card"><h3>Playbooks — feste Ablaeufe, die durch Benutzung besser werden</h3>
+        <div class="muted">Jedes Playbook ist eine Markdown-Datei in <code>playbooks/</code> (in Obsidian
+        sichtbar und editierbar). Reifegrad: <b>entwurf</b> (nur Vorschlaege in deine Freigabe-Inbox)
+        -&gt; <b>begleitet</b> (handelt + meldet) -&gt; <b>autonom</b> (handelt, meldet Ergebnis).
+        Befoerderung NUR ueber deine Freigabe (5 Erfolge in Serie); ein Fehlschlag stuft automatisch
+        zurueck. Lektionen schreibt Kira in die Datei zurueck.</div>
+        <div id="pb-list" style="margin-top:12px"><span class="muted">…</span></div>
+      </div>
     </div>
 
     <div class="subview" id="v-anatomie">

@@ -81,12 +81,23 @@ def _body_compact() -> str:
         return ""
 
 
+def _playbooks_block() -> str:
+    """Router-Block der Playbooks (S11): nur Kopfzeilen, Details via playbook_read — fail-soft."""
+    try:
+        from core.mind import playbooks
+
+        return playbooks.router_block()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def build_system_prompt(user_message: str, session_id: str | None = None) -> str:
     constitution = _read("constitution.md")
     soul = _read("SOUL.md")
     goal = _read("GOAL.md")
     user = _read("USER.md")
     koerper = _body_compact()
+    playbooks_block = _playbooks_block()
     recalled = memory.recall(user_message, limit=6, exclude_session=session_id)
     if recalled:
         mem_block = "\n".join(f"- ({m['role']}) {m['text']}" for m in recalled)
@@ -113,6 +124,8 @@ def build_system_prompt(user_message: str, session_id: str | None = None) -> str
 
 # DEIN KOERPER (Anatomie dieses Harness — Details: read_file("core/mind/BODY.md"))
 {koerper}
+
+{playbooks_block}
 
 # DEINE GELERNTEN LEKTIONEN (aus eigener Reflexion)
 {lessons_block}
