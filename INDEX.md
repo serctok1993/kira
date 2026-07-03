@@ -7,6 +7,7 @@
 2. **Prozeduren** → [[playbooks/_VORLAGE|Playbook-Vorlage]] + Tabelle unten (jedes Playbook verlinkt)
 3. **Laufende Arbeit** → `data/workspace/` (Objectives + Venture-Briefings, wechseln ständig)
 4. **Wissen & Referenz** → [[docs/KIRA-IST|Übergabe-Dossier KIRA-IST]]
+5. **Verbesserungs-Loop (Cloud)** → [[loop/LOOP|Betriebsanleitung]] · [[loop/LOOP-LOG|Journal]] · [[loop/BACKLOG|Backlog]]
 
 **Spielregeln:** Ein Playbook = ein Ablauf. Passt eines zur Aufgabe, wird es GENAU befolgt
 und das Ergebnis mit `playbook_result` zurückgemeldet — daraus lernt es. Reifegrade:
