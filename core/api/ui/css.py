@@ -382,4 +382,23 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
  #v-kira .subview.on{flex:1;min-height:0;overflow:auto;padding-right:2px}
 }
 
+/* ===== Redesign-Umbau 1 (Sergen): ruhiger + Live-Ops schmaler ===== */
+/* Neon-Glow zuruecknehmen — sachlicher, weniger HUD-Effekt. */
+.panel-h{text-shadow:none}
+.panel::before,.panel::after{opacity:.32;filter:none}
+.card h3{text-shadow:none}
+.ticker>span{text-shadow:none}
+h2{text-shadow:none}
+button{box-shadow:none}
+button:hover{box-shadow:none;transform:none;filter:brightness(1.08)}
+button.ghost:hover{box-shadow:0 0 0 1px var(--accent);filter:none}
+.pill.ok,.pill.on{box-shadow:none}
+/* Live-Ops nicht mehr vollbreit — moderat begrenzt, Rest bekommt Luft. */
+@media(min-width:1050px){
+ #v-home .cmd-main{max-width:760px;flex:0 1 760px}
+ #v-home .cmd-side{flex:1 1 340px}
+}
+/* Inline-Rename: editierbare Beschriftungen erkennbar machen. */
+.panel-h[data-lblkey],.card h3[data-lblkey]{cursor:text}
+.panel-h[data-lblkey]:hover,.card h3[data-lblkey]:hover{color:var(--accent2)}
 </style>"""
