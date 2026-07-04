@@ -48,6 +48,21 @@ def init_approvals() -> None:
         c.execute("CREATE INDEX IF NOT EXISTS idx_appr_status ON approvals(status, ts)")
 
 
+# Richter-Urteil 04.07.2026 (Fleiss-Inflation): mehr als N autonome Eintraege
+# pro Tag sind ein Warnsignal — die Inbox darf nicht zur zweiten Last werden.
+DAILY_AUTONOMOUS_BUDGET = 3
+
+
+def created_today(source: str = "kira") -> int:
+    """Zaehlt, wie viele Eintraege diese Quelle seit lokalem Mitternacht angelegt hat."""
+    lt = time.localtime()
+    day_start = time.mktime((lt.tm_year, lt.tm_mon, lt.tm_mday, 0, 0, 0, 0, 0, -1))
+    with _conn() as c:
+        r = c.execute("SELECT COUNT(*) FROM approvals WHERE source=? AND ts>=?",
+                      (source, day_start)).fetchone()
+    return int(r[0] if r else 0)
+
+
 def create(title: str, kind: str = "generic", detail: str | None = None,
            ref: str | None = None, source: str = "kira") -> str:
     init_approvals()
@@ -60,6 +75,13 @@ def create(title: str, kind: str = "generic", detail: str | None = None,
             (aid, time.time(), kind, title.strip(), detail, ref, source),
         )
     events.emit("approval_requested", {"id": aid, "kind": kind, "title": title[:200], "source": source})
+    if source == "kira":
+        # Tagesbudget-Wache: warnt (blockiert NICHT), wenn Kira die Inbox flutet.
+        n = created_today("kira")
+        if n > DAILY_AUTONOMOUS_BUDGET:
+            events.emit("approval_flood_warning", {
+                "count_today": n, "budget": DAILY_AUTONOMOUS_BUDGET,
+                "hint": "Autonome Inbox-Eintraege buendeln statt fluten (Richter-Rat)."})
     return aid
 
 
