@@ -426,10 +426,14 @@ def run_forever(interval: int | None = None) -> None:
                 events.emit("stuck_reset_error", {"error": str(e)})
 
             # Immer (unabhaengig vom Missions-Toggle): Monitor + geplante Aufgaben.
+            # Der Monitor MERKT sich Neues nur (Puffer) und pingt NICHT mehr spontan;
+            # die News liefert das Briefing (08:00/20:00) in Kiras Stimme. Spontanes
+            # Melden nur, wenn Sergen es ueber config monitor.spontaneous_notify anschaltet.
             try:
                 from core.agency.connectors import news_monitor
 
-                news_monitor.run_all(force=False, notify=True)
+                spontan = bool(CONFIG.get("monitor", {}).get("spontaneous_notify", False))
+                news_monitor.run_all(force=False, notify=spontan)
             except Exception as e:  # noqa: BLE001
                 events.emit("monitor_error", {"error": str(e)})
             try:
