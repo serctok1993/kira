@@ -696,6 +696,46 @@ def _handle_model_command(text: str) -> str:
         return f"Modell-Befehl fehlgeschlagen: {str(e)[:200]}"
 
 
+def _handle_swarm_command(text: str, session_id: str | None) -> str:
+    """Direkter Draht zur Schwarmintelligenz OHNE LLM (/delegiere, /schwarm).
+
+    Sergens Riegel: ER waehlt den Rang (und damit die Modell-Klasse laut Rang-Tafel),
+    der Befehl geht deterministisch an die Delegations-Werkzeuge — kein Modell muss
+    mitspielen oder darf umdeuten. Liefert IMMER einen String, raist nie."""
+    try:
+        from core.agency.tools import delegate_tools
+
+        parts = text.strip().split(maxsplit=1)
+        cmd = parts[0].lower()
+        rest = parts[1].strip() if len(parts) > 1 else ""
+        if not rest:
+            return ("Direktzugriff auf die Schwarmintelligenz:\n"
+                    "  /delegiere <rang> <auftrag>\n"
+                    "  /schwarm [rang] <vorlage mit {item}> | item1 | item2 | …\n"
+                    f"Raenge: {', '.join(delegate_tools._RANG)} (Modell je Rang: Cockpit → Config → Steuerpult).")
+        words = rest.split(maxsplit=1)
+        rang = "arbeiter"
+        if words[0].lower() in delegate_tools._RANG:
+            rang = words[0].lower()
+            rest = words[1].strip() if len(words) > 1 else ""
+        if not rest:
+            return "Auftrag fehlt. Beispiel: /delegiere denker Fasse docs/HANDBUCH.md in 10 Zeilen zusammen."
+        if cmd in ("/delegiere", "/delegate"):
+            return delegate_tools._delegiere(rest, rang, session_id)
+        if "|" in rest:  # /schwarm: Items per '|' (eine Zeile) oder als eigene Zeilen
+            vorlage, _, items_raw = rest.partition("|")
+            items = "\n".join(i.strip() for i in items_raw.split("|") if i.strip())
+        else:
+            lines = [ln for ln in rest.splitlines() if ln.strip()]
+            vorlage, items = lines[0], "\n".join(lines[1:])
+        if not items.strip():
+            return ("Schwarm braucht Items: /schwarm [rang] <vorlage mit {item}> | item1 | item2 …\n"
+                    "(oder die Items in eigenen Zeilen unter der Vorlage)")
+        return delegate_tools.schwarm(vorlage.strip(), items, rang=rang, session_id=session_id or "")
+    except Exception as e:  # noqa: BLE001 — Steuerbefehle liefern Strings, raisen nie
+        return f"Schwarm-Befehl fehlgeschlagen: {str(e)[:200]}"
+
+
 def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, escalate: bool = False, on_event=None) -> str:
     """Konversationeller, agentischer Chat: Gedaechtnis + Persona + Werkzeuge.
 
@@ -729,6 +769,17 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     if _mc_first in ("/model", "/switch"):
         reply = _handle_model_command(_mc)
         events.emit("model_command", {"reply": reply[:400]}, session_id=session_id)
+        emit({"kind": "final", "text": reply})
+        return reply
+
+    # Sergens Riegel: /delegiere und /schwarm gehen deterministisch an die
+    # Schwarmintelligenz — Rang (= Modell-Klasse) waehlt ER, kein LLM deutet um.
+    # Ergebnis wandert ins Gedaechtnis, damit der Dialog danach darauf aufbauen kann.
+    if _mc_first in ("/delegiere", "/delegate", "/schwarm"):
+        reply = _handle_swarm_command(_mc, session_id)
+        events.emit("swarm_command", {"cmd": _mc[:160], "reply": reply[:400]}, session_id=session_id)
+        memory.remember(_mc, role="user", session_id=session_id)
+        memory.remember(reply, role="partner", session_id=session_id)
         emit({"kind": "final", "text": reply})
         return reply
 

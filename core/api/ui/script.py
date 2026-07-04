@@ -45,7 +45,7 @@ const SUBTABS={
                     anatomie:()=>loadAgenten(),evolution:()=>loadEvolution(),stats:()=>loadStats(),
                     keys:()=>loadKeys(),checkliste:()=>loadCheckliste()}},
  config:  {bar:"#sys-tabs",  cur:"models",
-           loaders:{models:()=>loadModels(),gov:()=>loadGov(),
+           loaders:{models:()=>loadModels(),steuer:()=>loadSteuer(),gov:()=>loadGov(),
                     cron:()=>loadCron(),monitor:()=>loadMonitor(),log:()=>loadEvents(),cockpit:()=>loadDesktop()}}};
 
 /* ---- Desktop-Pflege (S8.5) ---- */
@@ -724,6 +724,49 @@ function bar(spent,limit){if(limit==null)return '<span class=muted>kein Limit</s
   +'<div style="height:100%;width:'+pct+'%;background:'+col+'"></div></div>'
   +'<small class=muted>'+spent.toFixed(4)+' / '+limit+' € ('+pct+'%)</small>';}
 async function cfgSet(path,value){return (await fetch("/api/config/set",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path,value})})).json();}
+
+/* ---- Steuerpult: Sergens Riegel ueber die Schwarmintelligenz ---- */
+const RANG_ICON={reflex:"🐜",arbeiter:"🔧",denker:"🧠",richter:"⚖"};
+async function loadSteuer(){const el=$("#st-raenge");if(!el)return;
+ try{const d=await (await fetch("/api/steuer")).json();
+  el.innerHTML=(d.raenge||[]).map(r=>{const real=(r.real||"").replace(/^openrouter\//,"");
+   const gesetzt=((r.modell||"—")+"").replace(/^openrouter\//,"").replace(/</g,"&lt;");
+   return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:6px 2px;border-bottom:1px solid var(--line)">'
+    +'<span style="min-width:150px">'+(RANG_ICON[r.rang]||"")+' <b>'+r.rang+'</b> <small class=muted>'+r.info+'</small></span>'
+    +'<span style="flex:1;min-width:180px"><b style="color:var(--accent)">'+gesetzt+'</b>'
+    +(r.fallback?' <small class="no">läuft real: '+real.replace(/</g,"&lt;")+' [FALLBACK]</small>':'')
+    +' <small class=muted>· '+r.schritte+' Schritte</small></span>'
+    +'<input list="st-modelle" data-strang="'+r.rolle+'" placeholder="Modell suchen…" style="min-width:200px"/>'
+    +'<button class=ghost data-stgo="'+r.rolle+'" style="padding:3px 9px">zuweisen</button></div>';}).join("");
+  el.querySelectorAll("button[data-stgo]").forEach(b=>b.onclick=async()=>{
+   const inp=el.querySelector('input[data-strang="'+b.dataset.stgo+'"]');const mid=(inp.value||"").trim();
+   if(!mid)return;$("#st-rang-hint").textContent="… setze "+b.dataset.stgo+" …";
+   await fetch("/api/model/role",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role:b.dataset.stgo,model:mid})});
+   $("#st-rang-hint").innerHTML="✓ gesetzt";loadSteuer();refreshStatus();});
+  const set=(id,v)=>{const x=$(id);if(x&&document.activeElement!==x)x.value=v;};
+  const st={};(d.raenge||[]).forEach(r=>st[r.rang]=r.schritte);
+  set("#st-s-reflex",st.reflex);set("#st-s-arbeiter",st.arbeiter);set("#st-s-denker",st.denker);set("#st-s-richter",st.richter);
+  set("#st-breite",d.schwarm_max);set("#st-kosten",d.max_kosten_eur);
+  const dl=$("#st-modelle");if(dl&&!dl.children.length){try{const c=await (await fetch("/api/model/catalog")).json();
+   const cat=c.catalog||{};const all=(cat.local||[]).concat(cat.openrouter||[]).concat(cat.aimlapi||[]);
+   dl.innerHTML=all.slice(0,600).map(m=>'<option value="'+(m.id||"").replace(/"/g,"&quot;")+'">').join("");}catch(e){}}
+ }catch(e){el.innerHTML='<span class=muted>Steuerpult nicht erreichbar.</span>';}}
+$("#st-regler-save")&&($("#st-regler-save").onclick=async()=>{
+ const n=id=>parseFloat(($(id)||{}).value);
+ for(const [id,path] of [["#st-s-reflex","agency.delegate.schritte.reflex"],["#st-s-arbeiter","agency.delegate.schritte.arbeiter"],
+   ["#st-s-denker","agency.delegate.schritte.denker"],["#st-s-richter","agency.delegate.schritte.richter"],
+   ["#st-breite","agency.delegate.schwarm_max"]]){const v=n(id);if(!isNaN(v))await cfgSet(path,Math.round(v));}
+ const k=n("#st-kosten");if(!isNaN(k))await cfgSet("agency.delegate.max_kosten_eur",k);
+ $("#st-regler-hint").textContent="✓ live übernommen";loadSteuer();});
+$("#st-cmd-schwarm")&&($("#st-cmd-schwarm").onchange=e=>{$("#st-cmd-items").style.display=e.target.checked?"":"none";});
+$("#st-cmd-go")&&($("#st-cmd-go").onclick=()=>{
+ const rang=$("#st-cmd-rang").value;const auftrag=($("#st-cmd-auftrag").value||"").trim().replace(/\s*\n\s*/g," ");
+ if(!auftrag)return;let cmd;
+ if($("#st-cmd-schwarm").checked){const items=($("#st-cmd-items").value||"").split("\n").map(s=>s.trim()).filter(Boolean);
+  if(!items.length){$("#st-cmd-items").focus();return;}
+  cmd="/schwarm "+rang+" "+auftrag+" | "+items.join(" | ");}
+ else{cmd="/delegiere "+rang+" "+auftrag;}
+ nav("chat");const ci=$("#cin");if(ci){ci.value=cmd;ci.focus();}});
 async function doRestart(e){if(e&&e.preventDefault)e.preventDefault();await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});alert("Neustart angefordert — Dienste bouncen in ~20s.");}
 /* S8.3: Autonomie-Karte — echte Schalter statt Vertrauensbarometer */
 const GATE_KINDS={money:"💶 Geld bewegen",email_stranger:"✉️ Mails/Nachrichten an Fremde",

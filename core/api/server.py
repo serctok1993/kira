@@ -185,6 +185,36 @@ async def api_file_save(body: dict) -> dict:
     return {"ok": True}
 
 
+@app.get("/api/steuer")
+def api_steuer() -> dict:
+    """Steuerpult-Daten: Rang-Tafel (gesetzt vs. real laufend) + Schwarm-Regler.
+
+    Read-only; Aenderungen laufen ueber /api/model/role (Rang-Modell) und
+    /api/config/set (Regler, Whitelist agency.delegate.*)."""
+    from core.agency.tools.delegate_tools import _RANG, _kosten_deckel, _steps_for
+    from core.kernel import llm_router
+
+    m = CONFIG.get("models", {})
+    rt = m.get("routing", {}) if isinstance(m.get("routing"), dict) else {}
+    beschreibung = {"reflex": "trivial, lokal, 0 EUR", "arbeiter": "Masse, billig",
+                    "denker": "Planung/Reasoning", "richter": "finale Urteile, selten"}
+    rolle = {"reflex": "classify", "arbeiter": "worker", "denker": "reason", "richter": "escalation"}
+    raenge = []
+    for rang, (task_type, esc) in _RANG.items():
+        gesetzt = m.get("escalation_model") if rang == "richter" else rt.get(task_type, m.get("default"))
+        try:
+            real, fb = llm_router.resolve_model(task_type, escalate=esc)
+        except Exception:  # noqa: BLE001
+            real, fb = gesetzt, False
+        raenge.append({"rang": rang, "rolle": rolle[rang], "info": beschreibung[rang],
+                       "modell": gesetzt, "real": real, "fallback": fb,
+                       "schritte": _steps_for(rang)})
+    dg = CONFIG.get("agency", {}).get("delegate", {}) if isinstance(CONFIG.get("agency"), dict) else {}
+    return {"raenge": raenge,
+            "schwarm_max": int(dg.get("schwarm_max", 8) or 8),
+            "max_kosten_eur": _kosten_deckel()}
+
+
 @app.get("/api/checkliste")
 def api_checkliste() -> dict:
     """System-Checkliste (read-only): Gedaechtnis-Frische + Fundament-Zustand.
@@ -483,6 +513,10 @@ _CONFIG_WHITELIST = {
     "governance.budget.daily_eur", "governance.budget.monthly_eur", "governance.trust_level",
     "mission.goal", "mission.notify_telegram", "heartbeat.interval_seconds",
     "channels.telegram.voice", "channels.telegram.whisper_model",
+    # Steuerpult: Schwarm-Regler (greifen live — delegate liest CONFIG pro Aufruf)
+    "agency.delegate.schritte.reflex", "agency.delegate.schritte.arbeiter",
+    "agency.delegate.schritte.denker", "agency.delegate.schritte.richter",
+    "agency.delegate.schwarm_max", "agency.delegate.max_kosten_eur",
 }
 _MODEL_LIVE = {"models.temperature": "temperature", "models.max_tokens": "max_tokens",
                "models.num_ctx": "num_ctx", "models.keep_alive": "keep_alive"}  # live, kein Neustart
