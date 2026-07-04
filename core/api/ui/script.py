@@ -542,11 +542,11 @@ $("#sess-toggle")&&($("#sess-toggle").onclick=()=>{const p=$("#sess-panel");p.cl
 (localStorage.getItem("kira_sess_open")==="1")&&$("#sess-panel")&&$("#sess-panel").classList.add("open");
 $("#sess-archtoggle")&&($("#sess-archtoggle").onclick=()=>{showArchived=!showArchived;
  $("#sess-archtoggle").textContent=showArchived?"Archiv ausblenden":"Archiv anzeigen";loadChatSessions();});
-/* Modus-Schalter: Chat = Dialog · Research = /work (Werkzeug-Budget) · Coding = plan: (Plan->Schritte) */
+/* Modus-Schalter: Chat = Dialog · Research = /work (Werkzeug-Budget) · Coding = code: (Plan->Schritte + Coding-Regeln) */
 let chatMode="chat";
 const MODE_HINT={chat:"Dialog — kurz & direkt. Research/Coding fuer echte Arbeitsauftraege.",
  research:"Volles Werkzeug-Budget: recherchiert, liest, fasst zusammen. Mit @ziel: zaehlt es aufs Ziel.",
- coding:"Claude-Code-Stil: erst Plan, dann Schritt fuer Schritt mit starkem Modell."};
+ coding:"Claude-Code-Stil: suchen → chirurgisch editieren → Tests laufen automatisch → ehrlicher Bericht."};
 $$("#chat-mode-seg a").forEach(a=>a.onclick=()=>{chatMode=a.dataset.m;
  $$("#chat-mode-seg a").forEach(x=>x.classList.toggle("on",x===a));
  const h=$("#mode-hint");if(h)h.textContent=MODE_HINT[chatMode]||"";});
@@ -564,7 +564,7 @@ $("#cform").onsubmit=e=>{e.preventDefault();const raw=$("#cin").value.trim();if(
  msgEl(raw,"me");startThinking();
  let t=raw;
  if(chatMode==="research"&&!/^(\/work|work:|plan:|\/plan)/i.test(raw))t="/work "+raw;
- if(chatMode==="coding"&&!/^(plan:|\/plan)/i.test(raw))t="plan: "+raw;
+ if(chatMode==="coding"&&!/^(code:|plan:|\/plan)/i.test(raw))t="code: "+raw;  /* code: = plan + Coding-Regeln */
  if($("#reason-on")&&$("#reason-on").checked&&!/^reason:/i.test(t))t="reason: "+t;  /* S9.2: staerkeres Modell */
  ws.send(t);$("#cin").value="";curBot=null;curThink=null;};
 
