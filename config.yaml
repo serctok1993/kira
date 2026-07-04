@@ -8,13 +8,20 @@ identity:
 # Cloud-Modelle nutzt der Agent nur GEZIELT pro Aufgabe (escalate=True), wenn er
 # sie fuer wuerdig haelt -- und nur solange das Tagesbudget (governance) reicht.
 # (Fuer ein reines Cloud-Setup laesst sich 'default' voruebergehend umstellen.)
+# RANG-TABELLE: Der Harness denkt in RAENGEN (reflex/arbeiter/denker/richter), nicht in
+# Modellnamen — Modelle wechseln, Raenge bleiben. Modellwechsel = hier EINE Zeile aendern.
+#   RANG REFLEX   = classify (lokal, 0 EUR)   triviale Zuarbeit
+#   RANG ARBEITER = worker   (Cents)          delegierte Teilaufgaben, Schwarm, Masse
+#   RANG DENKER   = reason   (Mittelklasse)   Reasoning, Planung, Council
+#   RANG RICHTER  = escalation_model          seltene finale Urteile (staerkstes Modell)
 models:
   default: openrouter/deepseek/deepseek-v4-flash   # Live-Baseline: guenstiger Flash fuer Default/Chat/Grind
   routing:
     chat: openrouter/deepseek/deepseek-v4-flash    # Dialog mit Sergen -> Flash (guenstig, schnell)
-    reason: openrouter/deepseek/deepseek-v4-pro    # Reasoning/Council/Reflexion -> Pro (staerker)
+    reason: openrouter/deepseek/deepseek-v4-pro    # RANG DENKER: Reasoning/Council/Reflexion
     bulk: openrouter/deepseek/deepseek-v4-flash    # Massen-/24-7-Grind -> Flash (guenstig)
-    classify: ollama_chat/llama3.1:8b       # triviale Klassifikation -> klein & schnell, lokal 0 EUR
+    classify: ollama_chat/llama3.1:8b       # RANG REFLEX: trivial -> klein & schnell, lokal 0 EUR
+    worker: openrouter/deepseek/deepseek-v4-flash  # RANG ARBEITER: delegierte Teilaufgaben (Cents)
   local_fallback: ollama_chat/qwythos       # immer verfuegbar, 0 EUR (Endgame: lokal-first)
   escalation_model: openrouter/deepseek/deepseek-v4-pro   # Cloud bei escalate=True (self_edit, /council!, harte Tasks)
   # Erstes-Herzschlag/Selbstaudit auf Fable: im Chat '/model fable' -> setzt escalation auf
@@ -48,6 +55,12 @@ agency:
     max_steps_chat: 30        # Chat darf mehr Werkzeug-Runden, bevor der Deckel greift
     max_steps_plan_step: 40   # Plan-Teilschritte duerfen tief gehen
     obs_max_chars: 60000      # grosses Kontextfenster -> mehr Werkzeug-Ergebnis zeigen
+  # Delegation (Unteragenten nach Rang): Schritt-Deckel je Rang, Kosten-Deckel je
+  # Delegation (global bremst weiterhin governance.budget), Schwarm-Breite.
+  delegate:
+    schritte: {reflex: 6, arbeiter: 12, denker: 20, richter: 12}
+    max_kosten_eur: 1.0
+    schwarm_max: 8
 
 # Selbst-Entwicklung: nach jedem self_edit laeuft dieser Test; faellt er durch -> Auto-Rollback.
 # Leer = Standard (Import-Smoke der Kernmodule mit dem venv-Python). Beispiel: "uv run pytest -q"

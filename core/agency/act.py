@@ -471,7 +471,7 @@ _MODEL_SHORTCUTS = {
     "pro": ("default", "openrouter/deepseek/deepseek-v4-pro"),
     "fable": ("escalation", "openrouter/anthropic/claude-fable-5"),
 }
-_MODEL_ROLES = ("chat", "reason", "bulk", "escalation", "default", "classify")
+_MODEL_ROLES = ("chat", "reason", "bulk", "escalation", "default", "classify", "worker")
 
 
 def _handle_model_command(text: str) -> str:
