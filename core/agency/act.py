@@ -33,6 +33,8 @@ _MAX_STEPS = int(_AG.get("max_steps", 40))                 # Werkzeug-Runden pro
 _MAX_STEPS_PLAN = int(_AG.get("max_steps_plan_step", 12))  # Runden pro Plan-Teilschritt (vorher hart 6)
 _OBS_MAX = int(_AG.get("obs_max_chars", 16000))            # wie viel Werkzeug-Ergebnis das Modell sieht (vorher 6000)
 _MAX_STEPS_CHAT = int(_AG.get("max_steps_chat", 8))        # knapper Deckel fuer NORMALEN Chat -> kein 80er-Sturm bei Small-Talk (voller Task-Deckel via /work oder /plan)
+_AUTO_PLAN = bool(_AG.get("auto_plan", True))              # Arbeitsauftraege im Plain-Chat automatisch planen
+_CLAIM_CHECK = bool(_AG.get("claim_check", True))          # Datei-Behauptungen in Antworten nachpruefen
 
 # --- Modellstarke Arbeitsflaeche ----------------------------------------------
 # Die Decken oben sind fuer schwache/lokale Modelle kalibriert. Laeuft die Runde
@@ -117,15 +119,89 @@ Antwort wie "lass mich kurz schauen ..." OHNE einen Werkzeug-Aufruf ist verboten
 
 _PROMISE_RE = re.compile(
     r"(lass mich|ich schau|ich sehe nach|ich pruef|ich check|moment\b|kurz schauen|"
-    r"schau(e)?\s+(mal|kurz)|sehe (mal )?nach|melde mich gleich)", re.IGNORECASE)
+    r"schau(e)?\s+(mal|kurz)|sehe (mal )?nach|melde mich gleich|"
+    # Rueckfrage-Muster (Bestaetigungsschleife): zurueckfragen statt handeln ist bei
+    # klarem Auftrag genauso wertlos wie ankuendigen -> derselbe Nudge greift.
+    r"soll ich|moechtest du|möchtest du|willst du,? dass|bestaetige|bestätige|"
+    r"darf ich|gib (mir )?gruenes licht|wenn du einverstanden)", re.IGNORECASE)
 
 
 def _looks_like_promise(text: str) -> bool:
-    """Erkennt eine 'ich tu gleich was'-Antwort ohne tatsaechliche Handlung (Heuristik)."""
+    """Erkennt eine 'ich tu gleich was'- ODER 'soll ich?'-Antwort ohne Handlung (Heuristik)."""
     t = (text or "").strip()
     if not t:
         return True
     return len(t) <= 400 and (t.endswith(":") or bool(_PROMISE_RE.search(t)))
+
+
+# --- Arbeitsauftrag-Erkennung (Auto-Plan) --------------------------------------------
+# Ein klarer Arbeitsauftrag im Plain-Chat soll geplant und abgearbeitet werden statt im
+# 8-Runden-Chat zerredet. Bewusst konservativ: False-Positive = unnoetiger Plan-Overhead,
+# False-Negative = heutiges Verhalten.
+_WORK_VERB_RE = re.compile(
+    r"^(erstell|schreib|bau|generier|recherchier|analysier|entwickl|entwirf|implementier|"
+    r"korrigier|fixe?|sammel|organisier|erarbeit|verfass|bereite|ueberarbeit|überarbeit)",
+    re.IGNORECASE)
+_WORK_HINT_RE = re.compile(
+    r"(\d+\s+\w+|desktop|datei|dateien|ordner|projekt|liste|e-?mails?|bericht|dossier)",
+    re.IGNORECASE)
+
+
+def _looks_like_work_order(text: str) -> bool:
+    """True bei einem klaren, mehrteiligen Arbeitsauftrag (Imperativ + Substanz)."""
+    t = (text or "").strip()
+    if len(t) < 25:
+        return False
+    if not _WORK_VERB_RE.match(t.split(maxsplit=1)[0]):
+        return False
+    if t.endswith("?") and not _WORK_HINT_RE.search(t):
+        return False  # echte Frage, kein Auftrag
+    return len(t) > 120 or bool(_WORK_HINT_RE.search(t))
+
+
+# --- Beweispflicht: Datei-Behauptungen nachpruefen ------------------------------------
+# Gegen halluzinierte Ergebnisse ('10 fertige E-Mails liegen auf dem Desktop'): behauptet
+# die Antwort erzeugte Dateien, prueft der Harness deren Existenz — read-only, deterministisch.
+_CLAIM_VERB_RE = re.compile(
+    r"(erstellt|geschrieben|gespeichert|angelegt|abgelegt|hinterlegt|liegt|liegen)", re.IGNORECASE)
+_PATH_RE = re.compile(r"`([^`\n]{3,180})`|((?:~[\\/]|[A-Za-z]:\\)[\w .\-\\/]{2,180})")
+
+
+def _claim_stamp(text: str, session_id: str | None = None) -> str:
+    """Haengt eine sichtbare Warnung an, wenn behauptete Dateien NICHT existieren.
+
+    Relative Pfade werden gegen Arbeitsverzeichnis, Projekt-ROOT und ~/Desktop geprueft,
+    damit der Stempel nicht faelschlich anschlaegt. Raist nie."""
+    if not _CLAIM_CHECK or not text or not _CLAIM_VERB_RE.search(text):
+        return text
+    try:
+        from pathlib import Path
+
+        from core.config import ROOT
+
+        fehlend: list[str] = []
+        gesehen: set[str] = set()
+        for m in _PATH_RE.finditer(text):
+            tok = (m.group(1) or m.group(2) or "").strip().rstrip(".,;:)“”")
+            if not tok or tok in gesehen or len(gesehen) >= 8:
+                continue
+            if "/" not in tok and "\\" not in tok:
+                continue  # kein Pfad (z.B. Werkzeugname in Backticks)
+            p = Path(tok.replace("\\", "/")).expanduser()
+            if not p.suffix or len(p.suffix) > 9:
+                continue  # nur dateiartige Tokens mit Endung
+            gesehen.add(tok)
+            kandidaten = [p] if p.is_absolute() else [p, ROOT / p, Path.home() / "Desktop" / p]
+            if not any(k.is_file() for k in kandidaten):
+                fehlend.append(tok)
+        if fehlend:
+            events.emit("claim_check_failed", {"missing": fehlend[:8]}, session_id=session_id)
+            text += ("\n\n⚠ BEWEISPFLICHT: Diese behaupteten Dateien existieren NICHT: "
+                     + ", ".join(fehlend[:8])
+                     + " — erledige es wirklich oder sag ehrlich, dass es fehlt.")
+    except Exception:  # noqa: BLE001 — der Check darf die Antwort nie zerstoeren
+        pass
+    return text
 
 
 def _cloud(escalate: bool, task_type: str = "reason") -> bool:
@@ -222,8 +298,9 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
             if not used_tools and not nudged and _looks_like_promise(text):
                 nudged = True
                 messages.append({"role": "assistant", "content": text})
-                messages.append({"role": "user", "content": "Tu es JETZT in diesem Zug: nutze die "
-                                 "passenden Werkzeuge und antworte erst mit dem Ergebnis — nicht nur ankuendigen."})
+                messages.append({"role": "user", "content": "Der Auftrag liegt bereits vor — tu es "
+                                 "JETZT in diesem Zug: nutze die passenden Werkzeuge und antworte erst "
+                                 "mit dem Ergebnis. Nicht ankuendigen, nicht zurueckfragen."})
                 continue
             return text
         used_tools = True
@@ -413,6 +490,8 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
     except Exception:  # noqa: BLE001
         pass
 
+    # Beweispflicht auch fuer Plan-Ergebnisse: behauptete Dateien werden nachgeprueft.
+    final = _claim_stamp(final, session_id=session_id)
     emit({"kind": "final", "text": final})
     return final
 
@@ -611,6 +690,29 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     step_ceiling = (_budget("max_steps", _MAX_STEPS, "chat", escalate) if work_mode
                     else _budget("max_steps_chat", _MAX_STEPS_CHAT, "chat", escalate))
 
+    # Auto-Plan: klarer Arbeitsauftrag im Plain-Chat -> erst Plan, dann Schritt fuer Schritt,
+    # statt ihn im knappen Chat-Deckel zu zerreden. escalate=False (Denker-Rang, nicht das
+    # teure Eskalations-Modell) — explizites plan:/code: bleibt bewusst escalate=True.
+    if _AUTO_PLAN and not work_mode and _looks_like_work_order(user_message):
+        emit({"kind": "think", "text": "Arbeitsauftrag erkannt — ich baue erst einen Plan "
+                                       "und arbeite ihn Schritt fuer Schritt ab."})
+        events.emit("auto_plan", {"task": user_message[:200]}, session_id=session_id)
+        final = plan_and_execute(user_message, session_id=session_id,
+                                 on_event=on_event, escalate=False)
+        memory.remember(final, role="partner", session_id=session_id)
+        events.emit("partner_message", {"text": final, "plan": True, "auto": True}, session_id=session_id)
+        return final
+
+    def _finalize(text: str) -> str:
+        """Gemeinsamer Abschluss aller Chat-Ausgaenge: Beweispflicht-Stempel, Gedaechtnis,
+        Events, final-Emit. Genau EIN Ort, an dem Antworten das Haus verlassen."""
+        text = _claim_stamp(text, session_id=session_id)
+        memory.remember(text, role="partner", session_id=session_id)
+        events.emit("partner_message", {"text": text, "agentic": True}, session_id=session_id)
+        _book_work_result(work_objective, user_message, text)
+        emit({"kind": "final", "text": text})
+        return text
+
     messages = [
         {"role": "assistant" if h["role"] == "partner" else "user", "content": h["text"]}
         for h in history
@@ -621,11 +723,7 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     if _cloud(escalate, "chat"):
         system = build_system_prompt(user_message, session_id=session_id) + _NATIVE_TOOLS_HINT
         text = _native_loop(messages, system, session_id, escalate, emit, max_steps=step_ceiling, task_type="chat")
-        memory.remember(text, role="partner", session_id=session_id)
-        events.emit("partner_message", {"text": text, "agentic": True}, session_id=session_id)
-        _book_work_result(work_objective, user_message, text)
-        emit({"kind": "final", "text": text})
-        return text
+        return _finalize(text)
 
     # Lokale Modelle: bewaehrtes Text-Protokoll (ACT <tool> {json}) mit Streaming
     system = build_system_prompt(user_message, session_id=session_id) + f"""
@@ -640,6 +738,8 @@ Danach bekommst du das ERGEBNIS und kannst weiter ein Werkzeug nutzen oder norma
 Wenn du etwas Aktuelles nicht sicher weisst (Wetter, Preise, News, Webinhalte): NICHT raten,
 sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und vollstaendig."""
 
+    used_tools = False
+    nudged = False
     for step in range(step_ceiling):
         parts = []
         for piece in llm_router.stream_tagged(
@@ -652,12 +752,18 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
         text = "".join(parts).strip()
         call = _parse_act(text)
         if not call:
-            memory.remember(text, role="partner", session_id=session_id)
-            events.emit("partner_message", {"text": text, "agentic": True}, session_id=session_id)
-            _book_work_result(work_objective, user_message, text)
-            emit({"kind": "final", "text": text})
-            return text
+            # Lokale Modelle sind die schlimmsten Ankuendiger/Rueckfrager: einmal pro Turn
+            # deterministisch nachstupsen statt das Pingpong an Sergen weiterzureichen.
+            if not used_tools and not nudged and _looks_like_promise(text):
+                nudged = True
+                messages.append({"role": "assistant", "content": text})
+                messages.append({"role": "user", "content": "Der Auftrag liegt bereits vor — "
+                                 "tu es JETZT mit einem Werkzeug (ACT ...) und antworte erst "
+                                 "mit dem Ergebnis. Nicht ankuendigen, nicht zurueckfragen."})
+                continue
+            return _finalize(text)
         name, args = call
+        used_tools = True
         emit({"kind": "tool", "name": name, "args": args})
         tool = registry.get(name)
         if tool is None:
@@ -674,12 +780,7 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
 
     messages.append({"role": "user", "content": "Fasse jetzt final fuer Sergen zusammen — ohne weiteres ACT."})
     res = llm_router.complete(messages, system=system, task_type="chat", session_id=session_id, escalate=escalate)
-    text = res["text"].strip()
-    memory.remember(text, role="partner", session_id=session_id)
-    events.emit("partner_message", {"text": text, "agentic": True}, session_id=session_id)
-    _book_work_result(work_objective, user_message, text)
-    emit({"kind": "final", "text": text})
-    return text
+    return _finalize(res["text"].strip())
 
 
 def act_chat_stream(user_message: str, session_id: str, escalate: bool = False):
