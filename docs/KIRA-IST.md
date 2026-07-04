@@ -144,7 +144,7 @@ core/
 
 ## 5. Aktueller Live-Zustand (verifiziert 2026-07-03, read-only)
 
-- **Modelle:** default/chat/bulk = `openrouter/deepseek/deepseek-v4-flash`; reason/escalation = `deepseek-v4-pro`; classify = lokal `llama3.1:8b`; embeddings = `nomic-embed-text`.
+- **Modelle (5 Stufen, Stand 2026-07-04):** default/chat/bulk/worker = `deepseek-v4-flash`; reason = `z-ai/glm-5.2`; escalation = `anthropic/claude-fable-5`; classify/local_fallback = lokal `qwen3.5:9b`; embeddings = `nomic-embed-text`.
 - **Budget:** 20 €/Tag, 150 €/Monat (harte Bremse, setzt Sergen). Monat bislang: ~40,6 €.
 - **Autonomie:** `chains_off: true`, `hard_gate: ["money","email_stranger"]`, Council-Gate auf money. Steuerbar über die Schalter-Karte (Cockpit → Gewissen).
 - **Motor:** `config heartbeat.enabled: true`, aber **`data/heartbeat.flag` = off → Motor AUS**. Die begleitete Erst-Aktivierung (Doctor grün → Cockpit-Toggle → erste Ticks beaufsichtigen) steht noch aus.
