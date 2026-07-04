@@ -130,7 +130,7 @@ def test_code_prefix_haengt_regeln_an(monkeypatch, tmp_path):
     _tmp_dbs(monkeypatch, tmp_path)
     seen: dict = {}
 
-    def fake_plan(task, session_id=None, on_event=None, escalate=False):
+    def fake_plan(task, session_id=None, on_event=None, escalate=False, code_review=False):
         seen["task"] = task
         return "fertig"
 

@@ -61,6 +61,17 @@ agency:
     max_steps_chat: 30        # Chat darf mehr Werkzeug-Runden, bevor der Deckel greift
     max_steps_plan_step: 40   # Plan-Teilschritte duerfen tief gehen
     obs_max_chars: 60000      # grosses Kontextfenster -> mehr Werkzeug-Ergebnis zeigen
+  # Mittlere Arbeitsflaeche (B-030): starke OFFENE Modelle (GLM 5.2 & Co.) — mehr Raum
+  # als die Schwach-Modell-Basis, weniger als Fable. Im Fallback IMMER die enge Basis.
+  medium_markers: ["z-ai/", "glm"]
+  medium:
+    max_steps: 120
+    max_steps_chat: 16
+    max_steps_plan_step: 20
+    obs_max_chars: 32000
+  # Read-before-Edit (B-028): edit_datei/self_edit nur auf Dateien, die in der Session
+  # vorher gelesen/gefunden wurden (deterministischer Guard; false = aus).
+  read_before_edit: true
   # Delegation (Unteragenten nach Rang): Schritt-Deckel je Rang, Kosten-Deckel je
   # Delegation (global bremst weiterhin governance.budget), Schwarm-Breite.
   delegate:

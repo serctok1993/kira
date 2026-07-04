@@ -573,7 +573,7 @@ $("#sess-archtoggle")&&($("#sess-archtoggle").onclick=()=>{showArchived=!showArc
 let chatMode="chat";
 const MODE_HINT={chat:"Dialog — kurz & direkt. Research/Coding fuer echte Arbeitsauftraege.",
  research:"Volles Werkzeug-Budget: recherchiert, liest, fasst zusammen. Mit @ziel: zaehlt es aufs Ziel.",
- coding:"Claude-Code-Stil: suchen → chirurgisch editieren → Tests laufen automatisch → ehrlicher Bericht."};
+ coding:"Claude-Code-Stil auf dem Denker-Rang (GLM): lesen → chirurgisch editieren → Tests + Diff-Review automatisch. 🧠 Reasoning = Richter (Fable)."};
 $$("#chat-mode-seg a").forEach(a=>a.onclick=()=>{chatMode=a.dataset.m;
  $$("#chat-mode-seg a").forEach(x=>x.classList.toggle("on",x===a));
  const h=$("#mode-hint");if(h)h.textContent=MODE_HINT[chatMode]||"";});
