@@ -12,6 +12,14 @@
       eingetragen; für etwaige Linux-only-Failures eigene Backlog-Items angelegt.
 
 ## HOCH
+- [ ] B-027 [R2] AIMLAPI Bild-/Video-Generierung als Werkzeug: der Provider ist
+      fuer CHAT-Modelle bereits im Router verdrahtet (aimlapi/-Prefix, Key
+      AIMLAPI_API_KEY) und seit dem Modell-Oekonomie-Paket im Cockpit-Katalog
+      sichtbar — Bild/Video laeuft aber ueber EIGENE Endpoints (/v1/images,
+      /v1/video), nicht ueber chat-completions. Neues Tool bild_generieren
+      (+ optional video_generieren), Ergebnis nach data/workspace/, Kosten als
+      Event, Gate wie ueblich. Akzeptanz: Tool registriert, Tests (Fake-HTTP),
+      Doku im HANDBUCH §2.
 - [ ] B-023 [R2] Skeptiker-Gate fuer Content: bevor eine Mail/ein Text in die
       Freigabe-Inbox geht, prueft ein billiger Unteragent (rang=reflex/arbeiter)
       "steht JEDE Behauptung im Quellbericht?" — nein -> ein Zwangs-Retry, dann
