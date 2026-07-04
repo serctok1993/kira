@@ -43,7 +43,7 @@ const SUBTABS={
            loaders:{files:()=>loadFiles(),mem:()=>loadMem(),wissen:()=>loadWissen(),
                     playbooks:()=>loadPlaybooks(),
                     anatomie:()=>loadAgenten(),evolution:()=>loadEvolution(),stats:()=>loadStats(),
-                    keys:()=>loadKeys()}},
+                    keys:()=>loadKeys(),checkliste:()=>loadCheckliste()}},
  config:  {bar:"#sys-tabs",  cur:"models",
            loaders:{models:()=>loadModels(),gov:()=>loadGov(),
                     cron:()=>loadCron(),monitor:()=>loadMonitor(),log:()=>loadEvents(),cockpit:()=>loadDesktop()}}};
@@ -76,6 +76,33 @@ async function loadPlaybooks(){const el=$("#pb-list");if(!el)return;try{
   +(p.letzte?(' · zuletzt '+esc(p.letzte)):'')+'</span>'
   +'</div><div style="font-size:12.5px">'+esc(p.wann||'')+'</div></div>').join("");
 }catch(e){el.innerHTML='<span class="muted">Playbooks nicht ladbar.</span>';}}
+
+/* ---- System-Checkliste (HANDBUCH-Paragraphen als Live-Ampeln) ---- */
+async function loadCheckliste(){const el=$("#ck-list");if(!el)return;try{
+ const [ck,ov,dg,pb]=await Promise.all([
+  fetch("/api/checkliste").then(r=>r.json()),
+  fetch("/api/overview").then(r=>r.json()),
+  fetch("/api/digest").then(r=>r.json()).catch(()=>({})),
+  fetch("/api/playbooks").then(r=>r.json()).catch(()=>({playbooks:[]}))]);
+ const rows=[];
+ const row=(ampel,titel,detail)=>rows.push('<div class="memrow"><div class="mh">'
+  +'<span class="badge" style="color:var(--'+(ampel==="ok"?"ok":ampel==="warn"?"warn":"danger")+')">'
+  +(ampel==="ok"?"OK":ampel==="warn"?"WARTET":"KLEMMT")+'</span>'
+  +'<b style="color:var(--ink);font-size:13px">'+titel+'</b></div>'
+  +'<div style="font-size:12.5px" class="muted">'+detail+'</div></div>');
+ const hb=(ov.mission&&ov.mission.heartbeat);
+ row(hb?"ok":"warn","§2 Motor (Heartbeat)",hb?"laeuft — sammelt Erfahrung":"aus — begleitete Aktivierung steht aus");
+ row(ov.kill_switch?"bad":"ok","§3 Not-Aus",ov.kill_switch?"AKTIV — alles haelt":"bereit, nicht ausgeloest");
+ const pend=(dg.pending_approvals|0);
+ row(pend?"warn":"ok","§3 Freigaben",pend?pend+" warten in der Inbox auf dich":"nichts offen");
+ row(ck.journal_heute?"ok":"warn","§4 Tages-Journal",ck.journal_heute?"heutige Seite existiert":"heute noch keine Seite ("+(ck.journal_anzahl|0)+" bisher) — Cron aktiv? (HANDBUCH §8)");
+ row((ck.stammbaum_luecken|0)===0?"ok":"warn","§4 Stammbaum",(ck.stammbaum_dateien|0)+" Dateien · "+(ck.stammbaum_luecken|0)+" ???-Luecken offen (Briefing fragt 1/Tag)");
+ const pbs=(pb.playbooks||[]);
+ row(pbs.length?"ok":"warn","§7 Playbooks",pbs.length+" vorhanden · "+pbs.filter(p=>p.reifegrad!=="entwurf").length+" ueber Entwurf hinaus");
+ row(ck.handbuch?"ok":"bad","HANDBUCH",ck.handbuch?"docs/HANDBUCH.md vorhanden (auch hier links unter Dateien)":"fehlt!");
+ el.innerHTML=rows.join("");
+}catch(e){el.innerHTML='<span class="muted">Checkliste nicht ladbar.</span>';}}
+
 function subnav(tab,s){const g=SUBTABS[tab];if(!g)return;g.cur=s;
  $$(g.bar+" a").forEach(a=>a.classList.toggle("on",a.dataset.s===s));
  $$("#v-"+tab+" .subview").forEach(x=>x.classList.toggle("on",x.id==="v-"+s));

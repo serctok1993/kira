@@ -41,12 +41,23 @@ letzte:
 > Freundliche Grüße
 > Sergen Tok
 
+## Fakten-Treue (bindend — gegen das Dazu-Dichten)
+
+- In der Mail steht NUR, was im Quellbericht/der Recherche als FAKT belegt ist.
+- Fehlende Info = WEGLASSEN, nie ausschmücken. Beispiel-Falle: "Feld Website leer im
+  Bericht" heißt NICHT "kein Onlineauftritt" — der Betrieb kann Google/Social pflegen.
+- Wird an einen Unteragenten delegiert: Bericht muss FAKT (mit Quelle) von VERMUTUNG
+  trennen; VERMUTUNGEN dürfen NICHT in die Mail.
+- Selbst-Check vor der Inbox: "Kann ich jede Behauptung dieser Mail mit einer Zeile
+  aus dem Bericht belegen?" Wenn nein → Behauptung raus.
+
 ## Akzeptanzkriterien
 
 - Erster Satz ist NUR für diesen Betrieb schreibbar (Personalisierungs-Test).
 - Maximal 120 Wörter, keine Floskeln ("ich hoffe, diese Mail erreicht Sie gut").
 - Genau ein Call-to-Action: kurzes Telefonat, mit konkretem Zeitfenster.
 - Kein Fachjargon (KMU-Inhaber, kein Tech-Publikum); Sie-Form; Signatur Sergen.
+- Jede Behauptung ist im Quellbericht belegbar (Fakten-Treue oben).
 - Entwurf liegt in der Freigabe-Inbox — nicht gesendet.
 
 ## Lektionen

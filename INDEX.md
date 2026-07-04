@@ -6,7 +6,8 @@
 1. **Identität & Regeln** → [[core/mind/constitution|Verfassung]] · [[core/mind/SOUL|Seele]] · [[core/mind/GOAL|Ziel]] · [[core/mind/USER|Sergen]] · [[core/mind/BODY|Körper]]
 2. **Prozeduren** → [[playbooks/_VORLAGE|Playbook-Vorlage]] + Tabelle unten (jedes Playbook verlinkt)
 3. **Laufende Arbeit** → `data/workspace/` (Objectives + Venture-Briefings, wechseln ständig)
-4. **Wissen & Referenz** → [[docs/KIRA-IST|Übergabe-Dossier KIRA-IST]]
+4. **Wissen & Referenz** → [[docs/KIRA-IST|Übergabe-Dossier KIRA-IST]] · [[docs/HANDBUCH|HANDBUCH (für Sergen)]]
+5. **Gedächtnis** → [[gedaechtnis/stammbaum/SERGEN|Stammbaum]] · [[gedaechtnis/journal/LIES-MICH|Journal]] · [[gedaechtnis/LIES-MICH|Regeln]]
 
 **Spielregeln:** Ein Playbook = ein Ablauf. Passt eines zur Aufgabe, wird es GENAU befolgt
 und das Ergebnis mit `playbook_result` zurückgemeldet — daraus lernt es. Reifegrade:
