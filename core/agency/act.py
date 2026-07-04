@@ -138,9 +138,15 @@ def _looks_like_promise(text: str) -> bool:
 # Ein klarer Arbeitsauftrag im Plain-Chat soll geplant und abgearbeitet werden statt im
 # 8-Runden-Chat zerredet. Bewusst konservativ: False-Positive = unnoetiger Plan-Overhead,
 # False-Negative = heutiges Verhalten.
-_WORK_VERB_RE = re.compile(
-    r"^(erstell|schreib|bau|generier|recherchier|analysier|entwickl|entwirf|implementier|"
-    r"korrigier|fixe?|sammel|organisier|erarbeit|verfass|bereite|ueberarbeit|überarbeit)",
+_WORK_VERBS = (r"erstell|schreib|bau|generier|recherchier|analysier|entwickl|entwirf|"
+               r"implementier|korrigier|fixe?|sammel|organisier|erarbeit|verfass|bereite|"
+               r"ueberarbeit|überarbeit|raussuch|heraussuch|zusammenstell|hinterleg|anleg|such")
+_WORK_VERB_RE = re.compile(r"^(" + _WORK_VERBS + r")", re.IGNORECASE)
+_WORK_VERB_ANY_RE = re.compile(r"\b(" + _WORK_VERBS + r")\w*\b", re.IGNORECASE)
+# Deutsche Hoeflichkeitsform: "Kannst du mir ... raussuchen" — das Verb steht am ENDE.
+# Menschen formulieren hoeflich; der Harness muss das als Auftrag erkennen.
+_POLITE_RE = re.compile(
+    r"^(kannst|koenntest|könntest|wuerdest|würdest|magst|willst)\s+du\s+(mir\s+|bitte\s+|mal\s+)*",
     re.IGNORECASE)
 _WORK_HINT_RE = re.compile(
     r"(\d+\s+\w+|desktop|datei|dateien|ordner|projekt|liste|e-?mails?|bericht|dossier)",
@@ -148,15 +154,21 @@ _WORK_HINT_RE = re.compile(
 
 
 def _looks_like_work_order(text: str) -> bool:
-    """True bei einem klaren, mehrteiligen Arbeitsauftrag (Imperativ + Substanz)."""
+    """True bei einem klaren, mehrteiligen Arbeitsauftrag (Imperativ ODER Hoeflichkeitsform
+    mit Arbeitsverb + Substanz). Bewusst konservativ."""
     t = (text or "").strip()
     if len(t) < 25:
         return False
-    if not _WORK_VERB_RE.match(t.split(maxsplit=1)[0]):
+    imperativ = bool(_WORK_VERB_RE.match(t.split(maxsplit=1)[0]))
+    # Hoeflichkeitsform zaehlt NUR mit Arbeitsverb irgendwo UND Substanz-Hinweis —
+    # "Kannst du mir sagen, wie spaet es ist?" bleibt eine Frage.
+    hoeflich = bool(_POLITE_RE.match(t)) and bool(_WORK_VERB_ANY_RE.search(t)) \
+        and bool(_WORK_HINT_RE.search(t))
+    if not (imperativ or hoeflich):
         return False
-    if t.endswith("?") and not _WORK_HINT_RE.search(t):
+    if imperativ and t.endswith("?") and not _WORK_HINT_RE.search(t):
         return False  # echte Frage, kein Auftrag
-    return len(t) > 120 or bool(_WORK_HINT_RE.search(t))
+    return hoeflich or len(t) > 120 or bool(_WORK_HINT_RE.search(t))
 
 
 # --- Beweispflicht: Datei-Behauptungen nachpruefen ------------------------------------
