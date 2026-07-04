@@ -17,6 +17,9 @@ models:
     classify: ollama_chat/llama3.1:8b       # triviale Klassifikation -> klein & schnell, lokal 0 EUR
   local_fallback: ollama_chat/qwythos       # immer verfuegbar, 0 EUR (Endgame: lokal-first)
   escalation_model: openrouter/deepseek/deepseek-v4-pro   # Cloud bei escalate=True (self_edit, /council!, harte Tasks)
+  # Erstes-Herzschlag/Selbstaudit auf Fable: im Chat '/model fable' -> setzt escalation auf
+  # openrouter/anthropic/claude-fable-5 (nur der OpenRouter-Key noetig). SLUG vor Nutzung gegen
+  # den Live-OpenRouter-Katalog verifizieren (models.catalog / openrouter.ai/api/v1/models).
   vision_model: openrouter/z-ai/glm-4.6v         # fuer Bild-Erkennung im Chat (/api/vision)
   embeddings: ollama/nomic-embed-text       # 0 EUR Gedaechtnis (optional)
   temperature: 0.7

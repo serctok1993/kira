@@ -428,6 +428,79 @@ def _book_work_result(oid: str | None, desc: str, result: str) -> None:
         events.emit("work_book_error", {"error": str(e)[:200]})
 
 
+# Kurzbefehle als Daten (nicht als if-Kette): Kurzname -> (Rolle, Modell-ID).
+# 'local' ist die NOTBREMSE — schaltet immer, egal wie schwach das aktuelle Modell ist.
+# Der Fable-Slug ist gegen den Live-OpenRouter-Katalog zu verifizieren.
+_MODEL_SHORTCUTS = {
+    "local": ("default", "ollama_chat/qwythos"),
+    "lokal": ("default", "ollama_chat/qwythos"),
+    "deepseek": ("default", "openrouter/deepseek/deepseek-v4-flash"),
+    "flash": ("default", "openrouter/deepseek/deepseek-v4-flash"),
+    "pro": ("default", "openrouter/deepseek/deepseek-v4-pro"),
+    "fable": ("escalation", "openrouter/anthropic/claude-fable-5"),
+}
+_MODEL_ROLES = ("chat", "reason", "bulk", "escalation", "default", "classify")
+
+
+def _handle_model_command(text: str) -> str:
+    """Deterministischer Modell-Wechsel OHNE LLM (fuer /model bzw. /switch im Web-Chat).
+
+    Spiegelt den Telegram-Handler + Kurzbefehle. Liefert IMMER einen String, raist nie —
+    so kann auch ein schwaches lokales Modell (oder Sergen) jederzeit umschalten, ohne dass
+    ein Tool-Call gelingen muss. Nutzt die bestehenden Setter aus core.kernel.models."""
+    try:
+        from core.kernel import llm_router, models
+
+        args = text.strip().split()[1:]  # [0] ist /model bzw. /switch
+
+        def keywarn(mid: str) -> str:
+            return "" if llm_router.has_key(mid) else \
+                f"  ⚠ Kein Key fuer {mid.split('/', 1)[0]} — laeuft bis dahin lokal."
+
+        if not args:
+            st = models.status()
+            rd, fbd = llm_router.resolve_model("default")
+            rc, fbc = llm_router.resolve_model("chat")
+            re_, fbe = llm_router.resolve_model("default", escalate=True)
+            routing = st.get("routing", {})
+            lines = ["Modelle (gespeichert  ->  laeuft real):",
+                     f"- default:    {st.get('default')}  ->  {rd}" + ("  [FALLBACK]" if fbd else ""),
+                     f"- chat:       {routing.get('chat', st.get('default'))}  ->  {rc}" + ("  [FALLBACK]" if fbc else ""),
+                     f"- escalation: {st.get('escalation_model')}  ->  {re_}" + ("  [FALLBACK]" if fbe else "")]
+            have = [k for k, v in (st.get("api_keys") or {}).items() if v]
+            lines.append("Keys vorhanden: " + (", ".join(have) if have else "keine (nur lokal moeglich)"))
+            lines.append("Umschalten: /model <kurz> (local, deepseek, pro, fable) | /model use <id> | /model <rolle> <id>")
+            return "\n".join(lines)
+
+        sub = args[0].lower()
+        if sub in _MODEL_SHORTCUTS and len(args) == 1:
+            role, mid = _MODEL_SHORTCUTS[sub]
+            models.set_model(mid) if role == "default" else models.set_role(role, mid)
+            return f"Umgeschaltet: {role} -> {mid}." + keywarn(mid)
+        if sub == "use" and len(args) >= 2:
+            mid = args[1].strip()
+            models.set_model(mid)
+            return f"Aktives Modell: {mid}." + keywarn(mid)
+        if sub == "add" and len(args) >= 5:
+            models.add_provider(args[1], args[2], args[3], args[4])
+            return f"Provider '{args[1]}' registriert. Nutzen: /model use {args[1]}"
+        if sub in _MODEL_ROLES and len(args) >= 2:
+            mid = args[1].strip()
+            if not (mid.startswith("openrouter/") or mid.startswith("ollama")):
+                mid = "openrouter/" + mid  # blanke id -> openrouter (Parity mit switch_model)
+            models.set_role(sub, mid)
+            return f"'{sub}' laeuft jetzt auf: {mid}." + keywarn(mid)
+        return ("Unbekannter Modell-Befehl. Beispiele:\n"
+                "  /model              (Status: was ist gesetzt vs. was laeuft real)\n"
+                "  /model local        (Notbremse: lokales Modell)\n"
+                "  /model deepseek     (zurueck auf DeepSeek Flash)\n"
+                "  /model fable        (Eskalation auf Fable)\n"
+                "  /model use <modell-id>\n"
+                "  /model <rolle> <modell-id>")
+    except Exception as e:  # noqa: BLE001 — Werkzeuge/Befehle liefern Strings, raisen nie
+        return f"Modell-Befehl fehlgeschlagen: {str(e)[:200]}"
+
+
 def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, escalate: bool = False, on_event=None) -> str:
     """Konversationeller, agentischer Chat: Gedaechtnis + Persona + Werkzeuge.
 
@@ -448,6 +521,18 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     if user_message.lstrip().lower().startswith("reason:"):
         escalate = True
         user_message = re.sub(r"^\s*reason:\s*", "", user_message, flags=re.IGNORECASE)
+
+    # Deterministischer Modell-Wechsel: /model bzw. /switch umgeht die LLM komplett.
+    # So kann auch ein schwaches lokales Modell (oder Sergen) IMMER umschalten — der
+    # Wechsel haengt NIE davon ab, dass das aktuelle Modell einen Tool-Call absetzt.
+    # Vor memory.remember/user_message, damit Steuerbefehle den Dialog nicht verschmutzen.
+    _mc = user_message.strip()
+    _mc_first = _mc.split(maxsplit=1)[0].lower() if _mc else ""
+    if _mc_first in ("/model", "/switch"):
+        reply = _handle_model_command(_mc)
+        events.emit("model_command", {"reply": reply[:400]}, session_id=session_id)
+        emit({"kind": "final", "text": reply})
+        return reply
 
     events.emit("user_message", {"text": user_message}, session_id=session_id)
     history = memory.recent_dialogue(session_id, limit=10)
