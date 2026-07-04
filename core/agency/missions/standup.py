@@ -50,6 +50,31 @@ def _fmt_obj(o: dict) -> str:
     return f"- [{o['kind']}] {o['title']} — {o['progress']}%{tail}"
 
 
+def _news_block(max_items: int = 8) -> str:
+    """Gemerkte Themen-News fuers Briefing (Titel + Link). Leert den Monitor-Puffer.
+
+    Frischer Check vorab (ignoriert das Intervall, meldet NICHT spontan) — so bringt
+    das Briefing auch das Neueste. Faellt still aus, wenn nichts anliegt.
+    """
+    try:
+        from core.agency.connectors import news_monitor
+
+        try:
+            news_monitor.run_all(force=True, notify=False)
+        except Exception:  # noqa: BLE001
+            pass
+        items = news_monitor.drain_pending(max_items)
+        if not items:
+            return ""
+        lines = ["NEUES AUS DEINEN THEMEN (bring es in eigenen Worten, MIT Link):"]
+        for it in items:
+            link = f" ({it['link']})" if it.get("link") else ""
+            lines.append(f"- [{it.get('label', '')}] {it.get('title', '')[:110]}{link}")
+        return "\n".join(lines)
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 def build_context(scope: str = "morgen") -> str:
     """Der Lagebericht. scope ist informativ (morgen|abend|coach) — Inhalt identisch."""
     from core.agency.missions import metrics, objectives, queue
@@ -129,5 +154,9 @@ def build_context(scope: str = "morgen") -> str:
     except Exception:  # noqa: BLE001
         pass
 
-    text = "\n".join(parts)
-    return text[:_CAP]
+    text = "\n".join(parts)[:_CAP]
+    # News NACH dem Cap anhaengen, damit Themen + Links nie weggeschnitten werden.
+    news = _news_block()
+    if news:
+        text = f"{text}\n\n{news}"
+    return text
