@@ -116,9 +116,9 @@ Verwaltung, gefiltert nach Scope:
 
 ---
 
-## Offene Punkte (mit Sergen klaeren, bevor umgesetzt)
+## Entscheidungen (von Sergen bestaetigt)
 
-- **Monitor-Ort:** Vorschlag Zentrale (neben den News). Alternativ Kira. → bestaetigen.
-- **Gewissen-Ort:** Vorschlag Kira. → bestaetigen.
-- **Modell-Favoriten:** welche 3-5 Modelle als Chat-Schnellwahl? (z.B. flash · pro ·
-  fable · sonnet · lokal).
+- **Monitor-Ort:** **Zentrale** (neben den News), Quellen dort verwalten.
+- **Gewissen-Ort:** **Kira** (Budget/Autonomie/Audit gehoeren zu „wer sie ist").
+- **Chat-Favoriten (Schnellwahl):** **flash · pro · fable · sonnet · lokal** —
+  dahinter das Suchfeld fuer den vollen OpenRouter-Katalog.
