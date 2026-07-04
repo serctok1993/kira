@@ -38,6 +38,16 @@ agency:
   max_steps_plan_step: 12   # Werkzeug-Runden pro Teilschritt im Plan-Modus (vorher: 6)
   obs_max_chars: 16000      # wie viel eines Werkzeug-Ergebnisses das Modell sieht (vorher: 6000)
   turn_stall_seconds: 480   # Turn-Watchdog: haengt ein Chat-Zug > N s OHNE Fortschritt -> Force-Restart (schnellere Wedge-Erholung; echte /work-Tasks feuern laufend Events)
+  # Fable-freundliche Arbeitsflaeche: laeuft die Runde REAL auf einem starken Cloud-Modell
+  # (Marker unten, kein Fallback), gelten diese grosszuegigeren Decken statt der Basis oben.
+  # Folgt automatisch dem Modell-Switch (/model fable etc.) — kein Extra-Schalter. Schwache/
+  # lokale Modelle behalten IMMER das enge Sicherheitsnetz. Kosten deckelt weiterhin governance.
+  strong_markers: ["anthropic/", "claude"]
+  strong:
+    max_steps: 200            # lange Taeue: Fable arbeitet viele Schritte am Stueck
+    max_steps_chat: 30        # Chat darf mehr Werkzeug-Runden, bevor der Deckel greift
+    max_steps_plan_step: 40   # Plan-Teilschritte duerfen tief gehen
+    obs_max_chars: 60000      # grosses Kontextfenster -> mehr Werkzeug-Ergebnis zeigen
 
 # Selbst-Entwicklung: nach jedem self_edit laeuft dieser Test; faellt er durch -> Auto-Rollback.
 # Leer = Standard (Import-Smoke der Kernmodule mit dem venv-Python). Beispiel: "uv run pytest -q"

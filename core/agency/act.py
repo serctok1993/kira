@@ -34,6 +34,33 @@ _MAX_STEPS_PLAN = int(_AG.get("max_steps_plan_step", 12))  # Runden pro Plan-Tei
 _OBS_MAX = int(_AG.get("obs_max_chars", 16000))            # wie viel Werkzeug-Ergebnis das Modell sieht (vorher 6000)
 _MAX_STEPS_CHAT = int(_AG.get("max_steps_chat", 8))        # knapper Deckel fuer NORMALEN Chat -> kein 80er-Sturm bei Small-Talk (voller Task-Deckel via /work oder /plan)
 
+# --- Modellstarke Arbeitsflaeche ----------------------------------------------
+# Die Decken oben sind fuer schwache/lokale Modelle kalibriert. Laeuft die Runde
+# REAL auf einem starken Cloud-Modell (Fable & Co.), gelten grosszuegigere Budgets
+# aus config agency.strong — folgt automatisch dem Modell-Switch, kein Extra-Schalter.
+# Im Fallback (Key fehlt -> lokal) gelten IMMER die engen Basis-Decken.
+_STRONG_CFG = _AG.get("strong") if isinstance(_AG.get("strong"), dict) else {}
+_STRONG_MARKERS = [str(m).lower() for m in (_AG.get("strong_markers") or ["anthropic/", "claude"])]
+
+
+def _strong_model(task_type: str = "chat", escalate: bool = False) -> bool:
+    """True, wenn diese Runde real auf einem starken Cloud-Modell laeuft (kein Fallback)."""
+    try:
+        mid, fell_back = llm_router.resolve_model(task_type, escalate)
+        return (not fell_back) and any(m in mid.lower() for m in _STRONG_MARKERS)
+    except Exception:  # noqa: BLE001 — im Zweifel enge Decken (sicher)
+        return False
+
+
+def _budget(name: str, base: int, task_type: str = "chat", escalate: bool = False) -> int:
+    """Budget fuer diese Runde: agency.strong-Wert bei starkem Modell, sonst Basis."""
+    if _STRONG_CFG and _strong_model(task_type, escalate):
+        try:
+            return int(_STRONG_CFG.get(name, base))
+        except Exception:  # noqa: BLE001
+            return base
+    return base
+
 _ACT_RE = re.compile(r"ACT\s+([a-zA-Z_]\w*)\s*\{")
 
 
@@ -170,6 +197,7 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
     """Nativer Function-Calling-Loop fuer Cloud-Modelle: strukturierte tool_calls statt
     ACT-Text — robust, kein Leak. Streamt Schritte ueber emit({'kind':'tool'|'obs'|...})."""
     schemas = registry.tool_schemas()
+    obs_cap = _budget("obs_max_chars", _OBS_MAX, task_type, escalate)  # starkes Modell -> sieht mehr
     used_tools = False
     nudged = False
     for step in range(max_steps):
@@ -221,7 +249,7 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
                     obs = f"Fehler bei '{name}': {e}"
             emit({"kind": "obs", "name": name, "text": obs[:200]})
             events.emit("act_step", {"step": step, "tool": name, "args": args, "obs_preview": obs[:160]}, session_id=session_id)
-            messages.append({"role": "tool", "tool_call_id": cid, "content": obs[:_OBS_MAX]})
+            messages.append({"role": "tool", "tool_call_id": cid, "content": obs[:obs_cap]})
     try:
         res = _complete_resilient(
             messages + [{"role": "user", "content": "Fasse jetzt final fuer Sergen zusammen — ohne weitere Werkzeuge."}],
@@ -233,7 +261,9 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
             or "Ich habe die Werkzeuge genutzt, aber keine saubere Schluss-Antwort hinbekommen — frag mich gern konkret nach, dann liefere ich dir das Ergebnis.")
 
 
-def act(task: str, session_id: str | None = None, max_steps: int = _MAX_STEPS, escalate: bool = False, task_type: str = "reason") -> dict:
+def act(task: str, session_id: str | None = None, max_steps: int | None = None, escalate: bool = False, task_type: str = "reason") -> dict:
+    if max_steps is None:  # kein expliziter Deckel -> Budget passend zum realen Modell
+        max_steps = _budget("max_steps", _MAX_STEPS, task_type, escalate)
     events.emit("act_start", {"task": task}, session_id=session_id)
 
     # Cloud-Modelle: natives Function-Calling (robust, kein ACT-Text-Leak)
@@ -351,7 +381,9 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
         ctx = ("Bisher erledigt:\n" + "\n".join(f"- {d}" for d in done) + "\n\n") if done else ""
         step_task = f"{ctx}Gesamtziel: {task}\n\nFuehre jetzt NUR diesen Schritt aus: {step}"
         try:
-            out = act(step_task, session_id=session_id, max_steps=_MAX_STEPS_PLAN, escalate=escalate)["text"].strip()
+            out = act(step_task, session_id=session_id,
+                      max_steps=_budget("max_steps_plan_step", _MAX_STEPS_PLAN, "reason", escalate),
+                      escalate=escalate)["text"].strip()
         except Exception as e:  # noqa: BLE001
             out = f"Fehler: {e}"
         done.append(f"{step} -> {out[:160]}")
@@ -555,7 +587,8 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
         user_message = re.sub(r"^(/work|work:)\s*", "", _s, flags=re.IGNORECASE).strip() or _s
         # S6.3: '@ziel:<praefix|titel-teil>' verknuepft die Arbeit mit einem Ziel.
         user_message, work_objective = _resolve_objective_token(user_message)
-    step_ceiling = _MAX_STEPS if work_mode else _MAX_STEPS_CHAT
+    step_ceiling = (_budget("max_steps", _MAX_STEPS, "chat", escalate) if work_mode
+                    else _budget("max_steps_chat", _MAX_STEPS_CHAT, "chat", escalate))
 
     messages = [
         {"role": "assistant" if h["role"] == "partner" else "user", "content": h["text"]}
