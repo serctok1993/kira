@@ -52,6 +52,11 @@ FILES: dict[str, dict] = {
     "GOAL.md": {"path": MIND_DIR / "GOAL.md", "editable": True, "label": "Ziel (GOAL)"},
     "USER.md": {"path": MIND_DIR / "USER.md", "editable": True, "label": "Nutzer-Profil (Sergen)"},
     "config.yaml": {"path": ROOT / "config.yaml", "editable": True, "label": "Konfiguration (Vorsicht: YAML)"},
+    # Gedaechtnis + Handbuch (frei editierbar — nie im Prompt, siehe HANDBUCH §7)
+    "HANDBUCH.md": {"path": ROOT / "docs" / "HANDBUCH.md", "editable": True, "label": "HANDBUCH (Bedienbuch fuer Sergen)"},
+    "INDEX.md": {"path": ROOT / "INDEX.md", "editable": True, "label": "INDEX (Vault-Einstieg; AUTO-Block nicht anfassen)"},
+    "SERGEN.md": {"path": ROOT / "gedaechtnis" / "stammbaum" / "SERGEN.md", "editable": True, "label": "Stammbaum-Wurzel (Sergen)"},
+    "gedaechtnis-regeln.md": {"path": ROOT / "gedaechtnis" / "LIES-MICH.md", "editable": True, "label": "Gedaechtnis-Regeln"},
 }
 
 
@@ -178,6 +183,35 @@ async def api_file_save(body: dict) -> dict:
     p.write_text(body.get("content", ""), encoding="utf-8")
     events.emit("file_edited", {"file": name, "via": "dashboard"})
     return {"ok": True}
+
+
+@app.get("/api/checkliste")
+def api_checkliste() -> dict:
+    """System-Checkliste (read-only): Gedaechtnis-Frische + Fundament-Zustand.
+
+    Ergaenzt die vorhandenen Endpunkte (overview/digest/playbooks) um das, was nur
+    per Dateisystem pruefbar ist — das Cockpit baut daraus die Ampel-Liste."""
+    heute = time.strftime("%Y-%m-%d")
+    journal = ROOT / "gedaechtnis" / "journal"
+    stammbaum = ROOT / "gedaechtnis" / "stammbaum"
+    luecken = 0
+    try:
+        for p in stammbaum.rglob("*.md"):
+            if "_VORLAGE" in p.name:
+                continue
+            luecken += sum(1 for z in p.read_text(encoding="utf-8").splitlines()
+                           if z.strip().startswith("-") and z.strip().endswith("???"))
+    except Exception:  # noqa: BLE001
+        pass
+    wochen = journal / "wochen"
+    return {
+        "journal_heute": (journal / f"{heute}.md").exists(),
+        "journal_anzahl": len(list(journal.glob("*.md"))) - (1 if (journal / "LIES-MICH.md").exists() else 0),
+        "wochen_anzahl": len(list(wochen.glob("*.md"))) if wochen.exists() else 0,
+        "stammbaum_luecken": luecken,
+        "stammbaum_dateien": len([p for p in stammbaum.rglob("*.md") if "_VORLAGE" not in p.name]) if stammbaum.exists() else 0,
+        "handbuch": (ROOT / "docs" / "HANDBUCH.md").exists(),
+    }
 
 
 @app.get("/api/events")

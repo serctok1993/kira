@@ -35,6 +35,12 @@ _RANG = {
 _DOSSIER = DATA_DIR / "workspace" / "richter-dossier.md"
 _DOSSIER_CAP = 8000
 
+# Fakten-Treue (gegen das Dazu-Dichten in der Uebergabe-Kette): jeder Unteragent
+# liefert FAKT und VERMUTUNG getrennt — der Orchestrator darf nur FAKTEN verbauen.
+_BERICHTSFORMAT = (
+    "\n\nBERICHTSFORMAT (bindend): Trenne am Ende FAKT (mit Quelle) von VERMUTUNG. "
+    "Fehlende Information heisst 'unbekannt' — NIE erfinden, NIE ausschmuecken.")
+
 # Tiefen-Sperre: solange eine Delegation laeuft (v1 = synchron), darf der Unteragent
 # nicht weiterdelegieren. Modul-Flag statt LLM-Disziplin — verlaesslich, auch wenn das
 # Modell keine session_id mitgibt.
@@ -124,7 +130,7 @@ def _delegiere(auftrag: str, rang: str, session_id: str | None, schritte: str = 
         max_steps = _steps_for(rang)
     max_steps = max(1, min(max_steps, 40))
 
-    prompt = auftrag.strip()
+    prompt = auftrag.strip() + _BERICHTSFORMAT
     if rang == "richter":
         brief = _richter_brief()
         if brief:
