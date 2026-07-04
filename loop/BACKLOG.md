@@ -12,6 +12,31 @@
       eingetragen; für etwaige Linux-only-Failures eigene Backlog-Items angelegt.
 
 ## HOCH
+
+> CODE-MODUS 2.0 (Sergens Ziel: Kira editiert sich selbst mit GLM 5.2 im
+> Coding-Modus; Claude/Fable reviewt woechentlich die selfdev-Commits).
+> Paket = B-020 + B-021 + B-028..B-031. Reihenfolge: erst Diaet (020/021),
+> dann Guards (028/029), dann Komfort (030/031).
+
+- [ ] B-028 [R2] Read-before-Edit-Guard (deterministisch, Claude-Code-Prinzip):
+      edit_datei/self_edit verweigern, wenn die Datei in dieser Session nicht
+      vorher via read_file/code_suche/datei_finden angefasst wurde — mit klarer
+      Anweisung ("Lies erst X, dann editiere"). Session-lokales Set im act-Loop.
+      Akzeptanz: Tests (Edit ohne Lesen -> abgelehnt + Hinweis; nach Lesen -> ok);
+      schwache Modelle koennen den Guard nicht umgehen.
+- [ ] B-029 [R2] Diff-Review-Schritt im code:-Modus (Skeptiker fuer Code): nach
+      dem letzten Plan-Schritt liest EIN Denker-Unteragent den git-Diff des Laufs
+      gegen den Original-Auftrag ("erfuellt? Nebenwirkungen? vergessene Stellen?").
+      Findet er Maengel -> EIN Fix-Schritt, danach ehrlicher Vermerk im Ergebnis.
+      Akzeptanz: Tests mit gefaktem Diff/Review; Events code_review_pass/fail.
+- [ ] B-030 [R2] Mittlere Arbeitsflaeche fuer starke offene Modelle: agency.medium
+      (z.B. max_steps 120, plan_step 20, obs 32000) + medium_markers ["z-ai/",
+      "glm"] — GLM 5.2 bekommt mehr Raum als die Basis, aber weniger als Fable.
+      Muster: _strong_model/_budget (act.py). Akzeptanz: Tests analog strong.
+- [ ] B-031 [R2] Plan-Wiederaufnahme: laufender Plan wird nach data/workspace/
+      plan-status.json gespiegelt (Schritt N von M, done/fail); bricht ein Lauf ab
+      (Neustart/Timeout), bietet der naechste code:/plan:-Aufruf "weiter bei
+      Schritt N?" an. Akzeptanz: Tests fuer Persistenz + Wiederaufnahme-Prompt.
 - [ ] B-027 [R2] AIMLAPI Bild-/Video-Generierung als Werkzeug: der Provider ist
       fuer CHAT-Modelle bereits im Router verdrahtet (aimlapi/-Prefix, Key
       AIMLAPI_API_KEY) und seit dem Modell-Oekonomie-Paket im Cockpit-Katalog
