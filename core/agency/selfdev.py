@@ -1,15 +1,16 @@
 """Selbst-Entwicklung: Kira bearbeitet seinen EIGENEN Code — sicher.
 
 Ablauf von apply_edit():
-1. Alte Version sichern (Git ist ohnehin der Sicherheitsnetz).
-2. Neue Version schreiben.
-3. Bei .py: Syntax-Check (py_compile). Faellt er durch -> ROLLBACK (alte Version zurueck).
-4. Sonst: git add + commit (revertierbar) und Hinweis, den betroffenen Dienst neu zu starten.
+1. Alte Version sichern.
+2. Neue Version ATOMAR schreiben (fs.atomic_write).
+3. Bei .py: Syntax-Check (py_compile) + Truncation-Guard. Fehler -> nur DIESE Datei zurueck.
+4. VERIFY (Testsuite) — erst bei GRUEN wird git add + commit gemacht. Roter Verify setzt
+   nur die editierte Datei zurueck; anderes ungespeichertes Arbeiten im Repo bleibt heil
+   (frueher: commit vor verify + git reset --hard, das den ganzen Tree verwarf).
 
 self_edit() laesst ein (vorzugsweise starkes/escaliertes) Modell GEZIELTE Such-/Ersetz-
 Bloecke (SEARCH/REPLACE bzw. APPEND) erzeugen — NIE die ganze Datei (darum keine Truncation
-bei grossen Dateien) — und wendet sie via apply_edit() an. Die Verfassung bleibt fuer Kira
-gesperrt (evolution.py); hier geht es um Code/Dashboard/Tools — nicht um die Grundregeln.
+bei grossen Dateien) — und wendet sie via apply_edit() an. Die Verfassung bleibt gesperrt.
 """
 from __future__ import annotations
 
@@ -19,6 +20,7 @@ import subprocess
 
 from core.config import MIND_DIR, ROOT
 from core.kernel import events
+from core.kernel.fs import atomic_write
 
 
 def _git(*args) -> None:
@@ -36,20 +38,39 @@ def _git_out(*args) -> str:
         return ""
 
 
-def _verify() -> tuple[bool, str]:
-    """Selbst-Test nach einer Aenderung: Standard = Import-Smoke der Kernmodule mit dem
-    venv-Python (faengt kaputte Imports). Per config.yaml selfdev.verify_cmd ueberschreibbar
-    (z.B. 'uv run pytest -q'). Gibt (ok, ausgabe) zurueck."""
-    from core.agency.shelltool import run_shell
+def _verify_cmd() -> str:
+    """Das Verifikations-Kommando, plattformfest (config selfdev.verify_cmd).
+
+    Ein Windows-venv-Pfad in der Config heisst auf posix schlicht 'Testsuite laufen
+    lassen' -> Kommando wird deterministisch NEU gebaut statt am String zu operieren.
+    Windows-Verhalten bleibt unveraendert."""
+    import os as _os
+    import sys as _sys
     from core.config import CONFIG
 
     cmd = (CONFIG.get("selfdev", {}) or {}).get("verify_cmd")
-    if not cmd:
-        venv_py = ROOT / ".venv" / "Scripts" / "python.exe"
-        py = str(venv_py) if venv_py.exists() else "python"
-        cmd = (f'"{py}" -c "import core.api.server, core.agency.act, core.agency.tools.builtin, '
-               'core.mind.agent, core.agency.connectors.telegram_bot, core.agency.shelltool"')
-    out = run_shell(cmd, timeout=180)
+    if cmd and _os.name != "nt" and "\\Scripts\\" in cmd:
+        posix_py = ROOT / ".venv" / "bin" / "python"
+        py = str(posix_py) if posix_py.exists() else _sys.executable
+        return f'"{py}" -m pytest tests -q'
+    if cmd:
+        return cmd
+    for cand in (ROOT / ".venv" / "Scripts" / "python.exe", ROOT / ".venv" / "bin" / "python"):
+        if cand.exists():
+            py = str(cand)
+            break
+    else:
+        py = _sys.executable
+    return (f'"{py}" -c "import core.api.server, core.agency.act, core.agency.tools.builtin, '
+            'core.mind.agent, core.agency.connectors.telegram_bot, core.agency.shelltool"')
+
+
+def _verify() -> tuple[bool, str]:
+    """Selbst-Test nach einer Aenderung. Timeout grosszuegig (300s): ein Timeout zaehlt
+    als FEHLSCHLAG und wuerde sonst einen GUTEN Edit zurueckrollen. Gibt (ok, ausgabe)."""
+    from core.agency.shelltool import run_shell
+
+    out = run_shell(_verify_cmd(), timeout=300)
     return out.startswith("[exit 0]"), out
 
 
@@ -98,18 +119,20 @@ def apply_edit(rel_path: str, new_content: str, reason: str = "", verify: bool =
     if ROOT not in p.parents and p != ROOT:
         return {"ok": False, "error": "Pfad ausserhalb des Projekts."}
     old = p.read_text(encoding="utf-8") if p.exists() else None
-    prev_head = _git_out("rev-parse", "HEAD")  # Stand VOR der Aenderung (fuer Rollback)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(new_content, encoding="utf-8")
+    atomic_write(p, new_content)  # atomar (legt Elternordner selbst an)
+
+    def _restore() -> None:
+        """Nur DIESE Datei zurueck — anderes ungespeichertes Arbeiten bleibt heil."""
+        if old is not None:
+            atomic_write(p, old)
+        else:
+            p.unlink(missing_ok=True)
 
     if p.suffix == ".py":
         try:
             py_compile.compile(str(p), doraise=True)
         except py_compile.PyCompileError as e:
-            if old is not None:
-                p.write_text(old, encoding="utf-8")
-            else:
-                p.unlink(missing_ok=True)
+            _restore()
             events.emit("selfdev_rejected", {"file": rel_path, "error": str(e)[:200]})
             return {"ok": False, "error": f"Syntaxfehler -> zurueckgerollt: {str(e)[:160]}"}
 
@@ -120,33 +143,30 @@ def apply_edit(rel_path: str, new_content: str, reason: str = "", verify: bool =
         if old is not None:
             missing = _lost_defs(old, new_content)
             if missing:
-                p.write_text(old, encoding="utf-8")
+                _restore()
                 events.emit("selfdev_rejected", {"file": rel_path, "error": "lost_defs", "missing": missing[:20]})
                 return {"ok": False, "error": "Abgelehnt (evtl. Truncation): bestehende Definitionen wuerden "
                         f"verschwinden: {', '.join(missing[:12])}. Mach einen GEZIELTEN, kleineren Edit."}
 
-    _git("add", rel_path)
-    _git("commit", "-m", f"selfdev: {reason or rel_path}")
-
-    # Selbst-Test-Disziplin: Code UND Konfig pruefen (pytest importiert core.config -> faengt
-    # auch kaputtes YAML/JSON ab, das sonst das ganze System beim Start crashen wuerde).
+    # Selbst-Test-Disziplin VOR dem Commit: Code UND Konfig pruefen (pytest importiert
+    # core.config -> faengt auch kaputtes YAML/JSON ab). Rot -> nur diese Datei zurueck,
+    # git bleibt UNBERUEHRT (kein reset --hard mehr, kein Commit-Muell).
     if verify and p.suffix in (".py", ".yaml", ".yml", ".json", ".toml"):
         ok_v, out_v = _verify()
         if not ok_v:
-            if prev_head:
-                _git("reset", "--hard", prev_head)  # Aenderung verwerfen, sauberer Stand zurueck
-            elif old is not None:
-                p.write_text(old, encoding="utf-8")
-            else:
-                p.unlink(missing_ok=True)
+            _restore()
             events.emit("selfdev_verify_failed", {"file": rel_path, "out": out_v[:300]})
-            return {"ok": False, "error": "Verifizierung fehlgeschlagen -> zurueckgerollt.",
+            return {"ok": False, "error": "Verifizierung fehlgeschlagen -> Datei zurueckgesetzt.",
                     "verify": out_v[:1500]}
+        _git("add", rel_path)
+        _git("commit", "-m", f"selfdev: {reason or rel_path}")
         events.emit("selfdev_applied", {"file": rel_path, "reason": reason, "verified": True})
         _request_restart()  # Supervisor laedt die Aenderung sicher neu (kein Selbst-Kill)
         return {"ok": True, "file": rel_path, "verified": True,
                 "note": "Angewendet, Selbst-Test gruen, committet. Wird automatisch neu geladen (Supervisor)."}
 
+    _git("add", rel_path)
+    _git("commit", "-m", f"selfdev: {reason or rel_path}")
     events.emit("selfdev_applied", {"file": rel_path, "reason": reason})
     return {"ok": True, "file": rel_path, "note": "Angewendet + committet. Betroffenen Dienst (Cockpit/Bot) neu starten."}
 
