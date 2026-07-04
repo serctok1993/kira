@@ -42,7 +42,7 @@ def test_auto_plan_routet_auftrag(monkeypatch, tmp_path):
     events = _tmp_dbs(monkeypatch, tmp_path)
     seen: dict = {}
 
-    def fake_plan(task, session_id=None, on_event=None, escalate=True):
+    def fake_plan(task, session_id=None, on_event=None, escalate=True, code_review=False):
         seen["task"], seen["escalate"] = task, escalate
         return "plan fertig"
 
@@ -61,7 +61,7 @@ def test_auto_plan_laesst_smalltalk_und_plan_praefix(monkeypatch, tmp_path):
     _tmp_dbs(monkeypatch, tmp_path)
     seen: dict = {}
 
-    def fake_plan(task, session_id=None, on_event=None, escalate=True):
+    def fake_plan(task, session_id=None, on_event=None, escalate=True, code_review=False):
         seen["task"], seen["escalate"] = task, escalate
         return "ok"
 

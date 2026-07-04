@@ -16,16 +16,19 @@
 
 ## §2 Was Kira kann (Kurzinventar)
 
-- **Ränge** (Modell je Aufgabe, Config `models.routing`): Reflex (lokal 0 €) · Arbeiter (Flash) ·
-  Denker (Pro/GLM) · Richter (Eskalations-Modell, z. B. Fable — nur finale Urteile).
+- **Ränge / 5 Stufen** (Modell je Aufgabe, Config `models.routing`): Lokal (Qwen 9B, 0 €, Alltag/Reflexe) ·
+  Chat (Flash) · Arbeiter (Flash, Schwarm/Masse) · Denker (GLM 5.2, Coding/harte Tasks) ·
+  Richter (Fable — Langzeitplaner, Urteile, Council; feuert nur bei Eskalation).
 - **Delegation:** `delegate` (1 Unteragent nach Rang) · `schwarm` (Liste abarbeiten, {item}-Platzhalter).
   Unteragenten können NICHT weiterdelegieren (Tiefen-Sperre). Kosten je Unteragent im Harness-Report.
 - **DEIN Steuerpult** (Cockpit → Config → 🎛 Steuerpult): Rang-Tafel (welches Modell auf welchem
   Rang, gesetzt vs. real), Schwarm-Regler (Schritte je Rang, Breite, Kosten-Deckel — live) und die
   Kommandobrücke (Auftrag + Rang wählen → Befehl landet im Chat, DU drückst Senden). Im Chat direkt:
   `/delegiere` und `/schwarm` (§5) — deterministisch, funktioniert mit jedem Modell.
-- **Coding:** suchen (`code_suche`/`datei_finden`) → chirurgisch editieren (`edit_datei`, exakter
-  eindeutiger Suchtext) → Tests laufen automatisch, rot = Datei kommt zurück.
+- **Coding (Code-Modus 2.0):** lesen → chirurgisch editieren → Tests automatisch (rot = Datei kommt
+  zurück) → **Diff-Review** (frischer Denker prüft den Diff gegen den Auftrag, bessert einmal nach).
+  **Read-before-Edit:** ungelesene Dateien kann KEIN Modell editieren (Guard). Läuft auf dem
+  Denker-Rang (GLM) mit mittlerer Arbeitsfläche; 🧠 Reasoning/`reason:` schaltet auf Fable.
 - **Arbeitsdisziplin:** klare Aufträge werden automatisch geplant (Auto-Plan) und nach Rängen
   verteilt; behauptete Dateien werden geprüft (Beweispflicht, Zwangs-Retry).
 - **Gedächtnis:** siehe §4. **Playbooks:** feste Abläufe mit Reifegraden (§7).
@@ -59,7 +62,7 @@ Ebene 4  Destillat                  gedaechtnis/stammbaum/ + Lektionen/Playbooks
 | Befehl | Wirkung |
 |---|---|
 | `/model` | zeigt: gesetztes Modell, REAL laufendes Modell, Key-Status |
-| `/model fable` · `pro` · `deepseek` · `local` | Modell schalten (`local` = Notbremse, lokal qwen3.5:9b) |
+| `/model fable` · `glm` · `pro` · `deepseek` · `local` | Modell schalten (`glm` = Denker-Rang, `local` = Notbremse qwen3.5:9b) |
 | `/model 9b` · `/model 35b` | lokal klein (schnell) bzw. lokaler Denker qwen3.6:35b (braucht RAM) |
 | `/model <rolle> <id>` | Rolle gezielt besetzen (chat/reason/worker/escalation…) |
 | `reason:` vor der Nachricht | diese eine Anfrage aufs starke Modell |
