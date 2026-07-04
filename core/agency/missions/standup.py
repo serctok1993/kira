@@ -75,6 +75,40 @@ def _news_block(max_items: int = 8) -> str:
         return ""
 
 
+def _stammbaum_question(heute: str = "") -> str:
+    """EINE Logbuch-Frage pro Tag: sucht ???-Luecken im Stammbaum und rotiert per Datum.
+
+    Kein LLM, 0 EUR. Verschwindet von selbst, wenn alle Luecken gefuellt sind.
+    heute: Datum als String fuer die Rotation (Standard: heutiges Datum) — testbar."""
+    try:
+        import hashlib
+
+        base = ROOT / "gedaechtnis" / "stammbaum"
+        if not base.exists():
+            return ""
+        luecken: list[tuple[str, str]] = []  # (datei-relativ, feldzeile)
+        for p in sorted(base.rglob("*.md")):
+            if "_VORLAGE" in p.name:
+                continue
+            try:
+                for zeile in p.read_text(encoding="utf-8").splitlines():
+                    z = zeile.strip()
+                    if z.startswith("-") and z.endswith("???"):
+                        luecken.append((str(p.relative_to(ROOT)), z.lstrip("- ").rstrip(": ?").strip()))
+            except Exception:  # noqa: BLE001
+                continue
+        if not luecken:
+            return ""
+        heute = heute or time.strftime("%Y-%m-%d")
+        idx = int(hashlib.md5(heute.encode()).hexdigest(), 16) % len(luecken)
+        datei, feld = luecken[idx]
+        return ("LOGBUCH-FRAGE (stelle Sergen GENAU EINE Frage, beilaeufig und warm — "
+                f"kein Verhoer): Frag nach '{feld}' und trage die Antwort mit edit_datei "
+                f"in {datei} ein (??? ersetzen). Insgesamt noch {len(luecken)} Luecken offen.")
+    except Exception:  # noqa: BLE001 — das Briefing darf daran nie scheitern
+        return ""
+
+
 def build_context(scope: str = "morgen") -> str:
     """Der Lagebericht. scope ist informativ (morgen|abend|coach) — Inhalt identisch."""
     from core.agency.missions import metrics, objectives, queue
@@ -159,4 +193,8 @@ def build_context(scope: str = "morgen") -> str:
     news = _news_block()
     if news:
         text = f"{text}\n\n{news}"
+    # Das hungrige Logbuch: EINE Stammbaum-Luecke pro Tag erfragen (ebenfalls post-cap).
+    frage = _stammbaum_question()
+    if frage:
+        text = f"{text}\n\n{frage}"
     return text
