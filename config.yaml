@@ -20,9 +20,12 @@ models:
     chat: openrouter/deepseek/deepseek-v4-flash    # Dialog mit Sergen -> Flash (guenstig, schnell)
     reason: openrouter/deepseek/deepseek-v4-pro    # RANG DENKER: Reasoning/Council/Reflexion
     bulk: openrouter/deepseek/deepseek-v4-flash    # Massen-/24-7-Grind -> Flash (guenstig)
-    classify: ollama_chat/llama3.1:8b       # RANG REFLEX: trivial -> klein & schnell, lokal 0 EUR
+    classify: ollama_chat/qwen3.5:9b        # RANG REFLEX: trivial -> klein & schnell, lokal 0 EUR (passt voll in die GPU)
     worker: openrouter/deepseek/deepseek-v4-flash  # RANG ARBEITER: delegierte Teilaufgaben (Cents)
-  local_fallback: ollama_chat/qwythos       # immer verfuegbar, 0 EUR (Endgame: lokal-first)
+  local_fallback: ollama_chat/qwen3.5:9b    # immer verfuegbar, 0 EUR (sauberes Instruct; qwythos in Rente)
+  # Lokaler DENKER-Kandidat bei 32 GB RAM: ollama_chat/qwen3.6:35b (MoE, 3B aktiv, ~24 GB).
+  # Erst nach bestandenem B-012-Benchmark auf 'reason' legen — bis dahin bleibt reason Cloud.
+  # VORAUSSETZUNG am PC: 'ollama pull qwen3.5:9b' VOR dem naechsten kira-update.bat!
   escalation_model: openrouter/deepseek/deepseek-v4-pro   # Cloud bei escalate=True (self_edit, /council!, harte Tasks)
   # Erstes-Herzschlag/Selbstaudit auf Fable: im Chat '/model fable' -> setzt escalation auf
   # openrouter/anthropic/claude-fable-5 (nur der OpenRouter-Key noetig). SLUG vor Nutzung gegen

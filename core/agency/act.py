@@ -610,8 +610,11 @@ def _book_work_result(oid: str | None, desc: str, result: str) -> None:
 # 'local' ist die NOTBREMSE — schaltet immer, egal wie schwach das aktuelle Modell ist.
 # Der Fable-Slug ist gegen den Live-OpenRouter-Katalog zu verifizieren.
 _MODEL_SHORTCUTS = {
-    "local": ("default", "ollama_chat/qwythos"),
-    "lokal": ("default", "ollama_chat/qwythos"),
+    "local": ("default", "ollama_chat/qwen3.5:9b"),
+    "lokal": ("default", "ollama_chat/qwen3.5:9b"),
+    "9b": ("default", "ollama_chat/qwen3.5:9b"),
+    "qwen": ("default", "ollama_chat/qwen3.5:9b"),
+    "35b": ("default", "ollama_chat/qwen3.6:35b"),
     "deepseek": ("default", "openrouter/deepseek/deepseek-v4-flash"),
     "flash": ("default", "openrouter/deepseek/deepseek-v4-flash"),
     "pro": ("default", "openrouter/deepseek/deepseek-v4-pro"),
@@ -660,7 +663,7 @@ def _handle_model_command(text: str) -> str:
                      f"- escalation: {st.get('escalation_model')}  ->  {re_}" + ("  [FALLBACK]" if fbe else "")]
             have = [k for k, v in (st.get("api_keys") or {}).items() if v]
             lines.append("Keys vorhanden: " + (", ".join(have) if have else "keine (nur lokal moeglich)"))
-            lines.append("Umschalten: /model <kurz> (local, deepseek, pro, fable) | /model use <id> | /model <rolle> <id>")
+            lines.append("Umschalten: /model <kurz> (local, 9b, 35b, deepseek, pro, fable) | /model use <id> | /model <rolle> <id>")
             return "\n".join(lines)
 
         sub = args[0].lower()
@@ -683,13 +686,54 @@ def _handle_model_command(text: str) -> str:
             return f"'{sub}' laeuft jetzt auf: {mid}." + keywarn(mid)
         return ("Unbekannter Modell-Befehl. Beispiele:\n"
                 "  /model              (Status: was ist gesetzt vs. was laeuft real)\n"
-                "  /model local        (Notbremse: lokales Modell)\n"
+                "  /model local        (Notbremse: lokal qwen3.5:9b)\n"
+                "  /model 35b          (lokaler Denker qwen3.6:35b)\n"
                 "  /model deepseek     (zurueck auf DeepSeek Flash)\n"
                 "  /model fable        (Eskalation auf Fable)\n"
                 "  /model use <modell-id>\n"
                 "  /model <rolle> <modell-id>")
     except Exception as e:  # noqa: BLE001 — Werkzeuge/Befehle liefern Strings, raisen nie
         return f"Modell-Befehl fehlgeschlagen: {str(e)[:200]}"
+
+
+def _handle_swarm_command(text: str, session_id: str | None) -> str:
+    """Direkter Draht zur Schwarmintelligenz OHNE LLM (/delegiere, /schwarm).
+
+    Sergens Riegel: ER waehlt den Rang (und damit die Modell-Klasse laut Rang-Tafel),
+    der Befehl geht deterministisch an die Delegations-Werkzeuge — kein Modell muss
+    mitspielen oder darf umdeuten. Liefert IMMER einen String, raist nie."""
+    try:
+        from core.agency.tools import delegate_tools
+
+        parts = text.strip().split(maxsplit=1)
+        cmd = parts[0].lower()
+        rest = parts[1].strip() if len(parts) > 1 else ""
+        if not rest:
+            return ("Direktzugriff auf die Schwarmintelligenz:\n"
+                    "  /delegiere <rang> <auftrag>\n"
+                    "  /schwarm [rang] <vorlage mit {item}> | item1 | item2 | …\n"
+                    f"Raenge: {', '.join(delegate_tools._RANG)} (Modell je Rang: Cockpit → Config → Steuerpult).")
+        words = rest.split(maxsplit=1)
+        rang = "arbeiter"
+        if words[0].lower() in delegate_tools._RANG:
+            rang = words[0].lower()
+            rest = words[1].strip() if len(words) > 1 else ""
+        if not rest:
+            return "Auftrag fehlt. Beispiel: /delegiere denker Fasse docs/HANDBUCH.md in 10 Zeilen zusammen."
+        if cmd in ("/delegiere", "/delegate"):
+            return delegate_tools._delegiere(rest, rang, session_id)
+        if "|" in rest:  # /schwarm: Items per '|' (eine Zeile) oder als eigene Zeilen
+            vorlage, _, items_raw = rest.partition("|")
+            items = "\n".join(i.strip() for i in items_raw.split("|") if i.strip())
+        else:
+            lines = [ln for ln in rest.splitlines() if ln.strip()]
+            vorlage, items = lines[0], "\n".join(lines[1:])
+        if not items.strip():
+            return ("Schwarm braucht Items: /schwarm [rang] <vorlage mit {item}> | item1 | item2 …\n"
+                    "(oder die Items in eigenen Zeilen unter der Vorlage)")
+        return delegate_tools.schwarm(vorlage.strip(), items, rang=rang, session_id=session_id or "")
+    except Exception as e:  # noqa: BLE001 — Steuerbefehle liefern Strings, raisen nie
+        return f"Schwarm-Befehl fehlgeschlagen: {str(e)[:200]}"
 
 
 def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, escalate: bool = False, on_event=None) -> str:
@@ -725,6 +769,17 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     if _mc_first in ("/model", "/switch"):
         reply = _handle_model_command(_mc)
         events.emit("model_command", {"reply": reply[:400]}, session_id=session_id)
+        emit({"kind": "final", "text": reply})
+        return reply
+
+    # Sergens Riegel: /delegiere und /schwarm gehen deterministisch an die
+    # Schwarmintelligenz — Rang (= Modell-Klasse) waehlt ER, kein LLM deutet um.
+    # Ergebnis wandert ins Gedaechtnis, damit der Dialog danach darauf aufbauen kann.
+    if _mc_first in ("/delegiere", "/delegate", "/schwarm"):
+        reply = _handle_swarm_command(_mc, session_id)
+        events.emit("swarm_command", {"cmd": _mc[:160], "reply": reply[:400]}, session_id=session_id)
+        memory.remember(_mc, role="user", session_id=session_id)
+        memory.remember(reply, role="partner", session_id=session_id)
         emit({"kind": "final", "text": reply})
         return reply
 

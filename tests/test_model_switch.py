@@ -80,7 +80,9 @@ def test_model_command_grammar(monkeypatch):
     act._handle_model_command("/model chat deepseek/deepseek-v4-flash")   # blanke id -> openrouter/
     assert calls["role"] == ("chat", "openrouter/deepseek/deepseek-v4-flash")
     act._handle_model_command("/model local")                            # Notbremse
-    assert calls["model"] == "ollama_chat/qwythos"
+    assert calls["model"] == "ollama_chat/qwen3.5:9b"
+    act._handle_model_command("/model 35b")                              # lokaler Denker
+    assert calls["model"] == "ollama_chat/qwen3.6:35b"
     assert "Unbekannter" in act._handle_model_command("/model blafasel")
 
 
@@ -147,6 +149,48 @@ def test_api_model_use_warns_without_key(monkeypatch):
     monkeypatch.setattr(llm_router, "has_key", lambda mid: True)
     r2 = asyncio.run(server.api_model_use({"id": "ollama_chat/qwythos"}))
     assert r2["warning"] is None
+
+
+# ---- C: Katalog + Raenge im Cockpit ---------------------------------------------------
+
+def test_roles_enthaelt_reflex_und_arbeiter():
+    """Die Rang-Zeilen im Cockpit (Reflex/Arbeiter) brauchen roles()-Eintraege."""
+    from core.kernel import models
+    r = models.roles()
+    for key in ("chat", "reason", "bulk", "classify", "worker", "escalation", "default"):
+        assert key in r, f"roles() ohne {key}"
+
+
+def test_catalog_hat_aimlapi_gruppe(monkeypatch):
+    """Der Live-Katalog fuehrt alle drei Quellen: OpenRouter + lokal + AIMLAPI."""
+    import httpx
+    from core.kernel import models
+    monkeypatch.setattr(models, "ollama_models", lambda: ["qwen3.5:9b"])
+    monkeypatch.setattr(models, "aimlapi_models",
+                        lambda: [{"id": "aimlapi/openai/gpt-4o", "name": "GPT-4o", "in": 0, "out": 0, "ctx": 128000}])
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("offline")))
+    cat = models.catalog(force=True)
+    assert set(cat.keys()) == {"openrouter", "local", "aimlapi"}
+    assert cat["local"][0]["id"] == "ollama_chat/qwen3.5:9b"
+    assert cat["aimlapi"][0]["id"].startswith("aimlapi/")
+    models._CATALOG_CACHE.update(ts=0.0, data=None)  # Cache nicht vergiften
+
+
+def test_cockpit_katalog_rendert_aimlapi_und_raenge():
+    """UI-Marker: aimlapi-Gruppe im Renderer, Reflex/Arbeiter im Zuweisen-Dropdown."""
+    from core.api.ui.script import SCRIPT
+    from core.api.ui.views import VIEWS
+    assert "MCAT.aimlapi" in SCRIPT
+    assert 'value="classify"' in VIEWS and 'value="worker"' in VIEWS
+
+
+def test_shortcuts_zeigen_auf_qwen():
+    """Notbremse + neue Kurzbefehle: qwythos ist in Rente."""
+    from core.agency import act
+    assert act._MODEL_SHORTCUTS["local"][1] == "ollama_chat/qwen3.5:9b"
+    assert act._MODEL_SHORTCUTS["9b"][1] == "ollama_chat/qwen3.5:9b"
+    assert act._MODEL_SHORTCUTS["35b"][1] == "ollama_chat/qwen3.6:35b"
+    assert not any("qwythos" in mid for _r, mid in act._MODEL_SHORTCUTS.values())
 
 
 def test_model_command_ueberlebt_modus_praefixe(tmp_path, monkeypatch):
