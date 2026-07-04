@@ -92,6 +92,20 @@ def test_decide_only_flips_pending(monkeypatch, tmp_path):
     assert approvals.get(aid)["status"] == "approved"  # Erstentscheidung bleibt
 
 
+def test_create_warns_on_autonomous_flood(monkeypatch, tmp_path):
+    """Richter-Rat 04.07.2026: mehr als DAILY_AUTONOMOUS_BUDGET Kira-Eintraege/Tag
+    -> approval_flood_warning-Event (warnt, blockiert nicht)."""
+    _iso_approvals(monkeypatch, tmp_path)
+    for i in range(approvals.DAILY_AUTONOMOUS_BUDGET + 1):
+        approvals.create(f"Autonomer Eintrag {i}", kind="generic", source="kira")
+    warns = [e for e in events.recent(50) if e["type"] == "approval_flood_warning"]
+    assert len(warns) == 1  # genau beim Ueberschreiten, nicht davor
+    assert warns[0]["payload"]["count_today"] == approvals.DAILY_AUTONOMOUS_BUDGET + 1
+    # Eintraege von Sergen (dashboard) zaehlen nicht ins Kira-Budget
+    approvals.create("Manuell", kind="generic", source="dashboard")
+    assert approvals.created_today("kira") == approvals.DAILY_AUTONOMOUS_BUDGET + 1
+
+
 def test_decide_no_evolution_side_effect_on_second_call(monkeypatch, tmp_path):
     _iso_approvals(monkeypatch, tmp_path)
     applied = []
