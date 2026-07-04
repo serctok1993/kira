@@ -98,8 +98,14 @@ core/
                      Morgen-Briefing als 1-Klick-Vorlage im Me-Bereich (startet AUS)
       triggers.py    Wenn-Event-dann-Task (Backoff bei Fehlschlägen)
       maintenance.py maybe_run(name, interval) + bump_counter (Selbst-Tick-Rotation)
-    tools/           @tool-Registry; 56 builtin (+ MCP-Tools zur Laufzeit); Werkzeuge liefern
+    tools/           @tool-Registry; 58 builtin (+ MCP-Tools zur Laufzeit); Werkzeuge liefern
                      Strings, raisen nie; project_note (S8.2, fuzzy + Rückfrage), cron_add mit scope
+      delegate_tools.py  Delegation nach RANG (reflex→classify lokal 0€ | arbeiter→worker Flash |
+                     denker→reason | richter→escalation=stärkstes Modell): delegate (1 Unteragent =
+                     frische act()-Schleife, Session sub-…, Schritt+Kosten-Deckel, Tiefen-Sperre)
+                     + schwarm (Fan-out über Liste, v1 sequenziell, schwarm_max). Richter bekommt
+                     Brief (Insights+Dossier) und schreibt data/workspace/richter-dossier.md fort.
+                     Rang-Tabelle in config models.routing — Modellwechsel = eine Config-Zeile.
     mcp/             Client + registry_bridge (github/supabase AN; Schreib-Tools durchs Gate;
                      server_status() defensiv, Config-Writes atomar seit S8.0)
     connectors/
@@ -158,7 +164,7 @@ core/
 **Echte Schwächen (Hebel), getaggt:**
 - ① **Motor nie gelaufen** (Harness/Config) — größter Vision-Realität-Abstand; die ganze S6.2-Lernschleife (Outcomes→Insights→Planner) ist theoretisch korrekt, aber ungefüttert. Billigster Fix: begleitete Aktivierung.
 - ② **Gehirn Mittelklasse** (Modell) — DeepSeek flash/pro trägt Prüfer/Council/self_edit; Router ist modell-agnostisch, wird nicht ausgereizt.
-- ③ **Kein Agent-Orchestrator** (Harness) — ein Gehirn, sequenziell, keine parallelen Subagenten.
+- ③ **Agent-Orchestrator: v1 gelöst** (Harness) — `delegate`/`schwarm` spawnen Unteragenten nach Rang (eigene Session/Budget/Modell, Tiefen-Sperre). Noch offen: echte Parallelität + Skeptiker-Verifikation (v2).
 - ④ **Nie extern gehandelt** (Harness/Provider) — echter Push/Mail/Deploy nie end-to-end; Realzuverlässigkeit unbekannt.
 - ⑤ **Wissens-Archiv leer** — die Infrastruktur (Vault/PDF/Suche) wartet auf Fütterung durch Sergen.
 - ⑥ **Chat-Pfad ohne Outcome-Prüfung**; **Retrieval simpel** (6 Erinnerungen, lokale Embeddings, kein Re-Ranking).

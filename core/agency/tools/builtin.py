@@ -657,3 +657,5 @@ from core.agency.tools import knowledge_tools  # noqa: E402,F401
 from core.agency.tools import radar_tools  # noqa: E402,F401
 # Playbooks (S11): feste Prozeduren mit Reifegrad + Lernschleife.
 from core.agency.tools import playbook_tools  # noqa: E402,F401
+# Delegation: Unteragenten nach Rang (reflex/arbeiter/denker/richter) + Schwarm.
+from core.agency.tools import delegate_tools  # noqa: E402,F401
