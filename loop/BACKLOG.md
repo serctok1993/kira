@@ -43,10 +43,10 @@
 
 ## IDEEN (unsortiert, vom Loop selbst gefüttert)
 
-- B-011 [R1] Lokaler Agenten-Schwarm: Teilaufgaben parallel an billige lokale
-  Modelle delegieren (Worker-Pool); `core/mind/council.py` (3 Personas +
-  Richter) ist der Keim. Simulations-Frameworks (viele Agents diskutieren ein
-  Thema) als kommandierbares MCP-Werkzeug anbinden.
+- B-018 [R1] Delegation v2: `schwarm` echt parallelisieren (Threads; Vorsicht:
+  Circuit-Breaker-Cross-Talk, Budget-Race, LLM-Pool max 6) + Skeptiker-
+  Verifikation (N Unteragenten versuchen ein Ergebnis zu WIDERLEGEN, Mehrheit
+  entscheidet). Auto-Rang-Wahl durch Kira (trivial → reflex, sonst arbeiter).
 - B-012 [R2] Selbst-Benchmarking: fester Aufgaben-Satz, den Kira periodisch
   gegen verschiedene lokale Modelle fährt und per Verifier bewertet →
   datengetriebenes `switch_model` statt Bauchgefühl.
@@ -69,4 +69,6 @@
 
 ## ERLEDIGT (nur die letzten 20 — Historie steht im LOOP-LOG)
 
-(leer)
+- [x] B-011 [R1] Agenten-Delegation v1 — direkt in einer Chat-Session gebaut
+      (PR #7, gemergt): `delegate`/`schwarm` nach Rang (reflex/arbeiter/denker/
+      richter), Richter-Dossier, Tiefen-Sperre, Deckel. Folgearbeit: B-018.
