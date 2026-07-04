@@ -147,3 +147,20 @@ def test_api_model_use_warns_without_key(monkeypatch):
     monkeypatch.setattr(llm_router, "has_key", lambda mid: True)
     r2 = asyncio.run(server.api_model_use({"id": "ollama_chat/qwythos"}))
     assert r2["warning"] is None
+
+
+def test_model_command_ueberlebt_modus_praefixe(tmp_path, monkeypatch):
+    """BUG-Regression (Sergens Fund): der Coding-/Research-Modus haengt code://work
+    vor JEDE Nachricht -> '/model' wurde als Planungs-Auftrag an die LLM verschluckt.
+    Steuerbefehle muessen in JEDEM Modus deterministisch greifen."""
+    events = _events(tmp_path, monkeypatch)
+    from core.agency import act
+    from core.kernel import models
+    monkeypatch.setattr(models, "ollama_models", lambda: [])
+
+    for praefix in ("code: ", "plan: ", "/work ", "work: ", "reason: code: "):
+        out = act.act_chat(praefix + "/model", f"sess-{praefix.strip(': /')}",
+                           on_event=lambda ev: None)
+        assert "Modelle" in out, f"verschluckt bei Praefix {praefix!r}"
+    types = [e["type"] for e in events.recent(50)]
+    assert "user_message" not in types  # nie in den normalen Chat-Fluss gerutscht
