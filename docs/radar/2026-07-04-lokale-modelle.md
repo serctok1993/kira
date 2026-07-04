@@ -69,6 +69,41 @@ Merksatz: "World Model" auf HuggingFace = Trainings-Simulator.
 - Das waere der "grosse Bruder" mit demselben Harness-Profil. NICHT mit
   dem AgentWorld-Derivat verwechseln — nur das normale Instruct nehmen.
 
+## Gegen-Check (Nachtrag): 9B vs. 35B-A3B vs. Qwen 3.6
+
+Zahlen aus den offiziellen Model Cards (Harness-relevante Benchmarks):
+
+| Benchmark             | Qwen3.5-9B | Qwen3.5-35B-A3B | Qwen3.6-35B-A3B |
+|-----------------------|-----------|-----------------|-----------------|
+| BFCL-V4 (Tool-Calls)  | 66.1      | 67.3            | n. a.           |
+| TAU2-Bench (Agent)    | 79.1      | 81.2            | n. a.           |
+| IFEval (Anweisungen)  | 91.5      | 91.9            | n. a.           |
+| IFBench               | 64.5      | 70.2            | n. a.           |
+| WMT24++ (Sprachen)    | 72.6      | 76.3            | n. a.           |
+| SWE-bench (Code)      | —         | 69.2 (70.0)     | 73.4            |
+| Terminal-Bench 2.0    | —         | 40.5            | 51.5            |
+| Speicher (Ollama Q4)  | ~5-6 GB   | ~18-20 GB       | ~24 GB          |
+
+Lesart:
+
+- Bei Tool-Calling und Anweisungstreue ist der Abstand 9B -> 35B-A3B
+  MINIMAL (BFCL +1.2, IFEval +0.4). Genau unsere Kern-Aspekte.
+- Der MoE gewinnt deutlich bei IFBench (+5.7), Sprachen (+3.7) und Code —
+  kostet aber das 4-fache an Speicher und laeuft bei wenig VRAM im
+  CPU/GPU-Mix spuerbar langsamer als das voll auf der GPU sitzende 9B.
+- Qwen 3.6 (April 2026) gibt es NUR als 27B dense und 35B-A3B — nichts
+  in der 9-12B-Klasse. Wer den MoE nimmt, nimmt 3.6 statt 3.5
+  (Terminal-Bench +11 = agentisches Arbeiten, unser Profil).
+
+Entscheidung:
+
+- PC mit ~16 GB RAM / 8 GB VRAM: **Qwen3.5-9B** — klarer Sieger
+  (99% der MoE-Leistung in unseren Aspekten, voll auf der GPU, schnell).
+- PC mit >=32 GB RAM: 9B als reflex/arbeiter-lokal PLUS
+  **Qwen3.6-35B-A3B** als lokaler denker (`ollama pull qwen3.6:35b`).
+  Fuer den Takt (Heartbeat, classify) bleibt trotzdem das 9B —
+  der MoE ist im RAM-Betrieb zu traege fuer Reflexe.
+
 ## Welche Benchmarks fuer UNSEREN Harness zaehlen
 
 - BFCL v4 (Function Calling): gorilla.cs.berkeley.edu/leaderboard.html
