@@ -150,3 +150,17 @@ def test_claim_stamp_relative_pfade_gegen_root(monkeypatch, tmp_path):
     # relative Behauptung, Datei existiert im ROOT -> kein Stempel (README.md existiert)
     text = "Ich habe die Notiz in `docs/KIRA-IST.md` gespeichert."
     assert "BEWEISPFLICHT" not in act._claim_stamp(text, session_id="s")
+
+
+def test_work_order_hoeflichkeitsform():
+    """Sergens Live-Fund: 'Kannst du mir ... raussuchen' — Verb am Satzende,
+    der Satz beginnt mit der Hoeflichkeitsform. Muss als Auftrag zaehlen."""
+    from core.agency.act import _looks_like_work_order as w
+    assert w("Kannst du mir aus den Lead-Listen auf dem Desktop 20 E-Mails und "
+             "Unternehmen raussuchen die als erste Kunden passend sind.")
+    assert w("Kannst du mal 10 Leads fuer Friseure recherchieren und als Datei hinterlegen")
+    assert w("Wuerdest du mir bitte einen Bericht zum Projekt Luvex verfassen")
+    # Hoeflich, aber KEIN Auftrag (kein Arbeitsverb bzw. keine Substanz):
+    assert not w("Kannst du mir sagen, wie spaet es ist?")
+    assert not w("Kannst du eigentlich Backups erstellen?")  # Faehigkeitsfrage ohne Substanz
+    assert not w("Kannst du mir kurz helfen bei etwas wichtigem?")
