@@ -190,7 +190,21 @@ def test_shortcuts_zeigen_auf_qwen():
     assert act._MODEL_SHORTCUTS["local"][1] == "ollama_chat/qwen3.5:9b"
     assert act._MODEL_SHORTCUTS["9b"][1] == "ollama_chat/qwen3.5:9b"
     assert act._MODEL_SHORTCUTS["35b"][1] == "ollama_chat/qwen3.6:35b"
+    assert act._MODEL_SHORTCUTS["glm"] == ("reason", "openrouter/z-ai/glm-5.2")
     assert not any("qwythos" in mid for _r, mid in act._MODEL_SHORTCUTS.values())
+
+
+def test_fuenf_stufen_config():
+    """Sergens 5-Stufen-Oekonomie: lokal / Chat Flash / Arbeiter Flash / Denker GLM / Richter Fable."""
+    from core.config import CONFIG
+    m = CONFIG["models"]
+    rt = m["routing"]
+    assert rt["classify"].startswith("ollama_chat/qwen")          # Stufe 1: lokal, 0 EUR
+    assert "flash" in rt["chat"]                                  # Stufe 2: Chat
+    assert "flash" in rt["worker"] and "flash" in rt["bulk"]      # Stufe 3: Arbeiter/Grind
+    assert rt["reason"] == "openrouter/z-ai/glm-5.2"              # Stufe 4: Denker
+    assert m["escalation_model"] == "openrouter/anthropic/claude-fable-5"  # Stufe 5: Richter
+    assert m["local_fallback"].startswith("ollama_chat/")         # Notbremse immer lokal
 
 
 def test_model_command_ueberlebt_modus_praefixe(tmp_path, monkeypatch):

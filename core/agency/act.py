@@ -618,6 +618,7 @@ _MODEL_SHORTCUTS = {
     "deepseek": ("default", "openrouter/deepseek/deepseek-v4-flash"),
     "flash": ("default", "openrouter/deepseek/deepseek-v4-flash"),
     "pro": ("default", "openrouter/deepseek/deepseek-v4-pro"),
+    "glm": ("reason", "openrouter/z-ai/glm-5.2"),
     "fable": ("escalation", "openrouter/anthropic/claude-fable-5"),
 }
 _MODEL_ROLES = ("chat", "reason", "bulk", "escalation", "default", "classify", "worker")

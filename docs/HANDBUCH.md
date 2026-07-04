@@ -16,8 +16,9 @@
 
 ## §2 Was Kira kann (Kurzinventar)
 
-- **Ränge** (Modell je Aufgabe, Config `models.routing`): Reflex (lokal 0 €) · Arbeiter (Flash) ·
-  Denker (Pro/GLM) · Richter (Eskalations-Modell, z. B. Fable — nur finale Urteile).
+- **Ränge / 5 Stufen** (Modell je Aufgabe, Config `models.routing`): Lokal (Qwen 9B, 0 €, Alltag/Reflexe) ·
+  Chat (Flash) · Arbeiter (Flash, Schwarm/Masse) · Denker (GLM 5.2, Coding/harte Tasks) ·
+  Richter (Fable — Langzeitplaner, Urteile, Council; feuert nur bei Eskalation).
 - **Delegation:** `delegate` (1 Unteragent nach Rang) · `schwarm` (Liste abarbeiten, {item}-Platzhalter).
   Unteragenten können NICHT weiterdelegieren (Tiefen-Sperre). Kosten je Unteragent im Harness-Report.
 - **DEIN Steuerpult** (Cockpit → Config → 🎛 Steuerpult): Rang-Tafel (welches Modell auf welchem
@@ -59,7 +60,7 @@ Ebene 4  Destillat                  gedaechtnis/stammbaum/ + Lektionen/Playbooks
 | Befehl | Wirkung |
 |---|---|
 | `/model` | zeigt: gesetztes Modell, REAL laufendes Modell, Key-Status |
-| `/model fable` · `pro` · `deepseek` · `local` | Modell schalten (`local` = Notbremse, lokal qwen3.5:9b) |
+| `/model fable` · `glm` · `pro` · `deepseek` · `local` | Modell schalten (`glm` = Denker-Rang, `local` = Notbremse qwen3.5:9b) |
 | `/model 9b` · `/model 35b` | lokal klein (schnell) bzw. lokaler Denker qwen3.6:35b (braucht RAM) |
 | `/model <rolle> <id>` | Rolle gezielt besetzen (chat/reason/worker/escalation…) |
 | `reason:` vor der Nachricht | diese eine Anfrage aufs starke Modell |
