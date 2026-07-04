@@ -610,8 +610,11 @@ def _book_work_result(oid: str | None, desc: str, result: str) -> None:
 # 'local' ist die NOTBREMSE — schaltet immer, egal wie schwach das aktuelle Modell ist.
 # Der Fable-Slug ist gegen den Live-OpenRouter-Katalog zu verifizieren.
 _MODEL_SHORTCUTS = {
-    "local": ("default", "ollama_chat/qwythos"),
-    "lokal": ("default", "ollama_chat/qwythos"),
+    "local": ("default", "ollama_chat/qwen3.5:9b"),
+    "lokal": ("default", "ollama_chat/qwen3.5:9b"),
+    "9b": ("default", "ollama_chat/qwen3.5:9b"),
+    "qwen": ("default", "ollama_chat/qwen3.5:9b"),
+    "35b": ("default", "ollama_chat/qwen3.6:35b"),
     "deepseek": ("default", "openrouter/deepseek/deepseek-v4-flash"),
     "flash": ("default", "openrouter/deepseek/deepseek-v4-flash"),
     "pro": ("default", "openrouter/deepseek/deepseek-v4-pro"),
@@ -660,7 +663,7 @@ def _handle_model_command(text: str) -> str:
                      f"- escalation: {st.get('escalation_model')}  ->  {re_}" + ("  [FALLBACK]" if fbe else "")]
             have = [k for k, v in (st.get("api_keys") or {}).items() if v]
             lines.append("Keys vorhanden: " + (", ".join(have) if have else "keine (nur lokal moeglich)"))
-            lines.append("Umschalten: /model <kurz> (local, deepseek, pro, fable) | /model use <id> | /model <rolle> <id>")
+            lines.append("Umschalten: /model <kurz> (local, 9b, 35b, deepseek, pro, fable) | /model use <id> | /model <rolle> <id>")
             return "\n".join(lines)
 
         sub = args[0].lower()
@@ -683,7 +686,8 @@ def _handle_model_command(text: str) -> str:
             return f"'{sub}' laeuft jetzt auf: {mid}." + keywarn(mid)
         return ("Unbekannter Modell-Befehl. Beispiele:\n"
                 "  /model              (Status: was ist gesetzt vs. was laeuft real)\n"
-                "  /model local        (Notbremse: lokales Modell)\n"
+                "  /model local        (Notbremse: lokal qwen3.5:9b)\n"
+                "  /model 35b          (lokaler Denker qwen3.6:35b)\n"
                 "  /model deepseek     (zurueck auf DeepSeek Flash)\n"
                 "  /model fable        (Eskalation auf Fable)\n"
                 "  /model use <modell-id>\n"

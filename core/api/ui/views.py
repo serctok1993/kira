@@ -396,13 +396,15 @@ VIEWS = r"""</head><body>
       <div class="muted">Jede Aufgabe hat ihre eigene KI. Zum Aendern unten im Katalog ein Modell suchen und der Rolle zuweisen.</div>
       <div id="m-roles" style="margin-top:8px"></div>
     </div>
-    <div class="card"><h3>Modell-Katalog (live: alle OpenRouter + lokal)</h3>
+    <div class="card"><h3>Modell-Katalog (live: OpenRouter + AIMLAPI + lokal — neue Modelle erscheinen automatisch)</h3>
       <div class="row" style="margin-top:4px;flex-wrap:wrap">
         <label class="muted" style="align-self:center">Zuweisen an:</label>
         <select id="cat-role">
           <option value="chat">💬 Chat (Smalltalk)</option>
-          <option value="reason">🧠 Reason / Coding</option>
+          <option value="reason">🧠 Denker (Reason/Coding)</option>
           <option value="bulk">⏰ Crons (einfach)</option>
+          <option value="classify">🐜 Reflex (lokal, 0€)</option>
+          <option value="worker">🔧 Arbeiter (Delegation)</option>
           <option value="escalation">⚡ Eskalation</option>
           <option value="default">★ Default (alles)</option>
         </select>

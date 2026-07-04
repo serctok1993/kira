@@ -670,13 +670,13 @@ async function loadModels(){const s=await (await fetch("/api/status")).json();
 async function useModel(id){await fetch("/api/model/use",{method:"POST",headers:{"Content-Type":"application/json"},
   body:JSON.stringify({id})});loadModels();refreshStatus();}
 /* ---- Modell-Katalog + Rollen ---- */
-const ROLE_LABEL={chat:"💬 Chat",reason:"🧠 Reason/Coding",bulk:"⏰ Crons",escalation:"⚡ Eskalation",default:"★ Default"};
-let MCAT={openrouter:[],local:[]};
+const ROLE_LABEL={chat:"💬 Chat",reason:"🧠 Denker (Reason/Coding)",bulk:"⏰ Crons",classify:"🐜 Reflex (lokal)",worker:"🔧 Arbeiter (Delegation)",escalation:"⚡ Eskalation",default:"★ Default"};
+let MCAT={openrouter:[],local:[],aimlapi:[]};
 function money(x){return (x==null||x===0)?"0€":("$"+(x*1e6).toFixed(2)+"/M");}
 function renderRoles(roles){const el=$("#m-roles");if(!el)return;
  el.innerHTML=Object.keys(ROLE_LABEL).map(r=>'<div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px solid var(--line)"><span style="min-width:150px">'+ROLE_LABEL[r]+'</span><b style="flex:1;color:var(--accent)">'+((roles[r]||"—")+"").replace(/^openrouter\//,"").replace(/</g,"&lt;")+'</b></div>').join("");}
 function renderCat(){const el=$("#cat-list");if(!el)return;const q=(($("#cat-search")||{}).value||"").toLowerCase().trim();
- const all=(MCAT.local||[]).concat(MCAT.openrouter||[]);
+ const all=(MCAT.local||[]).concat(MCAT.openrouter||[]).concat(MCAT.aimlapi||[]);
  const hits=all.filter(m=>!q||(m.id||"").toLowerCase().includes(q)||(m.name||"").toLowerCase().includes(q)).slice(0,80);
  el.innerHTML=hits.length?hits.map(m=>'<div style="display:flex;gap:8px;align-items:center;padding:4px 2px;border-bottom:1px solid var(--line)">'
    +'<span style="flex:1"><b>'+(m.id||"").replace(/^openrouter\//,"").replace(/</g,"&lt;")+'</b>'+(m.ctx?' <small class=muted>'+Math.round(m.ctx/1000)+'K</small>':'')+'</span>'

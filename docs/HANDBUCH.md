@@ -55,7 +55,8 @@ Ebene 4  Destillat                  gedaechtnis/stammbaum/ + Lektionen/Playbooks
 | Befehl | Wirkung |
 |---|---|
 | `/model` | zeigt: gesetztes Modell, REAL laufendes Modell, Key-Status |
-| `/model fable` · `pro` · `deepseek` · `local` | Modell schalten (`local` = Notbremse) |
+| `/model fable` · `pro` · `deepseek` · `local` | Modell schalten (`local` = Notbremse, lokal qwen3.5:9b) |
+| `/model 9b` · `/model 35b` | lokal klein (schnell) bzw. lokaler Denker qwen3.6:35b (braucht RAM) |
 | `/model <rolle> <id>` | Rolle gezielt besetzen (chat/reason/worker/escalation…) |
 | `reason:` vor der Nachricht | diese eine Anfrage aufs starke Modell |
 | `/work <auftrag>` | volles Arbeitsbudget (langer Task) |
