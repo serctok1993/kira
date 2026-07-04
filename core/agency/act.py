@@ -167,13 +167,13 @@ _CLAIM_VERB_RE = re.compile(
 _PATH_RE = re.compile(r"`([^`\n]{3,180})`|((?:~[\\/]|[A-Za-z]:\\)[\w .\-\\/]{2,180})")
 
 
-def _claim_stamp(text: str, session_id: str | None = None) -> str:
-    """Haengt eine sichtbare Warnung an, wenn behauptete Dateien NICHT existieren.
+def _missing_claims(text: str) -> list[str]:
+    """Behauptete-aber-fehlende Dateien im Text (read-only, deterministisch, raist nie).
 
     Relative Pfade werden gegen Arbeitsverzeichnis, Projekt-ROOT und ~/Desktop geprueft,
-    damit der Stempel nicht faelschlich anschlaegt. Raist nie."""
+    damit der Check nicht faelschlich anschlaegt. Leer = alles belegt oder nichts behauptet."""
     if not _CLAIM_CHECK or not text or not _CLAIM_VERB_RE.search(text):
-        return text
+        return []
     try:
         from pathlib import Path
 
@@ -194,13 +194,19 @@ def _claim_stamp(text: str, session_id: str | None = None) -> str:
             kandidaten = [p] if p.is_absolute() else [p, ROOT / p, Path.home() / "Desktop" / p]
             if not any(k.is_file() for k in kandidaten):
                 fehlend.append(tok)
-        if fehlend:
-            events.emit("claim_check_failed", {"missing": fehlend[:8]}, session_id=session_id)
-            text += ("\n\n⚠ BEWEISPFLICHT: Diese behaupteten Dateien existieren NICHT: "
-                     + ", ".join(fehlend[:8])
-                     + " — erledige es wirklich oder sag ehrlich, dass es fehlt.")
-    except Exception:  # noqa: BLE001 — der Check darf die Antwort nie zerstoeren
-        pass
+        return fehlend
+    except Exception:  # noqa: BLE001 — der Check darf nie stoeren
+        return []
+
+
+def _claim_stamp(text: str, session_id: str | None = None) -> str:
+    """Haengt eine sichtbare Warnung an, wenn behauptete Dateien NICHT existieren."""
+    fehlend = _missing_claims(text)
+    if fehlend:
+        events.emit("claim_check_failed", {"missing": fehlend[:8]}, session_id=session_id)
+        text += ("\n\n⚠ BEWEISPFLICHT: Diese behaupteten Dateien existieren NICHT: "
+                 + ", ".join(fehlend[:8])
+                 + " — erledige es wirklich oder sag ehrlich, dass es fehlt.")
     return text
 
 
@@ -416,24 +422,44 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
     return {"text": res["text"].strip(), "steps": max_steps}
 
 
-def _make_plan(task: str, session_id: str | None, escalate: bool = True) -> list[str]:
-    """Zerlegt eine groessere Aufgabe in 3-7 konkrete, ausfuehrbare Schritte (JSON-Array)."""
+# Dispatcher: der Planer (Denker) vergibt pro Schritt ein Rang-Etikett, die Ausfuehrung
+# routet danach — kluges Hirn plant, billige Haende liefern. Rang -> (task_type, Modellroute
+# via config models.routing). 'richter' vergibt der Planer NICHT (Eskalation nur explizit).
+_PLAN_RANG = {"reflex": "classify", "arbeiter": "worker", "denker": "reason"}
+
+
+def _make_plan(task: str, session_id: str | None, escalate: bool = True) -> list[dict]:
+    """Zerlegt eine Aufgabe in 3-7 Schritte MIT Rang-Etikett: [{"schritt":..., "rang":...}].
+
+    Tolerant: liefert der Planer nur Strings (schwaches Modell), wird Rang 'denker'
+    angenommen — nie schlechter als das alte Verhalten."""
     system = _identity() + (
         "\n\nDu bist im PLANUNGS-Modus. Zerlege die Aufgabe in 3 bis 7 konkrete, ausfuehrbare "
-        "Schritte. Antworte AUSSCHLIESSLICH mit einem JSON-Array kurzer Schritt-Strings, sonst "
-        'nichts. Beispiel: ["Recherchiere X", "Erstelle Datei Y", "Teste Y"].'
+        "Schritte und vergib pro Schritt einen RANG: 'reflex' (trivial: lesen, sortieren), "
+        "'arbeiter' (mechanische Arbeit: recherchieren, Dateien schreiben, Massenaufgaben), "
+        "'denker' (Urteil/Analyse noetig). Nenne im Schritt konkrete Dateipfade, wenn etwas "
+        "erzeugt werden soll. Antworte AUSSCHLIESSLICH mit einem JSON-Array, sonst nichts. "
+        'Beispiel: [{"schritt": "Lies leads.csv", "rang": "reflex"}, '
+        '{"schritt": "Schreibe die Mail nach ~/Desktop/luvex/mail1.md", "rang": "arbeiter"}]'
     )
     res = llm_router.complete([{"role": "user", "content": task}], system=system,
                               task_type="reason", session_id=session_id, escalate=escalate)
     m = re.search(r"\[.*\]", res["text"], re.DOTALL)
     if m:
         try:
-            steps = [str(s).strip() for s in json.loads(m.group(0)) if str(s).strip()]
+            steps: list[dict] = []
+            for s in json.loads(m.group(0)):
+                if isinstance(s, dict) and str(s.get("schritt", "")).strip():
+                    rang = str(s.get("rang", "")).strip().lower()
+                    steps.append({"schritt": str(s["schritt"]).strip(),
+                                  "rang": rang if rang in _PLAN_RANG else "denker"})
+                elif str(s).strip():  # schwacher Planer liefert Strings -> denker
+                    steps.append({"schritt": str(s).strip(), "rang": "denker"})
             if steps:
                 return steps[:8]
         except Exception:  # noqa: BLE001
             pass
-    return [task]
+    return [{"schritt": task, "rang": "denker"}]
 
 
 def plan_and_execute(task: str, session_id: str | None = None, on_event=None, escalate: bool = True) -> str:
@@ -449,23 +475,52 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
 
     events.emit("plan_start", {"task": task}, session_id=session_id)
     steps = _make_plan(task, session_id, escalate)
-    emit({"kind": "think", "text": "📋 Plan:\n" + "\n".join(f"{i}. {s}" for i, s in enumerate(steps, 1)) + "\n"})
-    events.emit("plan_made", {"steps": steps}, session_id=session_id)
+    emit({"kind": "think", "text": "📋 Plan:\n" + "\n".join(
+        f"{i}. [{s['rang']}] {s['schritt']}" for i, s in enumerate(steps, 1)) + "\n"})
+    events.emit("plan_made", {"steps": [s["schritt"] for s in steps],
+                              "raenge": [s["rang"] for s in steps]}, session_id=session_id)
 
     done: list[str] = []
-    for i, step in enumerate(steps, 1):
-        emit({"kind": "tool", "name": f"Schritt {i}/{len(steps)}", "args": {"ziel": step[:80]}})
+    for i, sp in enumerate(steps, 1):
+        step, rang = sp["schritt"], sp["rang"]
+        # Dispatcher: Rang -> Modellroute. Eskalation (starkes Modell) nur fuer Denker-Schritte
+        # und nur, wenn der Aufrufer sie wollte — Arbeiter-/Reflex-Schritte bleiben billig.
+        task_type = _PLAN_RANG.get(rang, "reason")
+        step_escalate = escalate and rang == "denker"
+        emit({"kind": "tool", "name": f"Schritt {i}/{len(steps)} [{rang}]", "args": {"ziel": step[:80]}})
         ctx = ("Bisher erledigt:\n" + "\n".join(f"- {d}" for d in done) + "\n\n") if done else ""
         step_task = f"{ctx}Gesamtziel: {task}\n\nFuehre jetzt NUR diesen Schritt aus: {step}"
         try:
             out = act(step_task, session_id=session_id,
-                      max_steps=_budget("max_steps_plan_step", _MAX_STEPS_PLAN, "reason", escalate),
-                      escalate=escalate)["text"].strip()
+                      max_steps=_budget("max_steps_plan_step", _MAX_STEPS_PLAN, task_type, step_escalate),
+                      escalate=step_escalate, task_type=task_type)["text"].strip()
         except Exception as e:  # noqa: BLE001
             out = f"Fehler: {e}"
+
+        # Liefernachweis: behauptet der Schritt Dateien, muessen sie EXISTIEREN — sonst genau
+        # EIN Zwangs-Retry. Danach steht der Fehlschlag ehrlich im Ergebnis (kein stilles Weiter).
+        fehlend = _missing_claims(out)
+        if fehlend:
+            events.emit("plan_step_retry", {"n": i, "missing": fehlend[:5]}, session_id=session_id)
+            emit({"kind": "obs", "name": f"Schritt {i} ⚠", "text": "Artefakt fehlt -> Zwangs-Retry: "
+                  + ", ".join(fehlend[:3])})
+            retry_task = (f"{step_task}\n\nDEIN VORHERIGER VERSUCH HAT NICHT GELIEFERT: die Datei(en) "
+                          f"{', '.join(fehlend[:5])} existieren NICHT. Erzeuge sie JETZT wirklich "
+                          "(write_file/edit_datei) und antworte erst DANACH mit dem Ergebnis.")
+            try:
+                out = act(retry_task, session_id=session_id,
+                          max_steps=_budget("max_steps_plan_step", _MAX_STEPS_PLAN, task_type, step_escalate),
+                          escalate=step_escalate, task_type=task_type)["text"].strip()
+            except Exception as e:  # noqa: BLE001
+                out = f"Fehler: {e}"
+            fehlend = _missing_claims(out)
+            if fehlend:
+                out += " ⚠ NICHT BELEGT: " + ", ".join(fehlend[:5]) + " existieren nicht."
+                events.emit("plan_step_unproven", {"n": i, "missing": fehlend[:5]}, session_id=session_id)
+
         done.append(f"{step} -> {out[:160]}")
         emit({"kind": "obs", "name": f"Schritt {i}", "text": out[:200]})
-        events.emit("plan_step", {"n": i, "step": step, "result": out[:300]}, session_id=session_id)
+        events.emit("plan_step", {"n": i, "step": step, "rang": rang, "result": out[:300]}, session_id=session_id)
 
     synth = llm_router.complete(
         [{"role": "user", "content":
