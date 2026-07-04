@@ -13,6 +13,19 @@
 
 ## HOCH
 
+- [ ] B-019 [R2] Harness-Diät Teil 1 — Liefernachweis pro Plan-Schritt (Konzept:
+      `docs/harness-diaet.md` §3): behauptet ein Plan-Schritt einen Datei-Pfad,
+      sofort prüfen (`_claim_stamp`-Mechanik pro Schritt); fehlt das Artefakt →
+      EIN Zwangs-Retry („erzeuge sie JETZT mit write_file"). Akzeptanz: Tests
+      (Schritt liefert Datei / Retry greift / ehrlicher Fehlschlag im Ergebnis).
+- [ ] B-020 [R2] Harness-Diät Teil 2 — Werkzeug-Kern 65→~14 + `werkzeug_suchen`
+      (Konzept §1): `core=True`-Flag in der Registry, manifest/tool_schemas
+      filtern, Discovery-Tool lädt Nicht-Kern-Werkzeuge turn-lokal nach.
+      Akzeptanz: Schemas < 8k Zeichen; alle 65 weiter erreichbar; Tests.
+- [ ] B-021 [R2] Harness-Diät Teil 3 — schlanke Arbeits-Identität (Konzept §2):
+      `_identity_lean()` (~4k: Verfassungs-Kurzfassung + Melde-Regeln) für
+      delegate/schwarm/Plan-Schritte; volle Identität nur im Sergen-Chat.
+      Akzeptanz: Budget-Test ≤ 4500 Zeichen; Delegation nutzt lean.
 - [ ] B-001 [R1] Offene Falle Dossier §10: Test-Events landen in der Live-DB
       (`events.DB_PATH` in Tests mitpatchen, TestClient-Startup hinter Env-Flag).
       Akzeptanz: `pytest` emittiert 0 Events in eine echte `state.db`.
