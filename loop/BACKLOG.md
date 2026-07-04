@@ -12,6 +12,19 @@
       eingetragen; für etwaige Linux-only-Failures eigene Backlog-Items angelegt.
 
 ## HOCH
+- [ ] B-023 [R2] Skeptiker-Gate fuer Content: bevor eine Mail/ein Text in die
+      Freigabe-Inbox geht, prueft ein billiger Unteragent (rang=reflex/arbeiter)
+      "steht JEDE Behauptung im Quellbericht?" — nein -> ein Zwangs-Retry, dann
+      ehrlicher Vermerk. Muster: Liefernachweis (act.py plan-Schleife) + delegate.
+      Akzeptanz: Tests (erfundene Behauptung wird gefangen, belegte passiert).
+- [ ] B-025 [R2] Selbstkalibrierungs-Report: Nudge-/Zwangs-Retry-/Fallback-/
+      Claim-Fail-Raten pro Modell aus den Events aggregieren (model_fallback,
+      plan_step_retry, claim_check_failed, act_degraded) -> woechentlicher
+      Vorschlag in die Freigabe-Inbox ("Budget X fuer Modell Y anpassen").
+      Akzeptanz: Report-Funktion + Test; KEINE Auto-Aenderung ohne Freigabe.
+- [ ] B-026 [R2] Modell-A/B konkretisieren (B-012): reason=GLM 5.2 vs.
+      deepseek-v4-pro ueber Outcome-Pass-Quote + Kosten/Erfolg aus llm_call-Events
+      vergleichen, sobald >20 Outcomes vorliegen. Ergebnis als Dossier docs/radar/.
 
 - [ ] B-020 [R2] Harness-Diät Teil 2 — Werkzeug-Kern 65→~14 + `werkzeug_suchen`
       (Konzept §1): `core=True`-Flag in der Registry, manifest/tool_schemas
@@ -50,6 +63,10 @@
       für Memory/Knowledge, nur Konzept + Tests, keine neuen Dependencies.
 
 ## IDEEN (unsortiert, vom Loop selbst gefüttert)
+
+- B-024 [R1] Cockpit-Gedaechtnis-Browser: Datei-Browser von statischem FILES-Dict
+  auf Verzeichnis-Walk fuer gedaechtnis/** + docs/** umstellen — BRAUCHT
+  Traversal-Guard (resolve + is_relative_to ROOT) und Desktop-Abnahme.
 
 - B-018 [R1] Delegation v2: `schwarm` echt parallelisieren (Threads; Vorsicht:
   Circuit-Breaker-Cross-Talk, Budget-Race, LLM-Pool max 6) + Skeptiker-
