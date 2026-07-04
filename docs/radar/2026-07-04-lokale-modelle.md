@@ -112,11 +112,22 @@ Entscheidung:
 - Deutsch-Faehigkeit (kein Standard-Leaderboard — selbst testen)
 - NICHT relevant: Mathe-Olympiade, Kreativ-Schreiben, MMLU-Trivia
 
+## ENTSCHIEDEN (2026-07-04): Zweigleisig
+
+Sergens PC hat 32 GB RAM -> beide Gleise:
+
+- `classify` (Reflex) und `local_fallback` stehen jetzt in config.yaml auf
+  `ollama_chat/qwen3.5:9b` — qwythos und llama3.1:8b in Rente.
+- `qwen3.6:35b` wird lokal vorgehalten und tritt im B-012-Benchmark an;
+  besteht er, wird er lokaler Denker. Bis dahin bleibt `reason` Cloud.
+- WICHTIG am PC: `ollama pull qwen3.5:9b` MUSS vor dem naechsten
+  kira-update.bat laufen, sonst zeigt der Reflex-Rang auf ein Modell,
+  das noch nicht da ist.
+
 ## Naechste Schritte (Desktop)
 
-1. `ollama pull qwen3.5:9b`
-2. In config.yaml testweise `local_fallback` / `classify` auf
-   `ollama_chat/qwen3.5:9b` stellen (eine Zeile pro Rang).
+1. `ollama pull qwen3.5:9b` (Pflicht) und `ollama pull qwen3.6:35b` (optional, ~24 GB)
+2. Danach kira-update.bat — die Config-Umstellung kommt mit dem Pull.
 3. Eigener Mini-Benchmark statt fremder Leaderboards (B-012/B-026):
    dieselben 5 Kira-Aufgaben (Plan bauen, Werkzeug aufrufen, JSON liefern,
    deutsche Mail, Datei-Beweis) gegen qwythos laufen lassen — Outcome
