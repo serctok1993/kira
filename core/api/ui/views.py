@@ -224,7 +224,7 @@ VIEWS = r"""</head><body>
   <!-- ================= KIRA (Persoenlichkeit & Specs) ================= -->
   <div class="view" id="v-kira">
     <div class="seg" id="kira-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="playbooks">Playbooks</a><a data-s="anatomie">Anatomie</a><a data-s="evolution">Evolution</a><a data-s="stats">Statistik</a><a data-s="keys">Zugaenge</a>
+      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="playbooks">Playbooks</a><a data-s="anatomie">Anatomie</a><a data-s="evolution">Evolution</a><a data-s="stats">Statistik</a><a data-s="keys">Zugaenge</a><a data-s="checkliste">Checkliste</a>
     </div>
 
     <div class="subview" id="v-keys">
@@ -319,6 +319,14 @@ VIEWS = r"""</head><body>
           <div id="ev-skills" class="panel-b"><span class="muted">…</span></div></div>
         <div class="panel"><div class="panel-h">◈ LETZTE LEKTIONEN</div>
           <div id="ev-lessons" class="panel-b"><span class="muted">…</span></div></div>
+      </div>
+    </div>
+
+    <div class="subview" id="v-checkliste">
+      <div class="card"><h3>System-Checkliste — ist das Fundament gesund?</h3>
+        <div class="muted">Die Paragraphen aus <b>docs/HANDBUCH.md</b> als Live-Ampeln.
+        Gruen = laeuft · Gelb = wartet auf dich/Aufbau · Rot = klemmt.</div>
+        <div id="ck-list" style="margin-top:12px"><span class="muted">…</span></div>
       </div>
     </div>
 
