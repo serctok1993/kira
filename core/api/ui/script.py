@@ -907,7 +907,7 @@ async function loadAgenten(){try{const d=await (await fetch("/api/agents")).json
 /* ---- Projekte (S5.3b): Venture-Karten + Drilldown ---- */
 async function loadVentures(){const el=$("#vent-list");if(!el)return;try{
  const d=await (await fetch("/api/ventures")).json();const vs=d.ventures||[];
- const vc=$("#vent-sum");if(vc)vc.textContent=vs.length?(vs.length+" Standbeine"):"";
+ const vc=$("#vent-sum");if(vc)vc.textContent=vs.length?(vs.length+" Projekte"):"";
  el.innerHTML=vs.length?vs.map(v=>{
   const ms=(v.milestone_progress!=null)?('<div style="height:4px;background:var(--line);border-radius:2px;margin-top:5px"><div style="height:4px;border-radius:2px;background:var(--hud);width:'+v.milestone_progress+'%"></div></div>'):'';
   return '<div class="memrow" data-vent="'+v.id+'" style="cursor:pointer"><div class="mh"><span class="badge kind">'+v.status+'</span><b>'+(v.name||"").replace(/</g,"&lt;")+'</b><span style="flex:1"></span><span class="muted">+'+v.income_eur.toFixed(2)+' / -'+v.expenses_eur.toFixed(2)+' = <b>'+v.balance_eur.toFixed(2)+' &euro;</b></span></div>'+ms+'</div>';}).join("")
@@ -1074,4 +1074,32 @@ function pollTick(){
 }
 _pollTimer=setTimeout(pollTick,5000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){pollFails=0;pollTick();}});
+/* ===== Inline-Rename (Sergen): Beschriftungen per Doppelklick aendern, im Browser gespeichert ===== */
+(function(){
+ var K="kiraLabels",m={};try{m=JSON.parse(localStorage.getItem(K)||"{}")}catch(e){}
+ function save(){try{localStorage.setItem(K,JSON.stringify(m))}catch(e){}}
+ function ftn(el){for(var i=0;i<el.childNodes.length;i++){var n=el.childNodes[i];if(n.nodeType===3&&n.textContent.trim())return n;}return null;}
+ function wire(el){
+  if(el.getAttribute("data-lblkey"))return;
+  var card=el.tagName==="H3",node=card?el:ftn(el);
+  if(!node)return;
+  var orig=(node.textContent||"").trim();
+  if(!orig)return;
+  el.setAttribute("data-lblkey",orig);
+  var set=function(v){if(card)el.textContent=v;else node.textContent=v+" ";};
+  if(m[orig]!==undefined)set(m[orig]);
+  el.title="Doppelklick: Beschriftung aendern";
+  el.addEventListener("dblclick",function(ev){
+   ev.preventDefault();ev.stopPropagation();
+   var cur=m[orig]!==undefined?m[orig]:orig;
+   var nv=window.prompt("Beschriftung aendern (leer = Standard):",cur);
+   if(nv===null)return;nv=nv.trim();
+   if(nv===""||nv===orig){delete m[orig];set(orig);}else{m[orig]=nv;set(nv);}
+   save();
+  });
+ }
+ function apply(){var els=document.querySelectorAll(".card h3, .panel-h");for(var i=0;i<els.length;i++)wire(els[i]);}
+ apply();
+ document.addEventListener("click",function(e){if(e.target&&e.target.closest&&e.target.closest("#side"))setTimeout(apply,60);});
+})();
 </script></body></html>"""

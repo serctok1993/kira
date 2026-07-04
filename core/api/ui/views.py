@@ -19,7 +19,7 @@ VIEWS = r"""</head><body>
   <h1>KIRA</h1><div class="sub" id="who">cockpit</div>
   <a data-v="home" class="on" title="Kommandostand: Status, Befehl, Live-Ops, Digest"><i class="ti">◈</i> Zentrale</a>
   <a data-v="chat" title="Mit mir reden"><i class="ti">›</i> Chat</a>
-  <a data-v="projekte" title="Standbeine, Ziele, Radar-Chancen"><i class="ti">◈</i> Projekte</a>
+  <a data-v="projekte" title="Projekte, Ziele, Radar-Chancen"><i class="ti">◈</i> Projekte</a>
   <a data-v="me" title="Dein Bereich: Todos beidseitig, Mails, Metriken"><i class="ti">☰</i> Me</a>
   <a data-v="kira" title="Wer ich bin: Seele, Gedaechtnis, Wissen, Anatomie, Lernkurve"><i class="ti">✦</i> Kira</a>
   <a data-v="config" title="Technik: Modelle, Zugaenge, Gewissen, Cron, Monitor, Protokoll"><i class="ti">⚙</i> Config</a>
@@ -135,7 +135,7 @@ VIEWS = r"""</head><body>
   <!-- ================= PROJEKTE (S9.3: eine Uebersicht, kein Subtab-Umweg) ================= -->
   <div class="view" id="v-projekte">
     <div class="panel" id="proj-top">
-      <div class="panel-h">◈ STANDBEINE <span class="sp"></span><span class="muted" id="vent-sum" style="font-size:11px"></span>
+      <div class="panel-h">◈ PROJEKTE <span class="sp"></span><span class="muted" id="vent-sum" style="font-size:11px"></span>
         <a id="obj-new-btn" class="muted" style="cursor:pointer;font-size:11px;margin-left:10px">+ Ziel</a></div>
       <div id="vent-list" class="panel-b"><span class="muted">…</span></div>
       <div id="vent-detail" class="panel-b" style="display:none;border-top:1px solid var(--line)"></div>
@@ -168,7 +168,7 @@ VIEWS = r"""</head><body>
       </div>
       <div class="panel">
         <div class="panel-h">◈ RADAR <span class="sp"></span><a id="rd-scan" class="muted" style="cursor:pointer;font-size:11px">⚡ scannen</a></div>
-        <div id="rd-list" class="panel-b"><span class="muted" id="rd-hint">Woechentlicher Chancen-Scan. Convert = Standbein draus machen.</span></div>
+        <div id="rd-list" class="panel-b"><span class="muted" id="rd-hint">Woechentlicher Chancen-Scan. Convert = Projekt draus machen.</span></div>
       </div>
     </div>
   </div>
