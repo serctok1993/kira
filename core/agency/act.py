@@ -473,6 +473,19 @@ _MODEL_SHORTCUTS = {
 }
 _MODEL_ROLES = ("chat", "reason", "bulk", "escalation", "default", "classify", "worker")
 
+# Verify-Reflex fuer den Coding-Chat ("code:"): kompakte, bindende Arbeitsregeln.
+# Bewusst klein (~600 Zeichen) — sie fliessen in den Plan UND in jeden Teilschritt.
+_CODING_REGELN = (
+    "CODING-REGELN (bindend):\n"
+    "1. ERST suchen, dann aendern: code_suche/datei_finden statt raten oder ganze Dateien lesen.\n"
+    "2. Aenderungen an BESTEHENDEN Dateien NUR mit edit_datei (exakter, eindeutiger Suchtext) "
+    "oder self_edit — NIE write_file (blindes Ueberschreiben).\n"
+    "3. Jeder Edit laeuft automatisch durch Syntax-Check + Testsuite; ROT heisst: Datei kam "
+    "zurueck, dein Ansatz war falsch — aendere die STRATEGIE, nicht die Behauptung.\n"
+    "4. Melde Testergebnisse EHRLICH und woertlich. NIE Erfolg behaupten ohne gruenen Verify.\n"
+    "5. Kleine, gezielte Edits; ein Schritt = eine abgeschlossene, geprueft funktionierende Aenderung."
+)
+
 
 def _handle_model_command(text: str) -> str:
     """Deterministischer Modell-Wechsel OHNE LLM (fuer /model bzw. /switch im Web-Chat).
@@ -570,10 +583,15 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     history = memory.recent_dialogue(session_id, limit=10)
     memory.remember(user_message, role="user", session_id=session_id)
 
-    # Plan-Modus: "plan: ..." oder "/plan ..." -> erst Plan, dann Schritt fuer Schritt (wie ein Coding-Agent)
+    # Plan-Modus: "plan:"/"/plan" -> erst Plan, dann Schritt fuer Schritt (wie ein Coding-Agent).
+    # "code:" (Coding-Chat im Cockpit) laeuft identisch, haengt aber die CODING-REGELN an —
+    # der Verify-Reflex erreicht so JEDEN Teilschritt (via 'Gesamtziel' im Step-Prompt).
     _s = user_message.strip()
-    if _s.lower().startswith(("plan:", "/plan")):
+    code_mode = _s.lower().startswith("code:")
+    if code_mode or _s.lower().startswith(("plan:", "/plan")):
         ptask = _s[5:].lstrip(": ").strip() or "(keine Aufgabe angegeben)"
+        if code_mode:
+            ptask += "\n\n" + _CODING_REGELN
         final = plan_and_execute(ptask, session_id=session_id, on_event=on_event, escalate=True)
         memory.remember(final, role="partner", session_id=session_id)
         events.emit("partner_message", {"text": final, "plan": True}, session_id=session_id)

@@ -136,15 +136,18 @@ def read_file(path: str, max_chars: int = 40000, offset: int = 0) -> str:
     return chunk
 
 
-@tool("write_file", "Schreibt Text in eine Datei (erstellt sie / ueberschreibt). Legt fehlende Ordner an.",
+@tool("write_file", "Schreibt Text in eine Datei (erstellt sie / ueberschreibt KOMPLETT). Legt fehlende "
+      "Ordner an. Fuer gezielte Aenderungen an BESTEHENDEN Code-Dateien edit_datei nutzen "
+      "(chirurgisch + Tests) statt blind zu ueberschreiben.",
       {"path": "Dateipfad", "content": "der Inhalt"})
 def write_file(path: str, content: str) -> str:
+    from core.kernel.fs import atomic_write
+
     p = Path(path).expanduser()
     blocked = _write_guard(p, "write_file")
     if blocked:
         return blocked
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(str(content), encoding="utf-8")
+    atomic_write(p, str(content))  # atomar: nie halbe Dateien bei Absturz
     return f"OK, geschrieben: {p} ({len(str(content))} Zeichen)"
 
 
@@ -659,3 +662,5 @@ from core.agency.tools import radar_tools  # noqa: E402,F401
 from core.agency.tools import playbook_tools  # noqa: E402,F401
 # Delegation: Unteragenten nach Rang (reflex/arbeiter/denker/richter) + Schwarm.
 from core.agency.tools import delegate_tools  # noqa: E402,F401
+# Coding-Grundausstattung: code_suche/datei_finden/edit_datei (suchen -> chirurgisch editieren -> verifizieren).
+from core.agency.tools import code_tools  # noqa: E402,F401
