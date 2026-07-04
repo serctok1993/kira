@@ -141,22 +141,49 @@ def _has_key(model: str) -> bool:
     return bool(env and os.getenv(env))
 
 
+# Oeffentlicher Alias, damit Chat-Befehl + API denselben Key-Check nutzen (nicht neu bauen).
+def has_key(model: str) -> bool:
+    """True, wenn fuer dieses Modell ein Provider-Key vorhanden ist (lokal immer True)."""
+    return _has_key(model)
+
+
+# Sichtbarkeit statt stillem Fallback: EIN Event pro (task, gewuenscht), gedrosselt,
+# damit der heisse Pfad (jeder complete/stream) nicht spammt.
+_FALLBACK_SEEN: dict[tuple[str, str], float] = {}
+_FALLBACK_THROTTLE_S = 300.0
+
+
+def _note_fallback(task_type: str, wanted: str | None, used: str) -> None:
+    key = (task_type, str(wanted))
+    now = time.time()
+    if now - _FALLBACK_SEEN.get(key, 0.0) > _FALLBACK_THROTTLE_S:
+        _FALLBACK_SEEN[key] = now
+        try:
+            events.emit("model_fallback",
+                        {"task_type": task_type, "wanted": wanted, "used": used, "reason": "missing_key"})
+        except Exception:  # noqa: BLE001 — Sichtbarkeit darf den Aufruf nie brechen
+            pass
+
+
 def resolve_model(task_type: str = "default", escalate: bool = False) -> tuple[str, bool]:
     """Gibt (modell_id, fell_back) zurueck.
 
     escalate=True -> der Agent haelt die Aufgabe fuer wuerdig: Cloud-Modell, sofern
-    ein Key vorhanden ist. Ohne Key faellt es sauber auf lokal zurueck.
+    ein Key vorhanden ist. Ohne Key faellt es sauber auf lokal zurueck (und meldet das,
+    damit der Wechsel nie STILL verpufft — siehe model_fallback-Event).
     """
     models = CONFIG["models"]
     if escalate:
         target = models.get("escalation_model")
         if target and _has_key(target):
             return target, False
+        _note_fallback(task_type, target, models["local_fallback"])
         return models["local_fallback"], True
     routing = models.get("routing", {})
     chosen = routing.get(task_type, models["default"])
     if _has_key(chosen):
         return chosen, False
+    _note_fallback(task_type, chosen, models["local_fallback"])
     return models["local_fallback"], True
 
 

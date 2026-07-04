@@ -64,10 +64,16 @@ def health() -> dict:
 @app.get("/api/status")
 def api_status() -> dict:
     m = models.status()
+    from core.kernel import llm_router
+    # Was der Chat JETZT WIRKLICH nutzt (nicht nur das gespeicherte Wunsch-Modell):
+    # fehlt der Cloud-Key, laeuft es lokal — das soll das UI sehen, nicht verstecken.
+    _resolved, _fb = llm_router.resolve_model("chat")
     return {
         "harness": CONFIG["identity"]["harness_name"],
         "partner": CONFIG["identity"].get("partner_name") or "Partner",
         "model": m["default"],
+        "resolved_model": _resolved,
+        "fallback_active": bool(_fb),
         "api_keys": m["api_keys"],
         "providers": m["providers"],
         "ollama_local": m["ollama_local"],
@@ -232,7 +238,17 @@ async def api_secrets_set(body: dict) -> dict:
 
 @app.post("/api/model/use")
 async def api_model_use(body: dict) -> dict:
-    return {"ok": True, "active": models.set_model(body.get("id", ""))}
+    from core.kernel import llm_router
+
+    active = models.set_model(body.get("id", ""))
+    # Ehrlich statt still: fehlt der Key, wird gespeichert, aber offen gewarnt
+    # (statt blindem ok:True, das so tut, als liefe das Cloud-Modell schon).
+    warning = None
+    if not llm_router.has_key(active):
+        prov = active.split("/", 1)[0] if "/" in active else active
+        warning = f"Kein Key fuer {prov} — laeuft bis dahin lokal."
+    events.emit("model_use_set", {"model": active, "warning": warning, "via": "dashboard"})
+    return {"ok": True, "active": active, "warning": warning}
 
 
 @app.post("/api/model/openrouter")
