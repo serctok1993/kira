@@ -96,6 +96,12 @@ api:
   host: 127.0.0.1
   port: 8000
 
+# News-/Web-Monitor: verfolgt Feeds/Themen still im Hintergrund und merkt Neues.
+# spontaneous_notify AUS = keine Zwischendrin-Pings; die News kommen gebuendelt
+# in Kiras Stimme im Morgen-/Abend-Briefing (08:00/20:00) samt Links.
+monitor:
+  spontaneous_notify: false
+
 # Kanaele (Kiras Draht nach aussen)
 channels:
   telegram:

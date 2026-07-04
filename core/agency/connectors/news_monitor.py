@@ -22,6 +22,10 @@ from core.kernel.fs import atomic_write
 
 _UA = {"User-Agent": "Mozilla/5.0 (Kira News Monitor)"}
 WATCHES = ROOT / "data" / "watches.json"
+# Puffer fuer gemerkte Neuigkeiten: der Monitor pingt nicht mehr spontan, sondern
+# legt Neues hier ab; das naechste Briefing (standup) leert den Puffer und bringt
+# die Themen samt Links in Kiras Stimme statt als rohen Dump zur Unzeit.
+PENDING = ROOT / "data" / "monitor_pending.json"
 
 
 def _load() -> list[dict]:
@@ -35,6 +39,37 @@ def _load() -> list[dict]:
 
 def _save(w: list[dict]) -> None:
     atomic_write(WATCHES, json.dumps(w, ensure_ascii=False, indent=2))
+
+
+def _load_pending() -> list[dict]:
+    if PENDING.exists():
+        try:
+            return json.loads(PENDING.read_text(encoding="utf-8"))
+        except Exception:
+            return []
+    return []
+
+
+def _add_pending(items: list[dict]) -> None:
+    """Neue Eintraege vorne einfuegen, nach Link/Titel deduplizieren, auf 60 kappen."""
+    cur = _load_pending()
+    seen = {(i.get("link") or i.get("title")) for i in cur}
+    for it in items:
+        key = it.get("link") or it.get("title")
+        if key and key not in seen:
+            cur.insert(0, it)
+            seen.add(key)
+    atomic_write(PENDING, json.dumps(cur[:60], ensure_ascii=False, indent=2))
+
+
+def drain_pending(max_items: int = 12) -> list[dict]:
+    """Gemerkte Neuigkeiten fuers Briefing zurueckgeben UND den Puffer entsprechend leeren."""
+    cur = _load_pending()
+    if not cur:
+        return []
+    take, rest = cur[:max_items], cur[max_items:]
+    atomic_write(PENDING, json.dumps(rest, ensure_ascii=False, indent=2))
+    return take
 
 
 def _hash(s: str) -> str:
@@ -169,8 +204,13 @@ def _notify(text: str) -> None:
         events.emit("notify_error", {"error": str(e)})
 
 
-def run_all(force: bool = False, notify: bool = True) -> dict:
-    """Alle Beobachtungen pruefen (rate-limited pro watch), Neues zusammenfassen + melden."""
+def run_all(force: bool = False, notify: bool = False) -> dict:
+    """Alle Beobachtungen pruefen (rate-limited pro watch), Neues merken (Puffer).
+
+    notify=False (Standard): NUR merken, kein spontanes Telegram-Pingen — die News
+    holt das naechste Briefing aus dem Puffer. notify=True: zusaetzlich sofort melden
+    (Alt-Verhalten, nur wenn config monitor.spontaneous_notify gesetzt ist).
+    """
     w = _load()
     if not w:
         return {"checked": 0, "digests": []}
@@ -178,10 +218,17 @@ def run_all(force: bool = False, notify: bool = True) -> dict:
     for watch in w:
         res = check_watch(watch, force=force)
         if res.get("new"):
-            summary = _summarize(watch["label"], res["new"])
+            # Rohe Eintraege (Titel + Link) in den Puffer fuers Briefing.
+            _add_pending([
+                {"label": watch["label"], "title": it["title"], "link": it.get("link", ""), "ts": time.time()}
+                for it in res["new"][:8]
+            ])
+            if notify:  # nur wenn ausdruecklich gewuenscht: LLM-Zusammenfassung + Sofortmeldung
+                summary = _summarize(watch["label"], res["new"])
+                _notify(f"📰 {watch['label']} — {len(res['new'])} neu:\n{summary}")
+            else:  # billig: rohe Titel als Kurz-Digest fuers Event-Log
+                summary = "\n".join(f"- {it['title']}" for it in res["new"][:6])
             digests.append({"label": watch["label"], "count": len(res["new"]), "summary": summary})
             events.emit("monitor_new", {"label": watch["label"], "count": len(res["new"]), "summary": summary})
-            if notify:
-                _notify(f"📰 {watch['label']} — {len(res['new'])} neu:\n{summary}")
     _save(w)  # aktualisierten Zustand (last_checked/seen) sichern
     return {"checked": len(w), "digests": digests}
