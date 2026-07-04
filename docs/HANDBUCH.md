@@ -20,6 +20,10 @@
   Denker (Pro/GLM) · Richter (Eskalations-Modell, z. B. Fable — nur finale Urteile).
 - **Delegation:** `delegate` (1 Unteragent nach Rang) · `schwarm` (Liste abarbeiten, {item}-Platzhalter).
   Unteragenten können NICHT weiterdelegieren (Tiefen-Sperre). Kosten je Unteragent im Harness-Report.
+- **DEIN Steuerpult** (Cockpit → Config → 🎛 Steuerpult): Rang-Tafel (welches Modell auf welchem
+  Rang, gesetzt vs. real), Schwarm-Regler (Schritte je Rang, Breite, Kosten-Deckel — live) und die
+  Kommandobrücke (Auftrag + Rang wählen → Befehl landet im Chat, DU drückst Senden). Im Chat direkt:
+  `/delegiere` und `/schwarm` (§5) — deterministisch, funktioniert mit jedem Modell.
 - **Coding:** suchen (`code_suche`/`datei_finden`) → chirurgisch editieren (`edit_datei`, exakter
   eindeutiger Suchtext) → Tests laufen automatisch, rot = Datei kommt zurück.
 - **Arbeitsdisziplin:** klare Aufträge werden automatisch geplant (Auto-Plan) und nach Rängen
@@ -55,9 +59,12 @@ Ebene 4  Destillat                  gedaechtnis/stammbaum/ + Lektionen/Playbooks
 | Befehl | Wirkung |
 |---|---|
 | `/model` | zeigt: gesetztes Modell, REAL laufendes Modell, Key-Status |
-| `/model fable` · `pro` · `deepseek` · `local` | Modell schalten (`local` = Notbremse) |
+| `/model fable` · `pro` · `deepseek` · `local` | Modell schalten (`local` = Notbremse, lokal qwen3.5:9b) |
+| `/model 9b` · `/model 35b` | lokal klein (schnell) bzw. lokaler Denker qwen3.6:35b (braucht RAM) |
 | `/model <rolle> <id>` | Rolle gezielt besetzen (chat/reason/worker/escalation…) |
 | `reason:` vor der Nachricht | diese eine Anfrage aufs starke Modell |
+| `/delegiere <rang> <auftrag>` | DEIN Draht zur Armee: EIN Unteragent im gewaehlten Rang (reflex/arbeiter/denker/richter) |
+| `/schwarm <rang> <vorlage mit {item}> \| a \| b` | mehrere Unteragenten parallel ueber eine Liste |
 | `/work <auftrag>` | volles Arbeitsbudget (langer Task) |
 | `plan:` / Coding-Modus | erst Plan, dann Schritte (Coding erzwingt zusätzlich Regeln) |
 | `@ziel:<name>` | Arbeit auf ein Ziel buchen |

@@ -185,6 +185,8 @@ def roles() -> dict:
         "chat": rt.get("chat", m.get("default")),
         "reason": rt.get("reason", m.get("default")),
         "bulk": rt.get("bulk", m.get("default")),
+        "classify": rt.get("classify", m.get("local_fallback")),
+        "worker": rt.get("worker", m.get("default")),
         "escalation": m.get("escalation_model"),
         "default": m.get("default"),
     }

@@ -347,7 +347,7 @@ VIEWS = r"""</head><body>
   <!-- ================= CONFIG (rein technisch) ================= -->
   <div class="view" id="v-config">
     <div class="seg" id="sys-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="models" class="on">⚙ Modelle</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="log">Protokoll</a><a data-s="cockpit">Cockpit</a>
+      <a data-s="models" class="on">⚙ Modelle</a><a data-s="steuer">🎛 Steuerpult</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="log">Protokoll</a><a data-s="cockpit">Cockpit</a>
     </div>
 
   <div class="subview on" id="v-models">
@@ -396,13 +396,15 @@ VIEWS = r"""</head><body>
       <div class="muted">Jede Aufgabe hat ihre eigene KI. Zum Aendern unten im Katalog ein Modell suchen und der Rolle zuweisen.</div>
       <div id="m-roles" style="margin-top:8px"></div>
     </div>
-    <div class="card"><h3>Modell-Katalog (live: alle OpenRouter + lokal)</h3>
+    <div class="card"><h3>Modell-Katalog (live: OpenRouter + AIMLAPI + lokal — neue Modelle erscheinen automatisch)</h3>
       <div class="row" style="margin-top:4px;flex-wrap:wrap">
         <label class="muted" style="align-self:center">Zuweisen an:</label>
         <select id="cat-role">
           <option value="chat">💬 Chat (Smalltalk)</option>
-          <option value="reason">🧠 Reason / Coding</option>
+          <option value="reason">🧠 Denker (Reason/Coding)</option>
           <option value="bulk">⏰ Crons (einfach)</option>
+          <option value="classify">🐜 Reflex (lokal, 0€)</option>
+          <option value="worker">🔧 Arbeiter (Delegation)</option>
           <option value="escalation">⚡ Eskalation</option>
           <option value="default">★ Default (alles)</option>
         </select>
@@ -410,6 +412,60 @@ VIEWS = r"""</head><body>
       </div>
       <div id="cat-list" style="max-height:340px;overflow:auto;margin-top:8px;font-size:12px"></div>
       <div class="muted" id="cat-hint" style="margin-top:6px"></div>
+    </div>
+  </div>
+
+  <!-- ============ STEUERPULT: Sergens Riegel ueber die Schwarmintelligenz ============ -->
+  <div class="subview" id="v-steuer">
+    <div class="card"><h3>🎛 Steuerpult — dein Riegel über die Schwarmintelligenz</h3>
+      <div class="muted">Kira arbeitet in <b>Rängen</b> (Reflex → Arbeiter → Denker → Richter). Hier bestimmst du,
+      <b>welches Modell hinter jedem Rang steht</b>, wie viel ein Unteragent darf — und schickst der Armee
+      <b>direkte Befehle</b>, ohne dass ein Modell mitreden muss. Im Chat geht dasselbe per
+      <b>/delegiere</b> und <b>/schwarm</b>.</div>
+    </div>
+    <div class="card"><h3>Rang-Tafel — wer denkt auf welchem Rang</h3>
+      <div class="muted">„gesetzt" = dein Befehl · „läuft real" = was gerade wirklich antwortet (Fallback sichtbar).
+      Modell tippen (Vorschläge aus dem Live-Katalog) und zuweisen.</div>
+      <div id="st-raenge" style="margin-top:8px"><span class="muted">…</span></div>
+      <datalist id="st-modelle"></datalist>
+      <div class="muted" id="st-rang-hint" style="margin-top:6px"></div>
+    </div>
+    <div class="card"><h3>Schwarm-Regler — wie viel deine Armee darf</h3>
+      <div class="row" style="flex-wrap:wrap;gap:10px;margin-top:6px">
+        <label class="muted" style="align-self:center">Schritte je Unteragent:</label>
+        <label class="muted" style="align-self:center">🐜<input id="st-s-reflex" type="number" min="1" max="40" style="width:64px"/></label>
+        <label class="muted" style="align-self:center">🔧<input id="st-s-arbeiter" type="number" min="1" max="40" style="width:64px"/></label>
+        <label class="muted" style="align-self:center">🧠<input id="st-s-denker" type="number" min="1" max="40" style="width:64px"/></label>
+        <label class="muted" style="align-self:center">⚖<input id="st-s-richter" type="number" min="1" max="40" style="width:64px"/></label>
+      </div>
+      <div class="row" style="flex-wrap:wrap;gap:10px;margin-top:8px">
+        <label class="muted" style="align-self:center">Schwarm-Breite (max. Unteragenten)</label>
+        <input id="st-breite" type="number" min="1" max="20" style="width:70px"/>
+        <label class="muted" style="align-self:center">Kosten-Deckel je Delegation (€)</label>
+        <input id="st-kosten" type="number" min="0" step="0.1" style="width:80px"/>
+        <button id="st-regler-save">Übernehmen (sofort live)</button>
+        <span class="muted" id="st-regler-hint" style="align-self:center"></span>
+      </div>
+    </div>
+    <div class="card"><h3>Kommandobrücke — Auftrag direkt an die Armee</h3>
+      <div class="row" style="flex-wrap:wrap;gap:10px;margin-top:6px">
+        <label class="muted" style="align-self:center">Rang:</label>
+        <select id="st-cmd-rang">
+          <option value="reflex">🐜 Reflex (lokal, 0€)</option>
+          <option value="arbeiter" selected>🔧 Arbeiter (billig)</option>
+          <option value="denker">🧠 Denker</option>
+          <option value="richter">⚖ Richter (teuer, selten!)</option>
+        </select>
+        <label class="chip tog" style="align-self:center"><input type="checkbox" id="st-cmd-schwarm"/> als Schwarm (Liste)</label>
+      </div>
+      <textarea id="st-cmd-auftrag" class="k" style="margin-top:8px;min-height:60px"
+        placeholder="Der Auftrag — beim Schwarm mit {item} als Platzhalter, z.B.: Recherchiere kurz: {item}"></textarea>
+      <textarea id="st-cmd-items" class="k" style="margin-top:8px;min-height:60px;display:none"
+        placeholder="Schwarm-Liste: EIN Item pro Zeile (z.B. 5 Firmennamen)"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button id="st-cmd-go">→ In den Chat legen</button>
+        <span class="muted" style="align-self:center">Der Befehl landet im Chat-Eingabefeld — <b>du</b> drückst Senden. Finger am Abzug bleibt bei dir.</span>
+      </div>
     </div>
   </div>
 
