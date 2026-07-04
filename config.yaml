@@ -45,6 +45,8 @@ agency:
   max_steps_plan_step: 12   # Werkzeug-Runden pro Teilschritt im Plan-Modus (vorher: 6)
   obs_max_chars: 16000      # wie viel eines Werkzeug-Ergebnisses das Modell sieht (vorher: 6000)
   turn_stall_seconds: 480   # Turn-Watchdog: haengt ein Chat-Zug > N s OHNE Fortschritt -> Force-Restart (schnellere Wedge-Erholung; echte /work-Tasks feuern laufend Events)
+  auto_plan: true           # klarer Arbeitsauftrag im Plain-Chat -> automatisch Plan-Modus (Denker-Rang, nicht Eskalation); Aenderung braucht Neustart
+  claim_check: true         # Beweispflicht: behauptete Dateien in Antworten werden nachgeprueft, fehlende sichtbar gestempelt
   # Fable-freundliche Arbeitsflaeche: laeuft die Runde REAL auf einem starken Cloud-Modell
   # (Marker unten, kein Fallback), gelten diese grosszuegigeren Decken statt der Basis oben.
   # Folgt automatisch dem Modell-Switch (/model fable etc.) — kein Extra-Schalter. Schwache/
