@@ -563,8 +563,9 @@ $("#reason-on")&&($("#reason-on").onchange=()=>{const l=$("#chip-reason");if(l)l
 $("#cform").onsubmit=e=>{e.preventDefault();const raw=$("#cin").value.trim();if(!raw||!ws||ws.readyState!==1)return;
  msgEl(raw,"me");startThinking();
  let t=raw;
- if(chatMode==="research"&&!/^(\/work|work:|plan:|\/plan)/i.test(raw))t="/work "+raw;
- if(chatMode==="coding"&&!/^(code:|plan:|\/plan)/i.test(raw))t="code: "+raw;  /* code: = plan + Coding-Regeln */
+ /* Slash-Befehle (/model, /status, ...) NIE mit Modus-Praefix verschlucken */
+ if(chatMode==="research"&&!/^(\/|work:|plan:|code:)/i.test(raw))t="/work "+raw;
+ if(chatMode==="coding"&&!/^(\/|work:|plan:|code:)/i.test(raw))t="code: "+raw;  /* code: = plan + Coding-Regeln */
  if($("#reason-on")&&$("#reason-on").checked&&!/^reason:/i.test(t))t="reason: "+t;  /* S9.2: staerkeres Modell */
  ws.send(t);$("#cin").value="";curBot=null;curThink=null;};
 

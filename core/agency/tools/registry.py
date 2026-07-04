@@ -45,7 +45,9 @@ def manifest() -> str:
     if not _REGISTRY:
         return "(keine Werkzeuge verfuegbar)"
     lines = []
-    for t in _REGISTRY.values():
+    # Snapshot: die MCP-Bruecke registriert Werkzeuge zur LAUFZEIT (anderer Thread) —
+    # direkte Dict-Iteration kann dann 'dictionary changed size' werfen.
+    for t in list(_REGISTRY.values()):
         params = ", ".join(f'"{k}": {v}' for k, v in t.params.items()) or "keine"
         lines.append(f"- {t.name} (Argumente: {params}): {t.description}")
     return "\n".join(lines)
@@ -57,7 +59,7 @@ def tool_schemas() -> list[dict]:
     Alle Argumente als String (die Tool-Funktionen casten selbst). 'required' ohne
     als optional markierte Parameter (Beschreibung enthaelt 'optional'/'Standard')."""
     schemas: list[dict] = []
-    for t in _REGISTRY.values():
+    for t in list(_REGISTRY.values()):  # Snapshot (Laufzeit-Registrierung, s. manifest)
         props = {k: {"type": "string", "description": v} for k, v in t.params.items()}
         required = [k for k, v in t.params.items()
                     if "optional" not in v.lower() and "standard" not in v.lower()]
