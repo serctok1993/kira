@@ -571,7 +571,10 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     # So kann auch ein schwaches lokales Modell (oder Sergen) IMMER umschalten — der
     # Wechsel haengt NIE davon ab, dass das aktuelle Modell einen Tool-Call absetzt.
     # Vor memory.remember/user_message, damit Steuerbefehle den Dialog nicht verschmutzen.
-    _mc = user_message.strip()
+    # Modus-Praefixe (Coding/Research haengen code:/plan://work an) werden fuer die
+    # Erkennung abgestreift — ein Steuerbefehl darf in KEINEM Modus verschluckt werden.
+    _mc = re.sub(r"^(code:|plan:|/plan|/work|work:)\s*", "", user_message.strip(),
+                 flags=re.IGNORECASE)
     _mc_first = _mc.split(maxsplit=1)[0].lower() if _mc else ""
     if _mc_first in ("/model", "/switch"):
         reply = _handle_model_command(_mc)
