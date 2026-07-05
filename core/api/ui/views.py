@@ -67,9 +67,14 @@ VIEWS = r"""</head><body>
       <h3>🎯 Befehl an Kira</h3>
       <textarea id="dir-text" class="k" placeholder="Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…"></textarea>
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button type="button" class="ghost" id="dir-mic" title="Auftrag diktieren (Voice)">🎤</button>
         <button id="dir-now">⚡ Sofort ausfuehren</button>
         <button class="ghost" id="dir-focus">🧭 Als Fokus setzen</button>
         <button class="ghost" id="dir-clear" title="Fokus loeschen">Fokus loeschen</button>
+        <label class="chip tog" id="dir-schwarm-l" title="Als Schwarm-Auftrag an die Armee — landet im Chat, du drueckst Senden"><input type="checkbox" id="dir-schwarm"/> 🐝 Schwarm</label>
+        <select id="dir-rang" title="Rang fuer den Schwarm" style="display:none">
+          <option value="reflex">🐜 reflex</option><option value="arbeiter" selected>🔧 arbeiter</option><option value="denker">🧠 denker</option><option value="richter">⚖ richter</option>
+        </select>
         <span class="muted" id="dir-hint" style="align-self:center"></span>
       </div>
       <div id="dir-result" style="margin-top:8px;white-space:pre-wrap;display:none;border-top:1px solid var(--line);padding-top:8px"></div>
