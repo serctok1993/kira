@@ -5,7 +5,7 @@ HEAD_AND_CSS = r"""<!doctype html>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Kira Cockpit</title>
 <style>
-:root{--bg:#0a0a0d;--panel:#0e0e13;--panel2:#0a0a0e;--line:#26203a;--ink:#eceef4;
+:root{--bg:#0a0a0d;--panel:#0e0e13;--panel2:var(--panel);--line:#26203a;--ink:#eceef4;
  --muted:#8a86a0;--accent:#b026ff;--accent2:#7c3aed;--hud:#c084fc;--glow:#b026ff;
  --amber:#d8b4fe;--danger:#ff3d68;--ok:#39ff8e;--warn:#f5a623;}
 /* S6.7: Tuerkis raus — --hud ist helles Lila; Neon-Gruen lebt in --ok (live/positiv/Budget). */
@@ -28,7 +28,7 @@ html[data-theme="blau"]{--accent:#22d3ee;--accent2:#0891b2;--hud:#38bdf8;--glow:
 *{box-sizing:border-box}
 body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Code",Consolas,monospace;
  background:var(--bg);color:var(--ink)}  /* S6.7: flaches Schwarz/Anthrazit statt Glow-Gradient */
-#side{width:210px;flex-shrink:0;border-right:1px solid var(--line);background:rgba(13,9,20,.72);
+#side{width:210px;flex-shrink:0;border-right:1px solid var(--line);background:var(--bg);
  backdrop-filter:blur(8px);display:flex;flex-direction:column}
 #side h1{font-size:19px;letter-spacing:4px;padding:16px 16px 2px;color:#fff;margin:0;
  text-shadow:0 0 10px rgba(139,92,246,.30)}
@@ -43,7 +43,7 @@ body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Cod
 #side .kill.active{border-color:var(--danger);color:var(--danger)}
 #main{flex:1;display:flex;flex-direction:column;min-width:0}
 #bar{padding:9px 18px;border-bottom:1px solid var(--line);display:flex;gap:18px;align-items:center;
- font-size:12px;color:var(--muted);background:var(--panel2)}
+ font-size:12px;color:var(--muted);background:var(--bg)}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);display:inline-block}
 #v-home h2{font-size:18px;letter-spacing:1px}
 #bar b{color:var(--ink)}
@@ -79,7 +79,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 #farea:read-only{color:var(--muted)}
 .frow{display:flex;gap:10px;align-items:center}
 /* models + protokoll */
-.card{background:rgba(16,16,20,.72);backdrop-filter:blur(6px);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px;max-width:880px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:14px;max-width:880px}
 .card h3{margin:0 0 8px;font-size:13px;color:var(--amber)}
 .pill{display:inline-block;padding:3px 9px;border:1px solid var(--line);border-radius:20px;margin:3px 5px 3px 0;
  font-size:12px;cursor:pointer}
@@ -101,7 +101,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 .e.info .t{color:var(--muted)}
 .pill.on{color:#fff;border-color:var(--accent);background:rgba(168,85,247,.14)}
 .card:hover{border-color:rgba(139,92,246,.26)}
-#side{background:linear-gradient(180deg,rgba(14,14,18,.92),rgba(8,8,11,.86))}
+#side{background:var(--bg)}
 .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--danger)}
 .look{display:flex;gap:10px;align-items:center;justify-content:center;padding:8px 12px;
  border:1px solid var(--line);border-radius:8px;color:var(--muted);font-size:12px}
@@ -116,7 +116,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
 #theme-pop.open{display:flex}
 #side a .ti{display:inline-block;width:18px;text-align:center;margin-right:2px;color:var(--accent)}
 .direktive{max-width:1120px;margin:0 0 16px;border:1px solid var(--line);border-radius:12px;
- padding:14px;background:rgba(16,16,20,.72)}
+ padding:14px;background:var(--panel)}
 .direktive h3{margin:0 0 8px;color:var(--amber)}
 .home-cols{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;max-width:1400px}
 .home-main{flex:3 1 520px;min-width:0;display:flex;flex-direction:column;gap:14px}
@@ -144,6 +144,20 @@ button:active{transform:translateY(0)}
 button.ghost{box-shadow:none}
 button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 0 12px color-mix(in srgb,var(--glow) 30%,transparent)}
 button.ghost.on{border-color:var(--accent);color:#fff;background:rgba(168,85,247,.16);box-shadow:0 0 0 1px var(--accent),0 0 14px var(--glow)}
+/* Chat-Modus-Feedback: Coding faerbt den Chat gruen/Terminal, Chat bleibt Neon-Violett */
+#chat-main{--chat-accent:var(--accent)}
+#chat-main[data-mode="coding"]{--chat-accent:#39ff14}
+#chat-main #cin{caret-color:var(--chat-accent)}
+#chat-main #cin:focus{border-color:var(--chat-accent);box-shadow:0 0 0 1px var(--chat-accent),0 0 12px color-mix(in srgb,var(--chat-accent) 38%,transparent);outline:none}
+#chat-main #cform>button:last-child{background:linear-gradient(135deg,var(--chat-accent),var(--accent2))}
+#chat-mode-seg a.on{border-color:var(--chat-accent);color:#fff;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--chat-accent) 45%,transparent),0 0 10px color-mix(in srgb,var(--chat-accent) 28%,transparent)}
+#chat-main[data-mode="coding"] #cin{font-family:var(--mono)}
+/* Farbwähler im Optik-Popover */
+#theme-pop .colrow{display:flex;gap:8px;align-items:center;margin-top:9px;padding-top:9px;border-top:1px solid var(--line);flex-wrap:wrap}
+#theme-pop .colrow label{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;color:var(--muted);letter-spacing:.3px}
+#theme-pop .colrow input[type=color]{width:26px;height:22px;border:1px solid var(--line);border-radius:6px;background:none;cursor:pointer;padding:0}
+#theme-pop #col-reset{cursor:pointer;color:var(--muted);font-size:14px;margin-left:auto}
+#theme-pop #col-reset:hover{color:var(--accent)}
 .card{transition:border-color .2s ease,transform .2s ease,box-shadow .2s ease}
 .card:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .pill{transition:border-color .15s ease,color .15s ease,background .15s ease}
@@ -223,7 +237,7 @@ button.ghost.on{border-color:var(--accent);color:#fff;background:rgba(168,85,247
 .badge.kira{color:var(--accent);border-color:var(--accent2)}
 .badge.you{color:var(--hud);border-color:color-mix(in srgb,var(--hud) 40%,transparent)}
 .badge.kind{color:var(--muted)}
-.memrow{border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px;background:rgba(16,16,20,.5)}
+.memrow{border:1px solid var(--line);border-radius:9px;padding:9px 11px;margin-bottom:8px;background:var(--panel)}
 .memrow .mh{display:flex;gap:7px;align-items:center;margin-bottom:5px;font-size:11px;color:var(--muted);flex-wrap:wrap}
 .hist .old{color:var(--danger);text-decoration:line-through;opacity:.75}
 .hist .new{color:var(--ok)}
