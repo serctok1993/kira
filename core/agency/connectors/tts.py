@@ -79,3 +79,45 @@ def synthesize(text: str, session_id: str | None = None):
     except Exception as e:  # noqa: BLE001 — Sprachausgabe darf die Textantwort nie brechen
         events.emit("tts_error", {"provider": provider, "error": str(e)[:200]}, session_id=session_id)
         return None
+
+
+def diagnose(sample: str = "Hallo Sergen, hier ist Kira — die Stimme funktioniert.") -> dict:
+    """Testet die Sprachausgabe und liefert einen KLARTEXT-Grund (fuer den Cockpit-Test-Knopf).
+
+    Laeuft im Cockpit-Prozess -> hat den frisch eingegebenen Key sofort (ohne Neustart).
+    Rueckgabe: {ok: bool, reason: str, bytes?: int}."""
+    c = _cfg()
+    prov = (c.get("provider") or "").lower()
+    if not bool(c.get("enabled")):
+        return {"ok": False, "reason": "Sprachausgabe ist AUS — Haken 'Sprachantworten an' setzen und 'Uebernehmen' klicken."}
+    if prov in ("", "off"):
+        return {"ok": False, "reason": f"Kein Anbieter gewaehlt (provider='{prov}')."}
+    if prov != "elevenlabs":
+        return {"ok": False, "reason": f"Anbieter '{prov}' hat keine Test-Anbindung."}
+    key = os.getenv("ELEVENLABS_API_KEY")
+    if not key:
+        return {"ok": False, "reason": "Kein ELEVENLABS_API_KEY gefunden — Key in dieser Karte speichern."}
+    vid = c.get("voice_id") or _DEFAULT_VOICE
+    model = c.get("model_id") or "eleven_multilingual_v2"
+    try:
+        r = httpx.post(
+            _ELEVEN_URL.format(vid=vid),
+            headers={"xi-api-key": key, "accept": "audio/mpeg", "content-type": "application/json"},
+            params={"output_format": "mp3_44100_128"},
+            json={"text": _cap(sample), "model_id": model},
+            timeout=30,
+        )
+        if r.status_code == 200:
+            return {"ok": True, "reason": f"Stimme erzeugt ✓ ({len(r.content)} Bytes, Stimme {vid}).",
+                    "bytes": len(r.content)}
+        detail = (r.text or "")[:300]
+        hint = ""
+        if r.status_code == 401:
+            hint = " -> Key falsch oder abgelaufen."
+        elif r.status_code in (400, 422):
+            hint = " -> meist ungueltige Voice-ID (Feld leeren = Standardstimme) oder Modell im Free-Plan gesperrt."
+        elif r.status_code == 403:
+            hint = " -> Free-Plan verweigert (Voice/Modell/Format nicht erlaubt)."
+        return {"ok": False, "reason": f"ElevenLabs-Fehler {r.status_code}{hint} Antwort: {detail}"}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "reason": f"Netzwerk/Aufruf fehlgeschlagen: {str(e)[:200]}"}

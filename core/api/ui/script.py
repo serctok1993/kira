@@ -839,6 +839,11 @@ $("#voice-save")&&($("#voice-save").onclick=async()=>{
  await cfgSet("channels.telegram.tts.enabled",$("#voice-on").checked);
  await cfgSet("channels.telegram.tts.voice_id",$("#voice-id").value.trim());
  $("#voice-hint").textContent="Übernommen ✓ — schick Kira eine Sprachnachricht.";loadKeys();refreshStatus();});
+$("#voice-test")&&($("#voice-test").onclick=async()=>{const o=$("#voice-testout");
+ o.innerHTML="… teste die Stimme (kann ~5 s dauern) …";
+ try{const r=await (await fetch("/api/voice/test",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();
+  o.innerHTML=(r.ok?'<b class=ok>':'<b class=no>')+(r.reason||(r.ok?"OK":"Fehler"))+'</b>';
+ }catch(e){o.innerHTML='<b class=no>Test nicht erreichbar: '+e+'</b>';}});
 
 /* ---- Gedaechtnis ---- */
 let memFilter="all",memQuery="",memBound=false;
