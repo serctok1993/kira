@@ -428,6 +428,73 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
     _send(client, chat_id, answer or "(keine Antwort)")
 
 
+def _status_text() -> str:
+    """Kurzer Status (Heartbeat, Modell, Budget, Not-Aus). Jeder Teil best effort."""
+    lines = ["📊 <b>Kira-Status</b>"]
+    try:
+        from core.kernel.scheduler import heartbeat_on
+        lines.append("💓 Heartbeat: " + ("laeuft" if heartbeat_on() else "aus"))
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from core.kernel import models
+        lines.append("🧩 Modell (Chat): " + str(models.roles().get("chat", "?")).split("/")[-1])
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from core.governance import treasury
+        b = treasury.status()
+        dl, ml = b.get("day_limit"), b.get("month_limit")
+        lines.append(f"💶 Heute: {b.get('day_spent', 0)} €" + (f" / {dl} €" if dl is not None else ""))
+        lines.append(f"🗓 Monat: {b.get('month_spent', 0)} €" + (f" / {ml} €" if ml is not None else ""))
+    except Exception:  # noqa: BLE001
+        pass
+    lines.append("🛑 Not-Aus: " + ("AKTIV" if kill_switch_active() else "aus"))
+    return "\n".join(lines)
+
+
+def _tasks_text() -> str:
+    """Kompakte Liste der naechsten offenen Aufgaben (fuer den Aufgaben-Knopf)."""
+    try:
+        from core.agency.missions import queue
+        items = queue.pending(limit=8)
+    except Exception:  # noqa: BLE001
+        return "Aufgaben gerade nicht abrufbar."
+    if not items:
+        return "📋 Keine offenen Aufgaben."
+    lines = ["📋 <b>Offene Aufgaben</b>"]
+    for t in items:
+        lines.append("• " + _tg_html(str(t.get("description") or "?")[:90]))
+    return "\n".join(lines)
+
+
+def _panel_markup() -> dict:
+    """Knopfleiste des Steuerpults — spiegelt den aktuellen Zustand (Heartbeat an/aus)."""
+    hb = False
+    try:
+        from core.kernel.scheduler import heartbeat_on
+        hb = heartbeat_on()
+    except Exception:  # noqa: BLE001
+        pass
+    return {"inline_keyboard": [
+        [{"text": "💤 Heartbeat AUS" if hb else "💓 Heartbeat AN",
+          "callback_data": "ctl:hb:" + ("off" if hb else "on")}],
+        [{"text": "🔄 Aktualisieren", "callback_data": "ctl:refresh"},
+         {"text": "📋 Aufgaben", "callback_data": "ctl:tasks"}],
+        [{"text": "🔔 Freigaben", "callback_data": "ctl:freigaben"}],
+    ]}
+
+
+def _send_panel(chat_id: int) -> None:
+    """Steuerpult senden: Status-Text + Knopfleiste."""
+    try:
+        _ctrl().post(f"{API}/sendMessage",
+                     json={"chat_id": chat_id, "text": "🎛 <b>Steuerpult</b>\n" + _status_text(),
+                           "parse_mode": "HTML", "reply_markup": _panel_markup()})
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
     parts = text.split(maxsplit=1)
     cmd = parts[0].lower().lstrip("/")
@@ -438,6 +505,7 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
               "Ich bin Kira. Schreib oder sprich mir einfach — oder tippe „/“ fuer das Menue.\n"
               "Befehle:\n"
               "/status – Heartbeat, Budget & Modell auf einen Blick\n"
+              "/steuer – Steuerpult mit Knoepfen (Heartbeat, Aufgaben, Freigaben)\n"
               "/freigaben – offene Freigaben per ✅/❌-Knopf entscheiden\n"
               "/plan <große aufgabe> – ich erstelle einen Plan und arbeite ihn Schritt fuer Schritt ab\n"
               "/code <coding-auftrag> – Coding-Modus (an Kira selbst schrauben; erbt den Chat davor)\n"
@@ -449,28 +517,10 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
               "/go    – Not-Aus aufheben")
         return
     if cmd == "status":
-        lines = ["📊 <b>Kira-Status</b>"]
-        try:
-            from core.kernel.scheduler import heartbeat_on
-            lines.append("💓 Heartbeat: " + ("laeuft" if heartbeat_on() else "aus"))
-        except Exception:  # noqa: BLE001
-            pass
-        try:
-            from core.kernel import models
-            lines.append("🧩 Modell (Chat): " + str(models.roles().get("chat", "?")).split("/")[-1])
-        except Exception:  # noqa: BLE001
-            pass
-        try:
-            from core.governance import treasury
-            b = treasury.status()
-            dl = b.get("day_limit")
-            ml = b.get("month_limit")
-            lines.append(f"💶 Heute: {b.get('day_spent', 0)} €" + (f" / {dl} €" if dl is not None else ""))
-            lines.append(f"🗓 Monat: {b.get('month_spent', 0)} €" + (f" / {ml} €" if ml is not None else ""))
-        except Exception:  # noqa: BLE001
-            pass
-        lines.append("🛑 Not-Aus: " + ("AKTIV" if kill_switch_active() else "aus"))
-        _send(client, chat_id, "\n".join(lines))
+        _send(client, chat_id, _status_text())
+        return
+    if cmd in ("steuer", "panel"):
+        _send_panel(chat_id)
         return
     if cmd in ("freigaben", "freigabe", "inbox"):
         from core.agency import approvals
@@ -623,11 +673,83 @@ def _send_approval_card(client: httpx.Client, chat_id: int, appr: dict) -> None:
         pass
 
 
+# Push: neue Freigaben proaktiv an Sergen schicken (statt dass er /freigaben tippt).
+# Beim Start werden bestehende Pendings als "bekannt" markiert -> kein Spam alter Eintraege.
+_pushed_approvals: set = set()
+
+
+def _seed_pushed_approvals() -> None:
+    try:
+        from core.agency import approvals
+        approvals.init_approvals()
+        _pushed_approvals.update(a["id"] for a in approvals.pending())
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _push_new_approvals(client: httpx.Client) -> None:
+    """Neue offene Freigaben als ✅/❌-Karte an den erlaubten Chat schicken (max 5/Runde ->
+    kein Flut-Risiko; der Rest kommt in den naechsten Runden). Raist nie."""
+    chat = _cfg().get("allowed_chat_id")
+    if not chat:
+        return
+    try:
+        from core.agency import approvals
+        pend = approvals.pending()
+    except Exception:  # noqa: BLE001
+        return
+    new = [a for a in pend if a.get("id") and a["id"] not in _pushed_approvals]
+    for a in new[:5]:
+        _pushed_approvals.add(a["id"])
+        _send_approval_card(client, chat, a)
+
+
+def _handle_ctl(client: httpx.Client, cq: dict, data: str) -> None:
+    """Steuerpult-Knoepfe (ctl:*): Heartbeat schalten, aktualisieren, Aufgaben/Freigaben zeigen.
+    Danach das Panel neu rendern, damit die Knoepfe den neuen Zustand spiegeln."""
+    cq_id = cq.get("id")
+    msg = cq.get("message") or {}
+    chat_id = (msg.get("chat") or {}).get("id")
+    mid = msg.get("message_id")
+    toast = "aktualisiert"
+    if data in ("ctl:hb:on", "ctl:hb:off"):
+        on = data.endswith(":on")
+        try:
+            from core.kernel.scheduler import set_heartbeat
+            set_heartbeat(on)
+            events.emit("heartbeat_toggle", {"on": on, "via": "telegram-button"})
+        except Exception:  # noqa: BLE001
+            pass
+        toast = "💓 Heartbeat an" if on else "💤 Heartbeat aus"
+    elif data == "ctl:tasks":
+        _answer_cb(cq_id, "Aufgaben")
+        if chat_id:
+            _send(client, chat_id, _tasks_text())
+        return
+    elif data == "ctl:freigaben":
+        _answer_cb(cq_id, "Freigaben")
+        if chat_id:
+            _handle_command(client, chat_id, "/freigaben")
+        return
+    _answer_cb(cq_id, toast)
+    if chat_id and mid:  # Panel an Ort und Stelle aktualisieren (Text + Knoepfe)
+        try:
+            _ctrl().post(f"{API}/editMessageText",
+                         json={"chat_id": chat_id, "message_id": mid,
+                               "text": "🎛 <b>Steuerpult</b>\n" + _status_text(),
+                               "parse_mode": "HTML", "reply_markup": _panel_markup()})
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def _handle_callback(client: httpx.Client, cq: dict) -> None:
-    """Button-Klick auf eine Freigabe-Karte: entscheidet die Freigabe (idempotent) und
-    aktualisiert die Nachricht (Knoepfe weg, Status dran). Nur unsere 'appr:'-Buttons."""
+    """Button-Klick: Freigabe-Karte (appr:*) entscheiden ODER Steuerpult (ctl:*) bedienen.
+    Fremde callback_data wird nur bestaetigt (Raedchen stoppen). Raist nie."""
     data = cq.get("data") or ""
     cq_id = cq.get("id")
+    if data.startswith("ctl:"):
+        _handle_ctl(client, cq, data)
+        return
     m = re.match(r"appr:(ok|no):([0-9a-f]+)$", data)
     if not m:
         _answer_cb(cq_id, "")
@@ -723,6 +845,7 @@ def _bundle(state: dict, error: str | None) -> dict | None:
 # klickt Sergen ins Leere. Reihenfolge = Anzeige-Reihenfolge im Menue.
 _BOT_COMMANDS = [
     ("status", "Heartbeat, Budget & Modell auf einen Blick"),
+    ("steuer", "Steuerpult – Heartbeat, Aufgaben, Freigaben per Knopf"),
     ("freigaben", "Offene Freigaben – per ✅/❌-Knopf entscheiden"),
     ("code", "Coding-Modus: an Kira selbst schrauben"),
     ("plan", "Große Aufgabe planen und Schritt für Schritt abarbeiten"),
@@ -754,6 +877,7 @@ def run() -> None:
         return
     events.init_db()
     _register_commands(_ctrl())  # '/'-Menue bei Telegram anmelden (einmalig beim Start)
+    _seed_pushed_approvals()     # bestehende Freigaben als bekannt markieren (kein Alt-Spam)
     try:  # MCP-Bruecke im Hintergrund anschliessen (Ausfall darf den Boot nie bricken)
         from core.agency.mcp import registry_bridge as _mcp_bridge
         _mcp_bridge.init_background()
@@ -770,6 +894,7 @@ def run() -> None:
             if kill_switch_active():
                 print("KILL-SWITCH aktiv — Bot haelt an.")
                 break
+            _push_new_approvals(client)  # jede Runde (~60s): neue Freigaben proaktiv schicken
             try:
                 resp = client.get(f"{API}/getUpdates", params={"timeout": 60, "offset": offset})
                 for update in resp.json().get("result", []):
