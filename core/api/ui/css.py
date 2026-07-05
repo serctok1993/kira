@@ -154,6 +154,25 @@ button.ghost.on{border-color:var(--accent);color:#fff;background:rgba(168,85,247
 .bot{background:rgba(20,16,30,.82);border-color:rgba(139,92,246,.14)}
 @keyframes msgin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .think{background:rgba(139,92,246,.05);border-left:2px solid var(--accent);border-radius:10px;padding:8px 12px;box-shadow:inset 0 0 0 1px rgba(139,92,246,.06)}
+/* ---- Code-Modus-Trace: strukturierte Schritte + farbige Diffs (Claude-Code-Look) ---- */
+.think .c{white-space:normal}
+.tthink{white-space:pre-wrap;color:var(--muted);font-style:italic;margin:2px 0 4px}
+.trow{display:flex;align-items:baseline;gap:8px;margin:3px 0;font-style:normal;padding:2px 6px;
+ border-radius:7px;background:rgba(255,255,255,.02)}
+.trow .ti{flex:none;width:18px;text-align:center}
+.trow .tl{color:var(--accent2);font-weight:600;flex:none}
+.trow .tt{color:var(--fg);opacity:.82;word-break:break-all;font-size:11.5px}
+.orow{margin:0 0 6px 26px}
+.ostat{font-style:normal;font-size:11.5px;color:var(--muted)}
+.ostat.ok{color:#7fd88a}
+.ostat.err{color:#ff8f8f}
+.tdiff{margin:5px 0 2px;padding:7px 10px;border-radius:8px;overflow-x:auto;font-size:11.5px;line-height:1.5;
+ background:rgba(0,0,0,.28);border:1px solid rgba(139,92,246,.14);white-space:pre}
+.tdiff .dl{display:block}
+.tdiff .add{color:#7fd88a;background:rgba(63,185,80,.10)}
+.tdiff .del{color:#ff8f8f;background:rgba(248,81,73,.10)}
+.tdiff .hunk{color:var(--accent2);opacity:.9}
+.tdiff .ctx{color:var(--muted)}
 .thinking{align-self:flex-start;display:flex;align-items:center;gap:9px;margin:2px 0;padding:7px 14px;
  font-size:13.5px;font-weight:500;border-radius:12px;
  background:linear-gradient(90deg,transparent,rgba(139,92,246,.08),transparent)}

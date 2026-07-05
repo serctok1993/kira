@@ -14,6 +14,7 @@ bei grossen Dateien) — und wendet sie via apply_edit() an. Die Verfassung blei
 """
 from __future__ import annotations
 
+import difflib
 import py_compile
 import re
 import subprocess
@@ -21,6 +22,32 @@ import subprocess
 from core.config import MIND_DIR, ROOT
 from core.kernel import events
 from core.kernel.fs import atomic_write
+
+
+def diff_summary(old: str, new: str) -> tuple[int, int]:
+    """(hinzugefuegte, entfernte) Zeilen — fuer das '+3 −1' hinter jedem Edit."""
+    add = rem = 0
+    for line in difflib.unified_diff(old.splitlines(), new.splitlines(), lineterm=""):
+        if line.startswith("+") and not line.startswith("+++"):
+            add += 1
+        elif line.startswith("-") and not line.startswith("---"):
+            rem += 1
+    return add, rem
+
+
+def compact_diff(old: str, new: str, path: str, max_lines: int = 30) -> str:
+    """Kompakter unified diff als ```diff-Block (fuer den Cockpit-Trace: gruen/rot wie in Claude Code).
+    Header-Zeilen (---/+++) weg, auf max_lines gedeckelt. Leerer String, wenn nichts unterschiedlich."""
+    diff = list(difflib.unified_diff(old.splitlines(), new.splitlines(),
+                                     fromfile=path, tofile=path, lineterm="", n=2))
+    body = diff[2:] if len(diff) > 2 else diff  # ---/+++ Kopf weg, @@-Huenks bleiben
+    if not body:
+        return ""
+    clip = body[:max_lines]
+    out = "\n".join(clip)
+    if len(body) > max_lines:
+        out += f"\n… (+{len(body) - max_lines} weitere Diff-Zeilen)"
+    return "```diff\n" + out + "\n```"
 
 
 def _git(*args) -> None:
@@ -273,4 +300,8 @@ def self_edit(rel_path: str, instruction: str, escalate: bool = True) -> dict:
         return {"ok": False, "error": err}
     if new_content == content:
         return {"ok": False, "error": "Die Edit-Bloecke ergaben keine Aenderung."}
-    return apply_edit(rel_path, new_content, reason=instruction[:80])
+    r = apply_edit(rel_path, new_content, reason=instruction[:80])
+    if r.get("ok"):
+        r["stat"] = diff_summary(content, new_content)
+        r["diff"] = compact_diff(content, new_content, rel_path)
+    return r
