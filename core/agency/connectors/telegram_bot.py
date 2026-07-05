@@ -438,6 +438,7 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
               "Ich bin Kira. Schreib oder sprich mir einfach — oder tippe „/“ fuer das Menue.\n"
               "Befehle:\n"
               "/status – Heartbeat, Budget & Modell auf einen Blick\n"
+              "/freigaben – offene Freigaben per ✅/❌-Knopf entscheiden\n"
               "/plan <große aufgabe> – ich erstelle einen Plan und arbeite ihn Schritt fuer Schritt ab\n"
               "/code <coding-auftrag> – Coding-Modus (an Kira selbst schrauben; erbt den Chat davor)\n"
               "/work <auftrag> – voller Werkzeug-Modus fuer laengere Aufgaben\n"
@@ -470,6 +471,18 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
             pass
         lines.append("🛑 Not-Aus: " + ("AKTIV" if kill_switch_active() else "aus"))
         _send(client, chat_id, "\n".join(lines))
+        return
+    if cmd in ("freigaben", "freigabe", "inbox"):
+        from core.agency import approvals
+        pend = approvals.pending()
+        if not pend:
+            _send(client, chat_id, "✅ Keine offenen Freigaben.")
+            return
+        _send(client, chat_id, f"🔔 <b>{len(pend)} offene Freigabe(n)</b> — tippe ✅ oder ❌:")
+        for appr in pend[:10]:
+            _send_approval_card(client, chat_id, appr)
+        if len(pend) > 10:
+            _send(client, chat_id, f"… und {len(pend) - 10} weitere. (/freigaben erneut fuer den Rest)")
         return
     if cmd == "plan":
         if not rest:
@@ -580,10 +593,83 @@ def _worker(client: httpx.Client, chat_id: int, update: dict) -> None:
         runstate.exit_turn()  # idle -> ein aufgeschobener Neustart wird jetzt ausgeloest
 
 
+# --- Inline-Buttons: Freigaben per Knopfdruck (✅/❌) direkt in der Nachricht ---
+def _answer_cb(cq_id: str, text: str = "") -> None:
+    """Bestaetigt Telegram den Button-Klick (sonst dreht sich beim Nutzer ewig das Raedchen)."""
+    try:
+        _ctrl().post(f"{API}/answerCallbackQuery", json={"callback_query_id": cq_id, "text": text})
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _send_approval_card(client: httpx.Client, chat_id: int, appr: dict) -> None:
+    """Eine Freigabe als Nachricht mit ✅/❌-Knopf (callback_data traegt die Freigabe-ID)."""
+    aid = appr.get("id")
+    if not aid:
+        return
+    title = _tg_html((appr.get("title") or "Freigabe"))
+    detail = _tg_html((appr.get("detail") or "").strip()[:600])
+    kind = (appr.get("kind") or "").strip()
+    text = "🔔 <b>Freigabe noetig</b>\n" + title + (("\n" + detail) if detail else "") \
+        + (f"\n<i>Art: {_tg_html(kind)}</i>" if kind else "")
+    kb = {"inline_keyboard": [[
+        {"text": "✅ Freigeben", "callback_data": f"appr:ok:{aid}"},
+        {"text": "❌ Ablehnen", "callback_data": f"appr:no:{aid}"},
+    ]]}
+    try:
+        _ctrl().post(f"{API}/sendMessage",
+                     json={"chat_id": chat_id, "text": text, "parse_mode": "HTML", "reply_markup": kb})
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _handle_callback(client: httpx.Client, cq: dict) -> None:
+    """Button-Klick auf eine Freigabe-Karte: entscheidet die Freigabe (idempotent) und
+    aktualisiert die Nachricht (Knoepfe weg, Status dran). Nur unsere 'appr:'-Buttons."""
+    data = cq.get("data") or ""
+    cq_id = cq.get("id")
+    m = re.match(r"appr:(ok|no):([0-9a-f]+)$", data)
+    if not m:
+        _answer_cb(cq_id, "")
+        return
+    approved = m.group(1) == "ok"
+    aid = m.group(2)
+    from core.agency import approvals
+    res = approvals.decide(aid, approved, note="via Telegram-Button")
+    if res.get("ok"):
+        toast = "✅ Freigegeben" if approved else "❌ Abgelehnt"
+    elif res.get("error") == "already decided":
+        toast = "Schon entschieden"
+    else:
+        toast = "Nicht gefunden"
+    _answer_cb(cq_id, toast)
+    msg = cq.get("message") or {}
+    chat_id = (msg.get("chat") or {}).get("id")
+    mid = msg.get("message_id")
+    if chat_id and mid:
+        appr = approvals.get(aid) or {}
+        head = "🔔 " + _tg_html(appr.get("title") or "Freigabe")
+        if res.get("ok"):
+            state = "✅ <b>Freigegeben</b>" if approved else "❌ <b>Abgelehnt</b>"
+        else:
+            state = "• " + toast
+        events.emit("approval_decided_telegram", {"id": aid, "approved": approved, "ok": res.get("ok")})
+        try:  # editMessageText ohne reply_markup entfernt die Knoepfe automatisch
+            _ctrl().post(f"{API}/editMessageText",
+                         json={"chat_id": chat_id, "message_id": mid,
+                               "text": head + "\n" + state, "parse_mode": "HTML"})
+        except Exception:  # noqa: BLE001
+            pass
+
+
 def _dispatch(client: httpx.Client, update: dict) -> None:
     """Eine Aufgabe pro Chat gleichzeitig; weitere Nachrichten kommen kurz in die Queue
     (max 3) und werden danach der Reihe nach abgearbeitet -> keine Thread-Flut, keine
     verlorenen Antworten durch Telegram-Rate-Limit."""
+    cq = update.get("callback_query")
+    if cq:  # Button-Klicks sind schnell -> inline, nicht ueber die Chat-Warteschlange
+        _handle_callback(client, cq)
+        return
     msg = update.get("message") or update.get("edited_message")
     if not msg:
         return
@@ -637,6 +723,7 @@ def _bundle(state: dict, error: str | None) -> dict | None:
 # klickt Sergen ins Leere. Reihenfolge = Anzeige-Reihenfolge im Menue.
 _BOT_COMMANDS = [
     ("status", "Heartbeat, Budget & Modell auf einen Blick"),
+    ("freigaben", "Offene Freigaben – per ✅/❌-Knopf entscheiden"),
     ("code", "Coding-Modus: an Kira selbst schrauben"),
     ("plan", "Große Aufgabe planen und Schritt für Schritt abarbeiten"),
     ("work", "Längerer Auftrag mit vollem Werkzeug-Budget"),
