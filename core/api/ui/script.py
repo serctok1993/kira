@@ -43,9 +43,9 @@ const SUBTABS={
            loaders:{files:()=>loadFiles(),mem:()=>loadMem(),wissen:()=>loadWissen(),
                     playbooks:()=>loadPlaybooks(),
                     anatomie:()=>loadAgenten(),evolution:()=>loadEvolution(),stats:()=>loadStats(),
-                    keys:()=>loadKeys(),checkliste:()=>loadCheckliste()}},
- config:  {bar:"#sys-tabs",  cur:"models",
-           loaders:{models:()=>loadModels(),steuer:()=>loadSteuer(),gov:()=>loadGov(),
+                    keys:()=>loadKeys(),checkliste:()=>loadCheckliste(),
+                    /* Config aufgeloest: Technik lebt jetzt unter Kira */
+                    models:()=>loadModels(),steuer:()=>loadSteuer(),gov:()=>loadGov(),
                     cron:()=>loadCron(),monitor:()=>loadMonitor(),log:()=>loadEvents(),cockpit:()=>loadDesktop()}}};
 
 /* ---- Desktop-Pflege (S8.5) ---- */
@@ -108,7 +108,7 @@ function subnav(tab,s){const g=SUBTABS[tab];if(!g)return;g.cur=s;
  $$("#v-"+tab+" .subview").forEach(x=>x.classList.toggle("on",x.id==="v-"+s));
  (g.loaders[s]||(()=>{}))();}
 Object.keys(SUBTABS).forEach(t=>$$(SUBTABS[t].bar+" a").forEach(a=>a.onclick=()=>subnav(t,a.dataset.s)));
-/* Icons pro Tab anpassbar (localStorage kira_icons: {"home":"◈",...}) — Pflege in Config->Cockpit */
+/* Icons pro Tab anpassbar (localStorage kira_icons: {"home":"◈",...}) — Pflege in Kira->Cockpit */
 function applyIcons(){try{const ic=JSON.parse(localStorage.getItem("kira_icons")||"{}");
  $$("#side a .ti").forEach(i=>{const v=i.closest("a").dataset.v;if(ic[v])i.textContent=ic[v];});}catch(e){}}
 applyIcons();
@@ -266,7 +266,7 @@ async function loadHome(){const o=await (await fetch("/api/overview")).json();
  /* Subtab-Ziele brauchen nav(config)+syst — nackte nav() darauf war der Weisser-Screen-Bug */
  $$('#home [data-go]').forEach(b=>b.onclick=()=>{const g=b.dataset.go;
   if(g==="stats"){nav("kira");subnav("kira","stats");}
-  else if(g==="models"||g==="gov"){nav("config");subnav("config",g);}
+  else if(g==="models"||g==="gov"){nav("kira");subnav("kira",g);}
   else nav(g);});}
 
 /* ---- Kira-Avatar (S6.6d): einmal proben, Hero + Chat nutzen ihn ---- */
@@ -1268,8 +1268,8 @@ function pollTick(){
  if(!document.hidden){
    updatePulse();
    refreshStatus();
-   if(cur==="config"&&SUBTABS.config.cur==="log"&&logRaw.length<=100)loadEvents();
-   if(cur==="config"&&SUBTABS.config.cur==="gov")loadGov();
+   if(cur==="kira"&&SUBTABS.kira.cur==="log"&&logRaw.length<=100)loadEvents();
+   if(cur==="kira"&&SUBTABS.kira.cur==="gov")loadGov();
    if(cur==="home"){loadHud();loadOps();loadNeeds();}
    if(cur==="home"&&(_pollN%6===0))loadNews();  // News seltener (~alle 30s)
    _pollN++;
