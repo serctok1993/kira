@@ -141,7 +141,10 @@ def edit_datei(pfad: str, suche: str, ersetze: str) -> str:
         return "Fehlgeschlagen: Der Edit ergab keine Aenderung."
     r = selfdev.apply_edit(rel, new_content, reason=f"edit_datei: {rel}"[:80])
     if r.get("ok"):
+        add, rem = selfdev.diff_summary(content, new_content)
         note = r.get("note", "")
-        return f"OK — {rel} geaendert. {note}".strip()
+        head = f"OK — {rel} geaendert (+{add} −{rem}). {note}".strip()
+        diff = selfdev.compact_diff(content, new_content, rel)
+        return head + (("\n" + diff) if diff else "")
     detail = r.get("verify", "")
     return f"Fehlgeschlagen: {r.get('error', 'unbekannt')}" + (f"\n{detail[:800]}" if detail else "")
