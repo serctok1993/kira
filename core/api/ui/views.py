@@ -21,8 +21,7 @@ VIEWS = r"""</head><body>
   <a data-v="chat" title="Mit mir reden"><i class="ti">›</i> Chat</a>
   <a data-v="projekte" title="Projekte, Ziele, Radar-Chancen"><i class="ti">◈</i> Projekte</a>
   <a data-v="me" title="Dein Bereich: Todos, Freigaben, was Kira von dir braucht, deine Routinen"><i class="ti">☰</i> Serc</a>
-  <a data-v="kira" title="Wer ich bin: Seele, Gedaechtnis, Wissen, Anatomie, Lernkurve"><i class="ti">✦</i> Kira</a>
-  <a data-v="config" title="Technik: Modelle, Zugaenge, Gewissen, Cron, Monitor, Protokoll"><i class="ti">⚙</i> Config</a>
+  <a data-v="kira" title="Wer ich bin: Seele, Gedaechtnis, Wissen + Technik (Modelle, Gewissen, Crons, Monitor, Protokoll)"><i class="ti">✦</i> Kira</a>
   <div class="spacer"></div>
   <div class="kill" id="kill">Not-Aus: aus</div>
 </div>
@@ -231,7 +230,7 @@ VIEWS = r"""</head><body>
   <!-- ================= KIRA (Persoenlichkeit & Specs) ================= -->
   <div class="view" id="v-kira">
     <div class="seg" id="kira-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="playbooks">Playbooks</a><a data-s="anatomie">Anatomie</a><a data-s="evolution">Evolution</a><a data-s="stats">Statistik</a><a data-s="keys">Zugaenge</a><a data-s="checkliste">Checkliste</a>
+      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="playbooks">Playbooks</a><a data-s="anatomie">Anatomie</a><a data-s="evolution">Evolution</a><a data-s="stats">Statistik</a><a data-s="keys">Zugaenge</a><a data-s="checkliste">Checkliste</a><a data-s="models">⚙ Modelle</a><a data-s="steuer">🎛 Steuerpult</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="log">Protokoll</a><a data-s="cockpit">Cockpit</a>
     </div>
 
     <div class="subview" id="v-keys">
@@ -365,15 +364,9 @@ VIEWS = r"""</head><body>
       <div class="card"><h3>Strategien — lohnt Eskalation?</h3><div id="st-strats" class="muted">…</div></div>
       <div class="card"><h3>💶 Kosten je Modell (7 Tage)</h3><div id="st-costs" class="muted">…</div></div>
     </div>
-  </div>
 
-  <!-- ================= CONFIG (rein technisch) ================= -->
-  <div class="view" id="v-config">
-    <div class="seg" id="sys-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="models" class="on">⚙ Modelle</a><a data-s="steuer">🎛 Steuerpult</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="log">Protokoll</a><a data-s="cockpit">Cockpit</a>
-    </div>
-
-  <div class="subview on" id="v-models">
+  <!-- Config aufgeloest: die Technik-Unterreiter leben jetzt als Kira-Subtabs weiter -->
+  <div class="subview" id="v-models">
     <div class="card"><h3>Aktives Modell</h3><div id="m-active" class="muted">…</div></div>
     <div class="card"><h3>Kontext &amp; Parameter</h3>
       <div id="m-loaded" class="muted">…</div>
@@ -581,9 +574,8 @@ VIEWS = r"""</head><body>
         <input data-ic="home" placeholder="Zentrale" style="max-width:110px"/>
         <input data-ic="chat" placeholder="Chat" style="max-width:110px"/>
         <input data-ic="projekte" placeholder="Projekte" style="max-width:110px"/>
-        <input data-ic="me" placeholder="Me" style="max-width:110px"/>
+        <input data-ic="me" placeholder="Serc" style="max-width:110px"/>
         <input data-ic="kira" placeholder="Kira" style="max-width:110px"/>
-        <input data-ic="config" placeholder="Config" style="max-width:110px"/>
         <button id="icons-save">Icons speichern</button>
         <button class="ghost" id="icons-reset">Zuruecksetzen</button>
       </div>
