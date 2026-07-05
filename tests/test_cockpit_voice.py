@@ -44,11 +44,27 @@ def test_say_crash_gibt_204(monkeypatch):
 def test_sprich_modus_ui_marker():
     from core.api.ui.views import VIEWS
     from core.api.ui.script import SCRIPT
-    assert 'id="sprechbtn"' in VIEWS and 'id="tts-on"' in VIEWS
+    assert 'id="tts-on"' in VIEWS
+    # Assistenz-Knopf lebt jetzt in der Zentrale (HUD-Streifen), nicht mehr im Chatformular
+    assert 'id="hud-assist"' in SCRIPT and "toggleAssist" in SCRIPT
+    assert 'id="sprechbtn"' not in VIEWS
     assert "/api/voice/say" in SCRIPT
     assert "handsFree" in SCRIPT and "function speak(" in SCRIPT
     # Weckwort-Gate + Stille-Erkennung + Assistenz-Prefix
     assert "WAKE" in SCRIPT and "attachVAD" in SCRIPT and "voice:true" in SCRIPT
+
+
+def test_zentrale_begriffe_umbenannt():
+    """'Hirn' -> 'Modell', 'Motor' -> 'Heartbeat' im Cockpit."""
+    from core.api.ui.script import SCRIPT
+    assert 'cell("Modell"' in SCRIPT and 'cell("Heartbeat"' in SCRIPT
+    assert 'cell("Assistenz"' in SCRIPT           # Assistenz-Zelle im HUD-Streifen
+    assert 'cell("Hirn"' not in SCRIPT and 'cell("Motor"' not in SCRIPT
+
+
+def test_voice_style_verlangt_kurze_saetze():
+    from core.agency import act
+    assert "5-8 Woerter" in act._VOICE_STYLE and "KURZ" in act._VOICE_STYLE.upper()
 
 
 def _chat_dbs(monkeypatch, tmp_path):
