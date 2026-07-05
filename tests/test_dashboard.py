@@ -194,7 +194,7 @@ def test_chat_v4_daily_sessions_and_modes(monkeypatch, tmp_path):
     """S7c: Tages-Session als Standard, Panel auf Klick, Archiv-Flow, Modus-Schalter."""
     html = _page()
     for marker in ("function dailySid(", 'id="sess-toggle"', 'id="sess-archtoggle"',
-                   'id="chat-mode-seg"', 'data-m="research"', 'data-m="coding"',
+                   'id="chat-mode-seg"', 'data-m="chat"', 'data-m="coding"',
                    "api/chat/archive", 'class="sday"'):
         assert marker in html, f"Chat-2.0-Marker fehlt: {marker}"
     assert 'id="planmode"' not in html  # Checkbox ist im Modus-Schalter aufgegangen
