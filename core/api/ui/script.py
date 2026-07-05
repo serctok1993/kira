@@ -609,12 +609,14 @@ $("#sess-archtoggle")&&($("#sess-archtoggle").onclick=()=>{showArchived=!showArc
  $("#sess-archtoggle").textContent=showArchived?"Archiv ausblenden":"Archiv anzeigen";loadChatSessions();});
 /* Modus-Schalter: Chat = Dialog · Research = /work (Werkzeug-Budget) · Coding = code: (Plan->Schritte + Coding-Regeln) */
 let chatMode="chat";
-const MODE_HINT={chat:"Dialog — kurz & direkt. Research/Coding fuer echte Arbeitsauftraege.",
- research:"Volles Werkzeug-Budget: recherchiert, liest, fasst zusammen. Mit @ziel: zaehlt es aufs Ziel.",
+const MODE_HINT={chat:"Dialog — kurz & direkt. Coding fuer echte Coding-Auftraege.",
  coding:"Claude-Code-Stil auf dem Denker-Rang (GLM): lesen → chirurgisch editieren → Tests + Diff-Review automatisch. 🧠 Reasoning = Richter (Fable)."};
+function applyChatMode(){const m=$("#chat-main");if(m)m.setAttribute("data-mode",chatMode);
+ const h=$("#mode-hint");if(h)h.textContent=MODE_HINT[chatMode]||"";}
 $$("#chat-mode-seg a").forEach(a=>a.onclick=()=>{chatMode=a.dataset.m;
  $$("#chat-mode-seg a").forEach(x=>x.classList.toggle("on",x===a));
- const h=$("#mode-hint");if(h)h.textContent=MODE_HINT[chatMode]||"";});
+ applyChatMode();});
+applyChatMode();  /* Startzustand faerben (Chat) */
 /* S9.2: Befehls-Chips fuegen Kuerzel ins Eingabefeld ein (nicht sofort senden) */
 function chipInsert(txt,prefix){const i=$("#cin");
  if(prefix){if(!new RegExp("^"+txt.replace(/[./]/g,"\\$&")).test(i.value.trim()))i.value=(txt+" "+i.value).trim();}
@@ -632,7 +634,6 @@ function sendText(raw,opts){raw=(raw||"").trim();if(!raw||!ws||ws.readyState!==1
  if(opts.voice){t="sprich: "+raw;}  /* Assistenz-Modus: knappe, vorgelesene Antwort */
  else{
   /* Slash-Befehle (/model, /status, ...) NIE mit Modus-Praefix verschlucken */
-  if(chatMode==="research"&&!/^(\/|work:|plan:|code:)/i.test(raw))t="/work "+raw;
   if(chatMode==="coding"&&!/^(\/|work:|plan:|code:)/i.test(raw))t="code: "+raw;  /* code: = plan + Coding-Regeln */
   if($("#reason-on")&&$("#reason-on").checked&&!/^reason:/i.test(t))t="reason: "+t;  /* S9.2: staerkeres Modell */
  }
@@ -1006,6 +1007,19 @@ function bgUpload(f){const rd=new FileReader();rd.onload=async()=>{await fetch("
 $("#bgquick")&&($("#bgquick").onchange=e=>{const f=e.target.files[0];if(f)bgUpload(f);});
 refreshKiraThumb();
 try{setTheme(localStorage.getItem("kira-theme")||"");}catch(e){}
+/* ---- Eigene Farben: Hintergrund / Kästen / Neon (überschreibt das Theme, in localStorage) ---- */
+function loadCustom(){try{return JSON.parse(localStorage.getItem("kira_custom")||"{}");}catch(e){return {};}}
+function saveCustom(c){try{localStorage.setItem("kira_custom",JSON.stringify(c));}catch(e){}}
+function applyCustom(c){c=c||{};const r=document.documentElement.style;
+ if(c.bg)r.setProperty("--bg",c.bg);
+ if(c.panel){r.setProperty("--panel",c.panel);r.setProperty("--panel2",c.panel);}
+ if(c.accent){r.setProperty("--accent",c.accent);r.setProperty("--glow",c.accent);r.setProperty("--hud",c.accent);}}
+function bindColor(sel,key,fallback){const el=$(sel);if(!el)return;const c=loadCustom();
+ el.value=c[key]||fallback;
+ el.oninput=()=>{const cc=loadCustom();cc[key]=el.value;saveCustom(cc);applyCustom(cc);};}
+bindColor("#col-bg","bg","#0a0a0d");bindColor("#col-panel","panel","#0e0e13");bindColor("#col-accent","accent","#8b5cf6");
+$("#col-reset")&&($("#col-reset").onclick=()=>{localStorage.removeItem("kira_custom");location.reload();});
+applyCustom(loadCustom());  /* eigene Farben beim Start anwenden (nach setTheme, gewinnt) */
 
 /* ---- Live-Puls: was ich gerade tue (Einblick in mein Herz) ---- */
 const PULSE={read_file:"📖 Ich lese eine Datei",write_file:"✍️ Ich schreibe Code",edit_file:"✍️ Ich baue an Code",run_command:"⚙️ Ich fuehre etwas aus",run_shell:"⚙️ Ich fuehre etwas aus",web_fetch:"🌐 Ich lese eine Seite",web_search:"🔍 Ich recherchiere",browse:"🧭 Ich schaue mir eine Seite an",screenshot_url:"📸 Ich mache ein Bild",read_logs:"🩺 Ich pruefe mein Log",health:"🩺 Ich checke meinen Zustand",learn_skill:"🧠 Ich lerne etwas Neues",curate_skills:"🧠 Ich ordne meine Faehigkeiten",restart_self:"🔄 Ich starte mich neu",jetzt:"🕒 Ich schaue auf die Uhr"};
