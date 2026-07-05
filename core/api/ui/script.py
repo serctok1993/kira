@@ -521,7 +521,7 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
   if(m.kind==="think"){ensureTrace();thinkBuf+=m.text;traceSet();return;}
   if(m.kind==="tool"){ensureTrace();thinkBuf+="\n🔧 "+m.name+" "+JSON.stringify(m.args);traceSet();return;}
   if(m.kind==="obs"){ensureTrace();thinkBuf+="\n   ✓ "+(m.text||"").slice(0,120);traceSet();return;}
-  if(m.kind==="final"||m.kind==="answer"){stopThinking();msgEl(m.text||"","bot");}};
+  if(m.kind==="final"||m.kind==="answer"){stopThinking();msgEl(m.text||"","bot");onKiraReply(m.text||"");}};
  ws.onclose=()=>{wsDot(false);if(!wsIntentional){wsDelay=Math.min(wsDelay*2,30000);setTimeout(connect,wsDelay);}};}
 function reconnect(){wsIntentional=true;if(ws){try{ws.close();}catch(e){}}connect();}
 function relTime(ts){const s=Date.now()/1000-ts;if(s<90)return "gerade";if(s<3600)return Math.round(s/60)+" Min";if(s<86400)return Math.round(s/3600)+" Std";return Math.round(s/86400)+" Tg";}
@@ -587,29 +587,91 @@ $("#chip-mission")&&($("#chip-mission").onclick=()=>chipInsert("/mission",true))
 $("#chip-status")&&($("#chip-status").onclick=()=>chipInsert("/status",true));
 $("#chip-plan")&&($("#chip-plan").onclick=()=>chipInsert("/plan",true));
 $("#reason-on")&&($("#reason-on").onchange=()=>{const l=$("#chip-reason");if(l)l.classList.toggle("on",$("#reason-on").checked);});
-$("#cform").onsubmit=e=>{e.preventDefault();const raw=$("#cin").value.trim();if(!raw||!ws||ws.readyState!==1)return;
- msgEl(raw,"me");startThinking();
+function sendText(raw,opts){raw=(raw||"").trim();if(!raw||!ws||ws.readyState!==1)return false;
+ opts=opts||{};
+ msgEl((opts.voice?"🎙️ ":"")+raw,"me");startThinking();
  let t=raw;
- /* Slash-Befehle (/model, /status, ...) NIE mit Modus-Praefix verschlucken */
- if(chatMode==="research"&&!/^(\/|work:|plan:|code:)/i.test(raw))t="/work "+raw;
- if(chatMode==="coding"&&!/^(\/|work:|plan:|code:)/i.test(raw))t="code: "+raw;  /* code: = plan + Coding-Regeln */
- if($("#reason-on")&&$("#reason-on").checked&&!/^reason:/i.test(t))t="reason: "+t;  /* S9.2: staerkeres Modell */
- ws.send(t);$("#cin").value="";curBot=null;curThink=null;};
+ if(opts.voice){t="sprich: "+raw;}  /* Assistenz-Modus: knappe, vorgelesene Antwort */
+ else{
+  /* Slash-Befehle (/model, /status, ...) NIE mit Modus-Praefix verschlucken */
+  if(chatMode==="research"&&!/^(\/|work:|plan:|code:)/i.test(raw))t="/work "+raw;
+  if(chatMode==="coding"&&!/^(\/|work:|plan:|code:)/i.test(raw))t="code: "+raw;  /* code: = plan + Coding-Regeln */
+  if($("#reason-on")&&$("#reason-on").checked&&!/^reason:/i.test(t))t="reason: "+t;  /* S9.2: staerkeres Modell */
+ }
+ ws.send(t);curBot=null;curThink=null;return true;}
+$("#cform").onsubmit=e=>{e.preventDefault();if(sendText($("#cin").value))$("#cin").value="";};
 
-/* ---- Sprachmemo (Aufnahme -> Whisper -> Eingabefeld) ---- */
-let mediaRec=null,chunks=[];
-$("#micbtn")&&($("#micbtn").onclick=async()=>{
- if(mediaRec&&mediaRec.state==="recording"){mediaRec.stop();return;}
+/* ---- Sprachmemo (Aufnahme -> Whisper) + Assistenz-Modus (freihaendige Schleife) ---- */
+let mediaRec=null,chunks=[],recAutoSend=false,vadSpoke=false;
+let ttsOn=localStorage.getItem("kira_tts")==="1";      /* 🔊 Antworten vorlesen */
+let handsFree=false;                                    /* 🎙️ Assistenz: Kira hoert freihaendig zu */
+let curAudio=null;
+const WAKE=/\bk[iy]e?ra\b/i;                             /* Weckwort "Kira" (mit Whisper-Varianten) */
+$("#tts-on")&&($("#tts-on").checked=ttsOn,$("#chip-tts")&&$("#chip-tts").classList.toggle("on",ttsOn),
+ $("#tts-on").onchange=()=>{ttsOn=$("#tts-on").checked;localStorage.setItem("kira_tts",ttsOn?"1":"0");
+  $("#chip-tts")&&$("#chip-tts").classList.toggle("on",ttsOn);});
+/* Text -> ElevenLabs-MP3 -> abspielen. Bricht nie (204/Fehler = still). */
+function speak(text){text=(text||"").trim();if(!text)return Promise.resolve();
+ return fetch("/api/voice/say",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:text})})
+  .then(r=>(r.ok&&r.status===200)?r.blob():null)
+  .then(b=>{if(!b)return;try{if(curAudio)curAudio.pause();}catch(e){}
+   const url=URL.createObjectURL(b);curAudio=new Audio(url);
+   return new Promise(res=>{curAudio.onended=()=>{URL.revokeObjectURL(url);res();};
+    curAudio.onerror=()=>res();curAudio.play().catch(()=>res());});})
+  .catch(()=>{});}
+/* Kira hat geantwortet: vorlesen (wenn an oder Assistenz), dann ggf. wieder lauschen. */
+async function onKiraReply(text){
+ if(ttsOn||handsFree)await speak(text);
+ if(handsFree)armListen();}
+function armListen(){if(handsFree&&!(mediaRec&&mediaRec.state==="recording"))startRec(true);}
+/* Stille-Erkennung: stoppt die Aufnahme automatisch nach einer Sprechpause (freihaendig).
+   Ohne WebAudio faellt es sanft aus -> dann stoppt Sergen per Knopf. */
+function attachVAD(stream,rec){
+ let ctx,an,raf,silence=0,last=performance.now(),started=last;vadSpoke=false;
+ try{ctx=new (window.AudioContext||window.webkitAudioContext)();
+  const src=ctx.createMediaStreamSource(stream);an=ctx.createAnalyser();an.fftSize=512;src.connect(an);
+  const buf=new Uint8Array(an.fftSize);
+  rec.addEventListener("stop",()=>{try{cancelAnimationFrame(raf);}catch(e){}try{ctx.close();}catch(e){}},{once:true});
+  const tick=()=>{if(rec.state!=="recording")return;
+   an.getByteTimeDomainData(buf);let s=0;for(let i=0;i<buf.length;i++){const v=(buf[i]-128)/128;s+=v*v;}
+   const rms=Math.sqrt(s/buf.length),now=performance.now(),dt=now-last;last=now;
+   if(rms>0.045)vadSpoke=true;
+   if(vadSpoke){silence=rms<0.02?silence+dt:0;if(silence>1200){try{rec.stop();}catch(e){}return;}}
+   else if(now-started>7000){try{rec.stop();}catch(e){}return;}  /* nur Stille -> Runde beenden */
+   if(now-started>15000){try{rec.stop();}catch(e){}return;}      /* Sicherheitslimit */
+   raf=requestAnimationFrame(tick);};
+  raf=requestAnimationFrame(tick);
+ }catch(e){/* kein WebAudio -> Nutzer stoppt per Knopf */}}
+async function startRec(autoSend){recAutoSend=!!autoSend;
  try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});chunks=[];mediaRec=new MediaRecorder(stream);
   mediaRec.ondataavailable=ev=>chunks.push(ev.data);
-  mediaRec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());$("#micbtn").textContent="🎤";
+  mediaRec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());$("#micbtn")&&($("#micbtn").textContent="🎤");
+   if(recAutoSend&&!vadSpoke){if(handsFree)armListen();return;}  /* nur Stille -> nicht transkribieren */
    const blob=new Blob(chunks,{type:"audio/webm"});const rd=new FileReader();
-   rd.onload=async()=>{$("#cin").value="… transkribiere …";
-    const r=await (await fetch("/api/transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audio:rd.result})})).json();
-    $("#cin").value=r.ok?(r.text||""):("(Audio-Fehler: "+(r.error||"")+")");$("#cin").focus();};
+   rd.onload=async()=>{if(!recAutoSend)$("#cin").value="… transkribiere …";
+    let txt="",ok=false;
+    try{const r=await (await fetch("/api/transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audio:rd.result})})).json();
+     ok=!!r.ok;txt=ok?(r.text||""):"";if(!ok&&!recAutoSend)$("#cin").value="(Audio-Fehler: "+(r.error||"")+")";}catch(e){}
+    if(recAutoSend){
+     const heard=(txt||"").trim();
+     if(heard&&WAKE.test(heard)){                     /* nur reagieren, wenn "Kira" gesagt wurde */
+      const instr=heard.replace(new RegExp(".*?"+WAKE.source+"[\\s,:!.-]*","i"),"").trim();
+      if(instr)sendText(instr,{voice:true});           /* Weckwort abgestreift -> Auftrag */
+      else{add("🎙️ Ja? Ich hoere.","sys");armListen();} /* nur "Kira" -> weiterlauschen */
+     }else if(handsFree)armListen();                   /* nicht angesprochen -> still weiterlauschen */
+    }else if(ok){$("#cin").value=txt;$("#cin").focus();}};
    rd.readAsDataURL(blob);};
-  mediaRec.start();$("#micbtn").textContent="⏹";
- }catch(err){add("Mikrofon nicht verfuegbar: "+err,"sys");}});
+  mediaRec.start();$("#micbtn")&&($("#micbtn").textContent="⏹");
+  if(autoSend)attachVAD(stream,mediaRec);              /* freihaendig -> Pause stoppt automatisch */
+ }catch(err){add("Mikrofon nicht verfuegbar: "+err,"sys");handsFree=false;$("#sprechbtn")&&$("#sprechbtn").classList.remove("on");}}
+$("#micbtn")&&($("#micbtn").onclick=()=>{if(mediaRec&&mediaRec.state==="recording"){mediaRec.stop();return;}startRec(false);});
+/* Assistenz-Modus an/aus: an -> Vorlesen erzwungen + lauschen; aus -> Aufnahme stoppen, Stimme stumm. */
+$("#sprechbtn")&&($("#sprechbtn").onclick=()=>{handsFree=!handsFree;
+ $("#sprechbtn").classList.toggle("on",handsFree);
+ $("#sprechbtn").title=handsFree?"Assistenz-Modus AN — erneut klicken zum Beenden":"Assistenz-Modus: Kira hoert freihaendig zu, reagiert wenn du \"Kira …\" sagst (Knopf erneut = aus)";
+ if(handsFree){add("🎙️ Assistenz-Modus an — sag \"Kira\" + deine Anweisung, ich hoere zu und antworte knapp.","sys");armListen();}
+ else{try{if(mediaRec&&mediaRec.state==="recording")mediaRec.stop();}catch(e){}
+  try{if(curAudio)curAudio.pause();}catch(e){}add("Assistenz-Modus aus.","sys");}});
 
 /* ---- Bild an Kira (Vision) ---- */
 $("#imgfile")&&($("#imgfile").onchange=ev=>{const f=ev.target.files[0];if(!f)return;

@@ -310,6 +310,29 @@ async def api_voice_test(body: dict) -> dict:
     return tts.diagnose()
 
 
+@app.post("/api/voice/say")
+async def api_voice_say(body: dict):
+    """Text -> gesprochenes MP3 fuer den Sprich-Modus im Cockpit (Kira liest laut vor).
+    Leer, Stimme aus oder Fehler -> 204 (der Browser bleibt dann einfach still)."""
+    text = (body.get("text") or "").strip()
+    if not text:
+        return Response(status_code=204)
+
+    def _s():
+        from core.agency.connectors import tts
+
+        return tts.synthesize(text, session_id="cockpit-voice")
+
+    try:
+        out = await anyio.to_thread.run_sync(_s)
+    except Exception:  # noqa: BLE001 — Stimme darf das Cockpit nie brechen
+        out = None
+    if not out:
+        return Response(status_code=204)
+    audio, mime = out
+    return Response(content=audio, media_type=mime)
+
+
 @app.post("/api/secrets/set")
 async def api_secrets_set(body: dict) -> dict:
     name = (body.get("name") or "").strip()
