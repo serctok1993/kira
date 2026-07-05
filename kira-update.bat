@@ -1,13 +1,28 @@
 @echo off
-REM Kira aktualisieren: holen, zurueckschieben, sicher neu starten.
-REM Einfach doppelklicken. Fenster schliesst sich nach Tastendruck.
+REM Kira aktualisieren: einfach doppelklicken.
+REM
+REM Modell: Der Cloud-Stand (GitHub) ist die Wahrheit fuer den CODE. Diese Datei setzt
+REM deinen lokalen Code exakt darauf, damit das Update nie mehr an Kiras eigenen
+REM Selbst-Edits scheitert ("would be overwritten by merge").
+REM
+REM SICHER fuer deine Sachen:
+REM   - data/ und .env sind gitignored  -> git fasst sie NIE an (Gedaechtnis-DB, Secrets, Modelle).
+REM   - gedaechtnis/ und playbooks/ (deine Obsidian-Notizen) werden VOR dem Update
+REM     beiseitegelegt und DANACH wieder eingespielt -> deine Eintraege bleiben erhalten.
+REM   Es weichen nur lokale CODE-Aenderungen, die der Cloud-Stand ohnehin ersetzt.
 cd /d %~dp0
-echo === Hole neuesten Stand von GitHub ...
-git pull --no-edit
-echo === Schicke lokale Arbeit (Kiras Commits) zurueck ...
-git push
+echo === Sichere deine Obsidian-Notizen (gedaechtnis, playbooks) ...
+git stash push --quiet -- gedaechtnis playbooks
+echo === Verwerfe Kiras lokale Code-Selbst-Edits ...
+git checkout --quiet -- .
+echo === Hole neuesten Cloud-Stand ...
+git fetch origin main
+git reset --hard --quiet origin/main
+echo === Spiele deine Notizen zurueck ...
+git stash pop --quiet
 echo === Starte Kira sauber neu (Supervisor, ~20 Sekunden) ...
 echo all> data\restart.flag
 echo.
-echo Fertig! Kira laedt den neuen Stand.
+echo Fertig! Danach im Browser Strg+F5 druecken.
+echo (Falls oben "CONFLICT" steht, sag Claude Bescheid - deine Notizen sind sicher im stash.)
 pause
