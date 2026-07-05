@@ -230,7 +230,12 @@ def self_edit(path: str, instruction: str) -> str:
     from core.agency.selfdev import self_edit as _se
 
     r = _se(path, instruction)
-    return ("OK — " + r.get("note", "")) if r.get("ok") else ("Fehlgeschlagen: " + r.get("error", ""))
+    if not r.get("ok"):
+        return "Fehlgeschlagen: " + r.get("error", "")
+    add, rem = r.get("stat", (0, 0))
+    head = f"OK (+{add} −{rem}) — {r.get('note', '')}".strip()
+    diff = r.get("diff", "")
+    return head + (("\n" + diff) if diff else "")
 
 
 # --- Dashboard-Steuerung: Kira pflegt Monitor & Modell selbst (erscheint sofort im Cockpit) ---
