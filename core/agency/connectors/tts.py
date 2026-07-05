@@ -19,13 +19,42 @@ from core.config import CONFIG
 from core.kernel import events
 
 _ELEVEN_URL = "https://api.elevenlabs.io/v1/text-to-speech/{vid}"
-_DEFAULT_VOICE = "21m00Tcm4TlvDq8ikWAM"  # ElevenLabs-Standardstimme (in config ueberschreibbar)
+_VOICES_URL = "https://api.elevenlabs.io/v1/voices"
+_DEFAULT_VOICE = "21m00Tcm4TlvDq8ikWAM"  # Notnagel; besser: eine echte Stimme des Kontos (unten)
+_ACCOUNT_VOICE: dict = {"id": None}
 
 
 def _cfg() -> dict:
     tel = (CONFIG.get("channels", {}) or {}).get("telegram", {}) or {}
     t = tel.get("tts")
     return t if isinstance(t, dict) else {}
+
+
+def _account_voice(key: str) -> str | None:
+    """Erste vom Konto per API nutzbare Stimme holen (gecacht). Free-Konten duerfen KEINE
+    Library-Stimmen ueber die API — die fest verdrahtete Standard-ID kann je nach Konto
+    gesperrt sein. Also fragen wir das Konto: bevorzugt 'premade', sonst die erste."""
+    if _ACCOUNT_VOICE["id"]:
+        return _ACCOUNT_VOICE["id"]
+    try:
+        r = httpx.get(_VOICES_URL, headers={"xi-api-key": key}, timeout=15)
+        if r.status_code != 200:
+            return None
+        voices = r.json().get("voices", []) or []
+        premade = [v for v in voices if (v.get("category") or "").lower() == "premade"]
+        pick = premade or voices
+        if pick:
+            _ACCOUNT_VOICE["id"] = pick[0].get("voice_id")
+            return _ACCOUNT_VOICE["id"]
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+def _resolve_voice(c: dict, key: str) -> str:
+    """Welche Stimme: bewusst gesetzte voice_id > eine freie Konto-Stimme > Notnagel."""
+    vid = (c.get("voice_id") or "").strip()
+    return vid or _account_voice(key) or _DEFAULT_VOICE
 
 
 def enabled() -> bool:
@@ -59,7 +88,7 @@ def synthesize(text: str, session_id: str | None = None):
             if not key:
                 events.emit("tts_no_key", {"provider": provider}, session_id=session_id)
                 return None
-            vid = c.get("voice_id") or _DEFAULT_VOICE
+            vid = _resolve_voice(c, key)
             model = c.get("model_id") or "eleven_multilingual_v2"
             r = httpx.post(
                 _ELEVEN_URL.format(vid=vid),
@@ -97,7 +126,8 @@ def diagnose(sample: str = "Hallo Sergen, hier ist Kira — die Stimme funktioni
     key = os.getenv("ELEVENLABS_API_KEY")
     if not key:
         return {"ok": False, "reason": "Kein ELEVENLABS_API_KEY gefunden — Key in dieser Karte speichern."}
-    vid = c.get("voice_id") or _DEFAULT_VOICE
+    _ACCOUNT_VOICE["id"] = None  # beim Test frisch aus dem Konto holen (nicht alten Cache nehmen)
+    vid = _resolve_voice(c, key)
     model = c.get("model_id") or "eleven_multilingual_v2"
     try:
         r = httpx.post(
@@ -115,9 +145,12 @@ def diagnose(sample: str = "Hallo Sergen, hier ist Kira — die Stimme funktioni
         if r.status_code == 401:
             hint = " -> Key falsch oder abgelaufen."
         elif r.status_code in (400, 422):
-            hint = " -> meist ungueltige Voice-ID (Feld leeren = Standardstimme) oder Modell im Free-Plan gesperrt."
-        elif r.status_code == 403:
-            hint = " -> Free-Plan verweigert (Voice/Modell/Format nicht erlaubt)."
+            hint = " -> meist ungueltige Voice-ID (Feld leeren) oder Modell im Free-Plan gesperrt."
+        elif r.status_code in (402, 403):
+            hint = (" -> dein Free-Konto darf diese Stimme nicht per API. Falls das Feld leer war und "
+                    "trotzdem gesperrt: dein Konto hat keine freie API-Stimme -> entweder auf ElevenLabs "
+                    "eine 'premade'-Stimme zu 'My Voices' hinzufuegen, oder wir schalten auf lokale Stimme "
+                    "(Kokoro, 0 EUR) um.")
         return {"ok": False, "reason": f"ElevenLabs-Fehler {r.status_code}{hint} Antwort: {detail}"}
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "reason": f"Netzwerk/Aufruf fehlgeschlagen: {str(e)[:200]}"}

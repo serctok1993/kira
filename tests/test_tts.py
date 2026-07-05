@@ -87,7 +87,7 @@ def test_elevenlabs_http_fehler_none(monkeypatch, tmp_path):
     _events(monkeypatch, tmp_path)
     from core.agency.connectors import tts
     import httpx
-    _set_tts(monkeypatch, enabled=True, provider="elevenlabs")
+    _set_tts(monkeypatch, enabled=True, provider="elevenlabs", voice_id="Vset")  # keine Konto-Abfrage
     monkeypatch.setenv("ELEVENLABS_API_KEY", "sk-test")
 
     class R:
