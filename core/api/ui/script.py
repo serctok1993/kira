@@ -521,7 +521,7 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
   if(m.kind==="think"){ensureTrace();thinkBuf+=m.text;traceSet();return;}
   if(m.kind==="tool"){ensureTrace();thinkBuf+="\n🔧 "+m.name+" "+JSON.stringify(m.args);traceSet();return;}
   if(m.kind==="obs"){ensureTrace();thinkBuf+="\n   ✓ "+(m.text||"").slice(0,120);traceSet();return;}
-  if(m.kind==="final"||m.kind==="answer"){stopThinking();msgEl(m.text||"","bot");}};
+  if(m.kind==="final"||m.kind==="answer"){stopThinking();msgEl(m.text||"","bot");onKiraReply(m.text||"");}};
  ws.onclose=()=>{wsDot(false);if(!wsIntentional){wsDelay=Math.min(wsDelay*2,30000);setTimeout(connect,wsDelay);}};}
 function reconnect(){wsIntentional=true;if(ws){try{ws.close();}catch(e){}}connect();}
 function relTime(ts){const s=Date.now()/1000-ts;if(s<90)return "gerade";if(s<3600)return Math.round(s/60)+" Min";if(s<86400)return Math.round(s/3600)+" Std";return Math.round(s/86400)+" Tg";}
@@ -587,29 +587,60 @@ $("#chip-mission")&&($("#chip-mission").onclick=()=>chipInsert("/mission",true))
 $("#chip-status")&&($("#chip-status").onclick=()=>chipInsert("/status",true));
 $("#chip-plan")&&($("#chip-plan").onclick=()=>chipInsert("/plan",true));
 $("#reason-on")&&($("#reason-on").onchange=()=>{const l=$("#chip-reason");if(l)l.classList.toggle("on",$("#reason-on").checked);});
-$("#cform").onsubmit=e=>{e.preventDefault();const raw=$("#cin").value.trim();if(!raw||!ws||ws.readyState!==1)return;
+function sendText(raw){raw=(raw||"").trim();if(!raw||!ws||ws.readyState!==1)return false;
  msgEl(raw,"me");startThinking();
  let t=raw;
  /* Slash-Befehle (/model, /status, ...) NIE mit Modus-Praefix verschlucken */
  if(chatMode==="research"&&!/^(\/|work:|plan:|code:)/i.test(raw))t="/work "+raw;
  if(chatMode==="coding"&&!/^(\/|work:|plan:|code:)/i.test(raw))t="code: "+raw;  /* code: = plan + Coding-Regeln */
  if($("#reason-on")&&$("#reason-on").checked&&!/^reason:/i.test(t))t="reason: "+t;  /* S9.2: staerkeres Modell */
- ws.send(t);$("#cin").value="";curBot=null;curThink=null;};
+ ws.send(t);curBot=null;curThink=null;return true;}
+$("#cform").onsubmit=e=>{e.preventDefault();if(sendText($("#cin").value))$("#cin").value="";};
 
-/* ---- Sprachmemo (Aufnahme -> Whisper -> Eingabefeld) ---- */
-let mediaRec=null,chunks=[];
-$("#micbtn")&&($("#micbtn").onclick=async()=>{
- if(mediaRec&&mediaRec.state==="recording"){mediaRec.stop();return;}
+/* ---- Sprachmemo (Aufnahme -> Whisper) + Sprich-Modus (freihaendige Schleife) ---- */
+let mediaRec=null,chunks=[],recAutoSend=false;
+let ttsOn=localStorage.getItem("kira_tts")==="1";      /* 🔊 Antworten vorlesen */
+let handsFree=false;                                    /* 🎙️ Kira hoert freihaendig zu */
+let curAudio=null;
+$("#tts-on")&&($("#tts-on").checked=ttsOn,$("#chip-tts")&&$("#chip-tts").classList.toggle("on",ttsOn),
+ $("#tts-on").onchange=()=>{ttsOn=$("#tts-on").checked;localStorage.setItem("kira_tts",ttsOn?"1":"0");
+  $("#chip-tts")&&$("#chip-tts").classList.toggle("on",ttsOn);});
+/* Text -> ElevenLabs-MP3 -> abspielen. Bricht nie (204/Fehler = still). */
+function speak(text){text=(text||"").trim();if(!text)return Promise.resolve();
+ return fetch("/api/voice/say",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({text:text})})
+  .then(r=>(r.ok&&r.status===200)?r.blob():null)
+  .then(b=>{if(!b)return;try{if(curAudio)curAudio.pause();}catch(e){}
+   const url=URL.createObjectURL(b);curAudio=new Audio(url);
+   return new Promise(res=>{curAudio.onended=()=>{URL.revokeObjectURL(url);res();};
+    curAudio.onerror=()=>res();curAudio.play().catch(()=>res());});})
+  .catch(()=>{});}
+/* Kira hat geantwortet: vorlesen (wenn an oder Sprich-Modus), dann ggf. wieder lauschen. */
+async function onKiraReply(text){
+ if(ttsOn||handsFree)await speak(text);
+ if(handsFree)armListen();}
+function armListen(){if(handsFree&&!(mediaRec&&mediaRec.state==="recording"))startRec(true);}
+async function startRec(autoSend){recAutoSend=!!autoSend;
  try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});chunks=[];mediaRec=new MediaRecorder(stream);
   mediaRec.ondataavailable=ev=>chunks.push(ev.data);
-  mediaRec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());$("#micbtn").textContent="🎤";
+  mediaRec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());$("#micbtn")&&($("#micbtn").textContent="🎤");
    const blob=new Blob(chunks,{type:"audio/webm"});const rd=new FileReader();
-   rd.onload=async()=>{$("#cin").value="… transkribiere …";
-    const r=await (await fetch("/api/transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audio:rd.result})})).json();
-    $("#cin").value=r.ok?(r.text||""):("(Audio-Fehler: "+(r.error||"")+")");$("#cin").focus();};
+   rd.onload=async()=>{if(!recAutoSend)$("#cin").value="… transkribiere …";
+    let txt="",ok=false;
+    try{const r=await (await fetch("/api/transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audio:rd.result})})).json();
+     ok=!!r.ok;txt=ok?(r.text||""):"";if(!ok&&!recAutoSend)$("#cin").value="(Audio-Fehler: "+(r.error||"")+")";}catch(e){}
+    if(recAutoSend){if(txt.trim())sendText(txt);else if(handsFree)armListen();}  /* nichts erkannt -> weiter lauschen */
+    else if(ok){$("#cin").value=txt;$("#cin").focus();}};
    rd.readAsDataURL(blob);};
-  mediaRec.start();$("#micbtn").textContent="⏹";
- }catch(err){add("Mikrofon nicht verfuegbar: "+err,"sys");}});
+  mediaRec.start();$("#micbtn")&&($("#micbtn").textContent="⏹");
+ }catch(err){add("Mikrofon nicht verfuegbar: "+err,"sys");handsFree=false;$("#sprechbtn")&&$("#sprechbtn").classList.remove("on");}}
+$("#micbtn")&&($("#micbtn").onclick=()=>{if(mediaRec&&mediaRec.state==="recording"){mediaRec.stop();return;}startRec(false);});
+/* Sprich-Modus an/aus: an -> Vorlesen erzwungen + sofort lauschen; aus -> Aufnahme stoppen, Stimme stumm. */
+$("#sprechbtn")&&($("#sprechbtn").onclick=()=>{handsFree=!handsFree;
+ $("#sprechbtn").classList.toggle("on",handsFree);
+ $("#sprechbtn").title=handsFree?"Sprich-Modus AN — erneut klicken zum Beenden":"Sprich-Modus: Kira hoert freihaendig zu und antwortet mit Stimme (Knopf erneut = aus)";
+ if(handsFree){add("🎙️ Sprich-Modus an — sprich einfach, ich hoere zu und antworte laut.","sys");armListen();}
+ else{try{if(mediaRec&&mediaRec.state==="recording")mediaRec.stop();}catch(e){}
+  try{if(curAudio)curAudio.pause();}catch(e){}add("Sprich-Modus aus.","sys");}});
 
 /* ---- Bild an Kira (Vision) ---- */
 $("#imgfile")&&($("#imgfile").onchange=ev=>{const f=ev.target.files[0];if(!f)return;

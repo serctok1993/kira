@@ -143,6 +143,7 @@ button:hover{filter:brightness(1.12);transform:translateY(-1px);box-shadow:0 0 2
 button:active{transform:translateY(0)}
 button.ghost{box-shadow:none}
 button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 0 12px color-mix(in srgb,var(--glow) 30%,transparent)}
+button.ghost.on{border-color:var(--accent);color:#fff;background:rgba(168,85,247,.16);box-shadow:0 0 0 1px var(--accent),0 0 14px var(--glow)}
 .card{transition:border-color .2s ease,transform .2s ease,box-shadow .2s ease}
 .card:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .pill{transition:border-color .15s ease,color .15s ease,background .15s ease}

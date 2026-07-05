@@ -120,11 +120,13 @@ VIEWS = r"""</head><body>
           <span class="chip" id="chip-plan" title="Erst Plan, dann Schritte">/plan</span>
           <span style="flex:1"></span>
           <label class="chip tog" id="chip-reason" title="Reasoning: staerkeres Modell, denkt gruendlicher"><input type="checkbox" id="reason-on"/> 🧠 Reasoning</label>
+          <label class="chip tog" id="chip-tts" title="Kira liest ihre Antworten laut vor (Stimme muss unter Kira → Zugaenge an sein)"><input type="checkbox" id="tts-on"/> 🔊 Vorlesen</label>
           <select id="chat-model" title="Modell fuer diesen Chat" style="max-width:190px"></select>
         </div>
         <form id="cform">
           <input id="cin" placeholder="Schreib mir…" autocomplete="off" autofocus/>
           <button type="button" id="micbtn" class="ghost" title="Sprachmemo aufnehmen">🎤</button>
+          <button type="button" id="sprechbtn" class="ghost" title="Sprich-Modus: Kira hoert freihaendig zu und antwortet mit Stimme (Knopf erneut = aus)">🎙️</button>
           <label id="imgbtn" class="ghost" title="Bild an Kira" style="display:flex;align-items:center;padding:0 14px;border-radius:10px;cursor:pointer">📎<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
           <button>Senden</button>
         </form>
