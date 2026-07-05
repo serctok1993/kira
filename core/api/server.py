@@ -301,6 +301,15 @@ def api_secrets() -> dict:
     }
 
 
+@app.post("/api/voice/test")
+async def api_voice_test(body: dict) -> dict:
+    """Testet die Kira-Stimme sofort (Cockpit-Prozess hat den Key live) und liefert
+    Klartext-Grund. Kein Neustart/Telegram noetig — fuer den Test-Knopf in der Zugaenge-Karte."""
+    from core.agency.connectors import tts
+
+    return tts.diagnose()
+
+
 @app.post("/api/secrets/set")
 async def api_secrets_set(body: dict) -> dict:
     name = (body.get("name") or "").strip()
