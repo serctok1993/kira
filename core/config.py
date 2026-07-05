@@ -1,5 +1,7 @@
-"""Zentrale Konfiguration: laedt config.yaml + .env, definiert Pfade."""
+"""Zentrale Konfiguration: laedt config.yaml + .env + Zugangs-Tresor, definiert Pfade."""
 from __future__ import annotations
+
+import os
 
 from pathlib import Path
 
@@ -14,6 +16,30 @@ CONFIG_PATH = ROOT / "config.yaml"
 
 # .env laden (still, falls nicht vorhanden)
 load_dotenv(ROOT / ".env")
+
+
+def _load_vault_secrets() -> None:
+    """Zugaenge aus dem Tresor (data/secrets.json) in die Umgebung laden — damit JEDER
+    Prozess (Cockpit, Telegram-Bot, Supervisor, Runner), der core.config importiert, sie
+    sieht. Ohne das lebte ein im Cockpit eingegebener Key nur im Cockpit-Prozess und war
+    beim Neustart weg — der separate Bot sah ihn NIE (ELEVENLABS/TTS blieb stumm).
+    .env hat Vorrang (setdefault): explizit gesetzte Werte werden nicht ueberschrieben.
+    Direkt hier statt via core.governance.secrets, um einen Import-Zyklus zu vermeiden."""
+    try:
+        import json as _j
+
+        f = DATA_DIR / "secrets.json"
+        if not f.exists():
+            return
+        data = _j.loads(f.read_text(encoding="utf-8"))
+        for k, v in (data.get("secrets") or {}).items():
+            if v and str(k) not in os.environ:
+                os.environ[str(k)] = str(v)
+    except Exception:  # noqa: BLE001 — fehlender/kaputter Tresor darf den Start nie brechen
+        pass
+
+
+_load_vault_secrets()
 
 
 def load_config() -> dict:
