@@ -239,8 +239,10 @@ VIEWS = r"""</head><body>
           <label class="chip tog"><input type="checkbox" id="voice-on"/> Sprachantworten an</label>
           <input id="voice-id" placeholder="Stimme-ID (leer = Standard)" style="min-width:220px"/>
           <button id="voice-save">Übernehmen</button>
+          <button id="voice-test" class="ghost">🔊 Test</button>
           <span class="muted" id="voice-hint" style="align-self:center"></span>
         </div>
+        <div id="voice-testout" class="muted" style="margin-top:6px"></div>
       </div>
       <div class="card"><h3>Von Kira angefordert</h3><div id="k-pending" class="muted">…</div></div>
       <div class="card"><h3>Zugang eintragen / aktualisieren</h3>
