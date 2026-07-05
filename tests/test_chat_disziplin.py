@@ -113,6 +113,7 @@ def test_claim_stamp_fehlende_datei(monkeypatch, tmp_path):
 
     text = "Erledigt! Ich habe 10 E-Mails erstellt und unter `~/Desktop/luvex/mail1.md` abgelegt."
     monkeypatch.setenv("HOME", str(tmp_path))  # leeres Zuhause -> Datei existiert nicht
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))  # Windows: expanduser nutzt USERPROFILE
     out = act._claim_stamp(text, session_id="s")
     assert "BEWEISPFLICHT" in out
     assert "claim_check_failed" in [e["type"] for e in events.recent(10)]
@@ -126,6 +127,7 @@ def test_claim_stamp_existierende_datei(monkeypatch, tmp_path):
     f.parent.mkdir(parents=True)
     f.write_text("hallo", encoding="utf-8")
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))  # Windows: expanduser nutzt USERPROFILE
 
     text = "Ich habe die Mail erstellt: `~/Desktop/luvex/mail1.md`"
     assert "BEWEISPFLICHT" not in act._claim_stamp(text, session_id="s")
