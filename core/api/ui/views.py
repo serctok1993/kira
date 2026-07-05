@@ -228,6 +228,20 @@ VIEWS = r"""</head><body>
     </div>
 
     <div class="subview" id="v-keys">
+      <div class="card"><h3>🔊 Kira-Stimme (ElevenLabs)</h3>
+        <div class="muted">Kira spricht auf Sprachnachrichten zurück. Key hier einfügen, Schalter an —
+          fertig. Regel: Sprichst du, spricht sie; tippst du, bleibt's Text. <span id="voice-stat"></span></div>
+        <div class="row" style="margin-top:8px">
+          <input id="voice-key" type="password" placeholder="ElevenLabs API-Key hier einfügen"/>
+          <button id="voice-key-save">Key speichern</button>
+        </div>
+        <div class="row" style="margin-top:8px;flex-wrap:wrap;gap:10px">
+          <label class="chip tog"><input type="checkbox" id="voice-on"/> Sprachantworten an</label>
+          <input id="voice-id" placeholder="Stimme-ID (leer = Standard)" style="min-width:220px"/>
+          <button id="voice-save">Übernehmen</button>
+          <span class="muted" id="voice-hint" style="align-self:center"></span>
+        </div>
+      </div>
       <div class="card"><h3>Von Kira angefordert</h3><div id="k-pending" class="muted">…</div></div>
       <div class="card"><h3>Zugang eintragen / aktualisieren</h3>
         <div class="muted">Werte sind write-only — werden nie angezeigt oder protokolliert. NIEMALS im Chat eingeben.</div>

@@ -810,6 +810,12 @@ $("#g-budget-save")&&($("#g-budget-save").onclick=async()=>{const d=parseFloat($
 
 /* ---- Zugaenge ---- */
 async function loadKeys(){const s=await (await fetch("/api/secrets")).json();
+ /* Kira-Stimme: Status + Schalter befuellen */
+ const t=s.tts||{};const vs=$("#voice-stat");
+ if(vs)vs.innerHTML="Key: "+(t.key_set?'<b class=ok>gesetzt ✓</b>':'<b class=no>fehlt</b>')
+   +" · Stimme: "+(t.enabled?'<b class=ok>an</b>':'<b class=no>aus</b>');
+ if($("#voice-on")&&document.activeElement!==$("#voice-on"))$("#voice-on").checked=!!t.enabled;
+ if($("#voice-id")&&document.activeElement!==$("#voice-id"))$("#voice-id").value=t.voice_id||"";
  const pe=$("#k-pending");
  if(!s.pending.length){pe.innerHTML='<span class=muted>(keine offenen Anfragen)</span>';}
  else{pe.innerHTML=s.pending.map(r=>'<div class="e"><span class="t">'+r.name+'</span><span class="m">'+(r.reason||'')
@@ -823,6 +829,16 @@ $("#k-save").onclick=async()=>{const name=$("#k-name").value.trim();if(!name)ret
  await fetch("/api/secrets/set",{method:"POST",headers:{"Content-Type":"application/json"},
   body:JSON.stringify({name,value:$("#k-val").value})});
  $("#k-val").value="";$("#k-name").value="";loadKeys();refreshStatus();};
+/* ---- Kira-Stimme: Key speichern + An/Aus + Stimme (alles im Zugaenge-Tab) ---- */
+$("#voice-key-save")&&($("#voice-key-save").onclick=async()=>{const v=$("#voice-key").value;
+ if(!v.trim()){$("#voice-hint").textContent="Key ist leer.";return;}
+ await fetch("/api/secrets/set",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({name:"ELEVENLABS_API_KEY",value:v})});
+ $("#voice-key").value="";$("#voice-hint").textContent="Key gespeichert ✓";loadKeys();});
+$("#voice-save")&&($("#voice-save").onclick=async()=>{
+ await cfgSet("channels.telegram.tts.enabled",$("#voice-on").checked);
+ await cfgSet("channels.telegram.tts.voice_id",$("#voice-id").value.trim());
+ $("#voice-hint").textContent="Übernommen ✓ — schick Kira eine Sprachnachricht.";loadKeys();refreshStatus();});
 
 /* ---- Gedaechtnis ---- */
 let memFilter="all",memQuery="",memBound=false;

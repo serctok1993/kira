@@ -83,6 +83,10 @@ agency:
 # Leer = Standard (Import-Smoke der Kernmodule mit dem venv-Python). Beispiel: "uv run pytest -q"
 selfdev:
   verify_cmd: '.venv\Scripts\python.exe -m pytest tests -q'
+  # Paket B: im code:-Lauf pro .py-Edit nur Syntax-/Truncation-Check, die volle Suite laeuft
+  # EINMAL am Lauf-Ende (bei Rot: gesamter Lauf zurueckgerollt). Spart die 375-Test-Suite nach
+  # JEDEM Edit (das waren die 5-15 Minuten). false = alte Sicherheit (volle Suite pro Edit).
+  fast_verify_in_run: true
 
 # Autonomie & Sicherung
 governance:
@@ -152,6 +156,14 @@ channels:
     allowed_chat_id: 7037806562   # Sergens Chat (nur er darf mit Kira reden)
     voice: true               # Sprachmemos lokal transkribieren
     whisper_model: base       # tiny | base | small | medium  (CPU, 0 EUR)
+    # Kira spricht ZURUECK (TTS). AUS, bis du Anbieter + Key setzt. Regel: Voice rein -> Voice raus
+    # (tippst du, antwortet sie mit Text). Sprache zahlt pro Zeichen -> max_chars deckelt die Credits.
+    tts:
+      enabled: false          # true = Kira antwortet auf Sprachmemos zusaetzlich mit Stimme
+      provider: elevenlabs    # elevenlabs (Key ELEVENLABS_API_KEY) | off | (spaeter: kokoro lokal, 0 EUR)
+      voice_id: ""            # ElevenLabs Voice-ID (leer = Standardstimme)
+      model_id: eleven_multilingual_v2   # deutschtauglich
+      max_chars: 600          # Deckel pro Sprachantwort (Volltext bleibt als Text im Chat)
   # Kiras EIGENES Postfach (S3): Sergen legt es an, Zugaenge in den Secrets-Tresor
   # (SMTP_USER/SMTP_PASS; IMAP nutzt dieselben). Mails an own_addresses laufen frei,
   # an Fremde stoppt das email_stranger-Gate an der Freigabe-Inbox.
