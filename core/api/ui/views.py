@@ -20,7 +20,7 @@ VIEWS = r"""</head><body>
   <a data-v="home" class="on" title="Kommandostand: Status, Befehl, Live-Ops, Digest"><i class="ti">◈</i> Zentrale</a>
   <a data-v="chat" title="Mit mir reden"><i class="ti">›</i> Chat</a>
   <a data-v="projekte" title="Projekte, Ziele, Radar-Chancen"><i class="ti">◈</i> Projekte</a>
-  <a data-v="me" title="Dein Bereich: Todos beidseitig, Mails, Metriken"><i class="ti">☰</i> Me</a>
+  <a data-v="me" title="Dein Bereich: Todos, Freigaben, was Kira von dir braucht, deine Routinen"><i class="ti">☰</i> Serc</a>
   <a data-v="kira" title="Wer ich bin: Seele, Gedaechtnis, Wissen, Anatomie, Lernkurve"><i class="ti">✦</i> Kira</a>
   <a data-v="config" title="Technik: Modelle, Zugaenge, Gewissen, Cron, Monitor, Protokoll"><i class="ti">⚙</i> Config</a>
   <div class="spacer"></div>
@@ -44,6 +44,12 @@ VIEWS = r"""</head><body>
         <button class="thm" data-theme="blau" title="Schwarz / Blau"><span class="td" style="background:#3b82f6"></span></button>
         <button class="thm kira" id="thm-kira" data-theme="kira" title="Kira-Modus (Bild-Hintergrund)"></button>
         <label id="bgup" title="Hintergrund-Bild waehlen" style="cursor:pointer;color:var(--muted);font-size:15px">📷<input id="bgquick" type="file" accept="image/*" style="display:none"/></label>
+        <div class="colrow">
+          <label>BG<input type="color" id="col-bg" title="Hintergrund-Farbe"/></label>
+          <label>Kästen<input type="color" id="col-panel" title="Kasten-Farbe"/></label>
+          <label>Neon<input type="color" id="col-accent" title="Akzent/Neon-Farbe"/></label>
+          <a id="col-reset" title="Farben zuruecksetzen">↺</a>
+        </div>
       </div>
     </span>
   </div>
@@ -105,8 +111,8 @@ VIEWS = r"""</head><body>
       <div id="chat-main">
         <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:4px 0 8px;flex-wrap:wrap">
           <button type="button" class="ghost" id="sess-toggle" title="Gespraeche ein-/ausklappen" style="padding:5px 10px">🗂</button>
-          <span class="seg" id="chat-mode-seg" title="Modus: Chat = Dialog · Research = volles Werkzeug-Budget (lesend) · Coding = erst Plan, dann Schritte mit starkem Modell">
-            <a data-m="chat" class="on">💬 Chat</a><a data-m="research">🔍 Research</a><a data-m="coding">🛠 Coding</a>
+          <span class="seg" id="chat-mode-seg" title="Modus: Chat = Dialog · Coding = erst Plan, dann Schritte mit starkem Modell (fuer Recherche 'work:' davor schreiben)">
+            <a data-m="chat" class="on">💬 Chat</a><a data-m="coding">🛠 Coding</a>
           </span>
           <span style="flex:1"></span>
           <span class="muted" id="mode-hint" style="font-size:11px">Dialog — kurz &amp; direkt.</span>
