@@ -355,6 +355,17 @@ def _rbe_block(session_id: str | None, name: str, args: dict) -> str | None:
         return None
 
 
+_TRACE_OBS_CAP = 260
+_TRACE_OBS_CAP_EDIT = 2400  # Edits tragen den Diff -> im Live-Trace ganz zeigen (nur ephemeres WS, nicht gespeichert)
+
+
+def _trace_obs(name: str, obs: str) -> str:
+    """Wieviel vom Werkzeug-Ergebnis in den Live-Trace geht. Edits: der Diff soll ganz kommen
+    (Claude-Code-Look), sonst ein knapper Vorschau-Schnipsel."""
+    cap = _TRACE_OBS_CAP_EDIT if name in _EDIT_TOOLS else _TRACE_OBS_CAP
+    return (obs or "")[:cap]
+
+
 def _run_tool_guarded(name: str, tool, args: dict, session_id: str | None) -> str:
     """Zentraler Werkzeug-Runner aller Loops: Guard davor, Buchhaltung danach."""
     block = _rbe_block(session_id, name, args)
@@ -478,7 +489,7 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
                     obs = _run_tool_guarded(name, tool, args, session_id)
                 except Exception as e:  # noqa: BLE001
                     obs = f"Fehler bei '{name}': {e}"
-            emit({"kind": "obs", "name": name, "text": obs[:200]})
+            emit({"kind": "obs", "name": name, "text": _trace_obs(name, obs)})
             events.emit("act_step", {"step": step, "tool": name, "args": args, "obs_preview": obs[:160]}, session_id=session_id)
             messages.append({"role": "tool", "tool_call_id": cid, "content": obs[:obs_cap]})
     try:
@@ -1170,7 +1181,7 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
                 obs = _run_tool_guarded(name, tool, args, session_id)
             except Exception as e:  # noqa: BLE001
                 obs = f"Fehler bei '{name}': {e}"
-        emit({"kind": "obs", "name": name, "text": obs[:200]})
+        emit({"kind": "obs", "name": name, "text": _trace_obs(name, obs)})
         events.emit("act_step", {"step": step, "tool": name, "args": args, "obs_preview": obs[:160]}, session_id=session_id)
         messages.append({"role": "assistant", "content": text})
         messages.append({"role": "user", "content": f"ERGEBNIS von {name}:\n{obs}\n\nMach weiter oder gib die finale Antwort."})
