@@ -91,7 +91,7 @@ async function loadCheckliste(){const el=$("#ck-list");if(!el)return;try{
   +'<b style="color:var(--ink);font-size:13px">'+titel+'</b></div>'
   +'<div style="font-size:12.5px" class="muted">'+detail+'</div></div>');
  const hb=(ov.mission&&ov.mission.heartbeat);
- row(hb?"ok":"warn","§2 Motor (Heartbeat)",hb?"laeuft — sammelt Erfahrung":"aus — begleitete Aktivierung steht aus");
+ row(hb?"ok":"warn","§2 Heartbeat",hb?"laeuft — sammelt Erfahrung":"aus — begleitete Aktivierung steht aus");
  row(ov.kill_switch?"bad":"ok","§3 Not-Aus",ov.kill_switch?"AKTIV — alles haelt":"bereit, nicht ausgeloest");
  const pend=(dg.pending_approvals|0);
  row(pend?"warn":"ok","§3 Freigaben",pend?pend+" warten in der Inbox auf dich":"nichts offen");
@@ -280,7 +280,7 @@ let opsFilter="all";
 async function loadHud(){const el=$("#hud-strip");if(!el)return;
  try{const o=await (await fetch("/api/overview")).json();const st=await (await fetch("/api/status")).json();
   let sv=null;try{sv=await (await fetch("/api/services")).json();}catch(e){}
-  /* S9.1: HUD-Streifen erweitert — Motor, offene Aufgaben/Todos, letzte Aktion */
+  /* S9.1: HUD-Streifen erweitert — Heartbeat, offene Aufgaben/Todos, letzte Aktion */
   let mb=null,lb=null;
   try{mb=await (await fetch("/api/mission/board")).json();}catch(e){}
   try{lb=await (await fetch("/api/life/board")).json();}catch(e){}
@@ -296,13 +296,16 @@ async function loadHud(){const el=$("#hud-strip");if(!el)return;
   const model=(""+(o.model||"")).split("/").pop();
   const on=o.mission&&o.mission.heartbeat;
   const motor='<a id="hud-motor" title="Klicken zum Umschalten" style="cursor:pointer;border-bottom:1px dotted var(--muted);color:'+(on?"var(--ok)":"var(--muted)")+'">'+(on?"● laeuft · AUS?":"○ aus · AN?")+'</a>';
+  const hf=(typeof handsFree!=="undefined")&&handsFree;
+  const assist='<a id="hud-assist" title="Assistenz-Modus: freihaendig zuhoeren, reagiert auf \'Kira …\', antwortet mit Stimme" style="cursor:pointer;border-bottom:1px dotted var(--muted);color:'+(hf?"var(--ok)":"var(--muted)")+'">'+(hf?"🎙️ hoert zu · AUS?":"🎙️ Zuhoeren?")+'</a>';
   const jobs=mb?((mb.board&&(((mb.board.today||[]).length)+((mb.board.week||[]).length)+((mb.board.later||[]).length)))||0):0;
   const running=mb&&mb.board?((mb.board.running||[]).length):0;
   const todos=lb&&lb.board?(((lb.board.today||[]).length)+((lb.board.week||[]).length)):0;
   const cell=(k,v,extra)=>'<div class="hud-cell"><span class="k">'+k+'</span><span class="val">'+v+'</span>'+(extra||"")+'</div>';
   el.innerHTML=cell("Status",kill)
-   +cell("Motor",motor)
-   +cell("Hirn",esc(model))
+   +cell("Heartbeat",motor)
+   +cell("Assistenz",assist)
+   +cell("Modell",esc(model))
    +cell("Budget heute",(b.day_spent||0)+' / '+(b.day_limit==null?"-":b.day_limit)+' €','<div class="mini-bar'+warn+'"><i style="width:'+dayPct+'%"></i></div>')
    +cell("Monat",(b.month_spent||0)+' / '+(b.month_limit==null?"-":b.month_limit)+' €')
    +cell("Aufgaben",'<b style="color:var(--hud)">'+jobs+'</b> offen'+(running?' · '+running+' laeuft':''))
@@ -312,15 +315,17 @@ async function loadHud(){const el=$("#hud-strip");if(!el)return;
    +'<div class="hud-cell spacer"></div>'
    +cell("Aktion",'<a id="hud-restart" style="cursor:pointer;color:var(--hud)">↻ Neustart</a>');
   const rb=$("#hud-restart");if(rb)rb.onclick=async()=>{if(!confirm("Kira neu starten? Dienste bouncen in ~20s."))return;await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});rb.textContent="↻ …";};
-  /* S11.4: DER Motor-Schalter — begleitete Aktivierung passiert hier, bewusst per Klick. */
+  /* Assistenz-Modus direkt in der Zentrale (freihaendiges Zuhoeren, Weckwort "Kira"). */
+  const ha=$("#hud-assist");if(ha&&typeof toggleAssist==="function")ha.onclick=toggleAssist;
+  /* S11.4: DER Heartbeat-Schalter — begleitete Aktivierung passiert hier, bewusst per Klick. */
   const mt=$("#hud-motor");if(mt)mt.onclick=async()=>{const to=!on;
-   if(!confirm(to?"Motor EINSCHALTEN?\n\nKira plant und arbeitet dann autonom im Takt (alle 30 min). Budget-Bremse, Freigabe-Gates und Not-Aus bleiben aktiv.":"Motor ausschalten? Der aktuelle Tick laeuft noch zu Ende."))return;
+   if(!confirm(to?"Heartbeat EINSCHALTEN?\n\nKira plant und arbeitet dann autonom im Takt (alle 30 min). Budget-Bremse, Freigabe-Gates und Not-Aus bleiben aktiv.":"Heartbeat ausschalten? Der aktuelle Tick laeuft noch zu Ende."))return;
    await fetch("/api/mission/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({on:to})});
-   toast(to?"Motor AN — erster Tick startet im Takt":"Motor aus","ok");loadCommand();};
-  /* S6.6d: Hero-Status + Aura (Motor an = Avatar leuchtet) */
+   toast(to?"Heartbeat AN — erster Tick startet im Takt":"Heartbeat aus","ok");loadCommand();};
+  /* S6.6d: Hero-Status + Aura (Heartbeat an = Avatar leuchtet) */
   const hs=$("#hero-status");
   if(hs){const on=o.mission&&o.mission.heartbeat;
-   hs.textContent=(o.kill_switch?"⛔ NOT-AUS aktiv":(on?"Motor laeuft — arbeitet autonom":"Motor aus — wartet auf dich"))
+   hs.textContent=(o.kill_switch?"⛔ NOT-AUS aktiv":(on?"Heartbeat laeuft — arbeitet autonom":"Heartbeat aus — wartet auf dich"))
     +" · Budget heute "+(b.day_spent||0)+" / "+(b.day_limit==null?"-":b.day_limit)+" €";
    const hv=$("#hero-av");if(hv)hv.classList.toggle("aura",!!on&&!o.kill_switch);}
  }catch(e){}}
@@ -696,15 +701,15 @@ async function startRec(autoSend){recAutoSend=!!autoSend;
    rd.readAsDataURL(blob);};
   mediaRec.start();$("#micbtn")&&($("#micbtn").textContent="⏹");
   if(autoSend)attachVAD(stream,mediaRec);              /* freihaendig -> Pause stoppt automatisch */
- }catch(err){add("Mikrofon nicht verfuegbar: "+err,"sys");handsFree=false;$("#sprechbtn")&&$("#sprechbtn").classList.remove("on");}}
+ }catch(err){add("Mikrofon nicht verfuegbar: "+err,"sys");handsFree=false;paintAssist();}}
 $("#micbtn")&&($("#micbtn").onclick=()=>{if(mediaRec&&mediaRec.state==="recording"){mediaRec.stop();return;}startRec(false);});
-/* Assistenz-Modus an/aus: an -> Vorlesen erzwungen + lauschen; aus -> Aufnahme stoppen, Stimme stumm. */
-$("#sprechbtn")&&($("#sprechbtn").onclick=()=>{handsFree=!handsFree;
- $("#sprechbtn").classList.toggle("on",handsFree);
- $("#sprechbtn").title=handsFree?"Assistenz-Modus AN — erneut klicken zum Beenden":"Assistenz-Modus: Kira hoert freihaendig zu, reagiert wenn du \"Kira …\" sagst (Knopf erneut = aus)";
+/* Assistenz-Modus lebt in der Zentrale (#hud-assist). Toggle: an -> lauschen + vorlesen; aus -> stumm. */
+function paintAssist(){const b=$("#hud-assist");if(b){b.textContent=handsFree?"🎙️ hoert zu · AUS?":"🎙️ Zuhoeren?";
+ b.style.color=handsFree?"var(--ok)":"var(--muted)";}}
+function toggleAssist(){handsFree=!handsFree;paintAssist();
  if(handsFree){add("🎙️ Assistenz-Modus an — sag \"Kira\" + deine Anweisung, ich hoere zu und antworte knapp.","sys");armListen();}
  else{try{if(mediaRec&&mediaRec.state==="recording")mediaRec.stop();}catch(e){}
-  try{if(curAudio)curAudio.pause();}catch(e){}add("Assistenz-Modus aus.","sys");}});
+  try{if(curAudio)curAudio.pause();}catch(e){}add("Assistenz-Modus aus.","sys");}}
 
 /* ---- Bild an Kira (Vision) ---- */
 $("#imgfile")&&($("#imgfile").onchange=ev=>{const f=ev.target.files[0];if(!f)return;
@@ -754,7 +759,7 @@ async function loadModels(){const s=await (await fetch("/api/status")).json();
   const r=await (await fetch("/api/model/params",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({num_ctx:ctx,max_tokens:mt})})).json();
   showLoaded($("#m-loaded"),r.loaded||{});refreshStatus();};
  const ol=$("#m-ollama");ol.innerHTML="";(s.ollama_local||[]).forEach(m=>{const low=m.toLowerCase();
-  if(low.includes("embed")||low.includes("hf.co")||low.includes("gguf"))return;  // kein Hirn / Alias nutzen
+  if(low.includes("embed")||low.includes("hf.co")||low.includes("gguf"))return;  // kein Modell / Alias nutzen
   const id="ollama_chat/"+m.replace(/:latest$/,"");const p=document.createElement("span");
   p.className="pill"+(id===s.model?" ok":"");p.textContent=m.replace(/:latest$/,"");
   p.onclick=()=>useModel(id);ol.appendChild(p);});

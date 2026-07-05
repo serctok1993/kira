@@ -126,7 +126,6 @@ VIEWS = r"""</head><body>
         <form id="cform">
           <input id="cin" placeholder="Schreib mir…" autocomplete="off" autofocus/>
           <button type="button" id="micbtn" class="ghost" title="Sprachmemo aufnehmen">🎤</button>
-          <button type="button" id="sprechbtn" class="ghost" title="Assistenz-Modus: Kira hoert freihaendig zu, reagiert wenn du &quot;Kira …&quot; sagst und antwortet mit Stimme (Knopf erneut = aus)">🎙️</button>
           <label id="imgbtn" class="ghost" title="Bild an Kira" style="display:flex;align-items:center;padding:0 14px;border-radius:10px;cursor:pointer">📎<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
           <button>Senden</button>
         </form>
