@@ -621,6 +621,82 @@ def _make_plan(task: str, session_id: str | None, escalate: bool = True) -> list
     return [{"schritt": task, "rang": "denker"}]
 
 
+# --- Erkundungsphase: aus lockeren Worten die betroffenen Dateien finden (Claude-Code-Stil) ---
+_SCOUT_STOP = {
+    "und", "oder", "der", "die", "das", "den", "dem", "ein", "eine", "einen", "mit", "fuer",
+    "auf", "von", "bei", "ich", "kira", "bitte", "mal", "dann", "noch", "soll", "sollst",
+    "kannst", "mach", "machen", "aendere", "aendern", "aender", "damit", "wenn", "also",
+    "code", "datei", "dateien", "funktion", "stelle", "stellen", "sache", "cockpit", "the", "and",
+}
+
+
+def _scout_terms(task: str, session_id: str | None) -> list[str]:
+    """Suchbegriffe fuer die Erkundung: ein billiger Modell-Vorschlag PLUS distinktive Woerter
+    aus der Aufgabe selbst. Tolerant geparst, dedupliziert, gedeckelt. Raist nie."""
+    terms: list[str] = []
+    try:
+        sys = ("Nenne 2-5 SUCHBEGRIFFE (je Zeile EINER — ein Wort, ein Bezeichner oder ein "
+               "Dateiname, KEIN Satz), mit denen man im Python-Projekt die von der Aufgabe "
+               "betroffenen Code-Stellen findet. Nur die Begriffe, keine Erklaerung.")
+        r = _complete_resilient([{"role": "user", "content": task}], system=sys,
+                                task_type="classify", session_id=session_id, escalate=False)
+        for ln in (r.get("text") or "").splitlines():
+            w = ln.strip().lstrip("-*•0123456789.) ").strip().strip('"`\'')
+            if w and " " not in w and 2 <= len(w) <= 60:
+                terms.append(w)
+    except Exception:  # noqa: BLE001
+        pass
+    for w in re.findall(r"[A-Za-zÄÖÜäöü_][A-Za-zÄÖÜäöü0-9_.]{3,}", task):
+        if w.lower() not in _SCOUT_STOP:
+            terms.append(w)
+    seen: set = set()
+    out: list[str] = []
+    for t in terms:
+        k = t.lower()
+        if k not in seen:
+            seen.add(k)
+            out.append(t)
+    return out[:6]
+
+
+def _scout(task: str, session_id: str | None, escalate: bool, emit) -> str:
+    """Erkundung VOR der Planung: findet die wahrscheinlich betroffenen Projektdateien, damit
+    der Plan an echten Dateien haengt (statt geraten). Liefert einen Kontext-Block ODER ''.
+    Raist nie — schlaegt sie fehl, plant Kira wie bisher."""
+    try:
+        emit({"kind": "tool", "name": "Erkundung 🔦", "args": {"aufgabe": task[:80]}})
+        from core.agency.tools import code_tools
+        files: dict = {}
+        for t in _scout_terms(task, session_id):
+            if "." in t and "/" not in t and not t.startswith("."):
+                for line in (code_tools.datei_finden("**/" + t) or "").splitlines():
+                    line = line.strip()
+                    if line and "/" in line and ":" not in line and line not in files:
+                        files[line] = ""
+                    if len(files) >= 12:
+                        break
+            for line in (code_tools.code_suche("(?i)" + re.escape(t)) or "").splitlines():
+                m = re.match(r"([^:]+):(\d+):", line)
+                if m and m.group(1) not in files:
+                    files[m.group(1)] = line.strip()[:120]
+                if len(files) >= 12:
+                    break
+            if len(files) >= 12:
+                break
+        if not files:
+            emit({"kind": "obs", "name": "Erkundung",
+                  "text": "keine eindeutigen Treffer — Kira plant nach bestem Wissen"})
+            return ""
+        emit({"kind": "obs", "name": "Erkundung",
+              "text": f"{len(files)} Datei(en): " + ", ".join(list(files)[:6])})
+        block = ("ERKUNDUNG — diese Projektdateien betreffen die Aufgabe wahrscheinlich "
+                 "(zuerst dort lesen/suchen, bevor du planst):\n"
+                 + "\n".join(f"- {f}" + (f"   ({s})" if s else "") for f, s in list(files.items())[:12]))
+        return block + "\n\n"
+    except Exception:  # noqa: BLE001
+        return ""
+
+
 # --- Diff-Review (B-029): der Skeptiker fuer Code ---------------------------------------
 def _git_out(*args: str) -> str:
     """git im Projekt-ROOT, best effort ('' bei Fehler/ohne Repo) — raist nie."""
@@ -734,7 +810,10 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
         _sd.set_fast_verify(fast_on)
     except Exception:  # noqa: BLE001
         fast_on = False
-    steps = _make_plan(task, session_id, escalate)
+    # Erkundungsphase (nur code:-Laeufe): erst die betroffenen Dateien finden, dann grounded planen.
+    scout_ctx = _scout(task, session_id, escalate, emit) if code_review else ""
+    task_g = (scout_ctx + "AUFGABE: " + task) if scout_ctx else task
+    steps = _make_plan(task_g, session_id, escalate)
     emit({"kind": "think", "text": "📋 Plan:\n" + "\n".join(
         f"{i}. [{s['rang']}] {s['schritt']}" for i, s in enumerate(steps, 1)) + "\n"})
     events.emit("plan_made", {"steps": [s["schritt"] for s in steps],
@@ -749,7 +828,7 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
         step_escalate = escalate and rang == "denker"
         emit({"kind": "tool", "name": f"Schritt {i}/{len(steps)} [{rang}]", "args": {"ziel": step[:80]}})
         ctx = ("Bisher erledigt:\n" + "\n".join(f"- {d}" for d in done) + "\n\n") if done else ""
-        step_task = f"{ctx}Gesamtziel: {task}\n\nFuehre jetzt NUR diesen Schritt aus: {step}"
+        step_task = f"{ctx}Gesamtziel: {task_g}\n\nFuehre jetzt NUR diesen Schritt aus: {step}"
         try:
             out = act(step_task, session_id=session_id,
                       max_steps=_budget("max_steps_plan_step", _MAX_STEPS_PLAN, task_type, step_escalate),
