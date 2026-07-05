@@ -305,6 +305,24 @@ def _render_trace(voice_text: str | None, think: str, lines: list[str],
     return ("\n".join(parts))[:4000] or "💭 …"
 
 
+def _voice_back(client: httpx.Client, chat_id: int, session_id: str, answer: str) -> None:
+    """Kira spricht die Antwort (nur bei Sprach-Eingabe). Anbieter-agnostisch (tts.py),
+    Default aus, raist nie -> die Textantwort steht immer, egal was mit der Stimme ist."""
+    if not (answer or "").strip():
+        return
+    try:
+        from core.agency.connectors import tts
+
+        audio = tts.synthesize(answer, session_id=session_id)
+        if audio:
+            data, mime = audio
+            client.post(f"{API}/sendAudio",
+                        data={"chat_id": chat_id, "title": "Kira"},
+                        files={"audio": ("kira.mp3", data, mime)})
+    except Exception as e:  # noqa: BLE001
+        events.emit("tts_send_error", {"error": str(e)[:200]})
+
+
 def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: str,
                    voice_text: str | None = None) -> None:
     """Agentischer Chat mit RUHIGER Live-Trace (Denken + Werkzeug-Schritte).
@@ -425,6 +443,9 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
 
     # Finale Antwort als NEUE Nachricht
     _send(client, chat_id, answer or "(keine Antwort)")
+    # Voice rein -> Voice raus (nur wenn Sergen per Sprachmemo geredet hat).
+    if voice_text:
+        _voice_back(client, chat_id, session_id, answer)
 
 
 def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
