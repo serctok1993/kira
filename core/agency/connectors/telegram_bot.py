@@ -435,15 +435,41 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
 
     if cmd in ("start", "help"):
         _send(client, chat_id,
-              "Ich bin Kira. Schreib oder sprich mir einfach.\n"
+              "Ich bin Kira. Schreib oder sprich mir einfach — oder tippe „/“ fuer das Menue.\n"
               "Befehle:\n"
+              "/status – Heartbeat, Budget & Modell auf einen Blick\n"
               "/plan <große aufgabe> – ich erstelle einen Plan und arbeite ihn Schritt fuer Schritt ab\n"
               "/code <coding-auftrag> – Coding-Modus (an Kira selbst schrauben; erbt den Chat davor)\n"
               "/work <auftrag> – voller Werkzeug-Modus fuer laengere Aufgaben\n"
               "/act <aufgabe>  – ich nutze Werkzeuge (z.B. Web), um etwas zu erledigen\n"
               "/build <idee>   – ich baue mir ein neues Werkzeug\n"
+              "/model – Modelle anzeigen/wechseln\n"
               "/stop  – Not-Aus (ich halte sofort an)\n"
               "/go    – Not-Aus aufheben")
+        return
+    if cmd == "status":
+        lines = ["📊 <b>Kira-Status</b>"]
+        try:
+            from core.kernel.scheduler import heartbeat_on
+            lines.append("💓 Heartbeat: " + ("laeuft" if heartbeat_on() else "aus"))
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            from core.kernel import models
+            lines.append("🧩 Modell (Chat): " + str(models.roles().get("chat", "?")).split("/")[-1])
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            from core.governance import treasury
+            b = treasury.status()
+            dl = b.get("day_limit")
+            ml = b.get("month_limit")
+            lines.append(f"💶 Heute: {b.get('day_spent', 0)} €" + (f" / {dl} €" if dl is not None else ""))
+            lines.append(f"🗓 Monat: {b.get('month_spent', 0)} €" + (f" / {ml} €" if ml is not None else ""))
+        except Exception:  # noqa: BLE001
+            pass
+        lines.append("🛑 Not-Aus: " + ("AKTIV" if kill_switch_active() else "aus"))
+        _send(client, chat_id, "\n".join(lines))
         return
     if cmd == "plan":
         if not rest:
@@ -607,11 +633,40 @@ def _bundle(state: dict, error: str | None) -> dict | None:
     return None
 
 
+# Das '/'-Befehlsmenue in Telegram (setMyCommands). Nur wirklich vorhandene Befehle — sonst
+# klickt Sergen ins Leere. Reihenfolge = Anzeige-Reihenfolge im Menue.
+_BOT_COMMANDS = [
+    ("status", "Heartbeat, Budget & Modell auf einen Blick"),
+    ("code", "Coding-Modus: an Kira selbst schrauben"),
+    ("plan", "Große Aufgabe planen und Schritt für Schritt abarbeiten"),
+    ("work", "Längerer Auftrag mit vollem Werkzeug-Budget"),
+    ("act", "Etwas mit Werkzeugen erledigen (z. B. Web)"),
+    ("build", "Ein neues Werkzeug für mich bauen"),
+    ("model", "Modelle anzeigen oder wechseln"),
+    ("stop", "Not-Aus: sofort alles anhalten"),
+    ("go", "Not-Aus wieder aufheben"),
+    ("help", "Was ich kann – Kurzhilfe"),
+]
+
+
+def _register_commands(client: httpx.Client) -> None:
+    """Registriert das '/'-Befehlsmenue bei Telegram. Best effort — ein Fehler hier darf den
+    Bot-Start nie bremsen (das Menue ist Komfort, kein kritischer Pfad)."""
+    try:
+        cmds = [{"command": c, "description": d} for c, d in _BOT_COMMANDS]
+        r = client.post(f"{API}/setMyCommands", json={"commands": cmds}, timeout=15)
+        ok = bool((r.json() or {}).get("ok"))
+        events.emit("telegram_commands_set", {"ok": ok, "n": len(cmds)})
+    except Exception as e:  # noqa: BLE001
+        events.emit("telegram_commands_error", {"error": str(e)[:200]})
+
+
 def run() -> None:
     if not TOKEN:
         print("TELEGRAM_BOT_TOKEN fehlt in .env — Bot via @BotFather anlegen und Token eintragen.")
         return
     events.init_db()
+    _register_commands(_ctrl())  # '/'-Menue bei Telegram anmelden (einmalig beim Start)
     try:  # MCP-Bruecke im Hintergrund anschliessen (Ausfall darf den Boot nie bricken)
         from core.agency.mcp import registry_bridge as _mcp_bridge
         _mcp_bridge.init_background()
