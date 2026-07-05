@@ -47,3 +47,46 @@ def test_sprich_modus_ui_marker():
     assert 'id="sprechbtn"' in VIEWS and 'id="tts-on"' in VIEWS
     assert "/api/voice/say" in SCRIPT
     assert "handsFree" in SCRIPT and "function speak(" in SCRIPT
+    # Weckwort-Gate + Stille-Erkennung + Assistenz-Prefix
+    assert "WAKE" in SCRIPT and "attachVAD" in SCRIPT and "voice:true" in SCRIPT
+
+
+def _chat_dbs(monkeypatch, tmp_path):
+    from core.kernel import events
+    from core.mind.memory import store
+    monkeypatch.setattr(events, "DB_PATH", str(tmp_path / "s.db"))
+    monkeypatch.setattr(store, "DB_PATH", str(tmp_path / "s.db"))
+    events.init_db()
+    store.init_memory()
+
+
+def test_sprich_prefix_knapp_und_kein_plan(monkeypatch, tmp_path):
+    """'sprich:' -> knapper/neutraler Vorlese-Stil, KEIN schwerer Auto-Plan, Prefix abgestreift."""
+    from core.agency import act
+    _chat_dbs(monkeypatch, tmp_path)
+    monkeypatch.setattr(act, "plan_and_execute",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("kein Plan im Sprich-Modus")))
+    monkeypatch.setattr(act, "_cloud", lambda e, t="chat": True)
+    seen: dict = {}
+
+    def fake_native(messages, system, *a, **k):
+        seen["system"] = system
+        seen["user"] = messages[-1]["content"]
+        return "erledigt."
+
+    monkeypatch.setattr(act, "_native_loop", fake_native)
+    out = act.act_chat("sprich: Erstelle mir aus den Leads 10 E-Mails als Dateien", "sv1")
+    assert out == "erledigt."
+    assert "sprich:" not in seen["user"].lower()   # Prefix abgestreift
+    assert "SPRICH-MODUS" in seen["system"]         # Vorlese-Stil injiziert
+
+
+def test_ohne_sprich_kein_vorlese_stil(monkeypatch, tmp_path):
+    from core.agency import act
+    _chat_dbs(monkeypatch, tmp_path)
+    monkeypatch.setattr(act, "_cloud", lambda e, t="chat": True)
+    seen: dict = {}
+    monkeypatch.setattr(act, "_native_loop",
+                        lambda messages, system, *a, **k: (seen.update(system=system), "ok")[1])
+    act.act_chat("wie geht es dir?", "sv2")
+    assert "SPRICH-MODUS" not in seen["system"]
