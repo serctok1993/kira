@@ -77,3 +77,15 @@ def test_config_aufgeloest():
         assert ld in SCRIPT
     # genau EIN default-aktiver Kira-Subview (v-files) — kein doppeltes 'on'
     assert VIEWS.count('class="subview on"') == 1
+
+
+# ---- Stufe 2a: Zentrale-Auftragskarte mit Voice + Schwarm -------------------------------
+
+def test_zentrale_voice_und_schwarm():
+    # Mikro + Schwarm-Toggle + Rang auf der Befehlskarte
+    for m in ('id="dir-mic"', 'id="dir-schwarm"', 'id="dir-rang"'):
+        assert m in VIEWS, f"Zentrale-Bedienelement fehlt: {m}"
+    # Diktier-Helfer und Schwarm-Routing im JS
+    assert "function simpleRecord(" in SCRIPT
+    assert 'simpleRecord("#dir-mic","#dir-text")' in SCRIPT
+    assert '"/schwarm "+rang+" "' in SCRIPT and 'nav("chat")' in SCRIPT

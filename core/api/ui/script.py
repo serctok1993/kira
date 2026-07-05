@@ -1044,7 +1044,29 @@ async function updatePulse(){try{const es=await (await fetch("/api/events?limit=
 updatePulse();
 
 /* ---- Direktive (Startseite) ---- */
+/* Diktier-Knopf (Voice -> Textfeld), unabhaengig vom Chat-Mikro/Assistenz-Modus */
+function simpleRecord(btnSel,targetSel){const btn=$(btnSel);if(!btn)return;let rec=null,ch=[];
+ btn.onclick=async()=>{if(rec&&rec.state==="recording"){rec.stop();return;}
+  try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});ch=[];rec=new MediaRecorder(stream);
+   rec.ondataavailable=e=>ch.push(e.data);
+   rec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());btn.textContent="🎤";
+    const t=$(targetSel);const old=(t&&t.value||"").trim();const blob=new Blob(ch,{type:"audio/webm"});const rd=new FileReader();
+    rd.onload=async()=>{t.value=(old?old+" ":"")+"… transkribiere …";
+     try{const r=await (await fetch("/api/transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audio:rd.result})})).json();
+      t.value=(old?old+" ":"")+(r.ok?(r.text||""):"(Audio-Fehler)");}catch(e){t.value=old;}t.focus();};
+    rd.readAsDataURL(blob);};
+   rec.start();btn.textContent="⏹";
+  }catch(err){add("Mikrofon nicht verfuegbar: "+err,"sys");}};}
+simpleRecord("#dir-mic","#dir-text");
+/* Schwarm-Umschalter: blendet den Rang ein, ändert den Knopf */
+$("#dir-schwarm")&&($("#dir-schwarm").onchange=()=>{const on=$("#dir-schwarm").checked;
+ const rg=$("#dir-rang");if(rg)rg.style.display=on?"":"none";
+ const b=$("#dir-now");if(b)b.textContent=on?"🐝 An den Schwarm":"⚡ Sofort ausfuehren";});
 $("#dir-now")&&($("#dir-now").onclick=async()=>{const p=$("#dir-text").value.trim();if(!p)return;
+ if($("#dir-schwarm")&&$("#dir-schwarm").checked){                       /* Schwarm-Auftrag -> im Chat vorbereiten (Finger am Abzug bleibt bei dir) */
+  const rang=($("#dir-rang")&&$("#dir-rang").value)||"arbeiter";
+  const cin=$("#cin");if(cin)cin.value="/schwarm "+rang+" "+p.replace(/\s*\n\s*/g," ");
+  nav("chat");if(cin)cin.focus();$("#dir-hint").textContent="🐝 Im Chat vorbereitet — druecke Senden.";return;}
  $("#dir-hint").textContent="… Kira arbeitet daran (kann ~1 min dauern) …";
  const r=await (await fetch("/api/direktive/now",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:p})})).json();
  $("#dir-hint").textContent="✓ erledigt";const rr=$("#dir-result");rr.style.display="block";rr.textContent=(r.result||"(keine Antwort)");});
