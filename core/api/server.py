@@ -284,10 +284,20 @@ async def api_memory_delete(body: dict) -> dict:
 def api_secrets() -> dict:
     from core.kernel.llm_router import _PROVIDER_KEYS
 
+    tel_tts = (CONFIG.get("channels", {}) or {}).get("telegram", {}).get("tts", {}) or {}
+    status = secrets.names_status()
     return {
-        "set": secrets.names_status(),
+        "set": status,
         "pending": secrets.pending(),
-        "suggested": list(_PROVIDER_KEYS.values()) + ["TELEGRAM_BOT_TOKEN", "BRAVE_API_KEY"],
+        "suggested": list(_PROVIDER_KEYS.values())
+        + ["TELEGRAM_BOT_TOKEN", "BRAVE_API_KEY", "ELEVENLABS_API_KEY"],
+        # Kira-Stimme: alles an einem Ort (Key + An/Aus + Stimme) fuer die Zugaenge-Karte.
+        "tts": {
+            "enabled": bool(tel_tts.get("enabled")),
+            "provider": tel_tts.get("provider") or "elevenlabs",
+            "voice_id": tel_tts.get("voice_id") or "",
+            "key_set": bool(status.get("ELEVENLABS_API_KEY")),
+        },
     }
 
 
@@ -513,6 +523,8 @@ _CONFIG_WHITELIST = {
     "governance.budget.daily_eur", "governance.budget.monthly_eur", "governance.trust_level",
     "mission.goal", "mission.notify_telegram", "heartbeat.interval_seconds",
     "channels.telegram.voice", "channels.telegram.whisper_model",
+    # Kira-Stimme (TTS): An/Aus + Stimmenwahl live aus dem Cockpit
+    "channels.telegram.tts.enabled", "channels.telegram.tts.provider", "channels.telegram.tts.voice_id",
     # Steuerpult: Schwarm-Regler (greifen live — delegate liest CONFIG pro Aufruf)
     "agency.delegate.schritte.reflex", "agency.delegate.schritte.arbeiter",
     "agency.delegate.schritte.denker", "agency.delegate.schritte.richter",
