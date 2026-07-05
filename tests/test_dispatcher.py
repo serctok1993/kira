@@ -108,6 +108,7 @@ def test_liefernachweis_retry_und_erfolg(monkeypatch, tmp_path):
     _no_reflection(monkeypatch)
     monkeypatch.setattr(act, "_CLAIM_CHECK", True)
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))  # Windows: expanduser nutzt USERPROFILE
     monkeypatch.setattr(act, "_make_plan", lambda task, sid, escalate=True: [
         {"schritt": "Schreibe die Mail nach ~/Desktop/luvex/mail1.md", "rang": "arbeiter"}])
     monkeypatch.setattr(llm_router, "complete", _fake_complete("Zusammenfassung."))
@@ -142,6 +143,7 @@ def test_liefernachweis_ehrlicher_fehlschlag(monkeypatch, tmp_path):
     _no_reflection(monkeypatch)
     monkeypatch.setattr(act, "_CLAIM_CHECK", True)
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))  # Windows: expanduser nutzt USERPROFILE
     monkeypatch.setattr(act, "_make_plan", lambda task, sid, escalate=True: [
         {"schritt": "Schreibe nach ~/Desktop/x/fake.md", "rang": "arbeiter"}])
     # Synthese gibt leeren Text -> Fallback baut die Zusammenfassung aus den Schritten
