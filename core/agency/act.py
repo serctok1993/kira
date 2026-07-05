@@ -366,6 +366,31 @@ def _trace_obs(name: str, obs: str) -> str:
     return (obs or "")[:cap]
 
 
+# Selbstkorrektur-Reflex: merkt sich pro Session die letzte ROTE Edit-Meldung (zurueckgerollt),
+# bis ein Edit wieder GRUEN ist. So kann der Plan-Lauf erkennen, dass ein Edit haengt, und EINEN
+# gezielten Retry mit Strategiewechsel erzwingen — statt dass ein schwaches Modell aufgibt.
+_EDIT_FAIL: dict = {}
+
+
+def _edit_fail_record(session_id: str | None, name: str, obs: str) -> None:
+    if name not in _EDIT_TOOLS:
+        return
+    sid = session_id or "_"
+    low = (obs or "").strip().lower()
+    if low.startswith("ok"):
+        _EDIT_FAIL.pop(sid, None)
+    elif low.startswith("fehlgeschlagen") or "zurueckgerollt" in low or "verifizierung fehlgeschlagen" in low:
+        _EDIT_FAIL[sid] = (obs or "").strip()[:400]
+
+
+def _edit_fail_get(session_id: str | None) -> str:
+    return _EDIT_FAIL.get(session_id or "_", "")
+
+
+def _edit_fail_clear(session_id: str | None) -> None:
+    _EDIT_FAIL.pop(session_id or "_", None)
+
+
 def _run_tool_guarded(name: str, tool, args: dict, session_id: str | None) -> str:
     """Zentraler Werkzeug-Runner aller Loops: Guard davor, Buchhaltung danach."""
     block = _rbe_block(session_id, name, args)
@@ -373,6 +398,7 @@ def _run_tool_guarded(name: str, tool, args: dict, session_id: str | None) -> st
         return block
     obs = str(executor.run_tool(name, tool.func, **args))
     _rbe_record(session_id, name, args, obs)
+    _edit_fail_record(session_id, name, obs)
     return obs
 
 
@@ -820,6 +846,7 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
                               "raenge": [s["rang"] for s in steps]}, session_id=session_id)
 
     done: list[str] = []
+    red_unfixed: list[int] = []
     for i, sp in enumerate(steps, 1):
         step, rang = sp["schritt"], sp["rang"]
         # Dispatcher: Rang -> Modellroute. Eskalation (starkes Modell) nur fuer Denker-Schritte
@@ -829,6 +856,7 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
         emit({"kind": "tool", "name": f"Schritt {i}/{len(steps)} [{rang}]", "args": {"ziel": step[:80]}})
         ctx = ("Bisher erledigt:\n" + "\n".join(f"- {d}" for d in done) + "\n\n") if done else ""
         step_task = f"{ctx}Gesamtziel: {task_g}\n\nFuehre jetzt NUR diesen Schritt aus: {step}"
+        _edit_fail_clear(session_id)  # roten Edit-Marker fuer diesen Schritt frisch starten
         try:
             out = act(step_task, session_id=session_id,
                       max_steps=_budget("max_steps_plan_step", _MAX_STEPS_PLAN, task_type, step_escalate),
@@ -857,6 +885,29 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
                 out += " ⚠ NICHT BELEGT: " + ", ".join(fehlend[:5]) + " existieren nicht."
                 events.emit("plan_step_unproven", {"n": i, "missing": fehlend[:5]}, session_id=session_id)
 
+        # Selbstkorrektur-Reflex: ging ein Edit ROT (Syntax/Test/nicht eindeutig -> zurueckgerollt)
+        # und wurde im Schritt nicht mehr gruen, erzwingt EIN gezielter Retry mit Strategiewechsel.
+        # So gibt ein schwaches Modell (GLM/DeepSeek) nicht beim ersten Fehlschlag auf.
+        red = _edit_fail_get(session_id)
+        if red:
+            events.emit("plan_step_edit_retry", {"n": i, "err": red[:160]}, session_id=session_id)
+            emit({"kind": "obs", "name": f"Schritt {i} ⚠", "text": "Edit rot -> Selbstkorrektur: " + red[:120]})
+            fix_task = (f"{step_task}\n\nDEIN EDIT GING ROT und wurde zurueckgerollt: {red[:300]}\n"
+                        "Das heisst: dein ANSATZ war falsch, nicht die Aufgabe. Aendere die STRATEGIE — "
+                        "lies die Stelle zuerst (read_file/code_suche), nimm einen kleineren, EINDEUTIGEN "
+                        "Suchtext, und mach dann einen gezielten Edit. Behaupte NICHTS ohne gruenen Edit.")
+            _edit_fail_clear(session_id)
+            try:
+                out = act(fix_task, session_id=session_id,
+                          max_steps=_budget("max_steps_plan_step", _MAX_STEPS_PLAN, task_type, step_escalate),
+                          escalate=step_escalate, task_type=task_type)["text"].strip()
+            except Exception as e:  # noqa: BLE001
+                out = f"Fehler: {e}"
+            if _edit_fail_get(session_id):
+                out += " ⚠ Edit weiterhin rot — nicht sauber angewendet."
+                red_unfixed.append(i)
+                events.emit("plan_step_edit_unfixed", {"n": i}, session_id=session_id)
+
         done.append(f"{step} -> {out[:160]}")
         emit({"kind": "obs", "name": f"Schritt {i}", "text": out[:200]})
         events.emit("plan_step", {"n": i, "step": step, "rang": rang, "result": out[:300]}, session_id=session_id)
@@ -873,6 +924,10 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
         except Exception:  # noqa: BLE001
             pass
     review_note += endab
+    if red_unfixed:  # ehrlich im Endergebnis: hier blieb ein Edit rot (kein stiller Erfolg)
+        review_note += ("\n\n⚠ Nicht sauber angewendet: Schritt " + ", ".join(map(str, red_unfixed))
+                        + " — der Edit ging rot und blieb rot (zurueckgerollt). Sag mir Bescheid, "
+                        "dann nehme ich einen anderen Ansatz.")
 
     synth = llm_router.complete(
         [{"role": "user", "content":
