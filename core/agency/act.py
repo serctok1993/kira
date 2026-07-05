@@ -248,6 +248,32 @@ def _cloud(escalate: bool, task_type: str = "reason") -> bool:
     return not real.startswith("ollama")
 
 
+# --- Geteiltes Gedaechtnis: code:/plan: erbt den Brainstorm davor -----------------------
+# Ohne das startet der Coder blind — er weiss nicht, worueber gerade im Chat gesprochen
+# wurde. Der Verlauf DERSELBEN Session wird als kompakter Kontext-Block vorangestellt.
+_DIALOG_PREFIX_CAP = 2500
+
+
+def _dialog_prefix(history: list[dict]) -> str:
+    """Kompakter 'GESPRAECH BISHER'-Block aus den letzten Zuegen (leer -> '')."""
+    if not history:
+        return ""
+    zeilen: list[str] = []
+    for h in history[-8:]:
+        txt = (h.get("text") or "").strip()
+        if not txt:
+            continue
+        wer = "Sergen" if h.get("role") == "user" else "Kira"
+        zeilen.append(f"{wer}: {txt}")
+    if not zeilen:
+        return ""
+    block = "\n".join(zeilen)
+    if len(block) > _DIALOG_PREFIX_CAP:  # aeltestes zuerst kappen, juengster Kontext bleibt
+        block = "…(gekuerzt)…\n" + block[-_DIALOG_PREFIX_CAP:]
+    return ("GESPRAECH BISHER (Kontext aus dem Chat — beziehe dich darauf, "
+            "frag nicht erneut nach dem, was hier schon steht):\n" + block + "\n\n---\n")
+
+
 # --- Read-before-Edit-Guard (B-028, Claude-Code-Prinzip, deterministisch) ---------------
 # Editieren darf nur, wer die Datei in DIESER Session vorher angefasst hat (read_file,
 # code_suche-/datei_finden-Treffer). Harness-Mechanik statt LLM-Disziplin: kein Modell
@@ -606,9 +632,11 @@ def _code_review_run(task: str, head0: str, session_id, escalate: bool, emit) ->
     OK -> kurzer Vermerk. MAENGEL -> genau EIN Fix-Schritt, danach ehrlicher Vermerk.
     Raist nie; ohne Diff (reine Lese-Schritte) still ueberspringen."""
     try:
-        diff = _git_out("diff", f"{head0}..HEAD") if head0 else ""
-        dirty = _git_out("diff")  # unversionierte Reste (sollten leer sein)
-        full = (diff + "\n" + dirty).strip()
+        # Alles seit Lauf-Start — committet ODER noch ungespeichert: 'git diff <head0>'
+        # vergleicht head0 mit dem ARBEITSBAUM. EIN ehrlicher Bezugspunkt statt
+        # head0..HEAD + losem 'git diff', der Reste aus frueheren Laeufen einsammelte
+        # (das war der Grund, warum Reviews immer denselben Alt-Diff sahen).
+        full = (_git_out("diff", head0) if head0 else "").strip()
         if not full:
             return ""
         full = full[:_REVIEW_DIFF_CAP]
@@ -973,9 +1001,12 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     code_mode = _s.lower().startswith("code:")
     if code_mode or _s.lower().startswith(("plan:", "/plan")):
         ptask = _s[5:].lstrip(": ").strip() or "(keine Aufgabe angegeben)"
+        # Geteiltes Gedaechtnis: den Brainstorm DERSELBEN Session als Kontext voranstellen,
+        # damit 'code:'/'plan:' weiss, worueber gerade geredet wurde (kein Blindstart mehr).
+        kern = _dialog_prefix(history) + "AUFTRAG:\n" + ptask
         if code_mode:
-            ptask += "\n\n" + _CODING_REGELN
-        final = plan_and_execute(ptask, session_id=session_id, on_event=on_event,
+            kern += "\n\n" + _CODING_REGELN
+        final = plan_and_execute(kern, session_id=session_id, on_event=on_event,
                                  escalate=(escalate if code_mode else True),
                                  code_review=code_mode)
         memory.remember(final, role="partner", session_id=session_id)

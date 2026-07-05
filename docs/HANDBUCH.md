@@ -69,6 +69,7 @@ Ebene 4  Destillat                  gedaechtnis/stammbaum/ + Lektionen/Playbooks
 | `/delegiere <rang> <auftrag>` | DEIN Draht zur Armee: EIN Unteragent im gewaehlten Rang (reflex/arbeiter/denker/richter) |
 | `/schwarm <rang> <vorlage mit {item}> \| a \| b` | mehrere Unteragenten parallel ueber eine Liste |
 | `/work <auftrag>` | volles Arbeitsbudget (langer Task) |
+| `/code <auftrag>` (Chat & Telegram) | Coding-Modus — **erbt den Chat davor** (erst brainstormen, dann `/code`) |
 | `plan:` / Coding-Modus | erst Plan, dann Schritte (Coding erzwingt zusätzlich Regeln) |
 | `@ziel:<name>` | Arbeit auf ein Ziel buchen |
 | Fokus (Zentrale) | Daueranweisung für den Motor |
