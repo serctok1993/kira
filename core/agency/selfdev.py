@@ -65,6 +65,23 @@ def _verify_cmd() -> str:
             'core.mind.agent, core.agency.connectors.telegram_bot, core.agency.shelltool"')
 
 
+# Lauf-Modus (Paket B): waehrend eines code:/plan:-Laufs laeuft pro .py-Edit NUR der
+# schnelle Syntax-/Truncation-Check — die volle Testsuite prueft der Lauf EINMAL am Ende
+# (plan_and_execute) und rollt bei Rot den GANZEN Lauf zurueck. Spart die 375-Test-Suite
+# nach jedem einzelnen Edit (das waren Sergens 5-15 Minuten). Config: selfdev.fast_verify_in_run.
+_FAST_VERIFY = False
+
+
+def set_fast_verify(on: bool) -> None:
+    """Schaltet den Lauf-Modus (schneller Per-Edit-Check, Suite am Lauf-Ende)."""
+    global _FAST_VERIFY
+    _FAST_VERIFY = bool(on)
+
+
+def fast_verify_active() -> bool:
+    return _FAST_VERIFY
+
+
 def _verify() -> tuple[bool, str]:
     """Selbst-Test nach einer Aenderung. Timeout grosszuegig (300s): ein Timeout zaehlt
     als FEHLSCHLAG und wuerde sonst einen GUTEN Edit zurueckrollen. Gibt (ok, ausgabe)."""
@@ -152,6 +169,15 @@ def apply_edit(rel_path: str, new_content: str, reason: str = "", verify: bool =
     # core.config -> faengt auch kaputtes YAML/JSON ab). Rot -> nur diese Datei zurueck,
     # git bleibt UNBERUEHRT (kein reset --hard mehr, kein Commit-Muell).
     if verify and p.suffix in (".py", ".yaml", ".yml", ".json", ".toml"):
+        # Lauf-Modus: fuer .py sind py_compile + _lost_defs oben schon gruen -> committen,
+        # die volle Suite prueft der Lauf am Ende. Config-Dateien (.yaml/.json) behalten IMMER
+        # die volle Verify (pytest importiert core.config -> faengt kaputtes YAML ab).
+        if _FAST_VERIFY and p.suffix == ".py":
+            _git("add", rel_path)
+            _git("commit", "-m", f"selfdev: {reason or rel_path}")
+            events.emit("selfdev_applied", {"file": rel_path, "reason": reason, "fast": True})
+            return {"ok": True, "file": rel_path, "verified": False,
+                    "note": "Angewendet (Syntax gruen). Endabnahme der Testsuite folgt am Lauf-Ende."}
         ok_v, out_v = _verify()
         if not ok_v:
             _restore()

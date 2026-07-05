@@ -35,6 +35,8 @@ _OBS_MAX = int(_AG.get("obs_max_chars", 16000))            # wie viel Werkzeug-E
 _MAX_STEPS_CHAT = int(_AG.get("max_steps_chat", 8))        # knapper Deckel fuer NORMALEN Chat -> kein 80er-Sturm bei Small-Talk (voller Task-Deckel via /work oder /plan)
 _AUTO_PLAN = bool(_AG.get("auto_plan", True))              # Arbeitsauftraege im Plain-Chat automatisch planen
 _CLAIM_CHECK = bool(_AG.get("claim_check", True))          # Datei-Behauptungen in Antworten nachpruefen
+# Paket B: im code:-Lauf pro Edit nur Syntax-Check, volle Suite EINMAL am Lauf-Ende (schnell).
+_FAST_VERIFY_RUN = bool((CONFIG.get("selfdev", {}) or {}).get("fast_verify_in_run", True))
 
 # --- Modellstarke Arbeitsflaeche ----------------------------------------------
 # Die Decken oben sind fuer schwache/lokale Modelle kalibriert. Laeuft die Runde
@@ -671,6 +673,32 @@ def _code_review_run(task: str, head0: str, session_id, escalate: bool, emit) ->
         return ""
 
 
+def _endabnahme(head0: str, session_id, emit) -> str:
+    """Lauf-Ende im Fast-Verify-Modus: die volle Testsuite EINMAL. Gruen -> Vermerk.
+    ROT -> der GANZE Lauf wird auf head0 zurueckgerollt (git reset --hard, scoped auf
+    diesen Lauf), damit Kira nie in einem kaputten Zustand committet bleibt. Raist nie."""
+    try:
+        from core.agency import selfdev
+
+        if not head0 or _git_out("rev-parse", "HEAD") == head0:
+            return ""  # keine Edits committet -> nichts abzunehmen
+        emit({"kind": "tool", "name": "Endabnahme 🧪", "args": {"suite": "voll"}})
+        ok, out = selfdev._verify()
+        if ok:
+            events.emit("run_verify_pass", {}, session_id=session_id)
+            emit({"kind": "obs", "name": "Endabnahme", "text": "Testsuite gruen ✓"})
+            return "\n\n🧪 Endabnahme: komplette Testsuite gruen."
+        _git_out("reset", "--hard", head0)  # gesamten Lauf zurueck (nur diese Commits)
+        events.emit("run_verify_rollback", {"out": out[:300]}, session_id=session_id)
+        emit({"kind": "obs", "name": "Endabnahme ⚠", "text": "ROT -> Lauf zurueckgerollt"})
+        return ("\n\n⚠ ENDABNAHME ROT: Die komplette Testsuite schlug fehl — ich habe den GESAMTEN "
+                "Lauf zurueckgerollt (nichts committet), damit nichts Kaputtes stehen bleibt. "
+                "Auszug:\n" + out[:600])
+    except Exception as e:  # noqa: BLE001 — Endabnahme darf den Lauf nie abreissen
+        events.emit("run_verify_error", {"error": str(e)[:200]}, session_id=session_id)
+        return ""
+
+
 def plan_and_execute(task: str, session_id: str | None = None, on_event=None, escalate: bool = True,
                      code_review: bool = False) -> str:
     """Plan-&-Execute-Agent: erst einen Plan erstellen, dann Schritt fuer Schritt mit Werkzeugen
@@ -685,6 +713,16 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
 
     events.emit("plan_start", {"task": task}, session_id=session_id)
     head0 = _git_out("rev-parse", "HEAD") if code_review else ""
+    # Fast-Verify-Lauf (nur code:-Laeufe): pro Edit nur Syntax, volle Suite am Ende.
+    # Defensiver Reset zuerst (falls ein frueher abgestuerzter Lauf den Flag True liess),
+    # dann fuer diesen Lauf setzen. Reset am Ende nach der Endabnahme. Der Bereich dazwischen
+    # enthaelt keinen rohen Code, der raist (act/complete/_code_review_run fangen intern).
+    fast_on = bool(code_review and head0 and _FAST_VERIFY_RUN)
+    try:
+        from core.agency import selfdev as _sd
+        _sd.set_fast_verify(fast_on)
+    except Exception:  # noqa: BLE001
+        fast_on = False
     steps = _make_plan(task, session_id, escalate)
     emit({"kind": "think", "text": "📋 Plan:\n" + "\n".join(
         f"{i}. [{s['rang']}] {s['schritt']}" for i, s in enumerate(steps, 1)) + "\n"})
@@ -736,6 +774,15 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
     # Diff-Review (nur code:-Laeufe): ein frischer Denker liest den entstandenen Diff
     # gegen den Auftrag — Maengel -> EIN Fix-Schritt, danach ehrlicher Vermerk.
     review_note = _code_review_run(task, head0, session_id, escalate, emit) if code_review else ""
+    # Endabnahme + Fast-Verify-Flag SICHER zuruecksetzen (auch die Review-Fixes liefen schnell).
+    endab = _endabnahme(head0, session_id, emit) if fast_on else ""
+    if fast_on:
+        try:
+            from core.agency import selfdev as _sd
+            _sd.set_fast_verify(False)
+        except Exception:  # noqa: BLE001
+            pass
+    review_note += endab
 
     synth = llm_router.complete(
         [{"role": "user", "content":

@@ -83,6 +83,10 @@ agency:
 # Leer = Standard (Import-Smoke der Kernmodule mit dem venv-Python). Beispiel: "uv run pytest -q"
 selfdev:
   verify_cmd: '.venv\Scripts\python.exe -m pytest tests -q'
+  # Paket B: im code:-Lauf pro .py-Edit nur Syntax-/Truncation-Check, die volle Suite laeuft
+  # EINMAL am Lauf-Ende (bei Rot: gesamter Lauf zurueckgerollt). Spart die 375-Test-Suite nach
+  # JEDEM Edit (das waren die 5-15 Minuten). false = alte Sicherheit (volle Suite pro Edit).
+  fast_verify_in_run: true
 
 # Autonomie & Sicherung
 governance:
