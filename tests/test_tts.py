@@ -138,3 +138,29 @@ def test_voice_back_ohne_audio_still(monkeypatch):
                         lambda *a, **k: (_ for _ in ()).throw(AssertionError("nicht rufen")))
     tb._voice_back(Client(), 42, "telegram-42", "   ")
     assert posts == []
+
+
+# ---- Cockpit: Kira-Stimme in den Zugaengen -------------------------------------------
+
+def test_secrets_endpoint_bietet_stimme(monkeypatch):
+    from core.api import server
+    monkeypatch.setattr(server.secrets, "names_status", lambda: {"ELEVENLABS_API_KEY": True})
+    monkeypatch.setattr(server.secrets, "pending", lambda: [])
+    r = server.api_secrets()
+    assert "ELEVENLABS_API_KEY" in r["suggested"]     # klickbarer Vorschlag
+    assert r["tts"]["key_set"] is True                # Status fuer die Voice-Karte
+    assert "enabled" in r["tts"] and "voice_id" in r["tts"]
+
+
+def test_config_whitelist_erlaubt_stimme():
+    from core.api.server import _CONFIG_WHITELIST
+    for p in ("channels.telegram.tts.enabled", "channels.telegram.tts.voice_id",
+              "channels.telegram.tts.provider"):
+        assert p in _CONFIG_WHITELIST
+
+
+def test_voice_karte_ui_marker():
+    from core.api.ui.views import VIEWS
+    from core.api.ui.script import SCRIPT
+    assert "Kira-Stimme" in VIEWS and 'id="voice-on"' in VIEWS and 'id="voice-key"' in VIEWS
+    assert "voice-key-save" in SCRIPT and "channels.telegram.tts.enabled" in SCRIPT
