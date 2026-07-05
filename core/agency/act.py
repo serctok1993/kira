@@ -582,7 +582,7 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
 
 
 # Dispatcher: der Planer (Denker) vergibt pro Schritt ein Rang-Etikett, die Ausfuehrung
-# routet danach — kluges Hirn plant, billige Haende liefern. Rang -> (task_type, Modellroute
+# routet danach — kluges Modell plant, billige Haende liefern. Rang -> (task_type, Modellroute
 # via config models.routing). 'richter' vergibt der Planer NICHT (Eskalation nur explizit).
 _PLAN_RANG = {"reflex": "classify", "arbeiter": "worker", "denker": "reason"}
 
@@ -901,9 +901,10 @@ _CODING_REGELN = (
 _VOICE_STYLE = (
     "\n\n# SPRICH-MODUS (deine Antwort wird VORGELESEN)\n"
     "Sergen redet ueber den Assistenz-Knopf mit dir. Fuehre die Aufgabe vollstaendig aus, "
-    "aber ANTWORTE KNAPP: sachlich-neutral, 1-3 gesprochene Saetze, KEINE Aufzaehlungen, "
-    "kein Markdown, keine Code-Bloecke, keine Emojis, keine Links. Sag beim Handeln kurz, "
-    "was du getan hast, statt lange zu erklaeren. Bei einer echten Frage: die knappe Antwort, sonst nichts."
+    "aber antworte in SEHR KURZEN Saetzen: hoechstens 5-8 Woerter pro Satz, dann Punkt oder "
+    "Komma. KEINE langen Schachtelsaetze — die verlieren Ton und Emotion beim Vorlesen. "
+    "Insgesamt hoechstens 2-3 solcher Kurzsaetze. Kein Markdown, keine Aufzaehlungen, keine "
+    "Emojis, keine Links. Bestaetige knapp, was du getan hast. Bei einer Frage: die kurze Antwort, sonst nichts."
 )
 
 

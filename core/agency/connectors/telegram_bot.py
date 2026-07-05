@@ -265,7 +265,7 @@ def _action_label(name: str, args: dict | None) -> str:
         "watch_list": ("📡", "schaue in meinen Monitor", ""),
         "cron_add": ("⏰", "plane eine Aufgabe", pick("label", "prompt")),
         "cron_list": ("⏰", "schaue meine Termine an", ""),
-        "switch_model": ("🔀", "wechsle mein Hirn zu", pick("model")),
+        "switch_model": ("🔀", "wechsle mein Modell zu", pick("model")),
         "list_models": ("🧠", "prüfe meine Modelle", ""),
         "set_context": ("🧩", "stelle mein Kontextfenster ein", ""),
         "plan_and_execute": ("🧭", "plane & arbeite ab", pick("task")),
