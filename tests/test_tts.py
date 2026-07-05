@@ -99,45 +99,11 @@ def test_elevenlabs_http_fehler_none(monkeypatch, tmp_path):
     assert tts.synthesize("Hallo") is None  # Fehler -> None, kein Crash
 
 
-# ---- Telegram: Voice rein -> Voice raus (Helfer _voice_back) ----------------------------
+# ---- Telegram bleibt Text: kein _voice_back mehr (Stimme lebt im Cockpit) --------------
 
-def test_voice_back_sendet_audio(monkeypatch):
+def test_telegram_ohne_voice_back():
     from core.agency.connectors import telegram_bot as tb
-    from core.agency.connectors import tts
-    posts: list = []
-
-    class Client:
-        def post(self, url, **kw):
-            posts.append((url, kw))
-
-    monkeypatch.setattr(tts, "synthesize", lambda text, session_id=None: (b"AUDIO", "audio/mpeg"))
-    tb._voice_back(Client(), 42, "telegram-42", "Okay, erledigt")
-
-    assert len(posts) == 1
-    url, kw = posts[0]
-    assert "sendAudio" in url
-    assert kw["files"]["audio"][1] == b"AUDIO"       # die Audiobytes gehen raus
-    assert kw["data"]["chat_id"] == 42
-
-
-def test_voice_back_ohne_audio_still(monkeypatch):
-    from core.agency.connectors import telegram_bot as tb
-    from core.agency.connectors import tts
-    posts: list = []
-
-    class Client:
-        def post(self, url, **kw):
-            posts.append(url)
-
-    monkeypatch.setattr(tts, "synthesize", lambda text, session_id=None: None)  # TTS aus
-    tb._voice_back(Client(), 42, "telegram-42", "Antwort")
-    assert posts == []                               # keine Stimme -> nichts gesendet
-
-    # leere Antwort -> gar nichts (kein TTS-Aufruf)
-    monkeypatch.setattr(tts, "synthesize",
-                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("nicht rufen")))
-    tb._voice_back(Client(), 42, "telegram-42", "   ")
-    assert posts == []
+    assert not hasattr(tb, "_voice_back")   # bewusst entfernt — Telegram antwortet nur mit Text
 
 
 # ---- Cockpit: Kira-Stimme in den Zugaengen -------------------------------------------

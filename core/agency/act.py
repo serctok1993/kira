@@ -887,6 +887,14 @@ _CODING_REGELN = (
     "5. Kleine, gezielte Edits; ein Schritt = eine abgeschlossene, geprueft funktionierende Aenderung."
 )
 
+_VOICE_STYLE = (
+    "\n\n# SPRICH-MODUS (deine Antwort wird VORGELESEN)\n"
+    "Sergen redet ueber den Assistenz-Knopf mit dir. Fuehre die Aufgabe vollstaendig aus, "
+    "aber ANTWORTE KNAPP: sachlich-neutral, 1-3 gesprochene Saetze, KEINE Aufzaehlungen, "
+    "kein Markdown, keine Code-Bloecke, keine Emojis, keine Links. Sag beim Handeln kurz, "
+    "was du getan hast, statt lange zu erklaeren. Bei einer echten Frage: die knappe Antwort, sonst nichts."
+)
+
 
 def _handle_model_command(text: str) -> str:
     """Deterministischer Modell-Wechsel OHNE LLM (fuer /model bzw. /switch im Web-Chat).
@@ -1009,6 +1017,13 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
         escalate = True
         user_message = re.sub(r"^\s*reason:\s*", "", user_message, flags=re.IGNORECASE)
 
+    # Assistenz-/Sprich-Modus: Prefix "sprich:" markiert eine Voice-Eingabe aus dem Cockpit.
+    # -> Antwort wird knapp/neutral gehalten (wird vorgelesen). Wird hier abgestreift.
+    voice_mode = False
+    if user_message.lstrip().lower().startswith("sprich:"):
+        voice_mode = True
+        user_message = re.sub(r"^\s*sprich:\s*", "", user_message, flags=re.IGNORECASE)
+
     # Deterministischer Modell-Wechsel: /model bzw. /switch umgeht die LLM komplett.
     # So kann auch ein schwaches lokales Modell (oder Sergen) IMMER umschalten — der
     # Wechsel haengt NIE davon ab, dass das aktuelle Modell einen Tool-Call absetzt.
@@ -1074,7 +1089,7 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     # Auto-Plan: klarer Arbeitsauftrag im Plain-Chat -> erst Plan, dann Schritt fuer Schritt,
     # statt ihn im knappen Chat-Deckel zu zerreden. escalate=False (Denker-Rang, nicht das
     # teure Eskalations-Modell) — explizites plan:/code: bleibt bewusst escalate=True.
-    if _AUTO_PLAN and not work_mode and _looks_like_work_order(user_message):
+    if _AUTO_PLAN and not work_mode and not voice_mode and _looks_like_work_order(user_message):
         emit({"kind": "think", "text": "Arbeitsauftrag erkannt — ich baue erst einen Plan "
                                        "und arbeite ihn Schritt fuer Schritt ab."})
         events.emit("auto_plan", {"task": user_message[:200]}, session_id=session_id)
@@ -1101,13 +1116,14 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     messages.append({"role": "user", "content": user_message})
 
     # Cloud-Modelle: natives Function-Calling (robust, kein ACT-Text-Leak)
+    _vstyle = _VOICE_STYLE if voice_mode else ""
     if _cloud(escalate, "chat"):
-        system = build_system_prompt(user_message, session_id=session_id) + _NATIVE_TOOLS_HINT
+        system = build_system_prompt(user_message, session_id=session_id) + _NATIVE_TOOLS_HINT + _vstyle
         text = _native_loop(messages, system, session_id, escalate, emit, max_steps=step_ceiling, task_type="chat")
         return _finalize(text)
 
     # Lokale Modelle: bewaehrtes Text-Protokoll (ACT <tool> {json}) mit Streaming
-    system = build_system_prompt(user_message, session_id=session_id) + f"""
+    system = build_system_prompt(user_message, session_id=session_id) + _vstyle + f"""
 
 # WERKZEUGE (nutze sie, wenn die Aufgabe es braucht)
 {registry.manifest()}
