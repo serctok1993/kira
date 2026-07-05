@@ -58,3 +58,22 @@ def test_chat_modus_feedback():
     assert 'setAttribute("data-mode"' in SCRIPT
     assert '#chat-main[data-mode="coding"]' in CSS   # Coding faerbt gruen
     assert "--chat-accent" in CSS
+
+
+# ---- Stufe 1b: Config aufgelöst, Technik unter Kira -------------------------------------
+
+def test_config_aufgeloest():
+    # kein Config-Tab, keine eigene Leiste mehr
+    assert 'data-v="config"' not in VIEWS
+    assert 'id="sys-tabs"' not in VIEWS and 'id="v-config"' not in VIEWS
+    # die Technik-Subtabs hängen jetzt an der Kira-Leiste
+    for link in ('data-s="models"', 'data-s="steuer"', 'data-s="gov"', 'data-s="cron"',
+                 'data-s="monitor"', 'data-s="log"', 'data-s="cockpit"'):
+        assert link in VIEWS
+    # und ihre Loader wohnen in SUBTABS.kira (config-Eintrag ist weg)
+    assert "config:  {bar:" not in SCRIPT
+    for ld in ("models:()=>loadModels()", "steuer:()=>loadSteuer()", "cron:()=>loadCron()",
+               "cockpit:()=>loadDesktop()"):
+        assert ld in SCRIPT
+    # genau EIN default-aktiver Kira-Subview (v-files) — kein doppeltes 'on'
+    assert VIEWS.count('class="subview on"') == 1

@@ -11,19 +11,20 @@ def _page() -> str:
 
 
 def test_page_boots_with_new_ia():
-    """S7a: Sergens 6-Tab-Zuschnitt (Zentrale/Chat/Projekte/Me/Kira/Config) + modulare Shell."""
+    """5-Tab-Zuschnitt nach Config-Auflösung (Zentrale/Chat/Projekte/Serc/Kira) + modulare Shell."""
     html = _page()
     assert "KIRA" in html
-    for vid in ("v-home", "v-chat", "v-projekte", "v-me", "v-kira", "v-config"):
+    for vid in ("v-home", "v-chat", "v-projekte", "v-me", "v-kira"):
         assert f'id="{vid}"' in html, f"View fehlt: {vid}"
-    for gone in ("v-work", "v-todo", "v-settings"):
+    # Config ist aufgelöst — kein eigener Tab/Leiste mehr
+    for gone in ("v-work", "v-todo", "v-settings", "v-config"):
         assert f'id="{gone}"' not in html, f"Alt-View lebt noch: {gone}"
-    # Subviews je Bereich (EINE Mechanik: SUBTABS-Registry)
-    for sub in ("v-models", "v-keys", "v-gov", "v-cron", "v-monitor", "v-log", "v-cockpit",  # Config
+    assert 'id="sys-tabs"' not in html and 'data-v="config"' not in html
+    # Die Technik-Subviews leben jetzt UNTER Kira (gleiche SUBTABS-Mechanik)
+    for sub in ("v-models", "v-keys", "v-gov", "v-cron", "v-monitor", "v-log", "v-cockpit",  # ex-Config
                 "v-files", "v-mem", "v-wissen", "v-anatomie", "v-stats"):                     # Kira
         assert f'id="{sub}"' in html, f"Subview fehlt: {sub}"
-    for bar in ("sys-tabs", "kira-tabs"):
-        assert f'id="{bar}"' in html, f"Subtab-Leiste fehlt: {bar}"
+    assert 'id="kira-tabs"' in html
     assert "const SUBTABS=" in html and "function subnav(" in html  # generische Shell
     # S9.3: Projekte ist EINE Uebersicht (keine Subtabs mehr) -> Radar-Einbahn-Bug weg
     assert 'id="proj-tabs"' not in html and "loadProjekte" in html
