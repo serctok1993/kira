@@ -336,6 +336,28 @@ def _render_trace(voice_text: str | None, think: str, lines: list[str],
 
 _DENKEN_FILE = DATA_DIR / "telegram_denken.json"
 
+# getUpdates-Offset dauerhaft merken -> ueberlebt Neustart/Absturz. Ohne das startet der
+# Bot mit offset=None, Telegram liefert die letzte(n) unbestaetigte(n) Update(s) erneut aus
+# und Kira beantwortet dieselbe Nachricht nach jedem Restart nochmal (wirkt wie eine Schleife).
+_OFFSET_FILE = DATA_DIR / "telegram_offset.json"
+
+
+def _load_offset() -> int | None:
+    try:
+        import json
+        v = int(json.loads(_OFFSET_FILE.read_text(encoding="utf-8"))["offset"])
+        return v if v > 0 else None
+    except Exception:  # noqa: BLE001 — fehlende/kaputte Datei -> frisch anfangen
+        return None
+
+
+def _save_offset(offset: int) -> None:
+    try:
+        import json
+        _OFFSET_FILE.write_text(json.dumps({"offset": int(offset)}), encoding="utf-8")
+    except Exception:  # noqa: BLE001 — Persistenz ist best-effort, darf den Poll nie brechen
+        pass
+
 
 def _denken_on(chat_id: int) -> bool:
     """Zeigt Kira in DIESEM Telegram-Chat ihren Denkstrom? (dann laeuft's auf dem Denker GLM)."""
@@ -1051,7 +1073,7 @@ def run() -> None:
         pass
     from core.kernel import runstate
     runstate.start_watchdog()  # festgefahrene Chat-Zuege erkennen -> Force-Restart (kein wedged Bot)
-    offset: int | None = None
+    offset: int | None = _load_offset()   # ueberlebt Neustart/Absturz -> kein Doppel-Beantworten
     backoff = 2.0      # S8.0: exponentiell bei Stoerungen (2s -> 60s), Reset bei Erfolg
     err_state: dict = {}
     print("Telegram-Bot laeuft (Long-Polling). Strg+C zum Stoppen.")
@@ -1065,7 +1087,8 @@ def run() -> None:
                 resp = client.get(f"{API}/getUpdates", params={"timeout": 60, "offset": offset})
                 for update in resp.json().get("result", []):
                     offset = update["update_id"] + 1
-                    _dispatch(client, update)
+                    _save_offset(offset)   # VOR dem Dispatch persistieren: ein Absturz/Abbruch
+                    _dispatch(client, update)   # mitten im Handling beantwortet die Nachricht NICHT erneut
                 ev = _bundle(err_state, None)  # Erholung -> EIN Sammel-Event statt Spam
                 if ev:
                     events.emit(ev.pop("type"), ev)

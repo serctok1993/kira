@@ -173,6 +173,20 @@ def test_effekt_toggle_default_an(tmp_path, monkeypatch):
     assert "feuer" in tb._EFFECTS and tb._EFFECTS["feuer"].isdigit()   # echte message_effect_id
 
 
+def test_offset_persistiert_ueber_neustart(tmp_path, monkeypatch):
+    # Bug: offset=None beim Start -> Telegram liefert die letzte Nachricht nach jedem Neustart
+    # erneut -> Kira antwortet doppelt (wirkt wie eine Schleife). Fix: Offset dauerhaft merken.
+    from core.agency.connectors import telegram_bot as tb
+    monkeypatch.setattr(tb, "_OFFSET_FILE", tmp_path / "offset.json")
+    assert tb._load_offset() is None            # frisch: nichts gemerkt
+    tb._save_offset(4711)
+    assert tb._load_offset() == 4711            # ueberlebt den "Neustart" (neuer Load)
+    tb._save_offset(4712)
+    assert tb._load_offset() == 4712
+    (tmp_path / "offset.json").write_text("kaputt", encoding="utf-8")
+    assert tb._load_offset() is None            # kaputte Datei -> sicher None, kein Absturz
+
+
 def test_custom_emoji_learn_und_glow(tmp_path, monkeypatch):
     from core.agency.connectors import telegram_bot as tb
     monkeypatch.setattr(tb, "_EMOJI_FILE", tmp_path / "em.json")
