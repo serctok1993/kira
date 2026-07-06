@@ -16,7 +16,7 @@ sitzt als Icon+Popover in der Topbar (nicht mehr in der Nav). Panel-IDs sind sta
 
 VIEWS = r"""</head><body>
 <div id="side">
-  <h1>KIRA</h1><div class="sub" id="who">cockpit</div>
+  <h1>KIRA</h1>
   <a data-v="home" class="on" title="Kommandostand: Status, Befehl, Live-Ops, Digest"><i class="ti">◈</i> Zentrale</a>
   <a data-v="chat" title="Mit mir reden"><i class="ti">›</i> Chat</a>
   <a data-v="projekte" title="Projekte, Ziele, Radar-Chancen"><i class="ti">◈</i> Projekte</a>

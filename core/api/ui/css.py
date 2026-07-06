@@ -1,5 +1,7 @@
 """Cockpit-Kopf + komplettes CSS (Sci-Fi-HUD-DNA: --accent/--hud/--glow, .panel)."""
 
+from core.api.ui.fontdata import AUDIOWIDE_WOFF2_B64
+
 HEAD_AND_CSS = r"""<!doctype html>
 <html lang="de"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
@@ -30,9 +32,14 @@ body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Cod
  background:var(--bg);color:var(--ink)}  /* S6.7: flaches Schwarz/Anthrazit statt Glow-Gradient */
 #side{width:210px;flex-shrink:0;border-right:1px solid var(--line);background:var(--bg);
  backdrop-filter:blur(8px);display:flex;flex-direction:column}
-#side h1{font-size:19px;letter-spacing:4px;padding:16px 16px 2px;color:var(--ink);margin:0;
- text-shadow:0 0 10px rgba(139,92,246,.30)}
-#side .sub{font-size:11px;color:var(--muted);padding:0 16px 14px;letter-spacing:1px}
+/* Wordmark KIRA: Audiowide + Neon-Lila-Regenbogen (Verlauf IM Text, Glow ueber drop-shadow,
+   weil text-shadow bei transparentem Verlaufstext nicht greift). Untertitel entfaellt. */
+#side h1{font-family:'Audiowide',ui-sans-serif,system-ui,sans-serif;font-size:33px;
+ letter-spacing:1px;padding:18px 16px 14px;margin:0;line-height:1.02;
+ background:linear-gradient(100deg,#e9d5ff,#c084fc,#b026ff,#d946ef,#9333ea,#c084fc,#e9d5ff);
+ background-size:260% 100%;-webkit-background-clip:text;background-clip:text;
+ -webkit-text-fill-color:transparent;color:transparent;
+ filter:drop-shadow(0 0 4px rgba(176,38,255,.85)) drop-shadow(0 0 15px rgba(176,38,255,.5))}
 #side a{display:block;padding:10px 16px;color:var(--ink);text-decoration:none;cursor:pointer;
  border-left:3px solid transparent}
 #side a:hover{background:rgba(168,85,247,.10)}
@@ -145,7 +152,8 @@ textarea.k:focus{border-color:var(--accent2)}
 body{font-family:var(--font,-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,"Helvetica Neue",Arial,sans-serif)}
 .think,#farea,#evlog,#memlist,#feed-list,.e{font-family:var(--mono)}
 /* S6.7: Scanline-/Karo-Overlay und Farb-Glows entfernt — Sergen will glattes Schwarz/Anthrazit. */
-#side h1{font-size:24px;letter-spacing:6px;text-shadow:0 0 18px var(--glow),0 0 42px var(--glow);animation:flickerin 1.3s ease both}
+#side h1{animation:kiraflow 8s linear infinite,flickerin 1.3s ease both}  /* Verlauf fliesst + Boot-Flackern */
+@keyframes kiraflow{to{background-position:260% 0}}
 @keyframes flickerin{0%{opacity:0}10%{opacity:.6}13%{opacity:.2}22%{opacity:.95}27%{opacity:.4}33%,100%{opacity:1}}
 #side a{transition:background .18s ease,border-color .18s ease,color .18s ease}
 #side a.on{box-shadow:inset 3px 0 0 var(--accent),inset 0 0 22px color-mix(in srgb,var(--glow) 14%,transparent)}
@@ -367,7 +375,7 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
  .cmd-grid{grid-template-columns:1fr!important}
  .view{padding:12px}
 }
-@media (prefers-reduced-motion: reduce){#side{transition:none}.toast{animation:none}}
+@media (prefers-reduced-motion: reduce){#side{transition:none}.toast{animation:none}#side h1{animation:none;background-position:40% 0}}
 /* ===== S6.6b · Chat: Session-Panel, Markdown, Nachrichten-Meta, Chips ===== */
 #chat-wrap{flex:1;display:flex;gap:14px;min-height:0}
 #chat-main{flex:1;display:flex;flex-direction:column;min-width:0}
@@ -518,3 +526,9 @@ button.ghost:hover{box-shadow:0 0 0 1px var(--accent);filter:none}
 .panel-h[data-lblkey],.card h3[data-lblkey]{cursor:text}
 .panel-h[data-lblkey]:hover,.card h3[data-lblkey]:hover{color:var(--accent2)}
 </style>"""
+
+# Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt
+# offline, kein CDN. Nur der Titel oben links (#side h1) nutzt sie; der Body bleibt System-Font.
+_FONT_FACE = ("@font-face{font-family:'Audiowide';font-display:swap;"
+              f"src:url(data:font/woff2;base64,{AUDIOWIDE_WOFF2_B64}) format('woff2');}}\n")
+HEAD_AND_CSS = HEAD_AND_CSS.replace("<style>\n", "<style>\n" + _FONT_FACE, 1)
