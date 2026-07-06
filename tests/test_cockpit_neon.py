@@ -146,7 +146,8 @@ def test_chat_werkbank():
 def test_chat_politur():
     # Gespräche rutschen per order:2 auf die RECHTE Seite (Chat rückt nach links)
     assert "order:2" in CSS
-    assert "#sess-panel{width:250px;flex-shrink:0;order:2" in CSS
+    assert "#sess-panel{width:0;margin-left:0;flex-shrink:0;order:2" in CSS  # zu = width:0 (sliden statt poppen)
+    assert "#sess-panel.open{width:250px;margin-left:14px" in CSS           # auf = volle Breite
     # die vier Werkzeuge stecken jetzt in einer .toolbox statt lose in der Leiste
     assert '<span class="toolbox">' in VIEWS
     assert "#chat-tools .toolbox{display:inline-flex" in CSS
@@ -461,6 +462,8 @@ def test_gespraeche_hover_intent():
     assert 'b.classList.toggle("pinned"' in SCRIPT
     # sichtbarer Pin-Zustand am Button
     assert "#sess-toggle.pinned{" in CSS
+    # sanftes Reinsliden: Breite wird animiert statt hartem display-Wechsel
+    assert "transition:width .42s" in CSS and "#sess-panel{width:0" in CSS
 
 
 # ---- Wordmark: KIRA gross in Audiowide mit Neon-Lila-Glow, Untertitel raus ----
