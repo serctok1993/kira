@@ -373,9 +373,28 @@ def test_reasoning_popover_ehrlich():
 # ---- Serc/Kira-Subtableiste: durchgehend lila, weisse Schrift; aktiv = schwarz/lila ----
 
 def test_subtab_leiste_lila():
-    assert "#me-tabs,#kira-tabs{background:var(--accent)" in CSS
-    assert "#me-tabs a,#kira-tabs a{color:#fff" in CSS
-    assert "#me-tabs a.on,#kira-tabs a.on{background:var(--bg);color:var(--accent)}" in CSS
+    # Die prominente lila Leiste ist jetzt die GRUPPEN-Zeile (kira-groups); Me bleibt lila
+    assert "#me-tabs,#kira-groups{background:var(--accent)" in CSS
+    assert "#me-tabs a,#kira-groups a{color:#fff" in CSS
+    assert "#me-tabs a.on,#kira-groups a.on{background:var(--bg);color:var(--accent)}" in CSS
+    # Sub-Tabs sind dezent-sekundaer (nicht mehr vollflaechig lila)
+    assert "#kira-tabs{background:transparent" in CSS
+
+
+def test_kira_zwei_ebenen_navi():
+    # Gruppen-Zeile im Markup mit den 5 Gruppen
+    assert 'id="kira-groups"' in VIEWS
+    for g in ("geist", "gewissen", "automatik", "technik", "zustand"):
+        assert f'data-g="{g}"' in VIEWS
+    # JS: Gruppen filtern die Sub-Tabs; subnav fuehrt die aktive Gruppe mit
+    assert "const KIRA_GROUPS=" in SCRIPT
+    assert "function syncKiraGroup(" in SCRIPT and "function kiraGroup(" in SCRIPT
+    assert 'tab==="kira"&&typeof syncKiraGroup==="function"' in SCRIPT
+    # ALLE 16 Sub-Tabs sind genau einer Gruppe zugeordnet (nichts verloren)
+    kg = SCRIPT[SCRIPT.index("const KIRA_GROUPS="):SCRIPT.index("function _kiraGroupOf")]
+    for sub in ("files", "mem", "wissen", "gov", "cron", "monitor", "playbooks", "models",
+                "steuer", "keys", "cockpit", "checkliste", "anatomie", "stats", "evolution", "log"):
+        assert f'"{sub}"' in kg, f"Sub-Tab {sub} fehlt in KIRA_GROUPS"
 
 
 def test_bg_kein_cache():
