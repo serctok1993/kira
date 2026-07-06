@@ -310,15 +310,21 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
 /* S6.7-BUGFIX: Subtab-Leisten (Kira/Config) leben in einer Flex-Spalte (.view.on) — ohne
    flex-shrink:0 quetscht ein grosser Subview-Inhalt die Leiste auf 2px (Rand) zusammen ->
    'Gedaechtnis-Falle': man kommt nicht mehr aus dem Tab raus. */
-#sys-tabs,#kira-tabs{flex-shrink:0;align-self:flex-start}
+#sys-tabs,#kira-tabs,#kira-groups{flex-shrink:0;align-self:flex-start}
 .seg a{padding:5px 10px;color:var(--muted);cursor:pointer;border-right:1px solid var(--line)}
 .seg a:last-child{border-right:none}
 .seg a.on{background:color-mix(in srgb,var(--hud) 14%,transparent);color:var(--hud)}
 /* S11: Serc- & Kira-Subtableiste komplett lila mit weisser Schrift; Aktiv = schwarz mit lilaner Schrift */
-#me-tabs,#kira-tabs{background:var(--accent);border-color:var(--accent)}
-#me-tabs a,#kira-tabs a{color:#fff;border-right-color:color-mix(in srgb,#fff 28%,transparent)}
-#me-tabs a:hover,#kira-tabs a:hover{background:color-mix(in srgb,#000 16%,var(--accent))}
-#me-tabs a.on,#kira-tabs a.on{background:var(--bg);color:var(--accent)}
+#me-tabs,#kira-groups{background:var(--accent);border-color:var(--accent)}
+#me-tabs a,#kira-groups a{color:#fff;border-right-color:color-mix(in srgb,#fff 28%,transparent)}
+#me-tabs a:hover,#kira-groups a:hover{background:color-mix(in srgb,#000 16%,var(--accent))}
+#me-tabs a.on,#kira-groups a.on{background:var(--bg);color:var(--accent)}
+/* 2-Ebenen-Navi: Gruppen (lila, oben) prominent · Sub-Tabs (unten) dezent-sekundaer */
+#kira-groups{font-size:12px;margin-bottom:8px}
+#kira-tabs{background:transparent;border-color:var(--line)}
+#kira-tabs a{color:var(--muted);border-right-color:var(--line)}
+#kira-tabs a:hover{background:color-mix(in srgb,var(--accent) 10%,transparent);color:var(--ink)}
+#kira-tabs a.on{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
 .thinking .tx{color:var(--hud)}
 /* ===== NEON v2: Scrollbars + Panel-Glow + Theme-follow + Mission-Grid ===== */
 *{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--accent) 45%,#2a2440) transparent}

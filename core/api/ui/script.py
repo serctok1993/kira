@@ -109,8 +109,26 @@ async function loadCheckliste(){const el=$("#ck-list");if(!el)return;try{
 function subnav(tab,s){const g=SUBTABS[tab];if(!g)return;g.cur=s;
  $$(g.bar+" a").forEach(a=>a.classList.toggle("on",a.dataset.s===s));
  $$("#v-"+tab+" .subview").forEach(x=>x.classList.toggle("on",x.id==="v-"+s));
+ if(tab==="kira"&&typeof syncKiraGroup==="function")syncKiraGroup(s);  /* Gruppen-Zeile mitfuehren */
  (g.loaders[s]||(()=>{}))();}
 Object.keys(SUBTABS).forEach(t=>$$(SUBTABS[t].bar+" a").forEach(a=>a.onclick=()=>subnav(t,a.dataset.s)));
+/* Kira-Tab: 2 Ebenen — 5 Gruppen filtern die Sub-Tabs. Views/Loader bleiben unveraendert;
+   nur sichtbar ist immer NUR die aktive Gruppe -> 16 flache Reiter werden zu 5 klaren Gruppen. */
+const KIRA_GROUPS=[
+ {key:"geist",   subs:["files","mem","wissen"]},
+ {key:"gewissen",subs:["gov"]},
+ {key:"automatik",subs:["cron","monitor","playbooks"]},
+ {key:"technik", subs:["models","steuer","keys","cockpit"]},
+ {key:"zustand", subs:["checkliste","anatomie","stats","evolution","log"]}];
+function _kiraGroupOf(s){const g=KIRA_GROUPS.find(x=>x.subs.includes(s));return g?g.key:"geist";}
+function syncKiraGroup(s){const gk=_kiraGroupOf(s);const grp=KIRA_GROUPS.find(x=>x.key===gk);
+ $$("#kira-groups a").forEach(a=>a.classList.toggle("on",a.dataset.g===gk));
+ $$("#kira-tabs a").forEach(a=>{a.style.display=grp.subs.includes(a.dataset.s)?"":"none";});}
+function kiraGroup(gk){const grp=KIRA_GROUPS.find(x=>x.key===gk);if(!grp)return;
+ if(grp.subs.includes(SUBTABS.kira.cur))syncKiraGroup(SUBTABS.kira.cur);  /* schon in der Gruppe -> nur filtern */
+ else subnav("kira",grp.subs[0]);}                                        /* sonst zum ersten Sub-Tab */
+$$("#kira-groups a").forEach(a=>a.onclick=()=>kiraGroup(a.dataset.g));
+syncKiraGroup(SUBTABS.kira.cur||"files");  /* Startzustand: Gruppe 'geist' aktiv */
 /* Icons pro Tab anpassbar (localStorage kira_icons: {"home":"◈",...}) — Pflege in Kira->Cockpit */
 function applyIcons(){try{const ic=JSON.parse(localStorage.getItem("kira_icons")||"{}");
  $$("#side a .ti").forEach(i=>{const v=i.closest("a").dataset.v;if(ic[v])i.textContent=ic[v];});}catch(e){}}
