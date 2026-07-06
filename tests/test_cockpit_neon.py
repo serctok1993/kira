@@ -281,3 +281,17 @@ def test_zentrale_epicness_ohne_grosse_emojis():
     assert ".direktive h3{margin:0 0 10px;color:var(--hud);text-transform:uppercase" in CSS
     # muted etwas heller fuer bessere Lesbarkeit (Inhalte verschwinden nicht mehr)
     assert "--muted:#9b97b0" in CSS
+
+
+# ---- Zentrale-Schwarm-Baukasten: baut ein gueltiges /schwarm mit Items (nicht mehr leer) ----
+
+def test_zentrale_schwarm_baut_items():
+    # der kaputte Newline-Kollaps ('/schwarm rang auftrag' OHNE Items) ist raus
+    assert 'p.replace(/\\s*\\n\\s*/g," ")' not in SCRIPT
+    # neuer Baukasten: 1. Zeile = Vorlage, weitere Zeilen = Items -> "| a | b"
+    assert 'const vorlage=lines[0],items=lines.slice(1)' in SCRIPT
+    assert '"/schwarm "+rang+" "+vorlage+" | "+items.join(" | ")' in SCRIPT
+    # ohne Ziele wird gewarnt statt einen leeren Schwarm abzuschicken
+    assert "Schwarm braucht Ziele" in SCRIPT
+    # der Toggle erklaert das Format (Placeholder mit {item})
+    assert "1. Zeile = Auftrag mit {item}" in SCRIPT
