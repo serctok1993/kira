@@ -80,6 +80,8 @@ def test_wall_seite_wird_ausgeliefert():
     # Wall v6: Einstellungen serverseitig (Lively-WebView teilt keinen localStorage) + Graph vorab gesetzt
     assert "/api/wall/settings" in body and "function pollWall(" in body and "loadWallServer(" in body
     assert "for(let k=0;k<200;k++)sim()" in body                # vorab fertig gerechnet -> kein Zappeln
+    # Node-Dragging (Obsidian-Gefuehl): anfassen -> der Rest folgt ueber die Federn
+    assert "function setupDrag(" in body and "function nodeAt(" in body and "n.fx" in body
     # PHRASES wurden injiziert (Platzhalter ist ersetzt)
     assert "/*__PHRASES__*/" not in body
 
