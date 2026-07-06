@@ -49,7 +49,7 @@ const SUBTABS={
                     cron:()=>loadCron(),monitor:()=>loadMonitor(),log:()=>loadEvents(),cockpit:()=>loadDesktop()}},
  me:      {bar:"#me-tabs", cur:"todos",
            loaders:{todos:()=>loadLeben(),freigaben:()=>{loadInbox();loadTodoSecrets();},
-                    routinen:()=>loadMeCrons(),post:()=>{},metriken:()=>loadLeben()}}};
+                    routinen:()=>loadMeCrons(),post:()=>{},metriken:()=>loadZiele()}}};
 
 /* ---- Desktop-Pflege (S8.5) ---- */
 async function loadDesktop(){const st=$("#dw-status");if(!st)return;try{
@@ -270,7 +270,9 @@ async function loadHome(){const o=await (await fetch("/api/overview")).json();
  $$('#home [data-go]').forEach(b=>b.onclick=()=>{const g=b.dataset.go;
   if(g==="stats"){nav("kira");subnav("kira","stats");}
   else if(g==="models"||g==="gov"){nav("kira");subnav("kira",g);}
-  else nav(g);});}
+  else nav(g);});
+ loadZielePinned();
+ const gz=$("#go-ziele");if(gz)gz.onclick=()=>{nav("me");subnav("me","metriken");};}
 
 /* ---- Kira-Avatar (S6.6d): einmal proben, Hero + Chat nutzen ihn ---- */
 let hasAvatar=false;
@@ -1095,12 +1097,51 @@ async function loadLeben(){
   const objs=d.objectives||[];
   $("#life-goals").innerHTML=objs.length?objs.map(o=>'<div class="memrow"><div class="mh"><span class="badge kind">'+(KIND_LABEL[o.kind]||o.kind)+'</span><b>'+(o.title||"").replace(/</g,"&lt;")+'</b><span style="flex:1"></span><span class="muted">'+o.progress+'%'+(o.target_date?(' &middot; &#9200;'+o.target_date):'')+'</span></div></div>').join("")
    :'<div class="emptybox">Noch keine Lebens-Ziele<br>z.B. Kira, neues Ziel: 85kg bis Dezember</div>';
- }catch(e){}
- try{const m=await (await fetch("/api/metrics")).json();const rows=[];
-  for(const it of (m.latest||[]).slice(0,6)){
-   const sr=await (await fetch("/api/metrics?name="+encodeURIComponent(it.name)+"&days=90")).json();
-   rows.push('<div class="memrow"><div class="mh"><b>'+it.name+'</b><span style="flex:1"></span>'+spark(sr.series||[])+'<span style="min-width:110px;text-align:right"><b>'+it.value+'</b>'+(it.delta!=null?(' <span class="muted">('+(it.delta>0?"+":"")+it.delta+')</span>'):'')+'</span></div></div>');}
-  $("#life-metrics").innerHTML=rows.join("")||'<div class="emptybox">Noch keine Metriken</div>';
+ }catch(e){}}
+
+/* ---- Ziele-Dashboard (S10): Kennzahlen mit Zielwert, Fortschritt, Zentrale-Anheftung ----
+   Kira schreibt per metric_log/metric_ziel selbst rein; hier nur Anzeige + Feinsteuerung. */
+function sparkVals(vals){return spark((vals||[]).map(v=>({value:v})));}
+function zieleCard(d){
+ const em=d.emoji?(esc(d.emoji)+' '):'';
+ const unit=d.unit?(' <span class="muted">'+esc(d.unit)+'</span>'):'';
+ const delta=d.delta!=null?(' <span class="muted">('+(d.delta>0?'+':'')+d.delta+')</span>'):'';
+ const bar=(d.target!=null)?('<div class="mini-bar" style="margin-top:6px"><i style="width:'+(d.progress||0)+'%"></i></div>'
+   +'<div class="muted" style="font-size:10px;margin-top:2px">Ziel '+d.target+(d.unit?(' '+esc(d.unit)):'')+' · '+(d.progress||0)+'%</div>'):'';
+ const pin=d.pinned?'📌':'📍';
+ return '<div class="memrow" data-zn="'+esc(d.name)+'"><div class="mh"><b>'+em+esc(d.name)+'</b>'
+  +'<span style="flex:1"></span>'+sparkVals(d.series)
+  +'<span style="min-width:92px;text-align:right"><b>'+d.value+'</b>'+unit+delta+'</span>'
+  +' <a data-zpin="'+esc(d.name)+'" data-zon="'+(d.pinned?1:0)+'" title="in die Zentrale heften/loesen" style="cursor:pointer;margin-left:6px">'+pin+'</a></div>'
+  +bar+'</div>';
+}
+async function loadZiele(){const el=$("#life-metrics");if(!el)return;
+ try{const m=await (await fetch("/api/metrics?days=90")).json();const ds=m.dashboard||[];
+  el.innerHTML=ds.length?ds.map(zieleCard).join("")
+   :'<div class="emptybox">Noch keine Kennzahlen<br>Sag mir: „Kira, tracke meine Follower — Ziel 10000, zeig&#39;s in der Zentrale.“</div>';
+  $$('#life-metrics [data-zpin]').forEach(a=>a.onclick=async()=>{
+   await fetch("/api/metrics/meta",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({name:a.dataset.zpin,pinned:a.dataset.zon!=="1"})});
+   loadZiele();loadZielePinned();});
+ }catch(e){}}
+$("#zm-add")&&($("#zm-add").onclick=async()=>{
+ const name=($("#zm-name").value||"").trim();if(!name){toast("Kennzahl braucht einen Namen","warn");return;}
+ const val=($("#zm-val").value||"").trim();
+ if(val!==""){await fetch("/api/metrics/log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:name,value:val})});}
+ const tgt=($("#zm-target").value||"").trim(),unit=($("#zm-unit").value||"").trim();
+ if(tgt!==""||unit!==""){await fetch("/api/metrics/meta",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({name:name},tgt!==""?{target:tgt}:{},unit!==""?{unit:unit}:{}))});}
+ $("#zm-name").value="";$("#zm-val").value="";$("#zm-target").value="";$("#zm-unit").value="";
+ toast("eingetragen","ok");loadZiele();loadZielePinned();});
+/* Angeheftete Kennzahlen in der Zentrale (nur wenn welche angeheftet sind). */
+async function loadZielePinned(){const el=$("#z-ziele");if(!el)return;
+ try{const m=await (await fetch("/api/metrics?days=90")).json();const ps=m.pinned||[];
+  const wrap=$("#z-ziele-panel");
+  if(!ps.length){if(wrap)wrap.style.display="none";return;}
+  if(wrap)wrap.style.display="";
+  el.innerHTML=ps.map(d=>{const em=d.emoji?(esc(d.emoji)+' '):'';
+   const bar=(d.target!=null)?('<div class="mini-bar" style="margin-top:4px"><i style="width:'+(d.progress||0)+'%"></i></div>'):'';
+   return '<div style="margin-bottom:9px"><div style="display:flex;align-items:center;gap:6px"><span>'+em+esc(d.name)+'</span><span style="flex:1"></span><b style="color:var(--hud)">'+d.value+'</b>'+(d.unit?' <span class="muted">'+esc(d.unit)+'</span>':'')+(d.target!=null?' <span class="muted">/ '+d.target+'</span>':'')+'</div>'+bar+'</div>';
+  }).join("");
  }catch(e){}}
 
 /* ---- Agenten (S5.3b): Organe, Dienste, MCP ---- */

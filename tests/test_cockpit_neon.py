@@ -186,3 +186,21 @@ def test_projekte_entzerrt():
     assert "&rarr; Venture</a>" not in SCRIPT
     assert "&rarr; Projekt</a>" in SCRIPT
     assert "Noch keine Ventures" not in SCRIPT
+
+
+# ---- Ziele-Dashboard: Kennzahlen mit Ziel/Fortschritt, Kira schreibt selbst, Zentrale-Karte ----
+
+def test_ziele_dashboard():
+    # Serc-Subtab heisst jetzt "Ziele", nicht mehr "Metriken"
+    assert '>🎯 Ziele</a>' in VIEWS
+    assert '>📊 Metriken</a>' not in VIEWS
+    assert "◈ ZIELE-DASHBOARD" in VIEWS
+    # manuelles Eintragen + Zentrale-Karte fuer angeheftete Kennzahlen
+    for m in ('id="zm-name"', 'id="zm-add"', 'id="z-ziele-panel"', 'id="z-ziele"'):
+        assert m in VIEWS, f"Ziele-Element fehlt: {m}"
+    # Dashboard-Renderer + Anheft-Logik + Zentrale-Loader
+    assert "function loadZiele(" in SCRIPT and "function zieleCard(" in SCRIPT
+    assert "async function loadZielePinned(" in SCRIPT
+    assert "loadZielePinned()" in SCRIPT              # in der Zentrale aufgerufen
+    assert 'metriken:()=>loadZiele()' in SCRIPT       # Loader umgehaengt
+    assert '/api/metrics/meta' in SCRIPT              # Anheften/Ziel setzen

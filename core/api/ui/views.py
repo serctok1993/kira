@@ -93,6 +93,10 @@ VIEWS = r"""</head><body>
           <div class="panel-h">◈ Heute <span class="sp"></span><a id="go-todo" class="muted" style="cursor:pointer;font-size:10px">→ Me</a></div>
           <div id="digest" class="panel-b"><span class="muted">…</span></div>
         </div>
+        <div class="panel" id="z-ziele-panel" style="display:none">
+          <div class="panel-h">◈ Kennzahlen <span class="sp"></span><a id="go-ziele" class="muted" style="cursor:pointer;font-size:10px">→ Ziele</a></div>
+          <div id="z-ziele" class="panel-b"></div>
+        </div>
         <div class="panel">
           <div class="panel-h">◈ Intel · KI-News <span class="sp"></span><a id="news-seed" class="muted" style="cursor:pointer;font-size:10px">+ Quellen</a></div>
           <div class="ticker" id="news-ticker"><span>… Intel wird geladen …</span></div>
@@ -190,7 +194,7 @@ VIEWS = r"""</head><body>
   <!-- ================= ME (dein Bereich) ================= -->
   <div class="view" id="v-me">
     <div class="seg" id="me-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="todos" class="on">✅ Todos</a><a data-s="freigaben">🔔 Freigaben</a><a data-s="routinen">⏰ Routinen</a><a data-s="post">✉ Post</a><a data-s="metriken">📊 Metriken</a>
+      <a data-s="todos" class="on">✅ Todos</a><a data-s="freigaben">🔔 Freigaben</a><a data-s="routinen">⏰ Routinen</a><a data-s="post">✉ Post</a><a data-s="metriken">🎯 Ziele</a>
     </div>
 
     <div class="subview on" id="v-todos">
@@ -240,8 +244,17 @@ VIEWS = r"""</head><body>
 
     <div class="subview" id="v-metriken">
       <div class="panel">
-        <div class="panel-h">◈ METRIKEN <span class="sp"></span><span class="muted" style="font-size:10px">„Gewicht heute 91.4“</span></div>
-        <div id="life-metrics" class="panel-b me-scroll" style="max-height:40vh"><span class="muted">…</span></div>
+        <div class="panel-h">◈ ZIELE-DASHBOARD <span class="sp"></span><span class="muted" style="font-size:10px">Kira traegt selbst ein · „Kira, tracke Follower — Ziel 10000, zeig&#39;s in der Zentrale“</span></div>
+        <div class="panel-b">
+          <div class="row" style="flex-wrap:wrap;gap:6px">
+            <input id="zm-name" placeholder="Kennzahl (z.B. follower)" style="flex:1;min-width:130px"/>
+            <input id="zm-val" placeholder="Wert" style="width:84px"/>
+            <input id="zm-target" placeholder="Ziel" style="width:76px"/>
+            <input id="zm-unit" placeholder="Einheit" style="width:88px"/>
+            <button id="zm-add">+ eintragen</button>
+          </div>
+        </div>
+        <div id="life-metrics" class="panel-b me-scroll" style="max-height:50vh"><span class="muted">…</span></div>
       </div>
     </div>
   </div>
