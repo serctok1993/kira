@@ -71,7 +71,8 @@ def _tg_html(text: str) -> str:
     return t
 
 
-def _send(client: httpx.Client, chat_id: int, text: str, html: bool = True) -> None:
+def _send(client: httpx.Client, chat_id: int, text: str, html: bool = True,
+          effect_id: str | None = None) -> None:
     # Telegram-Limit ~4096 Zeichen -> stueckeln; HTML-Format mit Plain-Fallback.
     client = _ctrl()  # Steuer-Plane immer ueber den dedizierten Kurz-Timeout-Client
     text = text or "…"
@@ -80,6 +81,8 @@ def _send(client: httpx.Client, chat_id: int, text: str, html: bool = True) -> N
         payload = {"chat_id": chat_id, "text": _tg_html(chunk) if html else chunk}
         if html:
             payload["parse_mode"] = "HTML"
+        if effect_id and i == 0:   # animierter Premium-Effekt nur auf dem ersten Stueck
+            payload["message_effect_id"] = effect_id
         try:
             j = client.post(f"{API}/sendMessage", json=payload).json()
             if not j.get("ok") and j.get("error_code") == 429:  # Rate-Limit -> kurz warten + 1x erneut
@@ -174,6 +177,20 @@ def _handle(client: httpx.Client, update: dict) -> None:
     if not text:
         return
 
+    # /emoji lernt animierte Custom-Emoji aus DIESER Nachricht (braucht die Entities -> hier, mit msg).
+    if text.lstrip().lower().startswith("/emoji"):
+        ids = [e.get("custom_emoji_id") for e in (msg.get("entities") or [])
+               if e.get("type") == "custom_emoji" and e.get("custom_emoji_id")]
+        if ids:
+            n = _emoji_learn(ids)
+            _send(client, chat_id, f"✨ <b>{n} animierte Emoji gelernt</b> — sie leuchten ab jetzt "
+                  "als Neon-Glow im Denk-Status. (Nochmal /emoji mit anderen ersetzt sie.)")
+        else:
+            _send(client, chat_id, "So geht's: schreib <code>/emoji</code> und häng in DIESELBE Nachricht "
+                  "deine <b>animierten</b> (Premium-)Emoji dran. Ich lese ihre IDs aus und nutze sie als "
+                  f"Neon-Glow im Denk-Status. (aktuell gelernt: {len(_emoji_ids())})")
+        return
+
     if text.startswith("/"):
         _handle_command(client, chat_id, text)
         return
@@ -198,7 +215,8 @@ def _handle(client: httpx.Client, update: dict) -> None:
     if _denken_on(chat_id) and not text.lstrip().lower().startswith(
             ("reason:", "work:", "code:", "plan:", "denk:", "/")):
         text = "reason: denk:hoch " + text
-    _agentic_reply(client, chat_id, f"telegram-{chat_id}", text, voice_text=voice_text)
+    _agentic_reply(client, chat_id, f"telegram-{chat_id}", text, voice_text=voice_text,
+                   user_msg_id=msg.get("message_id"))
 
 
 def _handle_document(client: httpx.Client, chat_id: int, msg: dict) -> None:
@@ -285,8 +303,7 @@ def _action_label(name: str, args: dict | None) -> str:
 
 # Ruhiger Takt fuer die Denk-/Arbeits-Anzeige: EIN bewegtes Element je Pump-Takt -> pulsiert, flackert nicht.
 _PULSE_INTERVAL = 1.8  # Sekunden zwischen Edits: gemaechlich = kein Flackern, kein 429
-_SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧"       # ruhiger Braille-Spinner (ein Frame je Takt)
-_NEON = ["💜", "💗", "💚"]   # Neon-Farbzyklus (Lila -> Pink -> Gruen) statt statischem 🧠
+_SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧"       # ruhiger Braille-Spinner (ein Frame je Takt); kein 🧠 mehr
 
 
 def _esc(s: str) -> str:
@@ -295,13 +312,13 @@ def _esc(s: str) -> str:
 
 
 def _render_trace(voice_text: str | None, think: str, lines: list[str],
-                  phrase: str, spin: str, running: bool, neon: str = "💜") -> str:
+                  phrase: str, spin: str, running: bool, lead: str = "") -> str:
     """Reiner Renderer der Live-Trace-Nachricht (pur -> testbar), HTML fuer Telegram.
 
     Hermes-Stil in drei Zonen: DENKEN oben (aufklappbares Zitat, clean Prosa — kein
-    Code) · SCHRITTE (Werkzeuge mit passendem Icon) · animierter STATUS unten
-    (Neon-Farbe + Phase + Spinner). Bei Abschluss (running=False) faellt der Status
-    weg -> ruhige Finalisierung."""
+    Code) · SCHRITTE (Werkzeuge mit passendem Icon) · STATUS unten (Phase fett +
+    Spinner). Telegram kann Text NICHT faerben -> bewusst einfarbig; den Neon-/Rainbow-
+    Farbwechsel gibt es in der Web-App. Bei Abschluss (running=False) faellt der Status weg."""
     parts: list[str] = []
     if voice_text:
         parts.append("🎙️ <i>«" + _esc(voice_text[:160]) + "»</i>")
@@ -312,7 +329,8 @@ def _render_trace(voice_text: str | None, think: str, lines: list[str],
         parts.append("──────────")
         parts += [_esc(l) for l in lines[-12:]]
     if running:
-        parts.append(neon + " <b>" + _esc(phrase) + "</b> <code>" + spin + "</code>")
+        head = (lead + " ") if lead else ""   # animiertes Neon-Custom-Emoji (falls gelernt)
+        parts.append(head + "<b>" + _esc(phrase) + "</b> <code>" + spin + "</code>")
     return ("\n".join(parts))[:3900] or "💭 …"
 
 
@@ -341,8 +359,76 @@ def _denken_set(chat_id: int, on: bool) -> None:
         pass
 
 
+# ---- Premium-Extras (Bot-Owner hat Premium): Reaktionen · Effekte · Custom-Emoji-Glow ----
+_EFFECTS = {   # bekannte message_effect_id (Premium) fuer die finale Antwort
+    "feuer": "5104841245755180586", "party": "5046509860389126442",
+    "herz": "5044134455711629726", "daumen": "5107584321108051014",
+}
+_EFFEKT_STD = "feuer"                                   # dezenter Standard-Effekt bei erledigten Aufgaben
+_EFFEKT_FILE = DATA_DIR / "telegram_effekt_aus.json"    # Chats mit Effekt AUS (Default = an)
+_EMOJI_FILE = DATA_DIR / "telegram_emoji.json"          # gelernte animierte Custom-Emoji-IDs
+
+
+def _react(client: httpx.Client, chat_id: int, message_id: int, emoji: str) -> None:
+    """Kira reagiert auf DEINE Nachricht (👀 Start, 🔥 fertig) — best effort, nie kritisch."""
+    try:
+        client.post(f"{API}/setMessageReaction",
+                    json={"chat_id": chat_id, "message_id": message_id,
+                          "reaction": [{"type": "emoji", "emoji": emoji}]})
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _effekt_on(chat_id: int) -> bool:
+    try:
+        import json
+        return int(chat_id) not in set(json.loads(_EFFEKT_FILE.read_text(encoding="utf-8")))
+    except Exception:  # noqa: BLE001
+        return True   # Default: Effekt an (Premium-Flair)
+
+
+def _effekt_set(chat_id: int, on: bool) -> None:
+    import json
+    try:
+        s = set(json.loads(_EFFEKT_FILE.read_text(encoding="utf-8")))
+    except Exception:  # noqa: BLE001
+        s = set()
+    s.discard(int(chat_id)) if on else s.add(int(chat_id))
+    try:
+        _EFFEKT_FILE.write_text(json.dumps(sorted(s)), encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _emoji_ids() -> list[str]:
+    try:
+        import json
+        return [str(x) for x in json.loads(_EMOJI_FILE.read_text(encoding="utf-8"))][:8]
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _emoji_learn(ids: list[str]) -> int:
+    import json
+    clean = [str(x) for x in ids if x][:8]
+    try:
+        _EMOJI_FILE.write_text(json.dumps(clean), encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass
+    return len(clean)
+
+
+def _lead_emoji(tick: int) -> str:
+    """Fuehrendes Neon-Glow im Status: ein gelerntes animiertes Custom-Emoji (rotiert je Takt).
+    Ohne gelernte Emoji leer -> sauberer Status. tg-emoji umschliesst EIN Fallback-Emoji (Pflicht)."""
+    ids = _emoji_ids()
+    if not ids:
+        return ""
+    return '<tg-emoji emoji-id="' + ids[tick % len(ids)] + '">✨</tg-emoji>'
+
+
 def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: str,
-                   voice_text: str | None = None) -> None:
+                   voice_text: str | None = None, user_msg_id: int | None = None) -> None:
     """Agentischer Chat mit RUHIGER Live-Trace (Denken + Werkzeug-Schritte).
 
     Architektur bewusst deterministisch:
@@ -355,9 +441,11 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
     """
     client = _ctrl()  # dedizierter Sende-/Edit-Client (nicht der getUpdates-Long-Poll)
 
+    if user_msg_id:
+        _react(client, chat_id, user_msg_id, "👀")   # "ich hab's gesehen und lege los"
     _typing(client, chat_id)
     phrase0 = next_phrase()
-    init_txt = _render_trace(voice_text, "", [], phrase0, _SPIN[0], True, _NEON[0])
+    init_txt = _render_trace(voice_text, "", [], phrase0, _SPIN[0], True, _lead_emoji(0))
     init = client.post(f"{API}/sendMessage",
                        json={"chat_id": chat_id, "text": init_txt, "parse_mode": "HTML"}).json()
     mid = init.get("result", {}).get("message_id")
@@ -376,8 +464,8 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
             return
         running = not stop.is_set()
         spin = _SPIN[state["tick"] % len(_SPIN)]
-        neon = _NEON[state["tick"] % len(_NEON)]  # Neon-Farbe wechselt je Takt (Lila->Pink->Gruen)
-        txt = _render_trace(voice_text, state["think"], state["lines"], state["phrase"], spin, running, neon)
+        lead = _lead_emoji(state["tick"])   # animiertes Neon-Glow (falls gelernt)
+        txt = _render_trace(voice_text, state["think"], state["lines"], state["phrase"], spin, running, lead)
         if txt == state["last_render"]:
             return
         # Reine Puls-Bewegung (kein neuer Inhalt) nur gedrosselt senden -> waehrend Kira
@@ -460,9 +548,12 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
         except Exception:
             pass
 
-    # Finale Antwort als NEUE Nachricht. Auf Telegram bewusst NUR Text — die Stimme lebt
-    # im Cockpit-Assistenzmodus (auf Telegram liest Sergen lieber, das ist schneller).
-    _send(client, chat_id, answer or "(keine Antwort)")
+    # Finale Antwort als NEUE Nachricht. Bei einer erledigten Aufgabe (Werkzeuge genutzt)
+    # ein dezenter animierter Premium-Effekt; danach die Abschluss-Reaktion auf DEINE Nachricht.
+    eff = _EFFECTS.get(_EFFEKT_STD) if (state["tools"] and _effekt_on(chat_id)) else None
+    _send(client, chat_id, answer or "(keine Antwort)", effect_id=eff)
+    if user_msg_id:
+        _react(client, chat_id, user_msg_id, "🔥" if state["tools"] else "👍")
 
 
 def _status_text() -> str:
@@ -548,6 +639,8 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
               "/code <coding-auftrag> – Coding-Modus (an Kira selbst schrauben; erbt den Chat davor)\n"
               "/work <auftrag> – voller Werkzeug-Modus fuer laengere Aufgaben\n"
               "/denken an|aus – Gedankenstrom sichtbar machen (laeuft dann auf dem Denker GLM)\n"
+              "/emoji – deine animierten Emoji als Neon-Glow im Denk-Status lernen\n"
+              "/effekt an|aus – animierter Effekt auf erledigten Antworten\n"
               "/act <aufgabe>  – ich nutze Werkzeuge (z.B. Web), um etwas zu erledigen\n"
               "/build <idee>   – ich baue mir ein neues Werkzeug\n"
               "/model – Modelle anzeigen/wechseln\n"
@@ -603,6 +696,25 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
         else:
             _send(client, chat_id, "Denken ist gerade <b>" + ("an" if _denken_on(chat_id) else "aus")
                   + "</b>. Nutzung: <code>/denken an</code> · <code>/denken aus</code>")
+        return
+    if cmd == "emoji":
+        # Der echte Lern-Weg laeuft in _handle (braucht die Entities); hier nur die Erklaerung,
+        # falls /emoji ohne Emoji ueber das Menue kommt.
+        _send(client, chat_id, "So geht's: schreib <code>/emoji</code> und häng in DIESELBE Nachricht "
+              "deine <b>animierten</b> (Premium-)Emoji dran — dann lerne ich sie als Neon-Glow. "
+              f"(aktuell gelernt: {len(_emoji_ids())})")
+        return
+    if cmd == "effekt":
+        arg = rest.lower().strip()
+        if arg in ("an", "on", "ein", "1"):
+            _effekt_set(chat_id, True)
+            _send(client, chat_id, "🔥 <b>Effekt an</b> — erledigte Aufgaben kriegen einen animierten Effekt.")
+        elif arg in ("aus", "off", "0"):
+            _effekt_set(chat_id, False)
+            _send(client, chat_id, "🔕 <b>Effekt aus</b> — schlichte Antworten ohne Animation.")
+        else:
+            _send(client, chat_id, "Effekt ist gerade <b>" + ("an" if _effekt_on(chat_id) else "aus")
+                  + "</b>. Nutzung: <code>/effekt an</code> · <code>/effekt aus</code>")
         return
     if cmd == "stop":
         kill_switch_path().write_text("stop", encoding="utf-8")
@@ -902,6 +1014,8 @@ _BOT_COMMANDS = [
     ("plan", "Große Aufgabe planen und Schritt für Schritt abarbeiten"),
     ("work", "Längerer Auftrag mit vollem Werkzeug-Budget"),
     ("denken", "Gedankenstrom an/aus – zeigt, wie ich denke (läuft auf GLM)"),
+    ("emoji", "Animierte Emoji als Neon-Glow im Denk-Status lernen"),
+    ("effekt", "Animierter Effekt auf erledigten Antworten an/aus"),
     ("act", "Etwas mit Werkzeugen erledigen (z. B. Web)"),
     ("build", "Ein neues Werkzeug für mich bauen"),
     ("model", "Modelle anzeigen oder wechseln"),
