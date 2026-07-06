@@ -121,11 +121,11 @@ def test_serc_subtabs():
 # ---- Chat/Coding-Werkbank: breiter Umschalter oben, Werkzeuge gebündelt, Modus-Farbe fix ----
 
 def test_chat_werkbank():
-    # Modus-Umschalter steht VOR der Werkzeugleiste und dem Eingabeformular
+    # Modus-Umschalter sitzt jetzt UNTEN: nach der Werkzeugleiste, direkt ueber dem Eingabeformular
     seg = VIEWS.index('id="chat-mode-seg"')
     tools = VIEWS.index('id="chat-tools"')
     form = VIEWS.index('id="cform"')
-    assert seg < tools < form
+    assert tools < seg < form
     # Mikro bleibt in der Werkbank; das Upload-"+" sitzt jetzt direkt am Eingabefeld
     mic = VIEWS.index('id="micbtn"')
     assert tools < mic < form                       # micbtn liegt im chat-tools-Block
@@ -136,9 +136,10 @@ def test_chat_werkbank():
     assert "--accent-chat:#b026ff" in CSS and "--coding-accent:#39ff14" in CSS
     assert "#chat-main{--chat-accent:var(--accent-chat)}" in CSS
     assert '#chat-main[data-mode="coding"]{--chat-accent:var(--coding-accent)}' in CSS
-    # breiter, gefüllter Aktiv-Tab
-    assert "#chat-mode-seg{display:flex;width:100%" in CSS
-    assert "#chat-mode-seg a.on{color:#fff;background:color-mix" in CSS
+    # Segmented-Slider: gleitende .pill, aktiver Teil folgt --i, unten am Composer
+    assert "#chat-mode-seg{--i:0;position:relative" in CSS
+    assert "#chat-mode-seg .pill{position:absolute" in CSS
+    assert 'seg.style.setProperty("--i"' in SCRIPT   # Slider gleitet per JS
 
 
 # ---- Chat-Politur: Gespräche nach rechts, Werkzeuge in eigener Box, kein Emoji-Wildwuchs ----
@@ -334,8 +335,8 @@ def test_modell_picker_und_plus_upload():
 # ---- Chat-Werkbank 2.0: 3 Modi, ein Commands-Knopf, Reasoning-Popover, Stop-Button ----
 
 def test_drei_modi_und_stop():
-    # genau drei Modi im Umschalter: Chat / Work / Coding (kein Plan o.ae.)
-    assert '<a data-m="chat" class="on">Chat</a><a data-m="work">Work</a><a data-m="coding">Coding</a>' in VIEWS
+    # genau drei Modi im Slider: Chat / Work / Coding (kein Plan o.ae.), mit Icons
+    assert '<a data-m="chat" class="on"><span class="mi">💬</span>Chat</a><a data-m="work"><span class="mi">⚙</span>Work</a><a data-m="coding"><span class="mi">‹/›</span>Coding</a>' in VIEWS
     assert 'data-m="plan"' not in VIEWS
     # Work-Modus haengt "work:" an, Coding "code:" — beide im Send-Pfad
     assert 't="work: "+raw' in SCRIPT and 't="code: "+raw' in SCRIPT
@@ -503,3 +504,17 @@ def test_dashboard_entschlackt():
     assert SCRIPT.index('"Schnellzugriff"') < SCRIPT.index('"Letzte Lektionen"')
     # News auf 4 gekappt mit 'mehr'-Aufklapp (nichts wird unerreichbar)
     assert "news-moretog" in SCRIPT and "rec.slice(0,4)" in SCRIPT
+
+
+# ---- Chat-Politur v2: Thinking-Klappe gefixt + Typewriter ----
+
+def test_thinking_klappe_und_typewriter():
+    # Bug war: Einklappen setzte display:none auf den GANZEN Block inkl. Kopf -> gebunden.
+    assert "white-space:pre-wrap;display:block}" in CSS       # .think bleibt immer sichtbar
+    assert ".think.show{display:block}" not in CSS            # der alte Verschwind-Toggle ist raus
+    # Eingeklappt = Peek der ersten ~4 Zeilen (max-height + Fade), ausgeklappt = voll, smooth
+    assert ".think .c{white-space:normal;overflow:hidden;max-height:5.4em" in CSS
+    assert ".think.show .c{max-height:9999px" in CSS
+    assert ".think .chev{" in CSS and 'class="chev"' in SCRIPT   # Chevron dreht beim Klappen
+    # Denkstrom tippt sich rein (Typewriter via rAF) statt als Block zu spawnen
+    assert "curThinkLine._buf" in SCRIPT and "requestAnimationFrame(tick)" in SCRIPT

@@ -589,13 +589,23 @@ function wsDot(ok){const d=$("#ws-dot");if(d){d.classList.toggle("on",ok);d.clas
 function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/chat"+(curSid?("?sid="+encodeURIComponent(curSid)):"");ws=new WebSocket(url);
  ws.onopen=()=>{wsDelay=1000;wsDot(true);};
  function ensureTrace(){if(!curThink){curThink=document.createElement("div");curThink.className="think show";
-    curThink.innerHTML='<span class="h">💭 Denken &amp; Aktionen (klick zum Ein-/Ausklappen)</span><div class="c"></div>';
+    curThink.innerHTML='<span class="h"><span class="chev">▸</span> 💭 Denken &amp; Aktionen <span style="opacity:.55">— klick zum Ein-/Ausklappen</span></span><div class="c"></div>';
     curThink.querySelector(".h").onclick=()=>curThink.classList.toggle("show");log.appendChild(curThink);
     traceC=curThink.querySelector(".c");curThinkLine=null;}return curThink;}
  function traceScroll(){log.scrollTop=log.scrollHeight;}
+ /* Denkstrom tippt sich rein statt als Block zu spawnen (Typewriter, Rueckstau-adaptiv). */
  function traceThink(t){ensureTrace();
-  if(!curThinkLine){curThinkLine=document.createElement("div");curThinkLine.className="tthink";traceC.appendChild(curThinkLine);}
-  curThinkLine.textContent+=t;traceScroll();}
+  if(!curThinkLine){curThinkLine=document.createElement("div");curThinkLine.className="tthink";curThinkLine._buf="";curThinkLine._shown=0;traceC.appendChild(curThinkLine);}
+  const el=curThinkLine;el._buf+=t;
+  const rm=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if(rm){el._shown=el._buf.length;el.textContent=el._buf;traceScroll();return;}
+  if(!el._raf){const tick=()=>{
+    if(el._shown>=el._buf.length){el._raf=0;return;}
+    const step=Math.max(2,Math.ceil((el._buf.length-el._shown)/40));  /* mehr Rueckstau -> groessere Schritte, nie zaeh */
+    el._shown=Math.min(el._buf.length,el._shown+step);
+    el.textContent=el._buf.slice(0,el._shown);traceScroll();
+    el._raf=requestAnimationFrame(tick);};
+   el._raf=requestAnimationFrame(tick);}}
  function traceTool(name,args){ensureTrace();curThinkLine=null;
   const L=toolLabel(name,args);const row=document.createElement("div");row.className="trow";
   row.innerHTML='<span class="ti">'+esc(L.icon)+'</span><span class="tl">'+esc(L.label)+'</span>'
@@ -683,7 +693,8 @@ const MODE_HINT={
  work:"Work — echter Auftrag mit vollem Werkzeug-Budget auf GLM 5.2: Recherche, mehrere Schritte, Web/Dateien.",
  coding:"Coding — an Kira selbst schrauben (GLM 5.2): lesen → chirurgisch editieren → Tests + Diff-Review."};
 function applyChatMode(){const m=$("#chat-main");if(m)m.setAttribute("data-mode",chatMode);
- const h=$("#mode-hint");if(h)h.textContent=MODE_HINT[chatMode]||"";}
+ const h=$("#mode-hint");if(h)h.textContent=MODE_HINT[chatMode]||"";
+ const seg=$("#chat-mode-seg");if(seg)seg.style.setProperty("--i",{chat:0,work:1,coding:2}[chatMode]||0);}  /* Slider gleitet */
 $$("#chat-mode-seg a").forEach(a=>a.onclick=()=>{chatMode=a.dataset.m;
  $$("#chat-mode-seg a").forEach(x=>x.classList.toggle("on",x===a));
  applyChatMode();});

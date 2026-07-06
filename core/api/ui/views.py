@@ -133,12 +133,7 @@ VIEWS = r"""</head><body>
         <div class="sp-f"><a id="sess-archtoggle" class="muted" style="cursor:pointer;font-size:11px">Archiv anzeigen</a></div>
       </div>
       <div id="chat-main">
-        <!-- Breiter, zentraler Modus-Umschalter ganz oben: sofort sichtbar Chat (violett) vs Coding (gruen) -->
-        <div class="seg" id="chat-mode-seg" title="Chat = Dialog (DeepSeek) · Work = laengerer Auftrag mit vollem Werkzeug-Budget (GLM) · Coding = an Kira schrauben (Plan + Schritte + Diff-Review)">
-          <a data-m="chat" class="on">Chat</a><a data-m="work">Work</a><a data-m="coding">Coding</a>
-        </div>
         <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:0 0 8px;flex-wrap:wrap">
-          <span class="muted" id="mode-hint" style="font-size:11px">Dialog — kurz &amp; direkt.</span>
           <span style="flex:1"></span>
           <button type="button" class="ghost" id="sess-toggle" title="Drueberfahren = Gespraeche auf · Klick = angepinnt (bleibt offen)" style="padding:5px 12px;font-size:12px">Chats</button>
         </div>
@@ -169,6 +164,14 @@ VIEWS = r"""</head><body>
             <div id="model-pop" class="cmd-pop model-pop" style="display:none"></div>
           </span>
           <input type="hidden" id="chat-model"/>
+        </div>
+        <!-- Modus-Umschalter UNTEN am Composer: Segmented-Slider, aktiver Teil gleitet -->
+        <div id="modebar">
+          <div id="chat-mode-seg" title="Chat = Dialog (DeepSeek) · Work = laengerer Auftrag mit vollem Werkzeug-Budget (GLM) · Coding = an Kira schrauben (Plan + Schritte + Diff-Review)">
+            <span class="pill"></span>
+            <a data-m="chat" class="on"><span class="mi">💬</span>Chat</a><a data-m="work"><span class="mi">⚙</span>Work</a><a data-m="coding"><span class="mi">‹/›</span>Coding</a>
+          </div>
+          <span class="muted" id="mode-hint" style="font-size:11px"></span>
         </div>
         <form id="cform">
           <label id="plusbtn" class="plus" title="Bild oder Datei (PDF, txt, md, csv) hochladen">+<input id="imgfile" type="file" accept="image/*,.pdf,.txt,.md,.markdown,.csv,.log,.json,.yaml,.yml,.html,.htm" style="display:none"/></label>
