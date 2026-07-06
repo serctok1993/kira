@@ -364,6 +364,36 @@ def complete(
             except Exception as e2:  # noqa: BLE001
                 events.emit("llm_call_error", {"error": str(e2)[:300], "model": model}, session_id=session_id)
                 raise
+        elif (("not a valid model" in msg.lower() or "no endpoints found" in msg.lower())
+              and not real.startswith("ollama")):
+            # Vertipptes/ungueltiges Cloud-Modell (z.B. 400 "glm/glm-5.2 is not a valid model ID"):
+            # EINMAL aufs lokale Fallback ausweichen, statt den ganzen Chat abzuschiessen — sonst
+            # tickt JEDER Aufruf einen harten Fehler hoch (hunderte 400er) und der Chat bleibt tot.
+            fb = CONFIG["models"]["local_fallback"]
+            fb_real, fb_base, fb_key = _provider_config(fb)
+            fb_extra: dict = {}
+            if fb_real.startswith("ollama"):
+                if CONFIG["models"].get("keep_alive") is not None:
+                    fb_extra["keep_alive"] = CONFIG["models"]["keep_alive"]
+                if CONFIG["models"].get("num_ctx") is not None:
+                    fb_extra["num_ctx"] = CONFIG["models"]["num_ctx"]
+            if fb_base:
+                fb_extra["api_base"] = fb_base
+            if fb_key:
+                fb_extra["api_key"] = os.getenv(fb_key)
+            if tools:
+                fb_extra["tools"] = tools
+            events.emit("model_invalid_fallback", {"bad_model": model, "used": fb, "error": msg[:200]},
+                        session_id=session_id)
+            try:
+                resp = _completion(model=fb_real, messages=msgs,
+                                   temperature=CONFIG["models"].get("temperature", 0.7),
+                                   max_tokens=want_max_tokens, num_retries=1,
+                                   timeout=CONFIG["models"].get("request_timeout", 120), **fb_extra)
+                model, real, fell_back = fb, fb_real, True
+            except Exception as e2:  # noqa: BLE001
+                events.emit("llm_call_error", {"error": str(e2)[:300], "model": fb}, session_id=session_id)
+                raise
         else:
             kind = "llm_call_timeout" if isinstance(e, TimeoutError) else "llm_call_error"
             events.emit(kind, {"error": msg[:300], "model": model}, session_id=session_id)
