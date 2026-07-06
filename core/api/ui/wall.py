@@ -28,6 +28,8 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
     background:radial-gradient(1200px 700px at 72% 16%,#241536,transparent 60%),
       radial-gradient(900px 700px at 18% 94%,#0b2436,transparent 55%),
       linear-gradient(160deg,var(--bg),#0e0a18 55%,#080a14);}
+  /* wechselbares Hintergrundbild (aus dem Cockpit gesetzt, /api/bg) — LED-Rand liegt drueber */
+  #bg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.9}
   #graph{position:fixed;inset:0;width:100%;height:100%;z-index:1;opacity:.55;
     -webkit-mask:radial-gradient(58% 56% at 50% 45%,#000 30%,transparent 82%);
     mask:radial-gradient(58% 56% at 50% 45%,#000 30%,transparent 82%)}
@@ -53,7 +55,7 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   .sub{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;font-size:12px;color:var(--muted);text-shadow:0 1px 4px #000}
   .sub b{color:#efeaf6;font-weight:600} .sub .live{color:var(--accent)}
 
-  .talk{position:fixed;left:50%;bottom:64px;transform:translateX(-50%);z-index:5;width:min(680px,88vw);display:flex;flex-direction:column;gap:10px;align-items:center}
+  .talk{position:fixed;left:50%;bottom:94px;transform:translateX(-50%);z-index:5;width:min(680px,88vw);display:flex;flex-direction:column;gap:10px;align-items:center}
   .tline{font-size:13.5px;line-height:1.5;text-shadow:0 1px 5px #000;text-align:center;max-width:100%}
   .tline.me{color:#fff} .tline.k{color:var(--muted)}
   .think{display:flex;align-items:center;gap:8px;font-size:12.5px;min-height:18px}
@@ -70,13 +72,21 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   .ic{width:34px;height:34px;flex:none;border:0;border-radius:10px;cursor:pointer;font-size:17px;background:rgba(255,255,255,.06);color:var(--accent);display:grid;place-items:center}
   #cin{flex:1;background:none;border:0;outline:none;color:var(--ink);font-size:14px;padding:0 4px;font-family:var(--sans)}
   #cin::placeholder{color:var(--muted)}
-  .model{font:600 11px var(--mono);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);border-radius:20px;padding:5px 11px;white-space:nowrap}
+  .model{font:600 11px var(--mono);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);border-radius:20px;padding:5px 11px;white-space:nowrap;cursor:pointer}
+  .model:hover{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+  .mpop{position:absolute;bottom:calc(100% + 8px);right:0;z-index:20;min-width:230px;max-height:300px;overflow:auto;
+    background:rgba(12,9,18,.97);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);border-radius:12px;padding:6px;
+    box-shadow:0 12px 40px rgba(0,0,0,.6);display:none}
+  .mpop.on{display:block}
+  .mrow{padding:7px 10px;border-radius:8px;font-size:12px;cursor:pointer;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono)}
+  .mrow:hover{background:color-mix(in srgb,var(--accent) 18%,transparent)}
   .tag{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:9;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:flex;gap:8px;align-items:center}
   .tag .d{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:bl 2s infinite}
   @keyframes bl{50%{opacity:.4}}
   @media (prefers-reduced-motion:reduce){.edge::before,.tx,.sh{animation:none}}
 </style></head>
 <body data-mode="chat">
+  <img id="bg" src="/api/bg" onerror="this.style.display='none'" alt=""/>
   <canvas id="graph"></canvas>
   <div class="edge"></div>
   <div class="tag"><span class="d"></span> Ambienter Desktop · läuft immer</div>
@@ -98,7 +108,10 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
       </div>
       <label class="ic" title="Bild einfügen">+<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
       <input id="cin" placeholder="Schreib mir …"/>
-      <span class="model" id="model">—</span>
+      <span style="position:relative">
+        <span class="model" id="model" title="Modell wechseln (Klick)">—</span>
+        <div class="mpop" id="mpop"></div>
+      </span>
     </form>
   </div>
 
@@ -117,11 +130,13 @@ function rndPhrase(){return PHRASES.length?PHRASES[Math.floor(Math.random()*PHRA
 /* ---- Stats oben ---- */
 function stat(n,l,cls){return '<div class="stat"><div class="n'+(cls?" "+cls:"")+'">'+n+'</div><div class="l">'+l+'</div></div>';}
 async function loadStats(){
-  let ov={},st={},g={counts:{notes:0,links:0}},bd={board:[]};
+  let ov={},st={},g={counts:{notes:0,links:0}},bd={board:[]},news={};
   try{ov=await (await fetch("/api/overview")).json();}catch(e){}
   try{st=await (await fetch("/api/status")).json();}catch(e){}
   try{g=await (await fetch("/api/vault/graph")).json();}catch(e){}
   try{bd=await (await fetch("/api/mission/board")).json();}catch(e){}
+  try{news=await (await fetch("/api/news")).json();}catch(e){}
+  const newsN=(news.items||news.news||[]).length;
   const hb=ov.mission&&ov.mission.heartbeat;
   const tasks=Array.isArray(bd.board)?bd.board:(bd.board&&Array.isArray(bd.board.tasks)?bd.board.tasks:[]);
   const open=tasks.filter(t=>t&&t.status&&t.status!=="done").length;
@@ -134,7 +149,8 @@ async function loadStats(){
     +stat(spend.toFixed(2).replace(".",",")+"€"+(cap?'<span style="font-size:14px;color:var(--muted)"> /'+cap+'€</span>':""),"Ausgaben heute","a")
     +stat(errs,"Fehler · 7 Tg",errs?"":"g")
     +stat(g.counts.notes,"Vault-Notizen")
-    +stat(g.counts.links,"Verbindungen");
+    +stat(g.counts.links,"Verbindungen")
+    +stat(newsN,"News");
   const model=st.resolved_model||st.model||"—";
   const last=(ov.last_mission&&ov.last_mission.summary)?ov.last_mission.summary.slice(0,42):"—";
   $("#sub").innerHTML=
@@ -174,8 +190,9 @@ document.querySelectorAll('#seg button').forEach(b=>b.addEventListener('click',(
 }));
 
 /* ---- ephemerer Chat ueber /ws/chat (frische Session je Aufruf) ---- */
-let ws,thinkTimer=null,running=false;
-function setThink(on){const el=$("#t-think");if(thinkTimer){clearInterval(thinkTimer);thinkTimer=null;}
+let ws,thinkTimer=null,running=false,reasonBuf="";
+function stopPhrase(){if(thinkTimer){clearInterval(thinkTimer);thinkTimer=null;}}
+function setThink(on){const el=$("#t-think");stopPhrase();
   if(on){const put=()=>el.innerHTML='<span class="sh">✦</span><span class="tx">'+esc(rndPhrase())+' …</span>';put();thinkTimer=setInterval(put,2600);}
   else el.innerHTML="";}
 function connect(){const proto=location.protocol==="https:"?"wss":"ws";
@@ -183,20 +200,42 @@ function connect(){const proto=location.protocol==="https:"?"wss":"ws";
   ws=new WebSocket(proto+"://"+location.host+"/ws/chat?sid="+encodeURIComponent(sid));
   ws.onmessage=ev=>{const m=JSON.parse(ev.data);
     if(m.done){setThink(false);running=false;return;}
-    if(m.kind==="final"||m.kind==="answer"){setThink(false);$("#t-k").textContent=(m.text||"").slice(0,320);}
+    if(m.kind==="think"){stopPhrase();reasonBuf=(reasonBuf+" "+(m.text||"")).slice(-260);   // echtes Reasoning
+      $("#t-think").innerHTML='<span class="sh">✦</span><span class="tx">'+esc(reasonBuf.trim())+'</span>';return;}
+    if(m.kind==="tool"){stopPhrase();
+      $("#t-think").innerHTML='<span class="sh">✦</span><span class="tx">▷ '+esc(m.name||"werkzeug")+' …</span>';return;}
+    if(m.kind==="final"||m.kind==="answer"){setThink(false);reasonBuf="";$("#t-k").textContent=(m.text||"").slice(0,340);}
   };
   ws.onclose=()=>{setTimeout(connect,1500);};
 }
 $("#bar").addEventListener('submit',e=>{e.preventDefault();const raw=$("#cin").value.trim();if(!raw||running)return;
   if(!ws||ws.readyState!==1)return;
   const t=mode==="work"?("work: "+raw):mode==="coding"?("code: "+raw):raw;
-  $("#t-me").textContent=raw;$("#t-k").textContent="";$("#cin").value="";running=true;setThink(true);ws.send(t);
+  $("#t-me").textContent=raw;$("#t-k").textContent="";$("#cin").value="";reasonBuf="";running=true;setThink(true);ws.send(t);
 });
 $("#imgfile").addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;
   const fd=new FormData();fd.append("file",f);
   try{const r=await (await fetch("/api/chat/attach",{method:"POST",body:fd})).json();
     if(r&&r.note)$("#cin").value=(($("#cin").value+" ").trimStart())+r.note;}catch(_){}
   e.target.value="";});
+
+/* ---- Modellwechsel per Klick ---- */
+$("#model").addEventListener('click',async ()=>{
+  const pop=$("#mpop");
+  if(pop.classList.contains('on')){pop.classList.remove('on');return;}
+  pop.innerHTML='<div class="mrow">lädt …</div>';pop.classList.add('on');
+  try{const d=await (await fetch("/api/model/catalog")).json();
+    const all=[];const cat=d.catalog||{};
+    for(const k in cat){if(Array.isArray(cat[k]))cat[k].forEach(m=>{if(m&&m.id)all.push(m);});}
+    pop.innerHTML=all.slice(0,50).map(m=>'<div class="mrow" data-id="'+esc(m.id)+'" title="'+esc(m.id)+'">'+esc((m.name||m.id))+'</div>').join('')||'<div class="mrow">keine Modelle</div>';
+    pop.querySelectorAll('.mrow[data-id]').forEach(r=>r.addEventListener('click',async ()=>{
+      const id=r.dataset.id;
+      try{await fetch("/api/model/role",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role:"chat",model:id})});}catch(_){}
+      $("#model").textContent=id.split("/").pop();pop.classList.remove('on');loadStats();
+    }));
+  }catch(e){pop.innerHTML='<div class="mrow">Fehler</div>';}
+});
+document.addEventListener('click',e=>{if(!e.target.closest('#model')&&!e.target.closest('#mpop')){const p=$("#mpop");if(p)p.classList.remove('on');}});
 
 /* ---- Boot ---- */
 (async function(){cv=$("#graph");ctx=cv.getContext("2d");sz();
