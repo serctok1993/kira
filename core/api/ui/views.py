@@ -124,7 +124,7 @@ VIEWS = r"""</head><body>
         <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:0 0 8px;flex-wrap:wrap">
           <span class="muted" id="mode-hint" style="font-size:11px">Dialog — kurz &amp; direkt.</span>
           <span style="flex:1"></span>
-          <button type="button" class="ghost" id="sess-toggle" title="Gespraeche ein-/ausklappen (rechts)" style="padding:5px 10px">🗂</button>
+          <button type="button" class="ghost" id="sess-toggle" title="Deine Gespraeche ein-/ausklappen (rechts)" style="padding:5px 12px;font-size:12px">Chats</button>
         </div>
         <div id="log"></div>
         <!-- Werkbank: EIN Commands-Knopf links · Werkzeuge rechts -->

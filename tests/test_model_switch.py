@@ -195,7 +195,7 @@ def test_shortcuts_zeigen_auf_qwen():
 
 
 def test_fuenf_stufen_config():
-    """Sergens 5-Stufen-Oekonomie: lokal / Chat Flash / Arbeiter Flash / Denker GLM / Richter Fable."""
+    """Sergens Oekonomie: lokal / Chat Flash / Arbeiter Flash / Denker GLM / Spitze GLM (Fable RAUS)."""
     from core.config import CONFIG
     m = CONFIG["models"]
     rt = m["routing"]
@@ -203,7 +203,8 @@ def test_fuenf_stufen_config():
     assert "flash" in rt["chat"]                                  # Stufe 2: Chat
     assert "flash" in rt["worker"] and "flash" in rt["bulk"]      # Stufe 3: Arbeiter/Grind
     assert rt["reason"] == "openrouter/z-ai/glm-5.2"              # Stufe 4: Denker
-    assert m["escalation_model"] == "openrouter/anthropic/claude-fable-5"  # Stufe 5: Richter
+    assert m["escalation_model"] == "openrouter/z-ai/glm-5.2"     # Stufe 5: GLM (kein teures Fable mehr)
+    assert "fable" not in m["escalation_model"].lower()           # Fable ist raus aus der Auto-Oekonomie
     assert m["local_fallback"].startswith("ollama_chat/")         # Notbremse immer lokal
 
 
