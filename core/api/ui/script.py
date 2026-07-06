@@ -303,10 +303,11 @@ async function loadHome(){const o=await (await fetch("/api/overview")).json();
  const gz=$("#go-ziele");if(gz)gz.onclick=()=>{nav("me");subnav("me","metriken");};}
 
 /* ---- Kira-Avatar (S6.6d): einmal proben, Hero + Chat nutzen ihn ---- */
-let hasAvatar=false;
+let hasAvatar=false,avatarV=Date.now();  // Cache-Buster: aendert sich beim Avatar-Wechsel
 (function(){const hv=$("#hero-av");if(!hv)return;
  hv.onerror=()=>{hasAvatar=false;hv.style.display="none";};
- hv.onload=()=>{hasAvatar=true;hv.style.display="";};})();
+ hv.onload=()=>{hasAvatar=true;hv.style.display="";};
+ hv.src="/api/avatar?t="+avatarV;})();
 
 /* ---- Kommandozentrale (HUD) ---- */
 let opsFilter="all";
@@ -534,7 +535,7 @@ function md(src){
 /* Nachricht mit Koerper + Meta (Uhrzeit, Kopieren). Bot-Antworten rendern Markdown. */
 function msgEl(text,cls,ts){const d=document.createElement("div");d.className="msg "+cls;
  if(cls==="bot"&&hasAvatar){d.classList.add("withav");
-  const av=document.createElement("img");av.className="mav";av.src="/api/avatar";d.appendChild(av);}
+  const av=document.createElement("img");av.className="mav";av.src="/api/avatar?t="+avatarV;d.appendChild(av);}
  const body=document.createElement("div");body.className="mbody";
  if(cls==="bot")body.innerHTML=md(text);else body.textContent=text;
  d.appendChild(body);
@@ -1475,7 +1476,7 @@ $("#set-avatar")&&($("#set-avatar").onchange=e=>{const f=e.target.files[0];if(!f
  const rd=new FileReader();rd.onload=async()=>{
   const r=await (await fetch("/api/avatar/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dataurl:rd.result})})).json();
   $("#set-avatar-hint").textContent=r.ok?"✓ Avatar gesetzt":("Fehler: "+(r.error||"?"));
-  if(r.ok){hasAvatar=true;const hv=$("#hero-av");if(hv){hv.style.display="";hv.src="/api/avatar?t="+Date.now();}}};
+  if(r.ok){hasAvatar=true;avatarV=Date.now();const hv=$("#hero-av");if(hv){hv.style.display="";hv.src="/api/avatar?t="+avatarV;}}};
  rd.readAsDataURL(f);e.target.value="";});
 $("#set-avatar-clear")&&($("#set-avatar-clear").onclick=async()=>{await fetch("/api/avatar/clear",{method:"POST"});
  hasAvatar=false;const hv=$("#hero-av");if(hv)hv.style.display="none";$("#set-avatar-hint").textContent="✓ entfernt";});

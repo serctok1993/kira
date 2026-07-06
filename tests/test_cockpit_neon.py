@@ -378,6 +378,19 @@ def test_bg_kein_cache():
     assert 'Cache-Control' in src and 'no-store' in src
 
 
+def test_avatar_kein_cache():
+    # Gleiches Muster wie /api/bg: sonst springt der Avatar nach dem Wechsel/Reload zurueck.
+    import inspect
+    from core.api import server
+    src = inspect.getsource(server.api_avatar)
+    assert 'Cache-Control' in src and 'no-store' in src
+    # Frontend haengt eine Version an (Cache-Buster), die sich beim Wechsel aendert
+    assert 'avatarV=Date.now()' in SCRIPT
+    assert '"/api/avatar?t="+avatarV' in SCRIPT
+    # Markup laedt nicht mehr die feste (cachebare) URL — JS setzt die versionierte
+    assert 'id="hero-av" alt=""/>' in VIEWS and 'src="/api/avatar"' not in VIEWS
+
+
 # ---- Grosses Anpass-Panel: mehr Farbregler + Schriftart, alles live/persistent ----
 
 def test_anpass_panel_gross():
