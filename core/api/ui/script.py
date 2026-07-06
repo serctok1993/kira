@@ -212,20 +212,37 @@ async function loadStats(){try{
   : '<span class="muted">(noch keine Cloud-Kosten)</span>';
 }catch(e){}}
 /* ---- Modell-Umschalter in der Chat-Pane ---- */
+function shortModel(id){return (id||"").replace(/^openrouter\//,"").replace(/^ollama_chat\//,"").split("/").pop();}
+function setChatModel(id){const h=$("#chat-model");if(h)h.value=id||"";
+ const b=$("#model-btn");if(b)b.textContent=id?shortModel(id):"Modell";syncDenk();}
 async function loadChatModels(){const s=await (await fetch("/api/status")).json();
  REASON_MARKERS=s.reasoning_markers||REASON_MARKERS;
- const sel=$("#chat-model"); if(!sel) return;
- const opts=[]; const seen={};
- const add=(id,lbl)=>{ if(id && !seen[id]){ seen[id]=1; opts.push('<option value="'+id+'"'+(id===s.model?' selected':'')+'>'+lbl+'</option>'); } };
- add(s.model, s.model.split("/").pop()+" (aktiv)");
- (s.ollama_local||[]).forEach(n=>{const low=n.toLowerCase();
-   if(low.includes("embed")||low.includes("hf.co")||low.includes("gguf")) return;  // Embedding/roher GGUF-Name raus
-   add("ollama_chat/"+n.replace(/:latest$/,""), n.replace(/:latest$/,"")+" (lokal, 0€)");});
- if(s.api_keys&&s.api_keys.openrouter){ add("openrouter/z-ai/glm-5.2","GLM 5.2 (Cloud, stark)"); }
- sel.innerHTML=opts.join("");syncDenk();}
-$("#chat-model")&&($("#chat-model").onchange=async(e)=>{const id=e.target.value;
+ setChatModel(s.model);}   /* aktuelles Modell in den versteckten Speicher + Knopf-Label */
+async function useChatModel(id){
  await fetch("/api/model/use",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
- syncDenk();refreshStatus();});
+ setChatModel(id);const p=$("#model-pop");if(p)p.style.display="none";refreshStatus();}
+/* Modell-Popover: ALLE Modelle (wie in den Einstellungen), mit ehrlichem Reasoning-Hinweis pro Modell. */
+let MODEL_CACHE=null;
+async function renderModelRows(term){const box=$("#model-rows");if(!box)return;
+ if(!MODEL_CACHE){try{const d=await (await fetch("/api/model/catalog")).json();const c=d.catalog||{};
+   MODEL_CACHE=[].concat(c.local||[],c.openrouter||[],c.aimlapi||[]);}catch(e){MODEL_CACHE=[];}}
+ const cur=($("#chat-model")&&$("#chat-model").value)||"";
+ term=(term||"").toLowerCase();
+ const rows=MODEL_CACHE.filter(m=>!term||((m.id+" "+(m.name||"")).toLowerCase().includes(term))).slice(0,60);
+ box.innerHTML=rows.length?rows.map(m=>{const rc=isReasoningModel(m.id);
+   const badge=rc?'<span class="rbadge" style="color:var(--ok)">🧠 denkt</span>':'<span class="rbadge muted">kein Reasoning</span>';
+   const act=(m.id===cur)?' style="border:1px solid var(--chat-accent)"':'';
+   const tip=rc?'Reasoning-faehig — der Denk-Tiefe-Regler wird aktiv':'Kein eingebautes Reasoning';
+   return '<div class="cmd-row" data-mid="'+esc(m.id)+'" title="'+tip+'"'+act+'><span class="cmd-k">'+esc((m.name||m.id).slice(0,44))+'</span><span style="flex:1"></span>'+badge+'</div>';}).join("")
+  :'<div class="muted" style="padding:8px">nichts gefunden</div>';
+ $$('#model-rows .cmd-row').forEach(r=>r.onclick=()=>useChatModel(r.dataset.mid));}
+$("#model-btn")&&($("#model-btn").onclick=async e=>{e.stopPropagation();const el=$("#model-pop");if(!el)return;
+ const show=el.style.display==="none";
+ if(show){el.innerHTML='<input class="mq" id="model-q" placeholder="Modell suchen (Fable, Opus, GLM …)"/><div class="mrows" id="model-rows"><div class="muted" style="padding:8px">… lade Modelle …</div></div>';
+  el.style.display="block";const q=$("#model-q");if(q){q.oninput=()=>renderModelRows(q.value);q.focus();}renderModelRows("");}
+ else el.style.display="none";});
+document.addEventListener("click",e=>{const p=$("#model-pop");
+ if(p&&p.style.display!=="none"&&!e.target.closest("#model-pop")&&e.target.id!=="model-btn")p.style.display="none";});
 
 /* ---- Monitor ---- */
 async function loadMonitor(){const m=await (await fetch("/api/monitor")).json();

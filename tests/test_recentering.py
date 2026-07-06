@@ -351,6 +351,6 @@ def test_chat_tools_moved_below():
     assert 'id="chat-tools"' in html
     for marker in ('id="chip-mission"', 'id="chip-status"', 'id="reason-level"', "chipInsert"):
         assert marker in html, f"Chat-Tool-Marker fehlt: {marker}"
-    # Stufe 2b: Modell-Select wandert in die Engine-Leiste oben (neben den Modus-Umschalter)
-    model_pos = html.find('id="chat-model"')
-    assert html.find('id="chat-mode-seg"') < model_pos < html.find('id="chat-tools"')
+    # S11: Modell-Knopf wandert in die Werkzeugleiste (ganz rechts, ueber Senden)
+    assert 'id="model-btn"' in html
+    assert html.find('id="chat-tools"') < html.find('id="model-btn"') < html.find('id="cform"')

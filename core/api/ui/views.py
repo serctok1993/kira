@@ -122,7 +122,6 @@ VIEWS = r"""</head><body>
           <a data-m="chat" class="on">💬 Chat</a><a data-m="coding">🛠 Coding</a>
         </div>
         <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:0 0 8px;flex-wrap:wrap">
-          <select id="chat-model" class="engine-pill" title="Modell fuer diesen Chat"></select>
           <span class="muted" id="mode-hint" style="font-size:11px">Dialog — kurz &amp; direkt.</span>
           <span style="flex:1"></span>
           <button type="button" class="ghost" id="sess-toggle" title="Gespraeche ein-/ausklappen (rechts)" style="padding:5px 10px">🗂</button>
@@ -149,10 +148,15 @@ VIEWS = r"""</head><body>
               </select></label>
             <label class="chip tog" id="chip-tts" title="Kira liest ihre Antworten laut vor (Stimme muss unter Kira → Zugaenge an sein)"><input type="checkbox" id="tts-on"/> Vorlesen</label>
             <button type="button" id="micbtn" class="chip" title="Sprachmemo aufnehmen">🎤</button>
-            <label id="imgbtn" class="chip" title="Bild an Kira" style="cursor:pointer">📎<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
           </span>
+          <span style="position:relative;display:inline-block">
+            <button type="button" id="model-btn" class="chip engine-pill" title="Modell fuer diesen Chat — klick fuer alle Modelle">Modell</button>
+            <div id="model-pop" class="cmd-pop model-pop" style="display:none"></div>
+          </span>
+          <input type="hidden" id="chat-model"/>
         </div>
         <form id="cform">
+          <label id="plusbtn" class="plus" title="Bild oder Datei hochladen">+<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
           <input id="cin" placeholder="Schreib mir…" autocomplete="off" autofocus/>
           <button>Senden</button>
         </form>
