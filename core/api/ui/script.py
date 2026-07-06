@@ -1102,12 +1102,20 @@ simpleRecord("#dir-mic","#dir-text");
 /* Schwarm-Umschalter: blendet den Rang ein, ändert den Knopf */
 $("#dir-schwarm")&&($("#dir-schwarm").onchange=()=>{const on=$("#dir-schwarm").checked;
  const rg=$("#dir-rang");if(rg)rg.style.display=on?"":"none";
- const b=$("#dir-now");if(b)b.textContent=on?"🐝 An den Schwarm":"⚡ Sofort ausfuehren";});
+ const b=$("#dir-now");if(b)b.textContent=on?"🐝 An den Schwarm":"⚡ Sofort ausfuehren";
+ const t=$("#dir-text");if(t)t.placeholder=on
+   ?"1. Zeile = Auftrag mit {item}  (z.B. „Finde 5 Telefonnummern fuer {item} in Koblenz“)\ndann je eine Zeile pro Ziel:\nFriseure\nHotels"
+   :"Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…";
+ $("#dir-hint").textContent=on?"🐝 Jede Zeile unter dem Auftrag wird ein eigener Agent (bis schwarm_max, sonst in Wellen).":"";});
 $("#dir-now")&&($("#dir-now").onclick=async()=>{const p=$("#dir-text").value.trim();if(!p)return;
  if($("#dir-schwarm")&&$("#dir-schwarm").checked){                       /* Schwarm-Auftrag -> im Chat vorbereiten (Finger am Abzug bleibt bei dir) */
   const rang=($("#dir-rang")&&$("#dir-rang").value)||"arbeiter";
-  const cin=$("#cin");if(cin)cin.value="/schwarm "+rang+" "+p.replace(/\s*\n\s*/g," ");
-  nav("chat");if(cin)cin.focus();$("#dir-hint").textContent="🐝 Im Chat vorbereitet — druecke Senden.";return;}
+  /* 1. Zeile = Vorlage (mit {item}), weitere Zeilen = Ziele -> korrektes "/schwarm rang vorlage | a | b" */
+  const lines=p.split("\n").map(s=>s.trim()).filter(Boolean);
+  if(lines.length<2){$("#dir-hint").textContent="🐝 Schwarm braucht Ziele: 1. Zeile der Auftrag (mit {item}), dann je eine Zeile pro Ziel (z.B. Friseure / Hotels).";return;}
+  const vorlage=lines[0],items=lines.slice(1);
+  const cin=$("#cin");if(cin)cin.value="/schwarm "+rang+" "+vorlage+" | "+items.join(" | ");
+  nav("chat");if(cin)cin.focus();$("#dir-hint").textContent="🐝 "+items.length+" Auftraege im Chat vorbereitet — druecke Senden.";return;}
  $("#dir-hint").textContent="… Kira arbeitet daran (kann ~1 min dauern) …";
  const r=await (await fetch("/api/direktive/now",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:p})})).json();
  $("#dir-hint").textContent="✓ erledigt";const rr=$("#dir-result");rr.style.display="block";rr.textContent=(r.result||"(keine Antwort)");});
