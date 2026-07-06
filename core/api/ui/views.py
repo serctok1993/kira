@@ -152,7 +152,6 @@ VIEWS = r"""</head><body>
       <div class="panel-h">◈ PROJEKTE <span class="sp"></span><span class="muted" id="vent-sum" style="font-size:11px"></span>
         <a id="obj-new-btn" class="muted" style="cursor:pointer;font-size:11px;margin-left:10px">+ Ziel</a></div>
       <div id="vent-list" class="panel-b"><span class="muted">…</span></div>
-      <div id="vent-detail" class="panel-b" style="display:none;border-top:1px solid var(--line)"></div>
       <div class="panel-b" id="obj-form" style="display:none;border-top:1px solid var(--line)">
         <div class="row" style="flex-wrap:wrap">
           <input id="obj-title" placeholder="Ziel/Projekt-Titel" style="flex:1;min-width:180px"/>
@@ -162,6 +161,7 @@ VIEWS = r"""</head><body>
         </div>
       </div>
     </div>
+    <div class="panel" id="vent-detail" style="display:none;padding:12px 14px"></div>
     <div class="proj-cols">
       <div class="panel">
         <div class="panel-h">◈ ZIELE / PROJEKTE</div>

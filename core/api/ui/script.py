@@ -359,7 +359,7 @@ function bindOpsFilter(){$$("#ops-filter a").forEach(a=>a.onclick=()=>{opsFilter
 function loadCommand(){loadHud();loadOps();loadNews();loadHome();loadDigest();bindNewsSeed();bindOpsFilter();}
 
 /* ---- Projekte (S9.3): eine Uebersicht — Standbeine + Ziele/Backlog + Radar zusammen ---- */
-function loadProjekte(){loadVentures();loadMission();loadRadar();}
+function loadProjekte(){const pv=$("#v-projekte");if(pv)pv.classList.remove("drill");const vd=$("#vent-detail");if(vd)vd.style.display="none";loadVentures();loadMission();loadRadar();}
 
 /* ---- Mission-Workspace (Ziele + To-Do-Board) ---- */
 const KIND_LABEL={big:"BIG",monthly:"MONAT",weekly:"WOCHE"};
@@ -1135,17 +1135,17 @@ async function loadAgenten(){try{const d=await (await fetch("/api/agents")).json
   if(!okd)h+='<ul style="margin:4px 0;padding-left:16px;font-size:12px;color:var(--warn)">'+(dr.problems||[]).map(p=>'<li>'+(""+p).replace(/</g,"&lt;")+'</li>').join("")+'</ul>';}
  $("#ag-infra").innerHTML=h;}catch(e){}}
 
-/* ---- Projekte (S5.3b): Venture-Karten + Drilldown ---- */
+/* ---- Projekte (S5.3b): Projekt-Karten + Drilldown ---- */
 async function loadVentures(){const el=$("#vent-list");if(!el)return;try{
  const d=await (await fetch("/api/ventures")).json();const vs=d.ventures||[];
  const vc=$("#vent-sum");if(vc)vc.textContent=vs.length?(vs.length+" Projekte"):"";
  el.innerHTML=vs.length?vs.map(v=>{
   const ms=(v.milestone_progress!=null)?('<div style="height:4px;background:var(--line);border-radius:2px;margin-top:5px"><div style="height:4px;border-radius:2px;background:var(--hud);width:'+v.milestone_progress+'%"></div></div>'):'';
   return '<div class="memrow" data-vent="'+v.id+'" style="cursor:pointer"><div class="mh"><span class="badge kind">'+v.status+'</span><b>'+(v.name||"").replace(/</g,"&lt;")+'</b><span style="flex:1"></span><span class="muted">+'+v.income_eur.toFixed(2)+' / -'+v.expenses_eur.toFixed(2)+' = <b>'+v.balance_eur.toFixed(2)+' &euro;</b></span></div>'+ms+'</div>';}).join("")
-  :'<div class="emptybox">Noch keine Ventures<br>Kira, leg ein Venture an: &hellip;</div>';
+  :'<div class="emptybox">Noch keine Projekte<br>Kira, leg ein Projekt an: &hellip;</div>';
  $$('#vent-list [data-vent]').forEach(r=>r.onclick=()=>loadVentureTrace(r.dataset.vent));
 }catch(e){}}
-/* S8.2: Projekt-AKTE — Unterreiter Uebersicht/Ziele/Aktivitaet/Finanzen je Venture */
+/* S8.2: Projekt-AKTE — Unterreiter Uebersicht/Ziele/Aktivitaet/Finanzen je Projekt */
 async function loadVentureTrace(id){const el=$("#vent-detail");try{
  const d=await (await fetch("/api/venture/trace?id="+encodeURIComponent(id))).json();
  if(d.error){el.style.display="none";return;}
@@ -1181,6 +1181,7 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
   +'<div class="at" id="at-akt" style="display:none">'+act+'</div><div class="at" id="at-fin" style="display:none">'+fin+'</div>'
   +'<div class="at" id="at-rout" style="display:none">'+rout+'</div>';
  el.style.display="block";
+ const pv=$("#v-projekte");if(pv)pv.classList.add("drill");   /* Akte in den Vordergrund, 3 Spalten weichen */
  $("#ak-brief").value=d.briefing||"";
  $$("#akte-tabs a").forEach(a=>a.onclick=()=>{$$("#akte-tabs a").forEach(x=>x.classList.toggle("on",x===a));
   el.querySelectorAll(".at").forEach(x=>x.style.display="none");$("#at-"+a.dataset.at).style.display="block";});
@@ -1193,7 +1194,7 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
   const fd=new FormData();fd.append("id",v.id);fd.append("file",f);
   const r=await (await fetch("/api/ventures/upload",{method:"POST",body:fd})).json();
   $("#ak-hint").textContent=r.ok?"✓ "+f.name:"Fehler: "+(r.error||"?");if(r.ok)loadVentureTrace(v.id);};
- const cl=$("#vent-close");if(cl)cl.onclick=()=>{el.style.display="none";};
+ const cl=$("#vent-close");if(cl)cl.onclick=()=>{el.style.display="none";const pv2=$("#v-projekte");if(pv2)pv2.classList.remove("drill");};
 }catch(e){}}
 
 /* ---- To-Do (S6.6a): Zugangs-Anfragen — was Kira an Keys/Zugaengen braucht ---- */
@@ -1236,7 +1237,7 @@ const OPP_BADGE={new:"var(--hud)",shortlist:"var(--ok)",converted:"var(--accent)
 async function loadRadar(){try{const d=await (await fetch("/api/opportunities")).json();const os=d.opportunities||[];
  $("#rd-list").innerHTML=os.length?os.map(o=>{
   let act="";
-  if(o.status==="new"||o.status==="shortlist")act=' <a data-oconv="'+o.id+'" style="cursor:pointer;color:var(--ok)" title="zum Venture machen">&rarr; Venture</a>'
+  if(o.status==="new"||o.status==="shortlist")act=' <a data-oconv="'+o.id+'" style="cursor:pointer;color:var(--ok)" title="als Projekt uebernehmen">&rarr; Projekt</a>'
    +(o.status==="new"?' <a data-oshort="'+o.id+'" style="cursor:pointer;color:var(--hud)" title="merken">&#9733;</a>':'')
    +' <a data-orej="'+o.id+'" style="cursor:pointer;color:var(--muted)" title="verwerfen">&#10005;</a>';
   return '<div class="memrow"><div class="mh"><span class="badge kind" style="color:'+(OPP_BADGE[o.status]||"var(--muted)")+'">'+o.status+'</span><b>['+o.score+']</b> <b>'+(o.title||"").replace(/</g,"&lt;").slice(0,90)+'</b><span style="flex:1"></span>'+act+'</div>'
