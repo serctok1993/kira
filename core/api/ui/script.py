@@ -49,7 +49,7 @@ const SUBTABS={
                     cron:()=>loadCron(),monitor:()=>loadMonitor(),log:()=>loadEvents(),cockpit:()=>loadDesktop()}},
  me:      {bar:"#me-tabs", cur:"todos",
            loaders:{todos:()=>loadLeben(),freigaben:()=>{loadInbox();loadTodoSecrets();},
-                    routinen:()=>loadMeCrons(),post:()=>{},metriken:()=>loadLeben()}}};
+                    routinen:()=>loadMeCrons(),post:()=>{},metriken:()=>loadZiele()}}};
 
 /* ---- Desktop-Pflege (S8.5) ---- */
 async function loadDesktop(){const st=$("#dw-status");if(!st)return;try{
@@ -132,18 +132,27 @@ async function loadMeCrons(){const el=$("#me-crons");if(!el)return;try{
   return '<div class="memrow"><div class="mh"><span class="badge kind">'+(j.enabled?"AN":"aus")+'</span>'
    +'<b>'+esc(j.label||"")+'</b><span class="muted" style="font-size:11px">'+esc(j.schedule_text||"")+' · naechster: '+nxt+'</span>'
    +'<span style="flex:1"></span><a data-ctog="'+esc(j.id)+'" style="cursor:pointer;color:var(--hud)">'+(j.enabled?"pausieren":"aktivieren")+'</a></div></div>';}).join("")
-  :'<div class="emptybox">Noch keine Routinen.<br>Unten das Morgen-Briefing einrichten — oder sag es mir per Telegram.</div>';
+  :'<div class="emptybox">Noch keine Routinen.<br>Unten eine Automatisierung einrichten — oder sag es mir per Telegram.</div>';
  el.querySelectorAll("[data-ctog]").forEach(a=>a.onclick=async()=>{
   await fetch("/api/cron/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.ctog})});loadMeCrons();});
 }catch(e){}}
-$("#me-brief-setup")&&($("#me-brief-setup").onclick=async()=>{
- const prompt="Guten Morgen! Erstelle Sergens Tages-Briefing aus dem Lagebericht:\n{{standup}}\n"
-  +"Struktur: 1) Wie sieht der Tag aus (Termine, faellige Todos, was ansteht). "
-  +"2) Was ICH (Kira) heute vorhabe. 3) EIN konkreter, proaktiver Vorschlag fuer den Tag. "
-  +"Warm, knapp, strukturiert — dann per Telegram senden.";
+/* Automatisierungspanel: Uhrzeit/Intervall + freier Auftrag -> Routine (scope me). */
+$$('.au-preset').forEach(a=>a.onclick=()=>{
+ const w=$("#au-what");if(w)w.value=a.dataset.what||"";
+ if(a.dataset.time){const t=$("#au-time");if(t)t.value=a.dataset.time;}
+ const iv=$("#au-interval");if(iv)iv.value="";if(w)w.focus();});
+$("#au-add")&&($("#au-add").onclick=async()=>{
+ const what=($("#au-what").value||"").trim();
+ const hint=$("#au-hint");
+ if(!what){if(hint)hint.textContent="Was soll ich tun?";return;}
+ const iv=($("#au-interval").value||"").trim();
+ const schedule=iv||($("#au-time").value||"08:00");
+ const label=(what.length>44?what.slice(0,44)+"…":what);
+ const enabled=$("#au-now").checked;
  const r=await (await fetch("/api/cron/add",{method:"POST",headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({label:"Morgen-Briefing",prompt:prompt,schedule:"08:00",scope:"me",enabled:false})})).json();
- $("#me-brief-hint").textContent=r.ok?"✓ angelegt (AUS) — oben aktivieren, wenn du bereit bist":"Fehler";
+  body:JSON.stringify({label:label,prompt:what,schedule:schedule,scope:"me",enabled:enabled})})).json();
+ if(hint)hint.textContent=r.ok?("✓ eingerichtet "+(enabled?"(aktiv)":"(aus — oben aktivieren)")):"Fehler";
+ $("#au-what").value="";$("#au-interval").value="";$("#au-now").checked=false;
  loadMeCrons();});
 
 /* ---- Evolution (S8.1): was Kira zuletzt an sich verbessert hat ---- */
@@ -270,7 +279,9 @@ async function loadHome(){const o=await (await fetch("/api/overview")).json();
  $$('#home [data-go]').forEach(b=>b.onclick=()=>{const g=b.dataset.go;
   if(g==="stats"){nav("kira");subnav("kira","stats");}
   else if(g==="models"||g==="gov"){nav("kira");subnav("kira",g);}
-  else nav(g);});}
+  else nav(g);});
+ loadZielePinned();
+ const gz=$("#go-ziele");if(gz)gz.onclick=()=>{nav("me");subnav("me","metriken");};}
 
 /* ---- Kira-Avatar (S6.6d): einmal proben, Hero + Chat nutzen ihn ---- */
 let hasAvatar=false;
@@ -359,7 +370,7 @@ function bindOpsFilter(){$$("#ops-filter a").forEach(a=>a.onclick=()=>{opsFilter
 function loadCommand(){loadHud();loadOps();loadNews();loadHome();loadDigest();bindNewsSeed();bindOpsFilter();}
 
 /* ---- Projekte (S9.3): eine Uebersicht — Standbeine + Ziele/Backlog + Radar zusammen ---- */
-function loadProjekte(){loadVentures();loadMission();loadRadar();}
+function loadProjekte(){const pv=$("#v-projekte");if(pv)pv.classList.remove("drill");const vd=$("#vent-detail");if(vd)vd.style.display="none";loadVentures();loadMission();loadRadar();}
 
 /* ---- Mission-Workspace (Ziele + To-Do-Board) ---- */
 const KIND_LABEL={big:"BIG",monthly:"MONAT",weekly:"WOCHE"};
@@ -1095,12 +1106,51 @@ async function loadLeben(){
   const objs=d.objectives||[];
   $("#life-goals").innerHTML=objs.length?objs.map(o=>'<div class="memrow"><div class="mh"><span class="badge kind">'+(KIND_LABEL[o.kind]||o.kind)+'</span><b>'+(o.title||"").replace(/</g,"&lt;")+'</b><span style="flex:1"></span><span class="muted">'+o.progress+'%'+(o.target_date?(' &middot; &#9200;'+o.target_date):'')+'</span></div></div>').join("")
    :'<div class="emptybox">Noch keine Lebens-Ziele<br>z.B. Kira, neues Ziel: 85kg bis Dezember</div>';
- }catch(e){}
- try{const m=await (await fetch("/api/metrics")).json();const rows=[];
-  for(const it of (m.latest||[]).slice(0,6)){
-   const sr=await (await fetch("/api/metrics?name="+encodeURIComponent(it.name)+"&days=90")).json();
-   rows.push('<div class="memrow"><div class="mh"><b>'+it.name+'</b><span style="flex:1"></span>'+spark(sr.series||[])+'<span style="min-width:110px;text-align:right"><b>'+it.value+'</b>'+(it.delta!=null?(' <span class="muted">('+(it.delta>0?"+":"")+it.delta+')</span>'):'')+'</span></div></div>');}
-  $("#life-metrics").innerHTML=rows.join("")||'<div class="emptybox">Noch keine Metriken</div>';
+ }catch(e){}}
+
+/* ---- Ziele-Dashboard (S10): Kennzahlen mit Zielwert, Fortschritt, Zentrale-Anheftung ----
+   Kira schreibt per metric_log/metric_ziel selbst rein; hier nur Anzeige + Feinsteuerung. */
+function sparkVals(vals){return spark((vals||[]).map(v=>({value:v})));}
+function zieleCard(d){
+ const em=d.emoji?(esc(d.emoji)+' '):'';
+ const unit=d.unit?(' <span class="muted">'+esc(d.unit)+'</span>'):'';
+ const delta=d.delta!=null?(' <span class="muted">('+(d.delta>0?'+':'')+d.delta+')</span>'):'';
+ const bar=(d.target!=null)?('<div class="mini-bar" style="margin-top:6px"><i style="width:'+(d.progress||0)+'%"></i></div>'
+   +'<div class="muted" style="font-size:10px;margin-top:2px">Ziel '+d.target+(d.unit?(' '+esc(d.unit)):'')+' · '+(d.progress||0)+'%</div>'):'';
+ const pin=d.pinned?'📌':'📍';
+ return '<div class="memrow" data-zn="'+esc(d.name)+'"><div class="mh"><b>'+em+esc(d.name)+'</b>'
+  +'<span style="flex:1"></span>'+sparkVals(d.series)
+  +'<span style="min-width:92px;text-align:right"><b>'+d.value+'</b>'+unit+delta+'</span>'
+  +' <a data-zpin="'+esc(d.name)+'" data-zon="'+(d.pinned?1:0)+'" title="in die Zentrale heften/loesen" style="cursor:pointer;margin-left:6px">'+pin+'</a></div>'
+  +bar+'</div>';
+}
+async function loadZiele(){const el=$("#life-metrics");if(!el)return;
+ try{const m=await (await fetch("/api/metrics?days=90")).json();const ds=m.dashboard||[];
+  el.innerHTML=ds.length?ds.map(zieleCard).join("")
+   :'<div class="emptybox">Noch keine Kennzahlen<br>Sag mir: „Kira, tracke meine Follower — Ziel 10000, zeig&#39;s in der Zentrale.“</div>';
+  $$('#life-metrics [data-zpin]').forEach(a=>a.onclick=async()=>{
+   await fetch("/api/metrics/meta",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({name:a.dataset.zpin,pinned:a.dataset.zon!=="1"})});
+   loadZiele();loadZielePinned();});
+ }catch(e){}}
+$("#zm-add")&&($("#zm-add").onclick=async()=>{
+ const name=($("#zm-name").value||"").trim();if(!name){toast("Kennzahl braucht einen Namen","warn");return;}
+ const val=($("#zm-val").value||"").trim();
+ if(val!==""){await fetch("/api/metrics/log",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:name,value:val})});}
+ const tgt=($("#zm-target").value||"").trim(),unit=($("#zm-unit").value||"").trim();
+ if(tgt!==""||unit!==""){await fetch("/api/metrics/meta",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({name:name},tgt!==""?{target:tgt}:{},unit!==""?{unit:unit}:{}))});}
+ $("#zm-name").value="";$("#zm-val").value="";$("#zm-target").value="";$("#zm-unit").value="";
+ toast("eingetragen","ok");loadZiele();loadZielePinned();});
+/* Angeheftete Kennzahlen in der Zentrale (nur wenn welche angeheftet sind). */
+async function loadZielePinned(){const el=$("#z-ziele");if(!el)return;
+ try{const m=await (await fetch("/api/metrics?days=90")).json();const ps=m.pinned||[];
+  const wrap=$("#z-ziele-panel");
+  if(!ps.length){if(wrap)wrap.style.display="none";return;}
+  if(wrap)wrap.style.display="";
+  el.innerHTML=ps.map(d=>{const em=d.emoji?(esc(d.emoji)+' '):'';
+   const bar=(d.target!=null)?('<div class="mini-bar" style="margin-top:4px"><i style="width:'+(d.progress||0)+'%"></i></div>'):'';
+   return '<div style="margin-bottom:9px"><div style="display:flex;align-items:center;gap:6px"><span>'+em+esc(d.name)+'</span><span style="flex:1"></span><b style="color:var(--hud)">'+d.value+'</b>'+(d.unit?' <span class="muted">'+esc(d.unit)+'</span>':'')+(d.target!=null?' <span class="muted">/ '+d.target+'</span>':'')+'</div>'+bar+'</div>';
+  }).join("");
  }catch(e){}}
 
 /* ---- Agenten (S5.3b): Organe, Dienste, MCP ---- */
@@ -1135,17 +1185,17 @@ async function loadAgenten(){try{const d=await (await fetch("/api/agents")).json
   if(!okd)h+='<ul style="margin:4px 0;padding-left:16px;font-size:12px;color:var(--warn)">'+(dr.problems||[]).map(p=>'<li>'+(""+p).replace(/</g,"&lt;")+'</li>').join("")+'</ul>';}
  $("#ag-infra").innerHTML=h;}catch(e){}}
 
-/* ---- Projekte (S5.3b): Venture-Karten + Drilldown ---- */
+/* ---- Projekte (S5.3b): Projekt-Karten + Drilldown ---- */
 async function loadVentures(){const el=$("#vent-list");if(!el)return;try{
  const d=await (await fetch("/api/ventures")).json();const vs=d.ventures||[];
  const vc=$("#vent-sum");if(vc)vc.textContent=vs.length?(vs.length+" Projekte"):"";
  el.innerHTML=vs.length?vs.map(v=>{
   const ms=(v.milestone_progress!=null)?('<div style="height:4px;background:var(--line);border-radius:2px;margin-top:5px"><div style="height:4px;border-radius:2px;background:var(--hud);width:'+v.milestone_progress+'%"></div></div>'):'';
   return '<div class="memrow" data-vent="'+v.id+'" style="cursor:pointer"><div class="mh"><span class="badge kind">'+v.status+'</span><b>'+(v.name||"").replace(/</g,"&lt;")+'</b><span style="flex:1"></span><span class="muted">+'+v.income_eur.toFixed(2)+' / -'+v.expenses_eur.toFixed(2)+' = <b>'+v.balance_eur.toFixed(2)+' &euro;</b></span></div>'+ms+'</div>';}).join("")
-  :'<div class="emptybox">Noch keine Ventures<br>Kira, leg ein Venture an: &hellip;</div>';
+  :'<div class="emptybox">Noch keine Projekte<br>Kira, leg ein Projekt an: &hellip;</div>';
  $$('#vent-list [data-vent]').forEach(r=>r.onclick=()=>loadVentureTrace(r.dataset.vent));
 }catch(e){}}
-/* S8.2: Projekt-AKTE — Unterreiter Uebersicht/Ziele/Aktivitaet/Finanzen je Venture */
+/* S8.2: Projekt-AKTE — Unterreiter Uebersicht/Ziele/Aktivitaet/Finanzen je Projekt */
 async function loadVentureTrace(id){const el=$("#vent-detail");try{
  const d=await (await fetch("/api/venture/trace?id="+encodeURIComponent(id))).json();
  if(d.error){el.style.display="none";return;}
@@ -1158,7 +1208,20 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
   if(o.workingset)act+='<div style="margin-top:6px"><b style="font-size:12px">'+esc(o.title||"")+'</b><div class="muted" style="font-size:11px;white-space:pre-wrap;border-left:2px solid var(--line);padding-left:8px;margin-top:3px">'+esc(o.workingset.slice(-700))+'</div></div>';});
  if(!act)act='<div class="muted">Noch kein Arbeitsstand aufgezeichnet.</div>';
  const files=(d.files||[]).map(f=>'<div class="muted" style="font-size:12px">📎 '+esc(f.name)+' <span style="opacity:.6">('+Math.round(f.bytes/1024)+' KB)</span></div>').join("")||'<div class="muted" style="font-size:12px">(keine Dateien)</div>';
+ /* Auf-einen-Blick: was fuer dieses Projekt schon getan wurde */
+ const allTasks=(d.objectives||[]).reduce((a,o)=>a.concat(o.tasks||[]),[]);
+ const doneTasks=allTasks.filter(t=>t.status==="done");
+ const gstat=(lbl,val)=>'<div class="pg-cell"><div class="muted" style="font-size:10px;letter-spacing:.5px">'+lbl+'</div><b>'+val+'</b></div>';
+ const glance='<div class="proj-glance">'
+   +gstat("Ziele",(d.objectives||[]).length)
+   +gstat("Aufgaben",doneTasks.length+'/'+allTasks.length+' erledigt')
+   +gstat("Kosten",(d.costs||0).toFixed(2)+' €')
+   +gstat("Kasse",(d.balance||0).toFixed(2)+' €')
+   +'</div>';
+ const lastDone=doneTasks.slice(-6).reverse().map(t=>'<div class="muted" style="font-size:12px">&#10003; '+esc((t.description||"").slice(0,120))+(t.score!=null?(' <span style="color:var(--hud)">['+t.score+']</span>'):'')+'</div>').join("");
+ const doneBlock=lastDone?('<div class="muted" style="font-size:11px;letter-spacing:1px;margin:10px 0 4px">ZULETZT ERLEDIGT</div>'+lastDone):'';
  const ueb='<div class="muted" style="margin-bottom:6px">'+esc(v.hypothesis||"(keine Hypothese)")+' · Status: <b>'+esc(v.status||"?")+'</b></div>'
+  +glance+doneBlock
   +'<div class="muted" style="font-size:11px;letter-spacing:1px;margin:8px 0 4px">ANWEISUNGEN AN KIRA (fliessen in jeden Projekt-Task)</div>'
   +'<textarea id="ak-brief" class="k" style="min-height:90px"></textarea>'
   +'<div class="row" style="margin-top:6px"><button class="ghost" id="ak-brief-save">Briefing speichern</button>'
@@ -1181,6 +1244,7 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
   +'<div class="at" id="at-akt" style="display:none">'+act+'</div><div class="at" id="at-fin" style="display:none">'+fin+'</div>'
   +'<div class="at" id="at-rout" style="display:none">'+rout+'</div>';
  el.style.display="block";
+ const pv=$("#v-projekte");if(pv)pv.classList.add("drill");   /* Akte in den Vordergrund, 3 Spalten weichen */
  $("#ak-brief").value=d.briefing||"";
  $$("#akte-tabs a").forEach(a=>a.onclick=()=>{$$("#akte-tabs a").forEach(x=>x.classList.toggle("on",x===a));
   el.querySelectorAll(".at").forEach(x=>x.style.display="none");$("#at-"+a.dataset.at).style.display="block";});
@@ -1193,7 +1257,7 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
   const fd=new FormData();fd.append("id",v.id);fd.append("file",f);
   const r=await (await fetch("/api/ventures/upload",{method:"POST",body:fd})).json();
   $("#ak-hint").textContent=r.ok?"✓ "+f.name:"Fehler: "+(r.error||"?");if(r.ok)loadVentureTrace(v.id);};
- const cl=$("#vent-close");if(cl)cl.onclick=()=>{el.style.display="none";};
+ const cl=$("#vent-close");if(cl)cl.onclick=()=>{el.style.display="none";const pv2=$("#v-projekte");if(pv2)pv2.classList.remove("drill");};
 }catch(e){}}
 
 /* ---- To-Do (S6.6a): Zugangs-Anfragen — was Kira an Keys/Zugaengen braucht ---- */
@@ -1236,7 +1300,7 @@ const OPP_BADGE={new:"var(--hud)",shortlist:"var(--ok)",converted:"var(--accent)
 async function loadRadar(){try{const d=await (await fetch("/api/opportunities")).json();const os=d.opportunities||[];
  $("#rd-list").innerHTML=os.length?os.map(o=>{
   let act="";
-  if(o.status==="new"||o.status==="shortlist")act=' <a data-oconv="'+o.id+'" style="cursor:pointer;color:var(--ok)" title="zum Venture machen">&rarr; Venture</a>'
+  if(o.status==="new"||o.status==="shortlist")act=' <a data-oconv="'+o.id+'" style="cursor:pointer;color:var(--ok)" title="als Projekt uebernehmen">&rarr; Projekt</a>'
    +(o.status==="new"?' <a data-oshort="'+o.id+'" style="cursor:pointer;color:var(--hud)" title="merken">&#9733;</a>':'')
    +' <a data-orej="'+o.id+'" style="cursor:pointer;color:var(--muted)" title="verwerfen">&#10005;</a>';
   return '<div class="memrow"><div class="mh"><span class="badge kind" style="color:'+(OPP_BADGE[o.status]||"var(--muted)")+'">'+o.status+'</span><b>['+o.score+']</b> <b>'+(o.title||"").replace(/</g,"&lt;").slice(0,90)+'</b><span style="flex:1"></span>'+act+'</div>'
@@ -1250,6 +1314,18 @@ async function loadRadar(){try{const d=await (await fetch("/api/opportunities"))
 $("#rd-scan")&&($("#rd-scan").onclick=async()=>{$("#rd-hint").textContent="… scanne (kann ~1 min dauern) …";
  const r=await (await fetch("/api/radar/scan",{method:"POST"})).json();
  $("#rd-hint").textContent=r.error?("Fehler: "+r.error):("Scan fertig — "+(r.found||0)+" neue Chance(n).");loadRadar();});
+/* Radar-Fokus: Sergen sagt, wonach gesucht wird (persistent, deckt sich mit Kiras radar_fokus). */
+$("#rd-focus-edit")&&($("#rd-focus-edit").onclick=async()=>{
+ const box=$("#rd-focus-box");if(!box)return;
+ const show=box.style.display==="none";box.style.display=show?"block":"none";
+ if(show){try{const d=await (await fetch("/api/radar/focus")).json();
+  $("#rd-focus").value=(d.themes||[]).join(";\n");
+  $("#rd-focus-hint").textContent=d.default?"(noch kein eigener Fokus — Standardthemen)":"";}catch(e){}}});
+$("#rd-focus-save")&&($("#rd-focus-save").onclick=async()=>{
+ const r=await (await fetch("/api/radar/focus",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({themes:$("#rd-focus").value})})).json();
+ const n=(r.themes||[]).length;
+ $("#rd-focus-hint").textContent=r.ok?("✓ gespeichert — "+n+" Thema/Themen"):"Fehler";});
 
 /* ---- S6.6a: neue Quer-Verdrahtungen ---- */
 $("#m-or-add")&&($("#m-or-add").onclick=async()=>{const id=$("#m-or").value.trim();if(!id)return;

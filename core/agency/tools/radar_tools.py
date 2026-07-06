@@ -19,6 +19,24 @@ def radar_scan_now() -> str:
     return f"Scan fertig: {res['found']} neue Chance(n) in der Pipeline (opportunity_list zeigt sie)."
 
 
+@tool("radar_fokus",
+      "Legt fest, WONACH das Ideen-Radar sucht (persistent). Sergen sagt es dir, du "
+      "traegst es hier ein — mehrere Themen mit ';' trennen. Ohne Argument zeigst du den "
+      "aktuellen Fokus. Beispiel: radar_fokus('KI-Tools fuer Handwerker; Social-Media-"
+      "Automatisierung fuer lokale Laeden').",
+      {"themen": "die Suchthemen, ';'-getrennt — leer lassen zeigt den aktuellen Fokus"})
+def radar_fokus(themen: str = "") -> str:
+    from core.agency import radar
+
+    if not (themen or "").strip():
+        cur = radar.get_focus()
+        if cur:
+            return "Aktueller Radar-Fokus:\n" + "\n".join(f"- {t}" for t in cur)
+        return "Noch kein eigener Fokus gesetzt — das Radar sucht nach breiten Standardthemen."
+    parts = radar.set_focus(themen)
+    return "Radar-Fokus gesetzt — ab jetzt suche ich nach:\n" + "\n".join(f"- {t}" for t in parts)
+
+
 @tool("opportunity_list",
       "Zeigt die Business-Chancen-Pipeline (new/shortlist/rejected/converted) mit Scores.",
       {"status": "optional: nur diesen Status zeigen"})
