@@ -1483,10 +1483,12 @@ async def api_bg_clear(body: dict) -> dict:
 # ---------- Kira-Avatar (S6.6d) — Sergens Higgsfield-Bild fuer Hero + Chat ----------
 @app.get("/api/avatar")
 def api_avatar():
+    # no-store wie bei /api/bg: sonst haelt der Browser das ALTE Avatarbild im Cache und
+    # nach einem Wechsel/Reload springt es sichtbar zurueck (die Datei auf der Platte ist neu).
     for ext in ("jpg", "jpeg", "png", "webp", "gif"):
         p = ROOT / "data" / f"avatar.{ext}"
         if p.exists():
-            return FileResponse(str(p))
+            return FileResponse(str(p), headers={"Cache-Control": "no-store, max-age=0"})
     return Response(status_code=404)
 
 
