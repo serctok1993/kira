@@ -1208,7 +1208,20 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
   if(o.workingset)act+='<div style="margin-top:6px"><b style="font-size:12px">'+esc(o.title||"")+'</b><div class="muted" style="font-size:11px;white-space:pre-wrap;border-left:2px solid var(--line);padding-left:8px;margin-top:3px">'+esc(o.workingset.slice(-700))+'</div></div>';});
  if(!act)act='<div class="muted">Noch kein Arbeitsstand aufgezeichnet.</div>';
  const files=(d.files||[]).map(f=>'<div class="muted" style="font-size:12px">📎 '+esc(f.name)+' <span style="opacity:.6">('+Math.round(f.bytes/1024)+' KB)</span></div>').join("")||'<div class="muted" style="font-size:12px">(keine Dateien)</div>';
+ /* Auf-einen-Blick: was fuer dieses Projekt schon getan wurde */
+ const allTasks=(d.objectives||[]).reduce((a,o)=>a.concat(o.tasks||[]),[]);
+ const doneTasks=allTasks.filter(t=>t.status==="done");
+ const gstat=(lbl,val)=>'<div class="pg-cell"><div class="muted" style="font-size:10px;letter-spacing:.5px">'+lbl+'</div><b>'+val+'</b></div>';
+ const glance='<div class="proj-glance">'
+   +gstat("Ziele",(d.objectives||[]).length)
+   +gstat("Aufgaben",doneTasks.length+'/'+allTasks.length+' erledigt')
+   +gstat("Kosten",(d.costs||0).toFixed(2)+' €')
+   +gstat("Kasse",(d.balance||0).toFixed(2)+' €')
+   +'</div>';
+ const lastDone=doneTasks.slice(-6).reverse().map(t=>'<div class="muted" style="font-size:12px">&#10003; '+esc((t.description||"").slice(0,120))+(t.score!=null?(' <span style="color:var(--hud)">['+t.score+']</span>'):'')+'</div>').join("");
+ const doneBlock=lastDone?('<div class="muted" style="font-size:11px;letter-spacing:1px;margin:10px 0 4px">ZULETZT ERLEDIGT</div>'+lastDone):'';
  const ueb='<div class="muted" style="margin-bottom:6px">'+esc(v.hypothesis||"(keine Hypothese)")+' · Status: <b>'+esc(v.status||"?")+'</b></div>'
+  +glance+doneBlock
   +'<div class="muted" style="font-size:11px;letter-spacing:1px;margin:8px 0 4px">ANWEISUNGEN AN KIRA (fliessen in jeden Projekt-Task)</div>'
   +'<textarea id="ak-brief" class="k" style="min-height:90px"></textarea>'
   +'<div class="row" style="margin-top:6px"><button class="ghost" id="ak-brief-save">Briefing speichern</button>'

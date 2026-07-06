@@ -427,6 +427,10 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
    spaetere 1fr-Regel bei gleicher Spezifitaet die 3-Spalten in der @media (Quell-Reihenfolge). */
 .proj-cols{display:grid;grid-template-columns:1fr;gap:14px}
 .me-grid{display:grid;grid-template-columns:1fr;gap:14px}
+/* Auf-einen-Blick-Kennzahlen in der Projekt-Uebersicht (Luvex & Co.) */
+.proj-glance{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 2px}
+.proj-glance .pg-cell{flex:1;min-width:96px;border:1px solid var(--line);border-radius:9px;padding:7px 11px;background:var(--panel2)}
+.proj-glance .pg-cell b{font-size:15px}
 @media(min-width:1050px){
  /* Projekte: Standbeine oben, darunter 3 Spalten (Ziele/Backlog/Radar) — alles auf einem Screen */
  #v-projekte.on{overflow:hidden;gap:14px}

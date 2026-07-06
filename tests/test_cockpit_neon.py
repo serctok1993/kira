@@ -234,3 +234,16 @@ def test_radar_fokus_ui():
     # JS spricht die Fokus-Endpoints an
     assert '"/api/radar/focus"' in SCRIPT
     assert '$("#rd-focus-save")' in SCRIPT and '$("#rd-focus-edit")' in SCRIPT
+
+
+# ---- Pro-Projekt-Uebersicht: auf einen Blick, was fuer Luvex getan wurde ----------------
+
+def test_projekt_uebersicht_auf_einen_blick():
+    # Kennzahlen-Kaertchen in der Projekt-Uebersicht + "zuletzt erledigt"
+    assert ".proj-glance{display:flex" in CSS
+    assert 'class="proj-glance"' in SCRIPT
+    assert "ZULETZT ERLEDIGT" in SCRIPT
+    # aus den Tasks der Ziele wird die Erledigt-Quote berechnet
+    assert 'doneTasks=allTasks.filter(t=>t.status==="done")' in SCRIPT
+    for lbl in ('gstat("Ziele"', 'gstat("Aufgaben"', 'gstat("Kosten"', 'gstat("Kasse"'):
+        assert lbl in SCRIPT, f"Kennzahl fehlt: {lbl}"
