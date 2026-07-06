@@ -460,7 +460,7 @@ def _parse_leaked_tool_calls(text: str) -> list[dict]:
     return out
 
 
-def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, emit, max_steps: int = _MAX_STEPS, task_type: str = "reason") -> str:
+def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, emit, max_steps: int = _MAX_STEPS, task_type: str = "reason", reasoning: str | None = None) -> str:
     """Nativer Function-Calling-Loop fuer Cloud-Modelle: strukturierte tool_calls statt
     ACT-Text — robust, kein Leak. Streamt Schritte ueber emit({'kind':'tool'|'obs'|...})."""
     schemas = registry.tool_schemas()
@@ -470,7 +470,8 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
     for step in range(max_steps):
         try:
             res = _complete_resilient(messages, system=system, task_type=task_type,
-                                      session_id=session_id, escalate=escalate, tools=schemas)
+                                      session_id=session_id, escalate=escalate, tools=schemas,
+                                      reasoning=reasoning)
         except Exception as e:  # noqa: BLE001 -> Teilstand liefern statt ganzen Task abreissen
             events.emit("act_degraded", {"step": step, "error": str(e)[:300]}, session_id=session_id)
             return _degrade_text(messages, e)
@@ -521,7 +522,7 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
     try:
         res = _complete_resilient(
             messages + [{"role": "user", "content": "Fasse jetzt final fuer Sergen zusammen — ohne weitere Werkzeuge."}],
-            system=system, task_type=task_type, session_id=session_id, escalate=escalate)
+            system=system, task_type=task_type, session_id=session_id, escalate=escalate, reasoning=reasoning)
     except Exception as e:  # noqa: BLE001
         events.emit("act_degraded", {"step": "final", "error": str(e)[:300]}, session_id=session_id)
         return _degrade_text(messages, e)
@@ -1163,6 +1164,14 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
         escalate = True
         user_message = re.sub(r"^\s*reason:\s*", "", user_message, flags=re.IGNORECASE)
 
+    # S11: Denk-Tiefe — Prefix "denk:aus|niedrig|hoch" gibt dem gewaehlten Modell (sofern
+    # denk-faehig) einen reasoning-Parameter mit. Bei Nicht-Reasoning-Modellen folgenlos.
+    reasoning_level = None
+    _dm = re.match(r"^\s*denk:\s*(aus|niedrig|mittel|hoch)\s*", user_message, flags=re.IGNORECASE)
+    if _dm:
+        reasoning_level = _dm.group(1).lower()
+        user_message = user_message[_dm.end():]
+
     # Assistenz-/Sprich-Modus: Prefix "sprich:" markiert eine Voice-Eingabe aus dem Cockpit.
     # -> Antwort wird knapp/neutral gehalten (wird vorgelesen). Wird hier abgestreift.
     voice_mode = False
@@ -1270,7 +1279,8 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     _vstyle = _VOICE_STYLE if voice_mode else ""
     if _cloud(escalate, _tt):
         system = build_system_prompt(user_message, session_id=session_id) + _NATIVE_TOOLS_HINT + _vstyle
-        text = _native_loop(messages, system, session_id, escalate, emit, max_steps=step_ceiling, task_type=_tt)
+        text = _native_loop(messages, system, session_id, escalate, emit, max_steps=step_ceiling,
+                            task_type=_tt, reasoning=reasoning_level)
         return _finalize(text)
 
     # Lokale Modelle: bewaehrtes Text-Protokoll (ACT <tool> {json}) mit Streaming
@@ -1291,7 +1301,8 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
     for step in range(step_ceiling):
         parts = []
         for piece in llm_router.stream_tagged(
-            messages, system=system, task_type=_tt, session_id=session_id, escalate=escalate
+            messages, system=system, task_type=_tt, session_id=session_id,
+            escalate=escalate, reasoning=reasoning_level
         ):
             if piece["kind"] == "think":
                 emit({"kind": "think", "text": piece["text"]})
@@ -1327,7 +1338,8 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
         messages.append({"role": "user", "content": f"ERGEBNIS von {name}:\n{obs}\n\nMach weiter oder gib die finale Antwort."})
 
     messages.append({"role": "user", "content": "Fasse jetzt final fuer Sergen zusammen — ohne weiteres ACT."})
-    res = llm_router.complete(messages, system=system, task_type=_tt, session_id=session_id, escalate=escalate)
+    res = llm_router.complete(messages, system=system, task_type=_tt, session_id=session_id,
+                              escalate=escalate, reasoning=reasoning_level)
     return _finalize(res["text"].strip())
 
 

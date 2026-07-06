@@ -165,6 +165,31 @@ def _note_fallback(task_type: str, wanted: str | None, used: str) -> None:
             pass
 
 
+_REASON_MARKERS = [str(m).lower() for m in
+                   (CONFIG.get("models", {}).get("reasoning_markers")
+                    or ["glm", "anthropic", "claude", "fable", "qwen3"])]
+_REASON_EFFORT = {"aus": "minimal", "off": "minimal", "niedrig": "low", "low": "low",
+                  "mittel": "medium", "medium": "medium", "hoch": "high", "high": "high"}
+
+
+def is_reasoning_model(model_id: str) -> bool:
+    """Kann dieses Modell 'denken' (extended reasoning)? Marker-basiert, konservativ.
+    Steuert, ob das Cockpit den Denk-Tiefe-Regler zeigt und ob wir den Parameter senden."""
+    m = (model_id or "").lower()
+    return any(mk in m for mk in _REASON_MARKERS)
+
+
+def _reasoning_extra(model_id: str, level: str | None) -> dict:
+    """OpenRouter/litellm-Reasoning-Parameter — NUR fuer denk-faehige Modelle, sonst leer.
+    litellm.drop_params=True verwirft ihn ohnehin still bei Modellen ohne Reasoning."""
+    if not level:
+        return {}
+    eff = _REASON_EFFORT.get(str(level).strip().lower())
+    if not eff or not is_reasoning_model(model_id):
+        return {}
+    return {"reasoning_effort": eff}
+
+
 def resolve_model(task_type: str = "default", escalate: bool = False) -> tuple[str, bool]:
     """Gibt (modell_id, fell_back) zurueck.
 
@@ -234,6 +259,7 @@ def complete(
     session_id: str | None = None,
     escalate: bool = False,
     tools: list | None = None,
+    reasoning: str | None = None,
 ) -> dict:
     """Fuehrt einen Chat-Completion-Call aus und protokolliert ihn.
 
@@ -284,6 +310,7 @@ def complete(
         extra["api_key"] = os.getenv(key_env)
     if tools:
         extra["tools"] = tools
+    extra.update(_reasoning_extra(real, reasoning))   # Denk-Tiefe -> nur bei denk-faehigen Modellen
 
     want_max_tokens = CONFIG["models"].get("max_tokens", 2048)
 
@@ -385,7 +412,7 @@ def complete(
     }
 
 
-def stream(messages, system=None, task_type="chat", session_id=None, escalate=False):
+def stream(messages, system=None, task_type="chat", session_id=None, escalate=False, reasoning=None):
     """Streamt die sichtbare Antwort als Text-Deltas (Generator).
 
     Lokale Modelle werden tokenweise gestreamt, mit Live-<think>-Filter.
@@ -397,7 +424,8 @@ def stream(messages, system=None, task_type="chat", session_id=None, escalate=Fa
 
     if not real.startswith("ollama"):
         # Cloud/eigener Provider -> ueber complete() (sauberes Kosten-Logging), als ein Block
-        res = complete(messages, system=system, task_type=task_type, session_id=session_id, escalate=escalate)
+        res = complete(messages, system=system, task_type=task_type, session_id=session_id,
+                       escalate=escalate, reasoning=reasoning)
         yield res["text"]
         return
 
@@ -461,7 +489,7 @@ def stream(messages, system=None, task_type="chat", session_id=None, escalate=Fa
     )
 
 
-def stream_tagged(messages, system=None, task_type="chat", session_id=None, escalate=False):
+def stream_tagged(messages, system=None, task_type="chat", session_id=None, escalate=False, reasoning=None):
     """Wie stream(), aber getaggt: yields {"kind": "think"|"answer", "text": delta}.
 
     Fuer das Dashboard, das Kiras Denken live sichtbar machen soll. Lokale Modelle
@@ -471,7 +499,8 @@ def stream_tagged(messages, system=None, task_type="chat", session_id=None, esca
     real, _api_base, _key_env = _provider_config(model)
 
     if not real.startswith("ollama"):
-        res = complete(messages, system=system, task_type=task_type, session_id=session_id, escalate=escalate)
+        res = complete(messages, system=system, task_type=task_type, session_id=session_id,
+                       escalate=escalate, reasoning=reasoning)
         yield {"kind": "answer", "text": res["text"]}
         return
 

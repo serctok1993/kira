@@ -154,16 +154,14 @@ def test_chat_politur():
     # die vier Werkzeuge stecken jetzt in einer .toolbox statt lose in der Leiste
     assert '<span class="toolbox">' in VIEWS
     assert "#chat-tools .toolbox{display:inline-flex" in CSS
-    # Reasoning und Vorlesen ohne Emoji davor
-    assert "> 🧠 Reasoning</label>" not in VIEWS
+    # Vorlesen ohne Emoji davor
     assert "> 🔊 Vorlesen</label>" not in VIEWS
-    assert "/> Reasoning</label>" in VIEWS
     assert "/> Vorlesen</label>" in VIEWS
-    # die Box umschließt genau die vier Steuerelemente (reason/tts/mic/img)
+    # die Box umschließt die vier Steuerelemente (Denk-Tiefe/Vorlesen/Memo/Anhang)
     box_start = VIEWS.index('<span class="toolbox">')
     box_end = VIEWS.index("</span>", box_start)
     box = VIEWS[box_start:box_end]
-    for m in ('id="chip-reason"', 'id="chip-tts"', 'id="micbtn"', 'id="imgbtn"'):
+    for m in ('id="chip-denk"', 'id="chip-tts"', 'id="micbtn"', 'id="imgbtn"'):
         assert m in box, f"{m} fehlt in der Werkzeug-Box"
 
 
@@ -295,3 +293,19 @@ def test_zentrale_schwarm_baut_items():
     assert "Schwarm braucht Ziele" in SCRIPT
     # der Toggle erklaert das Format (Placeholder mit {item})
     assert "1. Zeile = Auftrag mit {item}" in SCRIPT
+
+
+# ---- Ehrlicher Live-Reasoning-Regler: Denk-Tiefe nur bei denk-faehigen Modellen ----
+
+def test_denk_tiefe_regler_live():
+    # der alte binaere "Reasoning"-Haken ist weg; stattdessen ein Denk-Tiefe-Select
+    assert 'id="reason-on"' not in VIEWS
+    assert 'id="reason-level"' in VIEWS and 'id="chip-denk"' in VIEWS
+    # per Default versteckt (wird erst sichtbar, wenn das Modell denken kann)
+    chip = VIEWS[VIEWS.index('id="chip-denk"'):VIEWS.index('id="chip-denk"')+240]
+    assert "display:none" in chip
+    # Live-Logik: Marker vom Server, Modell-Check, Show/Hide, denk:-Prefix beim Senden
+    assert "function isReasoningModel(" in SCRIPT and "function syncDenk(" in SCRIPT
+    assert "REASON_MARKERS=s.reasoning_markers" in SCRIPT
+    assert 'syncDenk()' in SCRIPT
+    assert 't="denk:"+rl.value+" "+t' in SCRIPT

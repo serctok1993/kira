@@ -349,7 +349,7 @@ def test_reason_prefix_escalates(monkeypatch, tmp_path):
 def test_chat_tools_moved_below():
     html = TestClient(s.app).get("/").text
     assert 'id="chat-tools"' in html
-    for marker in ('id="chip-mission"', 'id="chip-status"', 'id="reason-on"', "chipInsert"):
+    for marker in ('id="chip-mission"', 'id="chip-status"', 'id="reason-level"', "chipInsert"):
         assert marker in html, f"Chat-Tool-Marker fehlt: {marker}"
     # Stufe 2b: Modell-Select wandert in die Engine-Leiste oben (neben den Modus-Umschalter)
     model_pos = html.find('id="chat-model"')
