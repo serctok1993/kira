@@ -75,8 +75,8 @@ def test_config_aufgeloest():
     for ld in ("models:()=>loadModels()", "steuer:()=>loadSteuer()", "cron:()=>loadCron()",
                "cockpit:()=>loadDesktop()"):
         assert ld in SCRIPT
-    # genau EIN default-aktiver Kira-Subview (v-files) — kein doppeltes 'on'
-    assert VIEWS.count('class="subview on"') == 1
+    # default-aktive Subviews: v-files (Kira) + v-todos (Serc) — kein doppeltes 'on' pro Tab
+    assert VIEWS.count('class="subview on"') == 2
 
 
 # ---- Stufe 2a: Zentrale-Auftragskarte mit Voice + Schwarm -------------------------------
@@ -104,3 +104,19 @@ def test_chat_engine_leiste():
     assert seg < mod
     # Pille faerbt mit dem Modus (--chat-accent)
     assert "select.engine-pill" in CSS and "var(--chat-accent)" in CSS
+
+
+# ---- Stufe 2c: Serc mit Kira-artigen Subtabs -------------------------------------------
+
+def test_serc_subtabs():
+    assert 'id="me-tabs"' in VIEWS
+    for sub in ('id="v-todos"', 'id="v-freigaben"', 'id="v-routinen"', 'id="v-post"', 'id="v-metriken"'):
+        assert sub in VIEWS, f"Serc-Subview fehlt: {sub}"
+    # die Panels sind unter die richtigen Subviews gewandert (IDs unveraendert)
+    for panel in ("id=\"life-board\"", "id=\"inbox-list\"", "id=\"me-crons\"", "id=\"me-mails\"", "id=\"life-metrics\""):
+        assert panel in VIEWS
+    # me ist in der SUBTABS-Registry (gleiche Mechanik wie Kira)
+    assert 'me:      {bar:"#me-tabs"' in SCRIPT
+    assert "freigaben:()=>{loadInbox();loadTodoSecrets();}" in SCRIPT
+    # genau EIN default-aktiver Serc-Subview
+    assert VIEWS.count('class="subview on"') == 2   # v-files (Kira) + v-todos (Serc)
