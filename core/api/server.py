@@ -1699,6 +1699,33 @@ def api_system() -> dict:
         return {}
 
 
+_WALL_FILE = ROOT / "data" / "wall_settings.json"
+_WALL_KEYS = ("labels", "motion", "color", "pos", "size")
+
+
+@app.get("/api/wall/settings")
+def api_wall_settings() -> dict:
+    # Desktop-Wallpaper-Einstellungen SERVERSEITIG -> jede /wall-Instanz (auch die Lively-WebView,
+    # die keinen localStorage mit dem Browser teilt) zieht dieselben Werte.
+    try:
+        return json.loads(_WALL_FILE.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+@app.post("/api/wall/settings")
+async def api_wall_settings_set(body: dict) -> dict:
+    cur: dict = {}
+    try:
+        cur = json.loads(_WALL_FILE.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        cur = {}
+    cur.update({k: body[k] for k in _WALL_KEYS if k in body})
+    _WALL_FILE.parent.mkdir(parents=True, exist_ok=True)
+    _WALL_FILE.write_text(json.dumps(cur), encoding="utf-8")
+    return {"ok": True, "settings": cur}
+
+
 # Das komplette Cockpit-Frontend lebt seit S5.3a in core/api/ui/ (css.py, views.py,
 # script.py) — drei handliche Module statt einer 90-KB-Wand hier. Der Export bleibt
 # identisch: DASHBOARD_HTML ist weiterhin ueber core.api.server importierbar.
