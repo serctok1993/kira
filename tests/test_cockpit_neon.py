@@ -222,3 +222,15 @@ def test_automatisierungspanel():
     assert "$$('.au-preset')" in SCRIPT
     # der tote alte Handler ist raus
     assert '#me-brief-setup' not in SCRIPT
+
+
+# ---- Radar konfigurierbar: Sergen sagt, wonach gesucht wird ----------------------------
+
+def test_radar_fokus_ui():
+    # Fokus-Editor im Radar-Panel + Umbenennung ins "Ideen"-Framing
+    assert "◈ RADAR · IDEEN" in VIEWS
+    for m in ('id="rd-focus-edit"', 'id="rd-focus-box"', 'id="rd-focus"', 'id="rd-focus-save"'):
+        assert m in VIEWS, f"Radar-Fokus-Element fehlt: {m}"
+    # JS spricht die Fokus-Endpoints an
+    assert '"/api/radar/focus"' in SCRIPT
+    assert '$("#rd-focus-save")' in SCRIPT and '$("#rd-focus-edit")' in SCRIPT

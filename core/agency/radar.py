@@ -57,9 +57,48 @@ def init_radar() -> None:
         c.execute("CREATE INDEX IF NOT EXISTS idx_opp_status ON opportunities(status, score DESC)")
 
 
+def _cfg_init() -> None:
+    with _conn() as c:
+        c.execute("CREATE TABLE IF NOT EXISTS radar_config "
+                  "(id INTEGER PRIMARY KEY CHECK(id=1), themes TEXT, updated REAL)")
+
+
+def get_focus() -> list[str]:
+    """Von Sergen/Kira gesetzter Suchfokus (persistent). Leer = noch keiner."""
+    _cfg_init()
+    with _conn() as c:
+        r = c.execute("SELECT themes FROM radar_config WHERE id=1").fetchone()
+    if r and r[0]:
+        try:
+            v = json.loads(r[0])
+            if isinstance(v, list):
+                return [str(x) for x in v if str(x).strip()]
+        except (ValueError, TypeError):
+            pass
+    return []
+
+
+def set_focus(themes) -> list[str]:
+    """Setzt den Suchfokus. Nimmt eine Liste ODER einen Text (';' oder Zeilen trennen)."""
+    _cfg_init()
+    if isinstance(themes, str):
+        parts = [p.strip() for p in re.split(r"[;\n]+", themes) if p.strip()]
+    else:
+        parts = [str(p).strip() for p in (themes or []) if str(p).strip()]
+    parts = parts[:8]
+    with _conn() as c:
+        c.execute("INSERT INTO radar_config (id, themes, updated) VALUES (1,?,?) "
+                  "ON CONFLICT(id) DO UPDATE SET themes=excluded.themes, updated=excluded.updated",
+                  (json.dumps(parts, ensure_ascii=False), time.time()))
+    return parts
+
+
 def _themes() -> list[str]:
-    t = (CONFIG.get("radar") or {}).get("themes")
-    return list(t) if isinstance(t, (list, tuple)) and t else list(_DEFAULT_THEMES)
+    focus = get_focus()                                    # 1. was Sergen/Kira gesagt haben
+    if focus:
+        return focus
+    t = (CONFIG.get("radar") or {}).get("themes")          # 2. config.yaml
+    return list(t) if isinstance(t, (list, tuple)) and t else list(_DEFAULT_THEMES)  # 3. Default
 
 
 def _gather(themes: list[str]) -> str:
