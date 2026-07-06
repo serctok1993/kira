@@ -45,18 +45,30 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
     -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
   @keyframes spin{to{--ang:360deg}}
 
-  /* leicht durchsichtige Info-Leiste, damit die Stats auf jedem Wallpaper lesbar bleiben */
-  .topbar{position:fixed;top:0;left:0;right:0;z-index:3;display:flex;flex-direction:column;align-items:center;gap:9px;
-    padding:22px 0 16px;pointer-events:none;
-    background:linear-gradient(180deg,rgba(10,8,16,.66),rgba(10,8,16,.34) 72%,transparent);
-    -webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
-  .srow{display:flex;justify-content:center;gap:44px;flex-wrap:wrap;padding:0 24px}
-  .stat{display:flex;flex-direction:column;align-items:center;text-align:center;text-shadow:0 1px 4px rgba(0,0,0,.85),0 0 22px rgba(0,0,0,.55)}
-  .stat .n{font-family:var(--mono);font-size:27px;font-variant-numeric:tabular-nums;line-height:1;color:#fff;
-    filter:drop-shadow(0 0 12px color-mix(in srgb,var(--accent) 55%,transparent))}
+  /* dezente Mini-Cockpit-Leiste: leichter Tint im Modus-Farbton, kaum Blur, klar lesbar (kein Zoomen noetig) */
+  .topbar{position:fixed;top:0;left:0;right:0;z-index:3;display:flex;flex-direction:column;align-items:center;gap:11px;
+    padding:11px 0 12px;pointer-events:none;
+    background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 9%,rgba(8,6,12,.40)),rgba(8,6,12,.12) 80%,transparent);
+    -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);
+    border-bottom:1px solid color-mix(in srgb,var(--accent) 20%,transparent)}
+  .srow{display:flex;justify-content:center;gap:38px;flex-wrap:wrap;padding:0 24px}
+  .stat{display:flex;flex-direction:column;align-items:center;text-align:center;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+  .stat .n{font-family:var(--mono);font-size:22px;font-variant-numeric:tabular-nums;line-height:1;color:#fff;
+    filter:drop-shadow(0 0 9px color-mix(in srgb,var(--accent) 45%,transparent))}
   .stat .n.g{color:var(--green)} .stat .n.a{color:var(--amber)}
-  .stat .l{font-size:9.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted);margin-top:4px}
-  .sub{display:flex;gap:22px;flex-wrap:wrap;justify-content:center;font-size:12px;color:var(--muted);text-shadow:0 1px 4px #000}
+  .stat .l{font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-top:5px}
+  .sub{display:flex;gap:20px;flex-wrap:wrap;justify-content:center;font-size:11.5px;color:var(--muted);text-shadow:0 1px 4px #000}
+  /* Einstell-Zahnrad (nur klickbar, wenn /wall im Browser/Fenster offen ist — steuert das Wallpaper live) */
+  .gear{position:fixed;top:10px;right:14px;z-index:12;pointer-events:auto;cursor:pointer;width:30px;height:30px;border:0;border-radius:9px;
+    background:rgba(10,8,16,.5);color:var(--accent);font-size:16px;display:grid;place-items:center;
+    border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);backdrop-filter:blur(4px)}
+  .gear:hover{background:color-mix(in srgb,var(--accent) 18%,transparent)}
+  .wpop{position:fixed;top:46px;right:14px;z-index:12;display:none;min-width:184px;padding:10px;border-radius:12px;
+    background:rgba(12,9,18,.95);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);box-shadow:0 12px 40px rgba(0,0,0,.6);pointer-events:auto}
+  .wpop.on{display:block}
+  .wpop label{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);padding:6px 4px;cursor:pointer}
+  .wpop select{margin-left:auto;background:var(--bg);color:var(--ink);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);border-radius:7px;font-size:12px;padding:3px 6px}
+  .wpop .wt{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);padding:2px 4px 6px}
   .sub b{color:#efeaf6;font-weight:600} .sub .live{color:var(--accent)}
 
   .talk{position:fixed;left:50%;bottom:94px;transform:translateX(-50%);z-index:5;width:min(680px,88vw);display:flex;flex-direction:column;gap:10px;align-items:center}
@@ -94,6 +106,13 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   <canvas id="graph"></canvas>
   <div class="edge"></div>
   <div class="tag"><span class="d"></span> Ambienter Desktop · läuft immer</div>
+  <button class="gear" id="gear" title="Desktop-Einstellungen">⚙</button>
+  <div class="wpop" id="wpop">
+    <div class="wt">Vault-Graph</div>
+    <label><input type="checkbox" id="w-labels"/> Worte (Labels)</label>
+    <label><input type="checkbox" id="w-motion"/> Bewegung</label>
+    <label>Farbe <select id="w-color"><option value="vault">Vault</option><option value="modus">Modus</option><option value="mono">Mono</option></select></label>
+  </div>
 
   <div class="topbar">
     <div class="srow" id="srow"></div>
@@ -140,13 +159,16 @@ async function loadStats(){
   try{g=await (await fetch("/api/vault/graph")).json();}catch(e){}
   try{bd=await (await fetch("/api/mission/board")).json();}catch(e){}
   try{news=await (await fetch("/api/news")).json();}catch(e){}
-  let life={board:[]},mail={count:null};
+  let life={board:[]},mail={count:null},sys={};
   try{life=await (await fetch("/api/life/board")).json();}catch(e){}
   try{mail=await (await fetch("/api/mails/unread")).json();}catch(e){}
+  try{sys=await (await fetch("/api/system")).json();}catch(e){}
   const newsN=(news.items||news.news||[]).length;
   const lifeB=Array.isArray(life.board)?life.board:(life.board&&Array.isArray(life.board.tasks)?life.board.tasks:[]);
   const todosN=lifeB.filter(t=>t&&t.status&&t.status!=="done").length;
   const mailsN=(mail&&mail.count!=null)?mail.count:null;
+  const pc=v=>v==null?"—":v;                       // System-Werte: „—" wenn Quelle fehlt
+  const temp=(sys.gpu_temp!=null)?sys.gpu_temp:sys.cpu_temp;
   const hb=ov.mission&&ov.mission.heartbeat;
   const tasks=Array.isArray(bd.board)?bd.board:(bd.board&&Array.isArray(bd.board.tasks)?bd.board.tasks:[]);
   const open=tasks.filter(t=>t&&t.status&&t.status!=="done").length;
@@ -162,7 +184,10 @@ async function loadStats(){
     +stat(g.counts.links,"Verbindungen")
     +stat(todosN,"To-Dos")
     +stat(mailsN==null?"—":mailsN,"Mails",mailsN?"a":"")
-    +stat(newsN,"News");
+    +stat(newsN,"News")
+    +stat(pc(sys.cpu)+(sys.cpu!=null?"%":""),"CPU")
+    +stat(pc(sys.gpu)+(sys.gpu!=null?"%":""),"GPU")
+    +stat(pc(temp)+(temp!=null?"°":""),"Temp",temp!=null&&temp>=75?"a":"");
   const model=st.resolved_model||st.model||"—";
   const last=(ov.last_mission&&ov.last_mission.summary)?ov.last_mission.summary.slice(0,42):"—";
   $("#sub").innerHTML=
@@ -175,13 +200,20 @@ async function loadStats(){
 function esc(s){return (s==null?"":""+s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
 
 /* ---- Live-Vault-Graph ---- */
-let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
+let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches,settle=0;
+/* Wallpaper-Einstellungen (Zahnrad) — leben im localStorage, das offene Wallpaper hoert per
+   'storage'-Event mit -> aendere sie in einem Browser-Tab, der Desktop uebernimmt live. */
+const MODE_RGB={chat:"176,38,255",work:"57,255,20",coding:"0,229,255"};
+let WALL={labels:true,motion:true,color:"vault"};
+function loadWall(){try{Object.assign(WALL,JSON.parse(localStorage.getItem("kira_wall")||"{}"));}catch(e){}}
+function saveWall(){try{localStorage.setItem("kira_wall",JSON.stringify(WALL));}catch(e){}}
+function nodeColor(n){return WALL.color==="modus"?(MODE_RGB[mode]||"176,38,255"):WALL.color==="mono"?"233,228,244":n.g0;}
 function sz(){W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
 const CX=()=>W/2, CY=()=>H*0.46;
 function layout(g){
-  const by={};
+  const by={};settle=0;
   ns=(g.nodes||[]).slice(0,120).map((n,i)=>{const a=i*2.399,rr=40+Math.random()*Math.min(W,H)*0.22;   // Startspirale um die Mitte
-    const o={id:n.id,c:n.color||"176,38,255",x:CX()+Math.cos(a)*rr,y:CY()+Math.sin(a)*rr,vx:0,vy:0,deg:0};by[n.id]=o;return o;});
+    const o={id:n.id,g0:n.color||"176,38,255",x:CX()+Math.cos(a)*rr,y:CY()+Math.sin(a)*rr,vx:0,vy:0,deg:0};by[n.id]=o;return o;});
   ls=(g.links||[]).map(l=>[by[l.source],by[l.target]]).filter(p=>p[0]&&p[1]);
   ls.forEach(([a,b])=>{a.deg++;b.deg++;});
   ns.forEach(n=>{n.r=2.4+Math.min(7,n.deg*0.9);});   // groesserer Knoten = mehr Verbindungen (wie Obsidian)
@@ -197,18 +229,19 @@ function sim(){   // force-directed: Repulsion + Federn entlang der Links + sanf
     n.x+=Math.max(-3.2,Math.min(3.2,n.vx));n.y+=Math.max(-3.2,Math.min(3.2,n.vy));n.vx*=0.8;n.vy*=0.8;}
 }
 function draw(){ctx.clearRect(0,0,W,H);
-  if(!reduce)sim();
-  for(const [a,b] of ls){const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),al=Math.max(.14,1-d/320);
-    const gr=ctx.createLinearGradient(a.x,a.y,b.x,b.y);gr.addColorStop(0,'rgba('+a.c+','+(al*.55)+')');gr.addColorStop(1,'rgba('+b.c+','+(al*.55)+')');
+  // Bewegung: bis der Graph gesetzt ist (settle) laeuft die Physik immer; danach nur, wenn "Bewegung" an
+  if(!reduce&&(WALL.motion||settle<240)){sim();settle++;}
+  for(const [a,b] of ls){const ca=nodeColor(a),cb=nodeColor(b);const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),al=Math.max(.14,1-d/320);
+    const gr=ctx.createLinearGradient(a.x,a.y,b.x,b.y);gr.addColorStop(0,'rgba('+ca+','+(al*.55)+')');gr.addColorStop(1,'rgba('+cb+','+(al*.55)+')');
     ctx.strokeStyle=gr;ctx.lineWidth=al*1.0+.3;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
-  for(const n of ns){ctx.shadowColor='rgba('+n.c+',.85)';ctx.shadowBlur=9;
-    ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,7);ctx.fillStyle='rgba('+n.c+',.92)';ctx.fill();}
+  for(const n of ns){const c=nodeColor(n);ctx.shadowColor='rgba('+c+',.85)';ctx.shadowBlur=9;
+    ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,7);ctx.fillStyle='rgba('+c+',.92)';ctx.fill();}
   ctx.shadowBlur=0;
-  // Labels wie in Obsidian (dezent, nur an vernetzten Knoten -> kein Gematsche)
-  ctx.font='10px "Segoe UI",system-ui,sans-serif';ctx.textAlign='center';
-  ctx.shadowColor='rgba(0,0,0,.9)';ctx.shadowBlur=3;ctx.fillStyle='rgba(233,228,244,.8)';
-  for(const n of ns){if(n.deg>=2)ctx.fillText(n.id.slice(0,24),n.x,n.y-n.r-4);}
-  ctx.shadowBlur=0;
+  // Worte/Labels wie in Obsidian (nur an vernetzten Knoten) — per Zahnrad an/aus
+  if(WALL.labels){ctx.font='10px "Segoe UI",system-ui,sans-serif';ctx.textAlign='center';
+    ctx.shadowColor='rgba(0,0,0,.9)';ctx.shadowBlur=3;ctx.fillStyle='rgba(233,228,244,.8)';
+    for(const n of ns){if(n.deg>=2)ctx.fillText(n.id.slice(0,24),n.x,n.y-n.r-4);}
+    ctx.shadowBlur=0;}
   if(!reduce)requestAnimationFrame(draw);
 }
 
@@ -267,8 +300,17 @@ $("#model").addEventListener('click',async ()=>{
 });
 document.addEventListener('click',e=>{if(!e.target.closest('#model')&&!e.target.closest('#mpop')){const p=$("#mpop");if(p)p.classList.remove('on');}});
 
+/* ---- Zahnrad: Graph-Einstellungen (Worte/Bewegung/Farbe), live ueber localStorage ---- */
+function syncWallUI(){$("#w-labels").checked=WALL.labels;$("#w-motion").checked=WALL.motion;$("#w-color").value=WALL.color;}
+$("#gear").addEventListener('click',()=>{const p=$("#wpop");p.classList.toggle('on');if(p.classList.contains('on'))syncWallUI();});
+$("#w-labels").addEventListener('change',e=>{WALL.labels=e.target.checked;saveWall();});
+$("#w-motion").addEventListener('change',e=>{WALL.motion=e.target.checked;settle=0;saveWall();});
+$("#w-color").addEventListener('change',e=>{WALL.color=e.target.value;saveWall();});
+window.addEventListener('storage',e=>{if(e.key==="kira_wall"){loadWall();syncWallUI();settle=0;}});   // aus einem Browser-Tab geaendert -> Wallpaper zieht live nach
+document.addEventListener('click',e=>{if(!e.target.closest('#gear')&&!e.target.closest('#wpop')){const p=$("#wpop");if(p)p.classList.remove('on');}});
+
 /* ---- Boot ---- */
-(async function(){cv=$("#graph");ctx=cv.getContext("2d");sz();
+(async function(){loadWall();cv=$("#graph");ctx=cv.getContext("2d");sz();
   const g=await loadStats();layout(g);reduce?draw(0):requestAnimationFrame(draw);
   addEventListener('resize',()=>{sz();layout(g);if(reduce)draw(0);});
   connect();setInterval(loadStats,30000);   // Stats leben (alle 30 s frisch)
