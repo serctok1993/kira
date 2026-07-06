@@ -77,8 +77,22 @@ def test_wall_seite_wird_ausgeliefert():
     # Wall v5: Loop stoppt im Ruhezustand (CPU-Fix), Bewegung default AUS, Groesse+Position regelbar
     assert "function kick(" in body and "motion:false" in body
     assert 'id="w-pos"' in body and 'id="w-size"' in body
+    # Wall v6: Einstellungen serverseitig (Lively-WebView teilt keinen localStorage) + Graph vorab gesetzt
+    assert "/api/wall/settings" in body and "function pollWall(" in body and "loadWallServer(" in body
+    assert "for(let k=0;k<200;k++)sim()" in body                # vorab fertig gerechnet -> kein Zappeln
     # PHRASES wurden injiziert (Platzhalter ist ersetzt)
     assert "/*__PHRASES__*/" not in body
+
+
+def test_api_wall_settings_roundtrip(tmp_path, monkeypatch):
+    import core.api.server as srv
+    monkeypatch.setattr(srv, "_WALL_FILE", tmp_path / "wall.json")
+    c = TestClient(app)
+    assert c.get("/api/wall/settings").json() == {}            # frisch: leer
+    r = c.post("/api/wall/settings", json={"pos": "rechts", "size": "gross", "foo": "x"})
+    assert r.json()["ok"] is True
+    got = c.get("/api/wall/settings").json()
+    assert got["pos"] == "rechts" and got["size"] == "gross" and "foo" not in got   # nur erlaubte Keys
 
 
 def test_api_system_null_safe():
