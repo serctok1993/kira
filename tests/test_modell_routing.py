@@ -22,7 +22,7 @@ def _cap_route(monkeypatch):
     seen: dict = {}
     monkeypatch.setattr(act, "_cloud", lambda e, t="chat": True)
 
-    def fake_native(messages, system, session_id, escalate, emit, max_steps=None, task_type="chat"):
+    def fake_native(messages, system, session_id, escalate, emit, max_steps=None, task_type="chat", reasoning=None):
         seen["tt"] = task_type
         return "ok"
 

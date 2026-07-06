@@ -64,7 +64,7 @@ VIEWS = r"""</head><body>
     </div>
     <div class="hud-strip" id="hud-strip"></div>
     <div class="direktive">
-      <h3>🎯 Befehl an Kira</h3>
+      <h3>Befehl an Kira</h3>
       <textarea id="dir-text" class="k" placeholder="Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…"></textarea>
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
         <button type="button" class="ghost" id="dir-mic" title="Auftrag diktieren (Voice)">🎤</button>
@@ -122,10 +122,10 @@ VIEWS = r"""</head><body>
           <a data-m="chat" class="on">💬 Chat</a><a data-m="coding">🛠 Coding</a>
         </div>
         <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:0 0 8px;flex-wrap:wrap">
-          <button type="button" class="ghost" id="sess-toggle" title="Gespraeche ein-/ausklappen" style="padding:5px 10px">🗂</button>
           <select id="chat-model" class="engine-pill" title="Modell fuer diesen Chat"></select>
-          <span style="flex:1"></span>
           <span class="muted" id="mode-hint" style="font-size:11px">Dialog — kurz &amp; direkt.</span>
+          <span style="flex:1"></span>
+          <button type="button" class="ghost" id="sess-toggle" title="Gespraeche ein-/ausklappen (rechts)" style="padding:5px 10px">🗂</button>
         </div>
         <div id="log"></div>
         <!-- Werkbank (fuer beide Modi gleich): Commands links · Werkzeuge rechts -->
@@ -134,9 +134,19 @@ VIEWS = r"""</head><body>
           <span class="chip" id="chip-mission" title="Kiras Missions-/Ziel-Lage abfragen">/mission</span>
           <span class="chip" id="chip-status" title="Status &amp; Selbst-Check">/status</span>
           <span class="chip" id="chip-plan" title="Erst Plan, dann Schritte">/plan</span>
+          <span style="position:relative;display:inline-block">
+            <span class="chip" id="cmd-help" title="Alle Befehle anzeigen">⌘ Befehle</span>
+            <div id="cmd-pop" class="cmd-pop" style="display:none"></div>
+          </span>
           <span style="flex:1"></span>
           <span class="toolbox">
-            <label class="chip tog" id="chip-reason" title="Reasoning: staerkeres Modell, denkt gruendlicher"><input type="checkbox" id="reason-on"/> Reasoning</label>
+            <label class="chip tog" id="chip-denk" title="Denk-Tiefe — nur bei denk-faehigen Modellen (GLM, Fable). Steuert, wie gruendlich das Modell vor der Antwort denkt (Token-Hebel)." style="display:none;gap:5px">🧠
+              <select id="reason-level" style="background:none;border:none;color:inherit;font-size:11.5px;outline:none;cursor:pointer">
+                <option value="">Denken: Standard</option>
+                <option value="aus">Denken: aus</option>
+                <option value="niedrig">Denken: niedrig</option>
+                <option value="hoch">Denken: hoch</option>
+              </select></label>
             <label class="chip tog" id="chip-tts" title="Kira liest ihre Antworten laut vor (Stimme muss unter Kira → Zugaenge an sein)"><input type="checkbox" id="tts-on"/> Vorlesen</label>
             <button type="button" id="micbtn" class="chip" title="Sprachmemo aufnehmen">🎤</button>
             <label id="imgbtn" class="chip" title="Bild an Kira" style="cursor:pointer">📎<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>

@@ -154,16 +154,14 @@ def test_chat_politur():
     # die vier Werkzeuge stecken jetzt in einer .toolbox statt lose in der Leiste
     assert '<span class="toolbox">' in VIEWS
     assert "#chat-tools .toolbox{display:inline-flex" in CSS
-    # Reasoning und Vorlesen ohne Emoji davor
-    assert "> 🧠 Reasoning</label>" not in VIEWS
+    # Vorlesen ohne Emoji davor
     assert "> 🔊 Vorlesen</label>" not in VIEWS
-    assert "/> Reasoning</label>" in VIEWS
     assert "/> Vorlesen</label>" in VIEWS
-    # die Box umschließt genau die vier Steuerelemente (reason/tts/mic/img)
+    # die Box umschließt die vier Steuerelemente (Denk-Tiefe/Vorlesen/Memo/Anhang)
     box_start = VIEWS.index('<span class="toolbox">')
     box_end = VIEWS.index("</span>", box_start)
     box = VIEWS[box_start:box_end]
-    for m in ('id="chip-reason"', 'id="chip-tts"', 'id="micbtn"', 'id="imgbtn"'):
+    for m in ('id="chip-denk"', 'id="chip-tts"', 'id="micbtn"', 'id="imgbtn"'):
         assert m in box, f"{m} fehlt in der Werkzeug-Box"
 
 
@@ -247,3 +245,67 @@ def test_projekt_uebersicht_auf_einen_blick():
     assert 'doneTasks=allTasks.filter(t=>t.status==="done")' in SCRIPT
     for lbl in ('gstat("Ziele"', 'gstat("Aufgaben"', 'gstat("Kosten"', 'gstat("Kasse"'):
         assert lbl in SCRIPT, f"Kennzahl fehlt: {lbl}"
+
+
+# ---- Chat/Projekte-UX-Runde: 🗂 rechts, Befehls-Palette, Projekt klickt sich zu ----
+
+def test_chatbutton_rechts_und_palette():
+    # der 🗂-Umschalter sitzt jetzt rechts: nach dem Spacer im chatbar
+    bar_start = VIEWS.index('id="chatbar"')
+    bar_end = VIEWS.index("</div>", bar_start)
+    bar = VIEWS[bar_start:bar_end]
+    assert bar.index('flex:1') < bar.index('id="sess-toggle"'), "🗂 steht nicht rechts vom Spacer"
+    # Befehls-Palette: Button + Popover + echte Befehle (mehr als die vier Chips)
+    assert 'id="cmd-help"' in VIEWS and 'id="cmd-pop"' in VIEWS
+    assert ".cmd-pop{position:absolute" in CSS
+    assert "const CMDS=[" in SCRIPT and "function renderCmdPop(" in SCRIPT
+    for cmd in ('"/work ",', '"code: ",', '"reason: ",', '"/model ",', '"/schwarm arbeiter'):
+        assert cmd in SCRIPT, f"Befehl fehlt in der Palette: {cmd}"
+
+
+def test_projekt_klickt_sich_zu():
+    # zweiter Klick auf dasselbe offene Projekt klappt es wieder zu
+    assert "function closeVent(" in SCRIPT
+    assert 'if(_openVent===id&&$("#v-projekte").classList.contains("drill"))closeVent()' in SCRIPT
+    assert "_openVent=id;" in SCRIPT          # beim OEffnen gemerkt
+
+
+# ---- Zentrale: Epicness statt grosser Emojis ----
+
+def test_zentrale_epicness_ohne_grosse_emojis():
+    # der Befehl-Header traegt keinen grossen Emoji mehr, sondern Glow/Typo
+    assert "<h3>🎯 Befehl an Kira</h3>" not in VIEWS
+    assert "<h3>Befehl an Kira</h3>" in VIEWS
+    assert ".direktive h3{margin:0 0 10px;color:var(--hud);text-transform:uppercase" in CSS
+    # muted etwas heller fuer bessere Lesbarkeit (Inhalte verschwinden nicht mehr)
+    assert "--muted:#9b97b0" in CSS
+
+
+# ---- Zentrale-Schwarm-Baukasten: baut ein gueltiges /schwarm mit Items (nicht mehr leer) ----
+
+def test_zentrale_schwarm_baut_items():
+    # der kaputte Newline-Kollaps ('/schwarm rang auftrag' OHNE Items) ist raus
+    assert 'p.replace(/\\s*\\n\\s*/g," ")' not in SCRIPT
+    # neuer Baukasten: 1. Zeile = Vorlage, weitere Zeilen = Items -> "| a | b"
+    assert 'const vorlage=lines[0],items=lines.slice(1)' in SCRIPT
+    assert '"/schwarm "+rang+" "+vorlage+" | "+items.join(" | ")' in SCRIPT
+    # ohne Ziele wird gewarnt statt einen leeren Schwarm abzuschicken
+    assert "Schwarm braucht Ziele" in SCRIPT
+    # der Toggle erklaert das Format (Placeholder mit {item})
+    assert "1. Zeile = Auftrag mit {item}" in SCRIPT
+
+
+# ---- Ehrlicher Live-Reasoning-Regler: Denk-Tiefe nur bei denk-faehigen Modellen ----
+
+def test_denk_tiefe_regler_live():
+    # der alte binaere "Reasoning"-Haken ist weg; stattdessen ein Denk-Tiefe-Select
+    assert 'id="reason-on"' not in VIEWS
+    assert 'id="reason-level"' in VIEWS and 'id="chip-denk"' in VIEWS
+    # per Default versteckt (wird erst sichtbar, wenn das Modell denken kann)
+    chip = VIEWS[VIEWS.index('id="chip-denk"'):VIEWS.index('id="chip-denk"')+240]
+    assert "display:none" in chip
+    # Live-Logik: Marker vom Server, Modell-Check, Show/Hide, denk:-Prefix beim Senden
+    assert "function isReasoningModel(" in SCRIPT and "function syncDenk(" in SCRIPT
+    assert "REASON_MARKERS=s.reasoning_markers" in SCRIPT
+    assert 'syncDenk()' in SCRIPT
+    assert 't="denk:"+rl.value+" "+t' in SCRIPT

@@ -213,6 +213,7 @@ async function loadStats(){try{
 }catch(e){}}
 /* ---- Modell-Umschalter in der Chat-Pane ---- */
 async function loadChatModels(){const s=await (await fetch("/api/status")).json();
+ REASON_MARKERS=s.reasoning_markers||REASON_MARKERS;
  const sel=$("#chat-model"); if(!sel) return;
  const opts=[]; const seen={};
  const add=(id,lbl)=>{ if(id && !seen[id]){ seen[id]=1; opts.push('<option value="'+id+'"'+(id===s.model?' selected':'')+'>'+lbl+'</option>'); } };
@@ -221,10 +222,10 @@ async function loadChatModels(){const s=await (await fetch("/api/status")).json(
    if(low.includes("embed")||low.includes("hf.co")||low.includes("gguf")) return;  // Embedding/roher GGUF-Name raus
    add("ollama_chat/"+n.replace(/:latest$/,""), n.replace(/:latest$/,"")+" (lokal, 0€)");});
  if(s.api_keys&&s.api_keys.openrouter){ add("openrouter/z-ai/glm-5.2","GLM 5.2 (Cloud, stark)"); }
- sel.innerHTML=opts.join("");}
+ sel.innerHTML=opts.join("");syncDenk();}
 $("#chat-model")&&($("#chat-model").onchange=async(e)=>{const id=e.target.value;
  await fetch("/api/model/use",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
- refreshStatus();});
+ syncDenk();refreshStatus();});
 
 /* ---- Monitor ---- */
 async function loadMonitor(){const m=await (await fetch("/api/monitor")).json();
@@ -370,7 +371,10 @@ function bindOpsFilter(){$$("#ops-filter a").forEach(a=>a.onclick=()=>{opsFilter
 function loadCommand(){loadHud();loadOps();loadNews();loadHome();loadDigest();bindNewsSeed();bindOpsFilter();}
 
 /* ---- Projekte (S9.3): eine Uebersicht — Standbeine + Ziele/Backlog + Radar zusammen ---- */
-function loadProjekte(){const pv=$("#v-projekte");if(pv)pv.classList.remove("drill");const vd=$("#vent-detail");if(vd)vd.style.display="none";loadVentures();loadMission();loadRadar();}
+let _openVent=null;
+function closeVent(){const vd=$("#vent-detail");if(vd)vd.style.display="none";
+ const pv=$("#v-projekte");if(pv)pv.classList.remove("drill");_openVent=null;}
+function loadProjekte(){closeVent();loadVentures();loadMission();loadRadar();}
 
 /* ---- Mission-Workspace (Ziele + To-Do-Board) ---- */
 const KIND_LABEL={big:"BIG",monthly:"MONAT",weekly:"WOCHE"};
@@ -640,7 +644,37 @@ $("#chip-ziel")&&($("#chip-ziel").onclick=()=>chipInsert("@ziel:",false));
 $("#chip-mission")&&($("#chip-mission").onclick=()=>chipInsert("/mission",true));
 $("#chip-status")&&($("#chip-status").onclick=()=>chipInsert("/status",true));
 $("#chip-plan")&&($("#chip-plan").onclick=()=>chipInsert("/plan",true));
-$("#reason-on")&&($("#reason-on").onchange=()=>{const l=$("#chip-reason");if(l)l.classList.toggle("on",$("#reason-on").checked);});
+/* Befehls-Palette: ALLE echten Befehle (mehr als die vier Chips). Klick fuellt das Eingabefeld. */
+const CMDS=[
+ ["grp","Modi"],
+ ["/plan ","Erst planen, dann Schritt fuer Schritt",false],
+ ["/work ","Laengerer Auftrag, volles Werkzeug-Budget",false],
+ ["code: ","Coding-Modus — an Kira selbst schrauben",false],
+ ["reason: ","Staerkeres Modell, denkt gruendlicher",false],
+ ["grp","Abfragen"],
+ ["/status","Heartbeat, Budget & Modell auf einen Blick",true],
+ ["/mission","Missions- & Ziel-Lage abfragen",true],
+ ["grp","Steuerung"],
+ ["/model ","Modell anzeigen oder wechseln",false],
+ ["@ziel:","Arbeit einem Ziel zuordnen",false],
+ ["/schwarm arbeiter Vorlage | A | B","Schwarm-Auftrag an die Armee",false],
+ ["/delegiere ","An einen einzelnen Sub-Agenten delegieren",false],
+];
+function renderCmdPop(){const el=$("#cmd-pop");if(!el)return;
+ el.innerHTML=CMDS.map(c=>c[0]==="grp"?('<div class="cmd-grp">'+esc(c[1])+'</div>')
+  :('<div class="cmd-row" data-cmd="'+esc(c[0])+'" data-send="'+(c[2]?1:0)+'"><span class="cmd-k">'+esc(c[0])+'</span><span class="cmd-d">'+esc(c[1])+'</span></div>')).join("");
+ $$('#cmd-pop .cmd-row').forEach(r=>r.onclick=()=>{chipInsert(r.dataset.cmd,r.dataset.send==="1");$("#cmd-pop").style.display="none";});}
+$("#cmd-help")&&($("#cmd-help").onclick=e=>{e.stopPropagation();const el=$("#cmd-pop");if(!el)return;
+ const show=el.style.display==="none";if(show)renderCmdPop();el.style.display=show?"block":"none";});
+document.addEventListener("click",e=>{const p=$("#cmd-pop");
+ if(p&&p.style.display!=="none"&&!e.target.closest("#cmd-pop")&&e.target.id!=="cmd-help")p.style.display="none";});
+/* S11: Denk-Tiefe-Regler ist LIVE — nur sichtbar, wenn das aktuelle Modell wirklich denken kann. */
+let REASON_MARKERS=[];
+function isReasoningModel(id){id=(id||"").toLowerCase();return REASON_MARKERS.some(m=>id.includes(m));}
+function syncDenk(){const chip=$("#chip-denk");if(!chip)return;
+ const sel=$("#chat-model");const id=sel?sel.value:"";
+ chip.style.display=isReasoningModel(id)?"inline-flex":"none";}
+$("#reason-level")&&($("#reason-level").onchange=()=>{const c=$("#chip-denk");if(c)c.classList.toggle("on",!!$("#reason-level").value);});
 function sendText(raw,opts){raw=(raw||"").trim();if(!raw||!ws||ws.readyState!==1)return false;
  opts=opts||{};
  msgEl((opts.voice?"🎙️ ":"")+raw,"me");startThinking();
@@ -649,7 +683,9 @@ function sendText(raw,opts){raw=(raw||"").trim();if(!raw||!ws||ws.readyState!==1
  else{
   /* Slash-Befehle (/model, /status, ...) NIE mit Modus-Praefix verschlucken */
   if(chatMode==="coding"&&!/^(\/|work:|plan:|code:)/i.test(raw))t="code: "+raw;  /* code: = plan + Coding-Regeln */
-  if($("#reason-on")&&$("#reason-on").checked&&!/^reason:/i.test(t))t="reason: "+t;  /* S9.2: staerkeres Modell */
+  /* Denk-Tiefe nur, wenn der Regler sichtbar (= Modell denk-faehig) und gesetzt ist */
+  const rl=$("#reason-level");const chip=$("#chip-denk");
+  if(rl&&rl.value&&chip&&chip.style.display!=="none"&&!/^denk:/i.test(t))t="denk:"+rl.value+" "+t;
  }
  ws.send(t);curBot=null;curThink=null;traceC=null;curThinkLine=null;return true;}
 $("#cform").onsubmit=e=>{e.preventDefault();if(sendText($("#cin").value))$("#cin").value="";};
@@ -1075,12 +1111,20 @@ simpleRecord("#dir-mic","#dir-text");
 /* Schwarm-Umschalter: blendet den Rang ein, ändert den Knopf */
 $("#dir-schwarm")&&($("#dir-schwarm").onchange=()=>{const on=$("#dir-schwarm").checked;
  const rg=$("#dir-rang");if(rg)rg.style.display=on?"":"none";
- const b=$("#dir-now");if(b)b.textContent=on?"🐝 An den Schwarm":"⚡ Sofort ausfuehren";});
+ const b=$("#dir-now");if(b)b.textContent=on?"🐝 An den Schwarm":"⚡ Sofort ausfuehren";
+ const t=$("#dir-text");if(t)t.placeholder=on
+   ?"1. Zeile = Auftrag mit {item}  (z.B. „Finde 5 Telefonnummern fuer {item} in Koblenz“)\ndann je eine Zeile pro Ziel:\nFriseure\nHotels"
+   :"Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…";
+ $("#dir-hint").textContent=on?"🐝 Jede Zeile unter dem Auftrag wird ein eigener Agent (bis schwarm_max, sonst in Wellen).":"";});
 $("#dir-now")&&($("#dir-now").onclick=async()=>{const p=$("#dir-text").value.trim();if(!p)return;
  if($("#dir-schwarm")&&$("#dir-schwarm").checked){                       /* Schwarm-Auftrag -> im Chat vorbereiten (Finger am Abzug bleibt bei dir) */
   const rang=($("#dir-rang")&&$("#dir-rang").value)||"arbeiter";
-  const cin=$("#cin");if(cin)cin.value="/schwarm "+rang+" "+p.replace(/\s*\n\s*/g," ");
-  nav("chat");if(cin)cin.focus();$("#dir-hint").textContent="🐝 Im Chat vorbereitet — druecke Senden.";return;}
+  /* 1. Zeile = Vorlage (mit {item}), weitere Zeilen = Ziele -> korrektes "/schwarm rang vorlage | a | b" */
+  const lines=p.split("\n").map(s=>s.trim()).filter(Boolean);
+  if(lines.length<2){$("#dir-hint").textContent="🐝 Schwarm braucht Ziele: 1. Zeile der Auftrag (mit {item}), dann je eine Zeile pro Ziel (z.B. Friseure / Hotels).";return;}
+  const vorlage=lines[0],items=lines.slice(1);
+  const cin=$("#cin");if(cin)cin.value="/schwarm "+rang+" "+vorlage+" | "+items.join(" | ");
+  nav("chat");if(cin)cin.focus();$("#dir-hint").textContent="🐝 "+items.length+" Auftraege im Chat vorbereitet — druecke Senden.";return;}
  $("#dir-hint").textContent="… Kira arbeitet daran (kann ~1 min dauern) …";
  const r=await (await fetch("/api/direktive/now",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:p})})).json();
  $("#dir-hint").textContent="✓ erledigt";const rr=$("#dir-result");rr.style.display="block";rr.textContent=(r.result||"(keine Antwort)");});
@@ -1193,7 +1237,10 @@ async function loadVentures(){const el=$("#vent-list");if(!el)return;try{
   const ms=(v.milestone_progress!=null)?('<div style="height:4px;background:var(--line);border-radius:2px;margin-top:5px"><div style="height:4px;border-radius:2px;background:var(--hud);width:'+v.milestone_progress+'%"></div></div>'):'';
   return '<div class="memrow" data-vent="'+v.id+'" style="cursor:pointer"><div class="mh"><span class="badge kind">'+v.status+'</span><b>'+(v.name||"").replace(/</g,"&lt;")+'</b><span style="flex:1"></span><span class="muted">+'+v.income_eur.toFixed(2)+' / -'+v.expenses_eur.toFixed(2)+' = <b>'+v.balance_eur.toFixed(2)+' &euro;</b></span></div>'+ms+'</div>';}).join("")
   :'<div class="emptybox">Noch keine Projekte<br>Kira, leg ein Projekt an: &hellip;</div>';
- $$('#vent-list [data-vent]').forEach(r=>r.onclick=()=>loadVentureTrace(r.dataset.vent));
+ $$('#vent-list [data-vent]').forEach(r=>r.onclick=()=>{const id=r.dataset.vent;
+  /* nochmal auf dasselbe offene Projekt -> wieder zuklappen (zurueck zu Ziele/Backlog/Radar) */
+  if(_openVent===id&&$("#v-projekte").classList.contains("drill"))closeVent();
+  else loadVentureTrace(id);});
 }catch(e){}}
 /* S8.2: Projekt-AKTE — Unterreiter Uebersicht/Ziele/Aktivitaet/Finanzen je Projekt */
 async function loadVentureTrace(id){const el=$("#vent-detail");try{
@@ -1245,6 +1292,7 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
   +'<div class="at" id="at-rout" style="display:none">'+rout+'</div>';
  el.style.display="block";
  const pv=$("#v-projekte");if(pv)pv.classList.add("drill");   /* Akte in den Vordergrund, 3 Spalten weichen */
+ _openVent=id;
  $("#ak-brief").value=d.briefing||"";
  $$("#akte-tabs a").forEach(a=>a.onclick=()=>{$$("#akte-tabs a").forEach(x=>x.classList.toggle("on",x===a));
   el.querySelectorAll(".at").forEach(x=>x.style.display="none");$("#at-"+a.dataset.at).style.display="block";});
@@ -1257,7 +1305,7 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
   const fd=new FormData();fd.append("id",v.id);fd.append("file",f);
   const r=await (await fetch("/api/ventures/upload",{method:"POST",body:fd})).json();
   $("#ak-hint").textContent=r.ok?"✓ "+f.name:"Fehler: "+(r.error||"?");if(r.ok)loadVentureTrace(v.id);};
- const cl=$("#vent-close");if(cl)cl.onclick=()=>{el.style.display="none";const pv2=$("#v-projekte");if(pv2)pv2.classList.remove("drill");};
+ const cl=$("#vent-close");if(cl)cl.onclick=()=>closeVent();
 }catch(e){}}
 
 /* ---- To-Do (S6.6a): Zugangs-Anfragen — was Kira an Keys/Zugaengen braucht ---- */
