@@ -66,6 +66,10 @@ def test_wall_seite_wird_ausgeliefert():
     assert 'id="mpop"' in body and "/api/model/role" in body and "/api/model/catalog" in body
     assert 'm.kind==="think"' in body and "reasonBuf" in body   # Reasoning wird angezeigt
     assert "/api/news" in body                                   # zusaetzliche Stat
+    # Wall v3: leicht durchsichtige Info-Leiste, force-directed Graph mit Labels, To-Dos + Mails
+    assert "backdrop-filter:blur(5px)" in body and 'function sim(' in body
+    assert "/api/life/board" in body and "/api/mails/unread" in body
+    assert '"To-Dos"' in body and '"Mails"' in body
     # PHRASES wurden injiziert (Platzhalter ist ersetzt)
     assert "/*__PHRASES__*/" not in body
 

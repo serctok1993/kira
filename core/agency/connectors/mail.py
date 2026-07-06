@@ -121,6 +121,34 @@ def _parse_message(raw: bytes, snippet_chars: int = 400) -> dict:
     }
 
 
+_UNREAD_CACHE: dict = {"ts": 0.0, "count": None}
+
+
+def unread_count(max_age: float = 120.0) -> int | None:
+    """Anzahl UNGELESENER Mails (IMAP UNSEEN), gecacht (Standard 2 min). None = Postfach
+    nicht eingerichtet oder Fehler -> das Wallpaper zeigt dann schlicht „—"."""
+    import time as _t
+    if _t.time() - _UNREAD_CACHE["ts"] < max_age:
+        return _UNREAD_CACHE["count"]
+    cnt: int | None = None
+    try:
+        if enabled():
+            cfg = _cfg()
+            host = cfg.get("imap_host") or ""
+            user, pw = os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
+            if host and user and pw:
+                with imaplib.IMAP4_SSL(host, int(cfg.get("imap_port") or 993)) as m:
+                    m.login(user, pw)
+                    m.select("INBOX", readonly=True)
+                    _, data = m.search(None, "UNSEEN")
+                    cnt = len((data[0] or b"").split())
+    except Exception:  # noqa: BLE001 — nie raisen, nur „—" zeigen
+        cnt = None
+    _UNREAD_CACHE["ts"] = _t.time()
+    _UNREAD_CACHE["count"] = cnt
+    return cnt
+
+
 def check(limit: int = 10) -> list[dict] | str:
     """Die juengsten Mails aus dem Posteingang (IMAP). Fehler -> Hinweis-String."""
     if not enabled():
