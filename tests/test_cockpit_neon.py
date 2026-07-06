@@ -480,3 +480,26 @@ def test_kira_wordmark_cyberpunk():
     # Untertitel 'kira · cockpit' ist weg — Element UND JS-Schreiber
     assert 'id="who"' not in VIEWS and 'class="sub"' not in VIEWS
     assert "#who" not in SCRIPT
+
+
+# ---- Dashboard-Entschlackung (Zentrale): PR 1 aus dem IA-Audit ----
+
+def test_dashboard_entschlackt():
+    # Befehl-an-Kira nicht mehr vollbreit (1120 -> 560)
+    assert ".direktive{max-width:560px" in CSS and "max-width:1120px" not in CSS
+    # HUD-Streifen: eine nicht-umbrechende Reihe (scrollt horizontal statt in 3 Reihen zu brechen)
+    assert ".hud-strip{display:flex;flex-wrap:nowrap" in CSS
+    # Scroll-Falle weg: der innere News-Scroll ist entfernt
+    assert "#news-list{max-height:30vh" not in CSS
+    # Hero flacher (Avatar 50 statt 74)
+    assert "#hero-av{width:50px;height:50px" in CSS
+    # Live-Ops: 'info'-Filter neu + Zaehler-Badges
+    assert 'data-of="info"' in VIEWS and 'class="ofc"' in VIEWS
+    assert "#ops-filter a[data-of=error] .ofc" in CSS
+    # Filter rendert clientseitig aus Cache (kein Refetch pro Klick)
+    assert "let _opsCache=" in SCRIPT and "function renderOps(" in SCRIPT
+    assert 'x===a));renderOps();' in SCRIPT and 'x===a));loadOps();' not in SCRIPT
+    # Schnellzugriff steht VOR den Lektionen (war unter der Falz versteckt)
+    assert SCRIPT.index('"Schnellzugriff"') < SCRIPT.index('"Letzte Lektionen"')
+    # News auf 4 gekappt mit 'mehr'-Aufklapp (nichts wird unerreichbar)
+    assert "news-moretog" in SCRIPT and "rec.slice(0,4)" in SCRIPT

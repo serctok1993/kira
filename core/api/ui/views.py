@@ -99,7 +99,7 @@ VIEWS = r"""</head><body>
       <div class="cmd-main">
         <div class="panel">
           <div class="panel-h">◈ Live-Ops <span class="live"></span><span class="sp"></span>
-            <span class="seg" id="ops-filter"><a data-of="all" class="on">alle</a><a data-of="action">aktionen</a><a data-of="chat">chat</a><a data-of="error">fehler</a></span>
+            <span class="seg" id="ops-filter"><a data-of="all" class="on">alle <b class="ofc"></b></a><a data-of="action">aktionen <b class="ofc"></b></a><a data-of="info">info <b class="ofc"></b></a><a data-of="chat">chat <b class="ofc"></b></a><a data-of="error">fehler <b class="ofc"></b></a></span>
           </div>
           <div id="ops-feed"><span class="muted" style="padding:10px 13px;display:block">…</span></div>
         </div>
