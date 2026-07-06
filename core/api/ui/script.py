@@ -597,7 +597,7 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
   if(m.kind==="obs"){traceObs(m.name,m.text);return;}
   if(m.kind==="final"||m.kind==="answer"){stopThinking();msgEl(m.text||"","bot");onKiraReply(m.text||"");}};
  ws.onclose=()=>{wsDot(false);setStreaming(false);if(!wsIntentional){wsDelay=Math.min(wsDelay*2,30000);setTimeout(connect,wsDelay);}};}
-function reconnect(){wsIntentional=true;if(ws){try{ws.close();}catch(e){}}connect();}
+function reconnect(){wsIntentional=true;if(ws){try{ws.onclose=null;ws.close();}catch(e){}}connect();}  /* alten onclose stummschalten -> kein Doppel-Socket/doppeltes "Verbunden" */
 function relTime(ts){const s=Date.now()/1000-ts;if(s<90)return "gerade";if(s<3600)return Math.round(s/60)+" Min";if(s<86400)return Math.round(s/3600)+" Std";return Math.round(s/86400)+" Tg";}
 /* ==== S7c: Chat 2.0 — Tages-Sessions, aufklappbares Panel, Archiv, Modus-Schalter ==== */
 function dailySid(){const d=new Date();const p=n=>(""+n).padStart(2,"0");
@@ -645,9 +645,10 @@ $("#sess-archtoggle")&&($("#sess-archtoggle").onclick=()=>{showArchived=!showArc
  $("#sess-archtoggle").textContent=showArchived?"Archiv ausblenden":"Archiv anzeigen";loadChatSessions();});
 /* Modus-Schalter: Chat = Dialog · Research = /work (Werkzeug-Budget) · Coding = code: (Plan->Schritte + Coding-Regeln) */
 let chatMode="chat";
-const MODE_HINT={chat:"Dialog — kurz & direkt.",
- work:"Laengerer Auftrag mit vollem Werkzeug-Budget (GLM 5.2) — Recherche & mehrschrittige Aufgaben.",
- coding:"Claude-Code-Stil (GLM): lesen → chirurgisch editieren → Tests + Diff-Review. Reasoning hoch = Richter (Fable)."};
+const MODE_HINT={
+ chat:"Chat — schneller Dialog (guenstiges Modell). Fragen, Ideen, Kurzes.",
+ work:"Work — echter Auftrag mit vollem Werkzeug-Budget auf GLM 5.2: Recherche, mehrere Schritte, Web/Dateien.",
+ coding:"Coding — an Kira selbst schrauben (GLM 5.2): lesen → chirurgisch editieren → Tests + Diff-Review."};
 function applyChatMode(){const m=$("#chat-main");if(m)m.setAttribute("data-mode",chatMode);
  const h=$("#mode-hint");if(h)h.textContent=MODE_HINT[chatMode]||"";}
 $$("#chat-mode-seg a").forEach(a=>a.onclick=()=>{chatMode=a.dataset.m;
