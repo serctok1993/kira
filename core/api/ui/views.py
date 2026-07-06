@@ -140,7 +140,13 @@ VIEWS = r"""</head><body>
           </span>
           <span style="flex:1"></span>
           <span class="toolbox">
-            <label class="chip tog" id="chip-reason" title="Reasoning: staerkeres Modell, denkt gruendlicher"><input type="checkbox" id="reason-on"/> Reasoning</label>
+            <label class="chip tog" id="chip-denk" title="Denk-Tiefe — nur bei denk-faehigen Modellen (GLM, Fable). Steuert, wie gruendlich das Modell vor der Antwort denkt (Token-Hebel)." style="display:none;gap:5px">🧠
+              <select id="reason-level" style="background:none;border:none;color:inherit;font-size:11.5px;outline:none;cursor:pointer">
+                <option value="">Denken: Standard</option>
+                <option value="aus">Denken: aus</option>
+                <option value="niedrig">Denken: niedrig</option>
+                <option value="hoch">Denken: hoch</option>
+              </select></label>
             <label class="chip tog" id="chip-tts" title="Kira liest ihre Antworten laut vor (Stimme muss unter Kira → Zugaenge an sein)"><input type="checkbox" id="tts-on"/> Vorlesen</label>
             <button type="button" id="micbtn" class="chip" title="Sprachmemo aufnehmen">🎤</button>
             <label id="imgbtn" class="chip" title="Bild an Kira" style="cursor:pointer">📎<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>

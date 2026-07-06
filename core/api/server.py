@@ -83,6 +83,7 @@ def api_status() -> dict:
         "providers": m["providers"],
         "ollama_local": m["ollama_local"],
         "escalation_model": m["escalation_model"],
+        "reasoning_markers": llm_router._REASON_MARKERS,   # welche Modelle 'denken' koennen (fuer den Live-Regler)
         "num_ctx": m.get("num_ctx"),
         "max_tokens": m.get("max_tokens"),
         "temperature": CONFIG["models"].get("temperature"),

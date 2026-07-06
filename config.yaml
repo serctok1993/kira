@@ -33,6 +33,9 @@ models:
   # Die strong_markers unten erkennen Fable automatisch -> grosse Arbeitsflaeche ohne Extra-Schalter.
   vision_model: openrouter/z-ai/glm-4.6v         # fuer Bild-Erkennung im Chat (/api/vision)
   embeddings: ollama/nomic-embed-text       # 0 EUR Gedaechtnis (optional)
+  # Denk-faehige Modelle (extended reasoning). Nur bei diesen zeigt das Cockpit den
+  # Denk-Tiefe-Regler UND schickt den reasoning-Parameter mit; sonst wird nichts angezeigt.
+  reasoning_markers: ["glm", "anthropic", "claude", "fable", "qwen3"]
   temperature: 0.7
   request_timeout: 120                      # hartes Timeout pro LLM-Call (Sek.) -> kein Einfrieren
   max_tokens: 8192                          # Ausgabe-Grenze pro Antwort (inkl. think-Phase)

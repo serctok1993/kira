@@ -213,6 +213,7 @@ async function loadStats(){try{
 }catch(e){}}
 /* ---- Modell-Umschalter in der Chat-Pane ---- */
 async function loadChatModels(){const s=await (await fetch("/api/status")).json();
+ REASON_MARKERS=s.reasoning_markers||REASON_MARKERS;
  const sel=$("#chat-model"); if(!sel) return;
  const opts=[]; const seen={};
  const add=(id,lbl)=>{ if(id && !seen[id]){ seen[id]=1; opts.push('<option value="'+id+'"'+(id===s.model?' selected':'')+'>'+lbl+'</option>'); } };
@@ -221,10 +222,10 @@ async function loadChatModels(){const s=await (await fetch("/api/status")).json(
    if(low.includes("embed")||low.includes("hf.co")||low.includes("gguf")) return;  // Embedding/roher GGUF-Name raus
    add("ollama_chat/"+n.replace(/:latest$/,""), n.replace(/:latest$/,"")+" (lokal, 0€)");});
  if(s.api_keys&&s.api_keys.openrouter){ add("openrouter/z-ai/glm-5.2","GLM 5.2 (Cloud, stark)"); }
- sel.innerHTML=opts.join("");}
+ sel.innerHTML=opts.join("");syncDenk();}
 $("#chat-model")&&($("#chat-model").onchange=async(e)=>{const id=e.target.value;
  await fetch("/api/model/use",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
- refreshStatus();});
+ syncDenk();refreshStatus();});
 
 /* ---- Monitor ---- */
 async function loadMonitor(){const m=await (await fetch("/api/monitor")).json();
@@ -667,7 +668,13 @@ $("#cmd-help")&&($("#cmd-help").onclick=e=>{e.stopPropagation();const el=$("#cmd
  const show=el.style.display==="none";if(show)renderCmdPop();el.style.display=show?"block":"none";});
 document.addEventListener("click",e=>{const p=$("#cmd-pop");
  if(p&&p.style.display!=="none"&&!e.target.closest("#cmd-pop")&&e.target.id!=="cmd-help")p.style.display="none";});
-$("#reason-on")&&($("#reason-on").onchange=()=>{const l=$("#chip-reason");if(l)l.classList.toggle("on",$("#reason-on").checked);});
+/* S11: Denk-Tiefe-Regler ist LIVE — nur sichtbar, wenn das aktuelle Modell wirklich denken kann. */
+let REASON_MARKERS=[];
+function isReasoningModel(id){id=(id||"").toLowerCase();return REASON_MARKERS.some(m=>id.includes(m));}
+function syncDenk(){const chip=$("#chip-denk");if(!chip)return;
+ const sel=$("#chat-model");const id=sel?sel.value:"";
+ chip.style.display=isReasoningModel(id)?"inline-flex":"none";}
+$("#reason-level")&&($("#reason-level").onchange=()=>{const c=$("#chip-denk");if(c)c.classList.toggle("on",!!$("#reason-level").value);});
 function sendText(raw,opts){raw=(raw||"").trim();if(!raw||!ws||ws.readyState!==1)return false;
  opts=opts||{};
  msgEl((opts.voice?"🎙️ ":"")+raw,"me");startThinking();
@@ -676,7 +683,9 @@ function sendText(raw,opts){raw=(raw||"").trim();if(!raw||!ws||ws.readyState!==1
  else{
   /* Slash-Befehle (/model, /status, ...) NIE mit Modus-Praefix verschlucken */
   if(chatMode==="coding"&&!/^(\/|work:|plan:|code:)/i.test(raw))t="code: "+raw;  /* code: = plan + Coding-Regeln */
-  if($("#reason-on")&&$("#reason-on").checked&&!/^reason:/i.test(t))t="reason: "+t;  /* S9.2: staerkeres Modell */
+  /* Denk-Tiefe nur, wenn der Regler sichtbar (= Modell denk-faehig) und gesetzt ist */
+  const rl=$("#reason-level");const chip=$("#chip-denk");
+  if(rl&&rl.value&&chip&&chip.style.display!=="none"&&!/^denk:/i.test(t))t="denk:"+rl.value+" "+t;
  }
  ws.send(t);curBot=null;curThink=null;traceC=null;curThinkLine=null;return true;}
 $("#cform").onsubmit=e=>{e.preventDefault();if(sendText($("#cin").value))$("#cin").value="";};
