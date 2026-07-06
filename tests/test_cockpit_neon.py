@@ -121,23 +121,23 @@ def test_serc_subtabs():
 # ---- Chat/Coding-Werkbank: breiter Umschalter oben, Werkzeuge gebündelt, Modus-Farbe fix ----
 
 def test_chat_werkbank():
-    # Modus-Umschalter sitzt jetzt OBEN: mittig ueber dem Chat-Log, vor der unteren Werkzeugleiste
+    # Modus-Umschalter sitzt UNTEN-LINKS in der Werkzeugleiste (ueber dem "+"), vor dem Eingabeformular
     seg = VIEWS.index('id="chat-mode-seg"')
     log = VIEWS.index('id="log"')
     tools = VIEWS.index('id="chat-tools"')
     form = VIEWS.index('id="cform"')
-    assert seg < log < tools < form
+    assert log < tools < seg < form
     # Mikro bleibt in der Werkbank; das Upload-"+" sitzt jetzt direkt am Eingabefeld
     mic = VIEWS.index('id="micbtn"')
     assert tools < mic < form                       # micbtn liegt im chat-tools-Block
     cform_block = VIEWS[form:VIEWS.index("</form>", form)]
     assert 'id="micbtn"' not in cform_block          # Mikro NICHT im Eingabeformular
     assert 'id="plusbtn"' in cform_block             # aber das "+" (Upload) schon
-    # Modus-Farbe fix: Chat=Violett, Coding=Grün, unabhängig vom Theme
-    assert "--accent-chat:#b026ff" in CSS and "--coding-accent:#39ff14" in CSS
+    # Modus-Farbe fix: Chat=Lila, Work=Grün, Coding=Rainbow(Cyan-Chrome), unabhängig vom Theme
+    assert "--accent-chat:#b026ff" in CSS and "--work-accent:#39ff14" in CSS
     assert "#chat-main{--chat-accent:var(--accent-chat)}" in CSS
     assert '#chat-main[data-mode="coding"]{--chat-accent:var(--coding-accent)}' in CSS
-    # Segmented-Slider: gleitende .pill, aktiver Teil folgt --i, oben mittig ueber dem Chat
+    # Segmented-Slider: gleitende .pill, aktiver Teil folgt --i, unten links in der Werkzeugleiste
     assert "#chat-mode-seg{--i:0;position:relative" in CSS
     assert "#chat-mode-seg .pill{position:absolute" in CSS
     assert 'seg.style.setProperty("--i"' in SCRIPT   # Slider gleitet per JS
@@ -156,14 +156,13 @@ def test_chat_politur():
     # Vorlesen ohne Emoji davor
     assert "> 🔊 Vorlesen</label>" not in VIEWS
     assert "/> Vorlesen</label>" in VIEWS
-    # Vorlesen + Memo liegen in der unteren Werkzeug-Box (vor dem Modell-Speicher)
+    # Commands, Reasoning, Vorlesen & Sprechen liegen alle in der unteren Werkzeug-Box (vor dem Modell-Speicher)
     box_start = VIEWS.index('<span class="toolbox">')
     tools_end = VIEWS.index('id="chat-model"')
-    for m in ('id="chip-tts"', 'id="micbtn"'):
+    for m in ('id="cmd-help"', 'id="chip-denk"', 'id="chip-tts"', 'id="micbtn"'):
         assert box_start < VIEWS.index(m) < tools_end, f"{m} fehlt in der Werkzeug-Box"
-    # Reasoning ist nach OBEN in die Modus-Leiste gewandert (rechts neben dem Slider)
-    assert 'class="mb-tools"' in VIEWS
-    assert VIEWS.index('id="chip-denk"') < VIEWS.index('id="log"')
+    # Mikro heisst jetzt "Sprechen" (kein Emoji mehr)
+    assert ">Sprechen</button>" in VIEWS
 
 
 # ---- Projekte-Tab entzerrt: Akte als eigener Kasten, Radar scrollt, kein "Venture" mehr ----
@@ -552,22 +551,34 @@ def test_thinking_klappe_und_typewriter():
 def test_denk_status_neon_rainbow():
     # Der Denk-Status ("kocht…/denkt…") fliesst im Neon-Rainbow — dort wo Textfarbe geht (Web)
     assert "@keyframes rainflow{" in CSS
-    assert ".thinking .tx{background:linear-gradient(90deg,#b026ff,#ff2d95" in CSS
+    assert ".tx.live{background:linear-gradient(90deg,#b026ff,#ff2d95" in CSS
     assert "animation:rainflow" in CSS
+    # der Live-Status ist auch die Ueberschrift des Denk-Traces (rotierende Phrase, EIN Timer)
+    assert "function refreshPhrase(" in SCRIPT and '.tx.live' in SCRIPT
+    assert '<span class="tx live">' in SCRIPT          # Trace-Ueberschrift traegt den Rainbow-Status
 
 
-# ---- Chat-Layout-Fix: Beat-Glow oben, Slider mittig oben, kein Ueberlappen unten ----
+# ---- Chat-Layout-Fix: LED-Balken oben, Slider unten links, Trace klappt zu, kein Ueberlappen ----
 
-def test_top_beatglow_und_slider_oben():
-    # der obere Modus-Balken glueht & pulsiert im Herzschlag-Takt (kein statischer inset-Schatten mehr)
-    assert "@keyframes beatglow{" in CSS
-    assert "#chat-main::before{" in CSS and "animation:beatglow" in CSS
-    assert "box-shadow:inset 0 2px 0 color-mix(in srgb,var(--chat-accent) 55%,transparent)}" not in CSS
-    # Balken faerbt mit dem Modus (var(--chat-accent)) und strahlt nach aussen (mehrfacher box-shadow-Glow)
-    assert "background:linear-gradient(90deg,transparent,var(--chat-accent)" in CSS
-    # der Slider steht jetzt mittig oben (3-Spalten-Grid), Reasoning startet rechts daneben
-    assert "#modebar{display:grid;grid-template-columns:1fr auto 1fr" in CSS
-    assert "#modebar .mb-tools{justify-self:start" in CSS
+def test_led_bar_und_slider_unten():
+    # der obere Modus-Balken rotiert die Farben wie eine LED-Tastatur (kein Puls/Flackern mehr)
+    assert "@keyframes ledflow{" in CSS
+    assert "#chat-main::before{" in CSS and "animation:ledflow" in CSS
+    assert "@keyframes beatglow{" not in CSS            # der alte Puls ist raus
+    # dicker Balken (5px) + per Modus eigene LED-Farbwelt: Chat=Lila, Work=Gruen, Coding=Rainbow
+    assert "right:0;height:5px" in CSS
+    assert '#chat-main[data-mode="work"]::before{background-image:linear-gradient(90deg,#0aff9d,#39ff14' in CSS
+    assert '#chat-main[data-mode="coding"]::before{background-image:linear-gradient(90deg,#ff004d,#ff8a00' in CSS
+    # Slider sitzt wieder UNTEN links in der Werkzeugleiste
+    assert "#chat-tools #chat-mode-seg{flex:0 0 auto" in CSS
+
+
+def test_trace_klappt_bei_neuem_schritt_zu():
+    # Denk-Trace startet eingeklappt (Peek) und klappt bei jedem neuen Schritt automatisch wieder zu
+    assert 'curThink.className="think"' in SCRIPT          # kein "show" default -> eingeklappt
+    assert "function traceLive(" in SCRIPT
+    assert "function settleTrace(" in SCRIPT               # nach dem Lauf: Rainbow beruhigt sich
+    assert 'curThink.classList.contains("show"))curThink.classList.remove("show")' in SCRIPT
 
 
 def test_chat_kein_ueberlappen():
