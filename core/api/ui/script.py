@@ -286,13 +286,15 @@ async function loadHome(){const o=await (await fetch("/api/overview")).json();
  try{const dz=await (await fetch("/api/direktive")).json();const dh=$("#dir-hint");if(dh&&dz.focus)dh.textContent="🧭 Aktueller Fokus: "+dz.focus.slice(0,140);}catch(e){}
  const card=(t,c)=>'<div class="card"><h3>'+t+'</h3>'+c+'</div>';
  let h='<div style="display:flex;flex-direction:column;gap:10px">';
- h+=card("Letzte Lektionen", (o.lessons||[]).length?('<ul style="margin:0;padding-left:18px">'
-   +o.lessons.slice(0,3).map(l=>'<li>'+esc(l.slice(0,140))+'</li>').join("")+'</ul>'):'<span class=muted>(noch keine)</span>');
+ /* Schnellzugriff ZUERST (haeufig genutzt, war vorher unter der Falz versteckt) */
  h+=card("Schnellzugriff",'<button class=ghost data-go="chat">Chat</button> '
    +'<button class=ghost data-go="models">Modelle</button> '
    +'<button class=ghost data-go="gov">Gewissen</button> '
    +'<button class=ghost data-go="stats">Statistik</button> '
    +'<button class=ghost data-go="me">Me</button>');
+ /* Lektionen nur wenn vorhanden — sonst kein leerer Platzhalter */
+ if((o.lessons||[]).length)h+=card("Letzte Lektionen",'<ul style="margin:0;padding-left:18px">'
+   +o.lessons.slice(0,3).map(l=>'<li>'+esc(l.slice(0,140))+'</li>').join("")+'</ul>');
  h+='</div>';$("#home").innerHTML=h;
  /* Subtab-Ziele brauchen nav(config)+syst — nackte nav() darauf war der Weisser-Screen-Bug */
  $$('#home [data-go]').forEach(b=>b.onclick=()=>{const g=b.dataset.go;
@@ -361,16 +363,20 @@ async function loadHud(){const el=$("#hud-strip");if(!el)return;
   /* S6.6d: Hero-Status + Aura (Heartbeat an = Avatar leuchtet) */
   const hs=$("#hero-status");
   if(hs){const on=o.mission&&o.mission.heartbeat;
-   hs.textContent=(o.kill_switch?"⛔ NOT-AUS aktiv":(on?"Heartbeat laeuft — arbeitet autonom":"Heartbeat aus — wartet auf dich"))
-    +" · Budget heute "+(b.day_spent||0)+" / "+(b.day_limit==null?"-":b.day_limit)+" €";
+   hs.textContent=(o.kill_switch?"⛔ NOT-AUS aktiv":(on?"Heartbeat laeuft — arbeitet autonom":"Heartbeat aus — wartet auf dich"));
+   /* Budget-Dopplung raus — steht schon als HUD-Zelle oben. */
    const hv=$("#hero-av");if(hv)hv.classList.toggle("aura",!!on&&!o.kill_switch);}
  }catch(e){}}
-async function loadOps(){const el=$("#ops-feed");if(!el)return;
- try{const es=await (await fetch("/api/events?limit=70")).json();
-  const keep=es.filter(e=>opsFilter==="all"||(e.sev||"info")===opsFilter);
-  el.innerHTML=keep.length?keep.map(e=>{const t=new Date(e.ts*1000).toLocaleTimeString();
-   return '<div class="op '+(e.sev||"info")+'"><span class="od"></span><span class="opt">'+t+'</span><span class="opx">'+pulsePhrase(e).replace(/</g,"&lt;")+'</span></div>';}).join(""):'<span class="muted" style="padding:10px 13px;display:block">(ruhig — keine Aktivitaet)</span>';
- }catch(e){}}
+let _opsCache=[];
+function _opsCounts(){const c={all:_opsCache.length,action:0,info:0,chat:0,error:0};
+ _opsCache.forEach(e=>{const s=e.sev||"info";if(c[s]!==undefined)c[s]++;});return c;}
+function renderOps(){const el=$("#ops-feed");if(!el)return;
+ const keep=_opsCache.filter(e=>opsFilter==="all"||(e.sev||"info")===opsFilter);
+ el.innerHTML=keep.length?keep.map(e=>{const t=new Date(e.ts*1000).toLocaleTimeString();
+  return '<div class="op '+(e.sev||"info")+'"><span class="od"></span><span class="opt">'+t+'</span><span class="opx">'+pulsePhrase(e).replace(/</g,"&lt;")+'</span></div>';}).join(""):'<span class="muted" style="padding:10px 13px;display:block">(ruhig — keine Aktivitaet)</span>';
+ const c=_opsCounts();$$("#ops-filter a").forEach(a=>{const b=a.querySelector(".ofc");if(b)b.textContent=c[a.dataset.of]||"";});}
+async function loadOps(){const el=$("#ops-feed");if(!el)return;  // holt+cached; Filter rendert clientseitig (kein Refetch)
+ try{_opsCache=await (await fetch("/api/events?limit=70")).json();renderOps();}catch(e){}}
 /* S9.1: Intel zeigt KIRAS eigene Monitor-News (kuratiert, mit Zusammenfassung) statt roher RSS. */
 async function loadNews(){const tk=$("#news-ticker"),ls=$("#news-list");if(!ls)return;
  try{const d=await (await fetch("/api/monitor")).json();const rec=d.recent||[];
@@ -378,8 +384,15 @@ async function loadNews(){const tk=$("#news-ticker"),ls=$("#news-list");if(!ls)r
    ls.innerHTML='<div class="emptybox" style="min-height:80px">Kira hat noch nichts gemeldet.<br>Themen/Feeds richtest du unter Config → Monitor ein.</div>';return;}
   const head=rec.map(x=>'▟ '+(x.label||"")+': '+((x.summary||"").replace(/\n/g," ").slice(0,90))).join('     ◆     ');
   if(tk)tk.innerHTML='<span>'+esc(head)+'</span>';
-  ls.innerHTML=rec.slice(0,8).map(x=>{const t=new Date(x.ts*1000).toLocaleString([], {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
-   return '<div class="news-item"><small>'+esc(x.label||"")+' · '+t+' · '+(x.count||0)+' neu</small><br>'+esc((x.summary||"").slice(0,220))+'</div>';}).join("");
+  const item=x=>{const t=new Date(x.ts*1000).toLocaleString([], {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+   return '<div class="news-item"><small>'+esc(x.label||"")+' · '+t+' · '+(x.count||0)+' neu</small><br>'+esc((x.summary||"").slice(0,220))+'</div>';};
+  /* Nur 4 zeigen (kein innerer Scroll mehr) — Rest hinter einem "mehr", damit nichts unerreichbar wird. */
+  const restArr=rec.slice(4,12);
+  const rest=restArr.length?('<div id="news-more" style="display:none">'+restArr.map(item).join("")+'</div>'
+   +'<a id="news-moretog" class="muted" style="cursor:pointer;font-size:11px;display:inline-block;margin-top:4px">+ '+restArr.length+' mehr</a>'):"";
+  ls.innerHTML=rec.slice(0,4).map(item).join("")+rest;
+  const mt=$("#news-moretog");if(mt)mt.onclick=()=>{const m=$("#news-more");if(!m)return;const open=m.style.display!=="none";
+   m.style.display=open?"none":"block";mt.textContent=open?("+ "+restArr.length+" mehr"):"− weniger";};
  }catch(e){}}
 const DEFAULT_FEEDS=[{kind:"feed",value:"https://hnrss.org/frontpage",label:"Hacker News"},
  {kind:"feed",value:"https://www.theverge.com/rss/index.xml",label:"The Verge"},
@@ -388,7 +401,7 @@ const DEFAULT_FEEDS=[{kind:"feed",value:"https://hnrss.org/frontpage",label:"Hac
 function bindNewsSeed(){const s=$("#news-seed");if(!s)return;s.onclick=async()=>{s.textContent="… fuege hinzu";
   for(const f of DEFAULT_FEEDS){try{await fetch("/api/monitor/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(f)});}catch(e){}}
   s.textContent="✓ hinzugefuegt";loadNews();};}
-function bindOpsFilter(){$$("#ops-filter a").forEach(a=>a.onclick=()=>{opsFilter=a.dataset.of;$$("#ops-filter a").forEach(x=>x.classList.toggle("on",x===a));loadOps();});}
+function bindOpsFilter(){$$("#ops-filter a").forEach(a=>a.onclick=()=>{opsFilter=a.dataset.of;$$("#ops-filter a").forEach(x=>x.classList.toggle("on",x===a));renderOps();});}
 function loadCommand(){loadHud();loadOps();loadNews();loadHome();loadDigest();bindNewsSeed();bindOpsFilter();}
 
 /* ---- Projekte (S9.3): eine Uebersicht — Standbeine + Ziele/Backlog + Radar zusammen ---- */
@@ -486,7 +499,8 @@ async function loadDigest(){const el=$("#digest");if(!el)return;
  try{const d=await (await fetch("/api/digest")).json();const b=d.budget||{};
   let h='<div class="muted" style="font-size:11px;letter-spacing:1px">'+d.date+'</div>';
   h+='<div style="margin:6px 0"><b>'+d.tasks_done_count+'</b> Aufgaben erledigt · <b>'+d.planned+'</b> geplant · <b>'+d.news+'</b> News</div>';
-  if(d.tasks_done&&d.tasks_done.length)h+='<ul style="margin:4px 0;padding-left:16px;font-size:12px">'+d.tasks_done.map(t=>'<li>'+(""+t).replace(/</g,"&lt;")+'</li>').join("")+'</ul>';
+  if(d.tasks_done&&d.tasks_done.length){h+='<ul style="margin:4px 0;padding-left:16px;font-size:12px">'+d.tasks_done.slice(0,4).map(t=>'<li>'+(""+t).replace(/</g,"&lt;")+'</li>').join("")+'</ul>';
+   if(d.tasks_done.length>4)h+='<div class="muted" style="font-size:11px">+ '+(d.tasks_done.length-4)+' weitere &middot; <span style="cursor:pointer;text-decoration:underline" onclick="nav(\'me\')">Me</span></div>';}
   /* S11: heute angefasste Dateien (der greifbarste "was wurde gebaut"-Beleg) + Tagesausgabe */
   if(d.artifacts&&d.artifacts.length)h+='<div style="margin-top:6px;font-size:12px"><span class="muted">Heute angefasst ('+d.artifacts.length+'):</span> '+d.artifacts.slice(0,6).map(a=>'<code style="font-size:11px">'+(""+a).replace(/</g,"&lt;").split("/").pop()+'</code>').join(", ")+'</div>';
   if(d.spend_usd!=null&&d.spend_usd>0)h+='<div style="margin-top:4px;font-size:12px" class="muted">Ausgaben heute: '+(d.spend_usd).toFixed(2)+' $</div>';
