@@ -47,8 +47,8 @@ desktop:
   # Zusaetzliche Obsidian-Vault-Ordner fuer den Live-Graph. Leer = nur Kiras Gedaechtnis
   # (gedaechtnis/ + playbooks/). Trage deinen ECHTEN Obsidian-Vault-Pfad ein, damit dein
   # ganzer Graph erscheint. Windows-Pfad in Anfuehrungszeichen, mit / statt \:
-  vault_paths: []
-  #  - "C:/Users/serge/Documents/Obsidian/MeinVault"
+  vault_paths:
+    - "C:/Users/serge/Desktop/Kira-Brain"      # Sergens Obsidian-Vault -> voller Graph im Wallpaper
 
 # Agentische Ausdauer — wie lang Kira an EINEM Task dranbleibt (Claude-Code-artig).
 # Die Handlungs-Schleife endet automatisch frueh, sobald Kira fertig ist; diese Werte
