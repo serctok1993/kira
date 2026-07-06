@@ -74,6 +74,9 @@ def test_wall_seite_wird_ausgeliefert():
     assert "backdrop-filter:blur(2px)" in body                 # Blur entschaerft
     assert 'id="gear"' in body and "kira_wall" in body and "function nodeColor(" in body
     assert '/api/system' in body and '"CPU"' in body and '"GPU"' in body and '"Temp"' in body
+    # Wall v5: Loop stoppt im Ruhezustand (CPU-Fix), Bewegung default AUS, Groesse+Position regelbar
+    assert "function kick(" in body and "motion:false" in body
+    assert 'id="w-pos"' in body and 'id="w-size"' in body
     # PHRASES wurden injiziert (Platzhalter ist ersetzt)
     assert "/*__PHRASES__*/" not in body
 
