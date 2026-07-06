@@ -143,3 +143,25 @@ def test_chat_werkbank():
     # breiter, gefüllter Aktiv-Tab
     assert "#chat-mode-seg{display:flex;width:100%" in CSS
     assert "#chat-mode-seg a.on{color:#fff;background:color-mix" in CSS
+
+
+# ---- Chat-Politur: Gespräche nach rechts, Werkzeuge in eigener Box, kein Emoji-Wildwuchs ----
+
+def test_chat_politur():
+    # Gespräche rutschen per order:2 auf die RECHTE Seite (Chat rückt nach links)
+    assert "order:2" in CSS
+    assert "#sess-panel{width:250px;flex-shrink:0;order:2" in CSS
+    # die vier Werkzeuge stecken jetzt in einer .toolbox statt lose in der Leiste
+    assert '<span class="toolbox">' in VIEWS
+    assert "#chat-tools .toolbox{display:inline-flex" in CSS
+    # Reasoning und Vorlesen ohne Emoji davor
+    assert "> 🧠 Reasoning</label>" not in VIEWS
+    assert "> 🔊 Vorlesen</label>" not in VIEWS
+    assert "/> Reasoning</label>" in VIEWS
+    assert "/> Vorlesen</label>" in VIEWS
+    # die Box umschließt genau die vier Steuerelemente (reason/tts/mic/img)
+    box_start = VIEWS.index('<span class="toolbox">')
+    box_end = VIEWS.index("</span>", box_start)
+    box = VIEWS[box_start:box_end]
+    for m in ('id="chip-reason"', 'id="chip-tts"', 'id="micbtn"', 'id="imgbtn"'):
+        assert m in box, f"{m} fehlt in der Werkzeug-Box"
