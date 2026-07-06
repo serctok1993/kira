@@ -42,6 +42,14 @@ models:
   keep_alive: "24h"                         # Modell warm halten -> kein Kaltstart im Dauerbetrieb
   num_ctx: 32768                            # Kontextfenster (Live-Baseline; kleiner = guenstiger pro Call)
 
+# Desktop-Wallpaper (/wall)
+desktop:
+  # Zusaetzliche Obsidian-Vault-Ordner fuer den Live-Graph. Leer = nur Kiras Gedaechtnis
+  # (gedaechtnis/ + playbooks/). Trage deinen ECHTEN Obsidian-Vault-Pfad ein, damit dein
+  # ganzer Graph erscheint. Windows-Pfad in Anfuehrungszeichen, mit / statt \:
+  vault_paths: []
+  #  - "C:/Users/serge/Documents/Obsidian/MeinVault"
+
 # Agentische Ausdauer — wie lang Kira an EINEM Task dranbleibt (Claude-Code-artig).
 # Die Handlungs-Schleife endet automatisch frueh, sobald Kira fertig ist; diese Werte
 # sind nur das Sicherheitsnetz gegen Endlosschleifen. Hoeher = laengere Tasks moeglich,

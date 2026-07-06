@@ -61,5 +61,20 @@ def test_wall_seite_wird_ausgeliefert():
     # ephemerer Chat ueber den bestehenden WS (frische desktop-Session) + Cockpit-Farbanpassung uebernommen
     assert "/ws/chat?sid=" in body and '"desktop-"' in body
     assert "kira_custom" in body
+    # Wall v2: wechselbares Hintergrundbild (/api/bg), Modellwechsel per Klick, echtes Reasoning
+    assert 'id="bg" src="/api/bg"' in body
+    assert 'id="mpop"' in body and "/api/model/role" in body and "/api/model/catalog" in body
+    assert 'm.kind==="think"' in body and "reasonBuf" in body   # Reasoning wird angezeigt
+    assert "/api/news" in body                                   # zusaetzliche Stat
     # PHRASES wurden injiziert (Platzhalter ist ersetzt)
     assert "/*__PHRASES__*/" not in body
+
+
+def test_vault_graph_nimmt_config_obsidian_pfad(monkeypatch, tmp_path):
+    # desktop.vault_paths in der Config -> der echte Obsidian-Vault fliesst in den Graph
+    import core.config as cfg
+    from core.api import vault_graph
+    monkeypatch.setitem(cfg.CONFIG, "desktop", {"vault_paths": [str(tmp_path)]})
+    roots = vault_graph._default_roots()
+    assert tmp_path in roots
+    assert (cfg.ROOT / "gedaechtnis") in roots   # Kiras Gedaechtnis bleibt immer dabei
