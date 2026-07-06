@@ -186,7 +186,7 @@ def test_chat_v3_markers():
     """S6.6b: Markdown-Renderer, Nachrichten-Meta, Session-Panel sind verdrahtet."""
     html = _page()
     for marker in ("function md(", "function msgEl(", 'id="sess-panel"', 'id="sess-items"',
-                   'id="chip-ziel"', "markActiveSession", "mcopy"):
+                   'id="cmd-help"', "markActiveSession", "mcopy"):
         assert marker in html, f"Chat-v3-Marker fehlt: {marker}"
     assert 'id="sess-list"' not in html  # Dropdown ist durch das Panel ersetzt
 
