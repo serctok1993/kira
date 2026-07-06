@@ -66,9 +66,9 @@ def test_auto_plan_laesst_smalltalk_und_plan_praefix(monkeypatch, tmp_path):
         return "ok"
 
     monkeypatch.setattr(act, "plan_and_execute", fake_plan)
-    # explizites plan: bleibt escalate=True
+    # plan: laeuft jetzt auf dem Denker (GLM 5.2), nicht mehr auf dem teuren Fable
     act.act_chat("plan: grosse Sache bauen", "s2")
-    assert seen["escalate"] is True
+    assert seen["escalate"] is False
 
     # Smalltalk erreicht plan_and_execute nicht (wuerde sonst fake_plan treffen);
     # er laeuft in den Chat-Pfad -> wir fangen ihn VOR dem LLM ab.
