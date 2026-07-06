@@ -122,10 +122,10 @@ VIEWS = r"""</head><body>
           <a data-m="chat" class="on">💬 Chat</a><a data-m="coding">🛠 Coding</a>
         </div>
         <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:0 0 8px;flex-wrap:wrap">
-          <button type="button" class="ghost" id="sess-toggle" title="Gespraeche ein-/ausklappen" style="padding:5px 10px">🗂</button>
           <select id="chat-model" class="engine-pill" title="Modell fuer diesen Chat"></select>
-          <span style="flex:1"></span>
           <span class="muted" id="mode-hint" style="font-size:11px">Dialog — kurz &amp; direkt.</span>
+          <span style="flex:1"></span>
+          <button type="button" class="ghost" id="sess-toggle" title="Gespraeche ein-/ausklappen (rechts)" style="padding:5px 10px">🗂</button>
         </div>
         <div id="log"></div>
         <!-- Werkbank (fuer beide Modi gleich): Commands links · Werkzeuge rechts -->
@@ -134,6 +134,10 @@ VIEWS = r"""</head><body>
           <span class="chip" id="chip-mission" title="Kiras Missions-/Ziel-Lage abfragen">/mission</span>
           <span class="chip" id="chip-status" title="Status &amp; Selbst-Check">/status</span>
           <span class="chip" id="chip-plan" title="Erst Plan, dann Schritte">/plan</span>
+          <span style="position:relative;display:inline-block">
+            <span class="chip" id="cmd-help" title="Alle Befehle anzeigen">⌘ Befehle</span>
+            <div id="cmd-pop" class="cmd-pop" style="display:none"></div>
+          </span>
           <span style="flex:1"></span>
           <span class="toolbox">
             <label class="chip tog" id="chip-reason" title="Reasoning: staerkeres Modell, denkt gruendlicher"><input type="checkbox" id="reason-on"/> Reasoning</label>
