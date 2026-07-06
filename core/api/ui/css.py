@@ -6,7 +6,7 @@ HEAD_AND_CSS = r"""<!doctype html>
 <title>Kira Cockpit</title>
 <style>
 :root{--bg:#0a0a0d;--panel:#0e0e13;--panel2:var(--panel);--line:#26203a;--ink:#eceef4;
- --muted:#8a86a0;--accent:#b026ff;--accent2:#7c3aed;--hud:#c084fc;--glow:#b026ff;
+ --muted:#9b97b0;--accent:#b026ff;--accent2:#7c3aed;--hud:#c084fc;--glow:#b026ff;
  --amber:#d8b4fe;--danger:#ff3d68;--ok:#39ff8e;--warn:#f5a623;}
 /* S6.7: Tuerkis raus — --hud ist helles Lila; Neon-Gruen lebt in --ok (live/positiv/Budget). */
 html[data-theme="gruen"]{--accent:#39ff14;--accent2:#16a34a;--hud:#adff2f;--glow:#39ff14;--amber:#bbf7d0;}
@@ -115,9 +115,13 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
  box-shadow:0 12px 34px rgba(0,0,0,.6)}
 #theme-pop.open{display:flex}
 #side a .ti{display:inline-block;width:18px;text-align:center;margin-right:2px;color:var(--accent)}
-.direktive{max-width:1120px;margin:0 0 16px;border:1px solid var(--line);border-radius:12px;
- padding:14px;background:var(--panel)}
-.direktive h3{margin:0 0 8px;color:var(--amber)}
+.direktive{max-width:1120px;margin:0 0 16px;border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));
+ border-radius:12px;padding:15px 16px;background:
+  linear-gradient(180deg,color-mix(in srgb,var(--accent) 6%,var(--panel)),var(--panel));
+ box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 8%,transparent),0 10px 30px rgba(0,0,0,.45)}
+/* S11: Zentrale = Epicness, keine grossen Emojis — der Befehl-Header traegt Glow, kein Icon */
+.direktive h3{margin:0 0 10px;color:var(--hud);text-transform:uppercase;letter-spacing:2.5px;font-size:12.5px;
+ text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
 .home-cols{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap;max-width:1400px}
 .home-main{flex:3 1 520px;min-width:0;display:flex;flex-direction:column;gap:14px}
 .home-side{flex:1 1 300px;min-width:280px;display:flex;flex-direction:column;gap:10px}
