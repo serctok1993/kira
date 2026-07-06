@@ -247,3 +247,26 @@ def test_projekt_uebersicht_auf_einen_blick():
     assert 'doneTasks=allTasks.filter(t=>t.status==="done")' in SCRIPT
     for lbl in ('gstat("Ziele"', 'gstat("Aufgaben"', 'gstat("Kosten"', 'gstat("Kasse"'):
         assert lbl in SCRIPT, f"Kennzahl fehlt: {lbl}"
+
+
+# ---- Chat/Projekte-UX-Runde: 🗂 rechts, Befehls-Palette, Projekt klickt sich zu ----
+
+def test_chatbutton_rechts_und_palette():
+    # der 🗂-Umschalter sitzt jetzt rechts: nach dem Spacer im chatbar
+    bar_start = VIEWS.index('id="chatbar"')
+    bar_end = VIEWS.index("</div>", bar_start)
+    bar = VIEWS[bar_start:bar_end]
+    assert bar.index('flex:1') < bar.index('id="sess-toggle"'), "🗂 steht nicht rechts vom Spacer"
+    # Befehls-Palette: Button + Popover + echte Befehle (mehr als die vier Chips)
+    assert 'id="cmd-help"' in VIEWS and 'id="cmd-pop"' in VIEWS
+    assert ".cmd-pop{position:absolute" in CSS
+    assert "const CMDS=[" in SCRIPT and "function renderCmdPop(" in SCRIPT
+    for cmd in ('"/work ",', '"code: ",', '"reason: ",', '"/model ",', '"/schwarm arbeiter'):
+        assert cmd in SCRIPT, f"Befehl fehlt in der Palette: {cmd}"
+
+
+def test_projekt_klickt_sich_zu():
+    # zweiter Klick auf dasselbe offene Projekt klappt es wieder zu
+    assert "function closeVent(" in SCRIPT
+    assert 'if(_openVent===id&&$("#v-projekte").classList.contains("drill"))closeVent()' in SCRIPT
+    assert "_openVent=id;" in SCRIPT          # beim OEffnen gemerkt

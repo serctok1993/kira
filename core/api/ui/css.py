@@ -394,6 +394,15 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
  border-radius:14px;background:color-mix(in srgb,var(--panel) 70%,transparent)}
 #chat-tools .toolbox .chip{border-color:transparent;background:none}
 #chat-tools .toolbox .chip:hover{border-color:var(--chat-accent);background:color-mix(in srgb,var(--chat-accent) 10%,transparent)}
+/* S11: Befehls-Palette (Hilfebefehlleiste) — alle echten Befehle auf einen Klick */
+.cmd-pop{position:absolute;bottom:calc(100% + 6px);left:0;z-index:40;min-width:308px;max-width:360px;
+ background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:6px;
+ box-shadow:0 12px 34px rgba(0,0,0,.55)}
+.cmd-pop .cmd-grp{font-size:10px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;padding:6px 8px 2px}
+.cmd-pop .cmd-row{display:flex;gap:9px;align-items:baseline;padding:6px 8px;border-radius:7px;cursor:pointer}
+.cmd-pop .cmd-row:hover{background:color-mix(in srgb,var(--chat-accent) 14%,transparent)}
+.cmd-pop .cmd-k{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--chat-accent);font-size:12px;white-space:nowrap}
+.cmd-pop .cmd-d{color:var(--muted);font-size:11.5px}
 .chip{cursor:pointer;border:1px solid var(--line);border-radius:14px;padding:3px 11px;font-size:11.5px;color:var(--hud);white-space:nowrap}
 .chip:hover{border-color:var(--accent);background:rgba(168,85,247,.10)}
 .chip.tog{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}

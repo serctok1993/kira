@@ -370,7 +370,10 @@ function bindOpsFilter(){$$("#ops-filter a").forEach(a=>a.onclick=()=>{opsFilter
 function loadCommand(){loadHud();loadOps();loadNews();loadHome();loadDigest();bindNewsSeed();bindOpsFilter();}
 
 /* ---- Projekte (S9.3): eine Uebersicht — Standbeine + Ziele/Backlog + Radar zusammen ---- */
-function loadProjekte(){const pv=$("#v-projekte");if(pv)pv.classList.remove("drill");const vd=$("#vent-detail");if(vd)vd.style.display="none";loadVentures();loadMission();loadRadar();}
+let _openVent=null;
+function closeVent(){const vd=$("#vent-detail");if(vd)vd.style.display="none";
+ const pv=$("#v-projekte");if(pv)pv.classList.remove("drill");_openVent=null;}
+function loadProjekte(){closeVent();loadVentures();loadMission();loadRadar();}
 
 /* ---- Mission-Workspace (Ziele + To-Do-Board) ---- */
 const KIND_LABEL={big:"BIG",monthly:"MONAT",weekly:"WOCHE"};
@@ -640,6 +643,30 @@ $("#chip-ziel")&&($("#chip-ziel").onclick=()=>chipInsert("@ziel:",false));
 $("#chip-mission")&&($("#chip-mission").onclick=()=>chipInsert("/mission",true));
 $("#chip-status")&&($("#chip-status").onclick=()=>chipInsert("/status",true));
 $("#chip-plan")&&($("#chip-plan").onclick=()=>chipInsert("/plan",true));
+/* Befehls-Palette: ALLE echten Befehle (mehr als die vier Chips). Klick fuellt das Eingabefeld. */
+const CMDS=[
+ ["grp","Modi"],
+ ["/plan ","Erst planen, dann Schritt fuer Schritt",false],
+ ["/work ","Laengerer Auftrag, volles Werkzeug-Budget",false],
+ ["code: ","Coding-Modus — an Kira selbst schrauben",false],
+ ["reason: ","Staerkeres Modell, denkt gruendlicher",false],
+ ["grp","Abfragen"],
+ ["/status","Heartbeat, Budget & Modell auf einen Blick",true],
+ ["/mission","Missions- & Ziel-Lage abfragen",true],
+ ["grp","Steuerung"],
+ ["/model ","Modell anzeigen oder wechseln",false],
+ ["@ziel:","Arbeit einem Ziel zuordnen",false],
+ ["/schwarm arbeiter Vorlage | A | B","Schwarm-Auftrag an die Armee",false],
+ ["/delegiere ","An einen einzelnen Sub-Agenten delegieren",false],
+];
+function renderCmdPop(){const el=$("#cmd-pop");if(!el)return;
+ el.innerHTML=CMDS.map(c=>c[0]==="grp"?('<div class="cmd-grp">'+esc(c[1])+'</div>')
+  :('<div class="cmd-row" data-cmd="'+esc(c[0])+'" data-send="'+(c[2]?1:0)+'"><span class="cmd-k">'+esc(c[0])+'</span><span class="cmd-d">'+esc(c[1])+'</span></div>')).join("");
+ $$('#cmd-pop .cmd-row').forEach(r=>r.onclick=()=>{chipInsert(r.dataset.cmd,r.dataset.send==="1");$("#cmd-pop").style.display="none";});}
+$("#cmd-help")&&($("#cmd-help").onclick=e=>{e.stopPropagation();const el=$("#cmd-pop");if(!el)return;
+ const show=el.style.display==="none";if(show)renderCmdPop();el.style.display=show?"block":"none";});
+document.addEventListener("click",e=>{const p=$("#cmd-pop");
+ if(p&&p.style.display!=="none"&&!e.target.closest("#cmd-pop")&&e.target.id!=="cmd-help")p.style.display="none";});
 $("#reason-on")&&($("#reason-on").onchange=()=>{const l=$("#chip-reason");if(l)l.classList.toggle("on",$("#reason-on").checked);});
 function sendText(raw,opts){raw=(raw||"").trim();if(!raw||!ws||ws.readyState!==1)return false;
  opts=opts||{};
@@ -1193,7 +1220,10 @@ async function loadVentures(){const el=$("#vent-list");if(!el)return;try{
   const ms=(v.milestone_progress!=null)?('<div style="height:4px;background:var(--line);border-radius:2px;margin-top:5px"><div style="height:4px;border-radius:2px;background:var(--hud);width:'+v.milestone_progress+'%"></div></div>'):'';
   return '<div class="memrow" data-vent="'+v.id+'" style="cursor:pointer"><div class="mh"><span class="badge kind">'+v.status+'</span><b>'+(v.name||"").replace(/</g,"&lt;")+'</b><span style="flex:1"></span><span class="muted">+'+v.income_eur.toFixed(2)+' / -'+v.expenses_eur.toFixed(2)+' = <b>'+v.balance_eur.toFixed(2)+' &euro;</b></span></div>'+ms+'</div>';}).join("")
   :'<div class="emptybox">Noch keine Projekte<br>Kira, leg ein Projekt an: &hellip;</div>';
- $$('#vent-list [data-vent]').forEach(r=>r.onclick=()=>loadVentureTrace(r.dataset.vent));
+ $$('#vent-list [data-vent]').forEach(r=>r.onclick=()=>{const id=r.dataset.vent;
+  /* nochmal auf dasselbe offene Projekt -> wieder zuklappen (zurueck zu Ziele/Backlog/Radar) */
+  if(_openVent===id&&$("#v-projekte").classList.contains("drill"))closeVent();
+  else loadVentureTrace(id);});
 }catch(e){}}
 /* S8.2: Projekt-AKTE — Unterreiter Uebersicht/Ziele/Aktivitaet/Finanzen je Projekt */
 async function loadVentureTrace(id){const el=$("#vent-detail");try{
@@ -1245,6 +1275,7 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
   +'<div class="at" id="at-rout" style="display:none">'+rout+'</div>';
  el.style.display="block";
  const pv=$("#v-projekte");if(pv)pv.classList.add("drill");   /* Akte in den Vordergrund, 3 Spalten weichen */
+ _openVent=id;
  $("#ak-brief").value=d.briefing||"";
  $$("#akte-tabs a").forEach(a=>a.onclick=()=>{$$("#akte-tabs a").forEach(x=>x.classList.toggle("on",x===a));
   el.querySelectorAll(".at").forEach(x=>x.style.display="none");$("#at-"+a.dataset.at).style.display="block";});
@@ -1257,7 +1288,7 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
   const fd=new FormData();fd.append("id",v.id);fd.append("file",f);
   const r=await (await fetch("/api/ventures/upload",{method:"POST",body:fd})).json();
   $("#ak-hint").textContent=r.ok?"✓ "+f.name:"Fehler: "+(r.error||"?");if(r.ok)loadVentureTrace(v.id);};
- const cl=$("#vent-close");if(cl)cl.onclick=()=>{el.style.display="none";const pv2=$("#v-projekte");if(pv2)pv2.classList.remove("drill");};
+ const cl=$("#vent-close");if(cl)cl.onclick=()=>closeVent();
 }catch(e){}}
 
 /* ---- To-Do (S6.6a): Zugangs-Anfragen — was Kira an Keys/Zugaengen braucht ---- */
