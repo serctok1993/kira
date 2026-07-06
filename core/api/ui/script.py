@@ -1301,6 +1301,18 @@ async function loadRadar(){try{const d=await (await fetch("/api/opportunities"))
 $("#rd-scan")&&($("#rd-scan").onclick=async()=>{$("#rd-hint").textContent="… scanne (kann ~1 min dauern) …";
  const r=await (await fetch("/api/radar/scan",{method:"POST"})).json();
  $("#rd-hint").textContent=r.error?("Fehler: "+r.error):("Scan fertig — "+(r.found||0)+" neue Chance(n).");loadRadar();});
+/* Radar-Fokus: Sergen sagt, wonach gesucht wird (persistent, deckt sich mit Kiras radar_fokus). */
+$("#rd-focus-edit")&&($("#rd-focus-edit").onclick=async()=>{
+ const box=$("#rd-focus-box");if(!box)return;
+ const show=box.style.display==="none";box.style.display=show?"block":"none";
+ if(show){try{const d=await (await fetch("/api/radar/focus")).json();
+  $("#rd-focus").value=(d.themes||[]).join(";\n");
+  $("#rd-focus-hint").textContent=d.default?"(noch kein eigener Fokus — Standardthemen)":"";}catch(e){}}});
+$("#rd-focus-save")&&($("#rd-focus-save").onclick=async()=>{
+ const r=await (await fetch("/api/radar/focus",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({themes:$("#rd-focus").value})})).json();
+ const n=(r.themes||[]).length;
+ $("#rd-focus-hint").textContent=r.ok?("✓ gespeichert — "+n+" Thema/Themen"):"Fehler";});
 
 /* ---- S6.6a: neue Quer-Verdrahtungen ---- */
 $("#m-or-add")&&($("#m-or-add").onclick=async()=>{const id=$("#m-or").value.trim();if(!id)return;

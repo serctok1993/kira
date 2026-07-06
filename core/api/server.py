@@ -967,6 +967,22 @@ async def api_radar_scan() -> dict:
     return await anyio.to_thread.run_sync(lambda: radar.scan(notify=False))
 
 
+@app.get("/api/radar/focus")
+def api_radar_focus_get() -> dict:
+    from core.agency import radar
+
+    focus = radar.get_focus()
+    return {"themes": focus, "default": not focus}
+
+
+@app.post("/api/radar/focus")
+async def api_radar_focus_set(body: dict) -> dict:
+    from core.agency import radar
+
+    themes = body.get("themes", "")
+    return {"ok": True, "themes": radar.set_focus(themes)}
+
+
 # ---------- Wissens-Archiv (S5.4) ----------
 @app.get("/api/knowledge")
 def api_knowledge() -> dict:

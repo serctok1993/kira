@@ -185,8 +185,16 @@ VIEWS = r"""</head><body>
         <div id="todo-board" class="panel-b"><span class="muted">…</span></div>
       </div>
       <div class="panel">
-        <div class="panel-h">◈ RADAR <span class="sp"></span><a id="rd-scan" class="muted" style="cursor:pointer;font-size:11px">⚡ scannen</a></div>
-        <div id="rd-list" class="panel-b"><span class="muted" id="rd-hint">Woechentlicher Chancen-Scan. Convert = Projekt draus machen.</span></div>
+        <div class="panel-h">◈ RADAR · IDEEN <span class="sp"></span>
+          <a id="rd-focus-edit" class="muted" style="cursor:pointer;font-size:11px" title="Wonach soll Kira suchen?">🔧 Fokus</a>
+          <a id="rd-scan" class="muted" style="cursor:pointer;font-size:11px;margin-left:8px">⚡ scannen</a></div>
+        <div id="rd-focus-box" class="panel-b" style="display:none;border-bottom:1px solid var(--line)">
+          <div class="muted" style="font-size:10px;letter-spacing:1px;margin-bottom:4px">WONACH KIRA SUCHT (Themen mit „;“ trennen)</div>
+          <textarea id="rd-focus" class="k" style="min-height:56px;font-size:12px" placeholder="z.B. KI-Tools fuer Handwerker; Social-Media-Automatisierung fuer lokale Laeden"></textarea>
+          <div class="row" style="margin-top:5px"><button class="ghost" id="rd-focus-save" style="font-size:12px">Fokus speichern</button>
+            <span class="muted" id="rd-focus-hint" style="font-size:11px;align-self:center"></span></div>
+        </div>
+        <div id="rd-list" class="panel-b"><span class="muted" id="rd-hint">Woechentlicher Ideen-Scan. „→ Projekt“ macht aus einer Idee ein Projekt.</span></div>
       </div>
     </div>
   </div>
