@@ -1,0 +1,9 @@
+# Desktop-App (Stufe 1): das Cockpit als natives Fenster + Tray-Symbol.
+# Bewusst getrennt vom Kern (pyproject) -> Kernstart/Tests bleiben GUI-frei.
+# Installieren (einmalig):   uv pip install -r requirements-desktop.txt
+# Danach starten:            uv run python -m core.desktop.app   (oder kira-desktop.bat)
+#
+# Windows braucht keine Extra-Runtime: pywebview nutzt das eingebaute Edge-WebView2.
+pywebview>=5.0
+pystray>=0.19
+pillow>=10.0
