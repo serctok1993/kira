@@ -78,6 +78,20 @@ def counts_by_type() -> dict[str, int]:
     return {r[0]: r[1] for r in rows}
 
 
+def count_since(types: tuple[str, ...], since_ts: float) -> int:
+    """Zaehlt Events bestimmter Typen ab einem Zeitpunkt — fuer ein ehrliches Fehler-Fenster
+    (statt eines kumulativen All-Time-Zaehlers). Ein SQL-Count, kein Voll-Scan im UI."""
+    if not types:
+        return 0
+    ph = ",".join("?" * len(types))
+    with _conn() as c:
+        row = c.execute(
+            f"SELECT COUNT(*) FROM events WHERE ts >= ? AND type IN ({ph})",
+            (since_ts, *types),
+        ).fetchone()
+    return int(row[0]) if row else 0
+
+
 _ERROR_HINTS = ("error", "fail", "blocked", "timeout", "halt", "crash", "rollback", "denied", "exception")
 _ACTION_TYPES = {
     "act_start", "act_done", "act_step", "tool_call", "shell_run",

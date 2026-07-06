@@ -47,7 +47,23 @@ VIEWS = r"""</head><body>
           <label>BG<input type="color" id="col-bg" title="Hintergrund-Farbe"/></label>
           <label>Kästen<input type="color" id="col-panel" title="Kasten-Farbe"/></label>
           <label>Neon<input type="color" id="col-accent" title="Akzent/Neon-Farbe"/></label>
-          <a id="col-reset" title="Farben zuruecksetzen">↺</a>
+          <label>HUD<input type="color" id="col-hud" title="HUD/Ueberschriften-Farbe"/></label>
+          <label>Text<input type="color" id="col-ink" title="Schrift-Farbe (auch Seitenleiste)"/></label>
+          <label>Grau<input type="color" id="col-muted" title="Gedaempfte Schrift"/></label>
+          <label>Linien<input type="color" id="col-line" title="Linien &amp; Rahmen"/></label>
+          <a id="col-reset" title="Alles zuruecksetzen">↺</a>
+        </div>
+        <div class="colrow fontrow">
+          <label style="flex-direction:row;gap:6px;font-size:10px;color:var(--muted)">Schrift
+            <select id="font-sel" title="Schriftart fuers ganze Dashboard">
+              <option value="">Standard (System)</option>
+              <option value="Georgia,'Times New Roman',serif">Serif (Georgia)</option>
+              <option value="'Segoe UI',system-ui,sans-serif">Segoe / Sans</option>
+              <option value="'Trebuchet MS','Gill Sans',sans-serif">Trebuchet</option>
+              <option value="Verdana,Geneva,sans-serif">Verdana</option>
+              <option value="ui-monospace,Consolas,monospace">Mono</option>
+            </select>
+          </label>
         </div>
       </div>
     </span>
