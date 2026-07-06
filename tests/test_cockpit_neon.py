@@ -270,3 +270,14 @@ def test_projekt_klickt_sich_zu():
     assert "function closeVent(" in SCRIPT
     assert 'if(_openVent===id&&$("#v-projekte").classList.contains("drill"))closeVent()' in SCRIPT
     assert "_openVent=id;" in SCRIPT          # beim OEffnen gemerkt
+
+
+# ---- Zentrale: Epicness statt grosser Emojis ----
+
+def test_zentrale_epicness_ohne_grosse_emojis():
+    # der Befehl-Header traegt keinen grossen Emoji mehr, sondern Glow/Typo
+    assert "<h3>🎯 Befehl an Kira</h3>" not in VIEWS
+    assert "<h3>Befehl an Kira</h3>" in VIEWS
+    assert ".direktive h3{margin:0 0 10px;color:var(--hud);text-transform:uppercase" in CSS
+    # muted etwas heller fuer bessere Lesbarkeit (Inhalte verschwinden nicht mehr)
+    assert "--muted:#9b97b0" in CSS

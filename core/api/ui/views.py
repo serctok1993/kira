@@ -64,7 +64,7 @@ VIEWS = r"""</head><body>
     </div>
     <div class="hud-strip" id="hud-strip"></div>
     <div class="direktive">
-      <h3>🎯 Befehl an Kira</h3>
+      <h3>Befehl an Kira</h3>
       <textarea id="dir-text" class="k" placeholder="Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…"></textarea>
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
         <button type="button" class="ghost" id="dir-mic" title="Auftrag diktieren (Voice)">🎤</button>
