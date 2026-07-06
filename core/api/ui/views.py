@@ -93,6 +93,10 @@ VIEWS = r"""</head><body>
           <div class="panel-h">◈ Heute <span class="sp"></span><a id="go-todo" class="muted" style="cursor:pointer;font-size:10px">→ Me</a></div>
           <div id="digest" class="panel-b"><span class="muted">…</span></div>
         </div>
+        <div class="panel" id="z-ziele-panel" style="display:none">
+          <div class="panel-h">◈ Kennzahlen <span class="sp"></span><a id="go-ziele" class="muted" style="cursor:pointer;font-size:10px">→ Ziele</a></div>
+          <div id="z-ziele" class="panel-b"></div>
+        </div>
         <div class="panel">
           <div class="panel-h">◈ Intel · KI-News <span class="sp"></span><a id="news-seed" class="muted" style="cursor:pointer;font-size:10px">+ Quellen</a></div>
           <div class="ticker" id="news-ticker"><span>… Intel wird geladen …</span></div>
@@ -131,10 +135,12 @@ VIEWS = r"""</head><body>
           <span class="chip" id="chip-status" title="Status &amp; Selbst-Check">/status</span>
           <span class="chip" id="chip-plan" title="Erst Plan, dann Schritte">/plan</span>
           <span style="flex:1"></span>
-          <label class="chip tog" id="chip-reason" title="Reasoning: staerkeres Modell, denkt gruendlicher"><input type="checkbox" id="reason-on"/> 🧠 Reasoning</label>
-          <label class="chip tog" id="chip-tts" title="Kira liest ihre Antworten laut vor (Stimme muss unter Kira → Zugaenge an sein)"><input type="checkbox" id="tts-on"/> 🔊 Vorlesen</label>
-          <button type="button" id="micbtn" class="chip" title="Sprachmemo aufnehmen">🎤</button>
-          <label id="imgbtn" class="chip" title="Bild an Kira" style="cursor:pointer">📎<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
+          <span class="toolbox">
+            <label class="chip tog" id="chip-reason" title="Reasoning: staerkeres Modell, denkt gruendlicher"><input type="checkbox" id="reason-on"/> Reasoning</label>
+            <label class="chip tog" id="chip-tts" title="Kira liest ihre Antworten laut vor (Stimme muss unter Kira → Zugaenge an sein)"><input type="checkbox" id="tts-on"/> Vorlesen</label>
+            <button type="button" id="micbtn" class="chip" title="Sprachmemo aufnehmen">🎤</button>
+            <label id="imgbtn" class="chip" title="Bild an Kira" style="cursor:pointer">📎<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
+          </span>
         </div>
         <form id="cform">
           <input id="cin" placeholder="Schreib mir…" autocomplete="off" autofocus/>
@@ -150,7 +156,6 @@ VIEWS = r"""</head><body>
       <div class="panel-h">◈ PROJEKTE <span class="sp"></span><span class="muted" id="vent-sum" style="font-size:11px"></span>
         <a id="obj-new-btn" class="muted" style="cursor:pointer;font-size:11px;margin-left:10px">+ Ziel</a></div>
       <div id="vent-list" class="panel-b"><span class="muted">…</span></div>
-      <div id="vent-detail" class="panel-b" style="display:none;border-top:1px solid var(--line)"></div>
       <div class="panel-b" id="obj-form" style="display:none;border-top:1px solid var(--line)">
         <div class="row" style="flex-wrap:wrap">
           <input id="obj-title" placeholder="Ziel/Projekt-Titel" style="flex:1;min-width:180px"/>
@@ -160,6 +165,7 @@ VIEWS = r"""</head><body>
         </div>
       </div>
     </div>
+    <div class="panel" id="vent-detail" style="display:none;padding:12px 14px"></div>
     <div class="proj-cols">
       <div class="panel">
         <div class="panel-h">◈ ZIELE / PROJEKTE</div>
@@ -179,8 +185,16 @@ VIEWS = r"""</head><body>
         <div id="todo-board" class="panel-b"><span class="muted">…</span></div>
       </div>
       <div class="panel">
-        <div class="panel-h">◈ RADAR <span class="sp"></span><a id="rd-scan" class="muted" style="cursor:pointer;font-size:11px">⚡ scannen</a></div>
-        <div id="rd-list" class="panel-b"><span class="muted" id="rd-hint">Woechentlicher Chancen-Scan. Convert = Projekt draus machen.</span></div>
+        <div class="panel-h">◈ RADAR · IDEEN <span class="sp"></span>
+          <a id="rd-focus-edit" class="muted" style="cursor:pointer;font-size:11px" title="Wonach soll Kira suchen?">🔧 Fokus</a>
+          <a id="rd-scan" class="muted" style="cursor:pointer;font-size:11px;margin-left:8px">⚡ scannen</a></div>
+        <div id="rd-focus-box" class="panel-b" style="display:none;border-bottom:1px solid var(--line)">
+          <div class="muted" style="font-size:10px;letter-spacing:1px;margin-bottom:4px">WONACH KIRA SUCHT (Themen mit „;“ trennen)</div>
+          <textarea id="rd-focus" class="k" style="min-height:56px;font-size:12px" placeholder="z.B. KI-Tools fuer Handwerker; Social-Media-Automatisierung fuer lokale Laeden"></textarea>
+          <div class="row" style="margin-top:5px"><button class="ghost" id="rd-focus-save" style="font-size:12px">Fokus speichern</button>
+            <span class="muted" id="rd-focus-hint" style="font-size:11px;align-self:center"></span></div>
+        </div>
+        <div id="rd-list" class="panel-b"><span class="muted" id="rd-hint">Woechentlicher Ideen-Scan. „→ Projekt“ macht aus einer Idee ein Projekt.</span></div>
       </div>
     </div>
   </div>
@@ -188,7 +202,7 @@ VIEWS = r"""</head><body>
   <!-- ================= ME (dein Bereich) ================= -->
   <div class="view" id="v-me">
     <div class="seg" id="me-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="todos" class="on">✅ Todos</a><a data-s="freigaben">🔔 Freigaben</a><a data-s="routinen">⏰ Routinen</a><a data-s="post">✉ Post</a><a data-s="metriken">📊 Metriken</a>
+      <a data-s="todos" class="on">✅ Todos</a><a data-s="freigaben">🔔 Freigaben</a><a data-s="routinen">⏰ Routinen</a><a data-s="post">✉ Post</a><a data-s="metriken">🎯 Ziele</a>
     </div>
 
     <div class="subview on" id="v-todos">
@@ -221,10 +235,22 @@ VIEWS = r"""</head><body>
     <div class="subview" id="v-routinen">
       <div class="panel">
         <div class="panel-h">◈ DEINE ROUTINEN <span class="sp"></span><span class="muted" style="font-size:10px">per Telegram diktierbar</span></div>
-        <div id="me-crons" class="panel-b me-scroll" style="max-height:40vh"><span class="muted">…</span></div>
-        <div class="panel-b" style="border-top:1px solid var(--line)">
-          <button class="ghost" id="me-brief-setup" style="font-size:12px">☀ Morgen-Briefing (08:00, aus)</button>
-          <span class="muted" id="me-brief-hint" style="font-size:11px;margin-left:6px"></span>
+        <div id="me-crons" class="panel-b me-scroll" style="max-height:38vh"><span class="muted">…</span></div>
+        <div class="panel-b" id="auto-panel" style="border-top:1px solid var(--line)">
+          <div class="muted" style="font-size:11px;letter-spacing:1px;margin-bottom:6px">+ AUTOMATISIEREN</div>
+          <input id="au-what" placeholder="Was soll Kira regelmaessig tun? (z.B. Follower zaehlen und ins Ziele-Dashboard eintragen)" style="width:100%"/>
+          <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center">
+            <input id="au-time" type="time" value="08:00" title="taeglich um dieser Uhrzeit" style="width:110px"/>
+            <span class="muted" style="font-size:11px">taeglich — oder alle</span>
+            <input id="au-interval" placeholder="6h / 30m" title="Intervall statt Uhrzeit" style="width:80px"/>
+            <label class="chip" style="font-size:11px;display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="au-now"/> gleich aktiv</label>
+            <button id="au-add">Einrichten</button>
+            <span class="muted" id="au-hint" style="font-size:11px"></span>
+          </div>
+          <div style="margin-top:7px">
+            <span class="muted" style="font-size:10px">Schnell:</span>
+            <a class="chip au-preset" data-time="08:00" data-what="Erstelle mein Tages-Briefing aus dem Lagebericht: {{standup}} — 1) wie der Tag aussieht (Termine, faellige Todos), 2) was du heute vorhast, 3) EIN proaktiver Vorschlag. Warm, knapp, strukturiert — dann per Telegram senden.">☀ Morgen-Briefing</a>
+          </div>
         </div>
       </div>
     </div>
@@ -238,8 +264,17 @@ VIEWS = r"""</head><body>
 
     <div class="subview" id="v-metriken">
       <div class="panel">
-        <div class="panel-h">◈ METRIKEN <span class="sp"></span><span class="muted" style="font-size:10px">„Gewicht heute 91.4“</span></div>
-        <div id="life-metrics" class="panel-b me-scroll" style="max-height:40vh"><span class="muted">…</span></div>
+        <div class="panel-h">◈ ZIELE-DASHBOARD <span class="sp"></span><span class="muted" style="font-size:10px">Kira traegt selbst ein · „Kira, tracke Follower — Ziel 10000, zeig&#39;s in der Zentrale“</span></div>
+        <div class="panel-b">
+          <div class="row" style="flex-wrap:wrap;gap:6px">
+            <input id="zm-name" placeholder="Kennzahl (z.B. follower)" style="flex:1;min-width:130px"/>
+            <input id="zm-val" placeholder="Wert" style="width:84px"/>
+            <input id="zm-target" placeholder="Ziel" style="width:76px"/>
+            <input id="zm-unit" placeholder="Einheit" style="width:88px"/>
+            <button id="zm-add">+ eintragen</button>
+          </div>
+        </div>
+        <div id="life-metrics" class="panel-b me-scroll" style="max-height:50vh"><span class="muted">…</span></div>
       </div>
     </div>
   </div>

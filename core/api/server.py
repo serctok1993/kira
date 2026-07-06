@@ -823,7 +823,36 @@ def api_metrics(name: str = "", days: int = 90) -> dict:
 
     if name.strip():
         return {"name": name.strip().lower(), "series": metrics.series(name, days=days)}
-    return {"latest": metrics.latest(), "names": metrics.names()}
+    return {"latest": metrics.latest(), "names": metrics.names(),
+            "dashboard": metrics.dashboard(days=days), "pinned": metrics.pinned(days=days)}
+
+
+@app.post("/api/metrics/meta")
+async def api_metrics_meta(body: dict) -> dict:
+    """Ziel-Metadaten setzen (Anheften/Zielwert/Einheit/Emoji) — vom Cockpit editierbar."""
+    from core.agency.missions import metrics
+
+    name = (body.get("name") or "").strip()
+    if not name:
+        return {"ok": False, "error": "name fehlt"}
+    kw: dict = {}
+    if "pinned" in body:
+        kw["pinned"] = bool(body["pinned"])
+    if "target" in body:
+        t = body["target"]
+        if t in (None, ""):
+            kw["target"] = ""
+        else:
+            try:
+                kw["target"] = float(str(t).replace(",", "."))
+            except (TypeError, ValueError):
+                return {"ok": False, "error": "target braucht eine Zahl"}
+    if "unit" in body:
+        kw["unit"] = (body["unit"] or "")
+    if "emoji" in body:
+        kw["emoji"] = (body["emoji"] or "")
+    metrics.set_meta(name, **kw)
+    return {"ok": True}
 
 
 @app.post("/api/metrics/log")
@@ -936,6 +965,22 @@ async def api_radar_scan() -> dict:
     from core.agency import radar
 
     return await anyio.to_thread.run_sync(lambda: radar.scan(notify=False))
+
+
+@app.get("/api/radar/focus")
+def api_radar_focus_get() -> dict:
+    from core.agency import radar
+
+    focus = radar.get_focus()
+    return {"themes": focus, "default": not focus}
+
+
+@app.post("/api/radar/focus")
+async def api_radar_focus_set(body: dict) -> dict:
+    from core.agency import radar
+
+    themes = body.get("themes", "")
+    return {"ok": True, "themes": radar.set_focus(themes)}
 
 
 # ---------- Wissens-Archiv (S5.4) ----------

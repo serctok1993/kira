@@ -143,3 +143,107 @@ def test_chat_werkbank():
     # breiter, gefüllter Aktiv-Tab
     assert "#chat-mode-seg{display:flex;width:100%" in CSS
     assert "#chat-mode-seg a.on{color:#fff;background:color-mix" in CSS
+
+
+# ---- Chat-Politur: Gespräche nach rechts, Werkzeuge in eigener Box, kein Emoji-Wildwuchs ----
+
+def test_chat_politur():
+    # Gespräche rutschen per order:2 auf die RECHTE Seite (Chat rückt nach links)
+    assert "order:2" in CSS
+    assert "#sess-panel{width:250px;flex-shrink:0;order:2" in CSS
+    # die vier Werkzeuge stecken jetzt in einer .toolbox statt lose in der Leiste
+    assert '<span class="toolbox">' in VIEWS
+    assert "#chat-tools .toolbox{display:inline-flex" in CSS
+    # Reasoning und Vorlesen ohne Emoji davor
+    assert "> 🧠 Reasoning</label>" not in VIEWS
+    assert "> 🔊 Vorlesen</label>" not in VIEWS
+    assert "/> Reasoning</label>" in VIEWS
+    assert "/> Vorlesen</label>" in VIEWS
+    # die Box umschließt genau die vier Steuerelemente (reason/tts/mic/img)
+    box_start = VIEWS.index('<span class="toolbox">')
+    box_end = VIEWS.index("</span>", box_start)
+    box = VIEWS[box_start:box_end]
+    for m in ('id="chip-reason"', 'id="chip-tts"', 'id="micbtn"', 'id="imgbtn"'):
+        assert m in box, f"{m} fehlt in der Werkzeug-Box"
+
+
+# ---- Projekte-Tab entzerrt: Akte als eigener Kasten, Radar scrollt, kein "Venture" mehr ----
+
+def test_projekte_entzerrt():
+    # die Projekt-Akte ist ein eigener Vollbreiten-Kasten, NICHT mehr in proj-top gequetscht
+    top_start = VIEWS.index('id="proj-top"')
+    top_end = VIEWS.index('id="vent-detail"')
+    assert 'id="vent-detail"' not in VIEWS[top_start:top_end]   # detail liegt hinter proj-top
+    assert 'class="panel" id="vent-detail"' in VIEWS            # eigener Panel-Kasten
+    # Radar-Liste scrollt jetzt intern (der vergessene #rd-list ist in der Overflow-Regel)
+    assert ".proj-cols>.panel>#rd-list{flex:1;overflow:auto}" in CSS \
+        or "#rd-list{flex:1;overflow:auto}" in CSS
+    assert ".proj-cols>.panel>#rd-list" in CSS
+    # Drilldown-Mechanik: offenes Projekt schiebt die 3 Spalten weg
+    assert "#v-projekte.drill .proj-cols{display:none}" in CSS
+    assert 'classList.add("drill")' in SCRIPT and 'classList.remove("drill")' in SCRIPT
+    # das Wort "Venture" ist aus der Oberflaeche verschwunden (IDs/API bleiben)
+    assert "&rarr; Venture</a>" not in SCRIPT
+    assert "&rarr; Projekt</a>" in SCRIPT
+    assert "Noch keine Ventures" not in SCRIPT
+
+
+# ---- Ziele-Dashboard: Kennzahlen mit Ziel/Fortschritt, Kira schreibt selbst, Zentrale-Karte ----
+
+def test_ziele_dashboard():
+    # Serc-Subtab heisst jetzt "Ziele", nicht mehr "Metriken"
+    assert '>🎯 Ziele</a>' in VIEWS
+    assert '>📊 Metriken</a>' not in VIEWS
+    assert "◈ ZIELE-DASHBOARD" in VIEWS
+    # manuelles Eintragen + Zentrale-Karte fuer angeheftete Kennzahlen
+    for m in ('id="zm-name"', 'id="zm-add"', 'id="z-ziele-panel"', 'id="z-ziele"'):
+        assert m in VIEWS, f"Ziele-Element fehlt: {m}"
+    # Dashboard-Renderer + Anheft-Logik + Zentrale-Loader
+    assert "function loadZiele(" in SCRIPT and "function zieleCard(" in SCRIPT
+    assert "async function loadZielePinned(" in SCRIPT
+    assert "loadZielePinned()" in SCRIPT              # in der Zentrale aufgerufen
+    assert 'metriken:()=>loadZiele()' in SCRIPT       # Loader umgehaengt
+    assert '/api/metrics/meta' in SCRIPT              # Anheften/Ziel setzen
+
+
+# ---- Automatisierungspanel: Uhrzeit/Intervall + freier Auftrag statt Ein-Knopf-Briefing ----
+
+def test_automatisierungspanel():
+    # der alte Morgen-Briefing-Einzelknopf ist weg, ein Panel ist da
+    assert 'id="me-brief-setup"' not in VIEWS
+    assert 'id="auto-panel"' in VIEWS
+    for m in ('id="au-what"', 'id="au-time"', 'id="au-interval"', 'id="au-now"', 'id="au-add"'):
+        assert m in VIEWS, f"Automatik-Feld fehlt: {m}"
+    # Morgen-Briefing lebt als Schnell-Vorlage weiter (nicht mehr der einzige Weg)
+    assert 'class="chip au-preset"' in VIEWS and '☀ Morgen-Briefing' in VIEWS
+    # JS: legt eine Routine an (scope me), Preset fuellt das Feld
+    assert '$("#au-add")' in SCRIPT and '"/api/cron/add"' in SCRIPT
+    assert 'scope:"me"' in SCRIPT
+    assert "$$('.au-preset')" in SCRIPT
+    # der tote alte Handler ist raus
+    assert '#me-brief-setup' not in SCRIPT
+
+
+# ---- Radar konfigurierbar: Sergen sagt, wonach gesucht wird ----------------------------
+
+def test_radar_fokus_ui():
+    # Fokus-Editor im Radar-Panel + Umbenennung ins "Ideen"-Framing
+    assert "◈ RADAR · IDEEN" in VIEWS
+    for m in ('id="rd-focus-edit"', 'id="rd-focus-box"', 'id="rd-focus"', 'id="rd-focus-save"'):
+        assert m in VIEWS, f"Radar-Fokus-Element fehlt: {m}"
+    # JS spricht die Fokus-Endpoints an
+    assert '"/api/radar/focus"' in SCRIPT
+    assert '$("#rd-focus-save")' in SCRIPT and '$("#rd-focus-edit")' in SCRIPT
+
+
+# ---- Pro-Projekt-Uebersicht: auf einen Blick, was fuer Luvex getan wurde ----------------
+
+def test_projekt_uebersicht_auf_einen_blick():
+    # Kennzahlen-Kaertchen in der Projekt-Uebersicht + "zuletzt erledigt"
+    assert ".proj-glance{display:flex" in CSS
+    assert 'class="proj-glance"' in SCRIPT
+    assert "ZULETZT ERLEDIGT" in SCRIPT
+    # aus den Tasks der Ziele wird die Erledigt-Quote berechnet
+    assert 'doneTasks=allTasks.filter(t=>t.status==="done")' in SCRIPT
+    for lbl in ('gstat("Ziele"', 'gstat("Aufgaben"', 'gstat("Kosten"', 'gstat("Kasse"'):
+        assert lbl in SCRIPT, f"Kennzahl fehlt: {lbl}"
