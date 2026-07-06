@@ -120,3 +120,26 @@ def test_serc_subtabs():
     assert "freigaben:()=>{loadInbox();loadTodoSecrets();}" in SCRIPT
     # genau EIN default-aktiver Serc-Subview
     assert VIEWS.count('class="subview on"') == 2   # v-files (Kira) + v-todos (Serc)
+
+
+# ---- Chat/Coding-Werkbank: breiter Umschalter oben, Werkzeuge gebündelt, Modus-Farbe fix ----
+
+def test_chat_werkbank():
+    # Modus-Umschalter steht VOR der Werkzeugleiste und dem Eingabeformular
+    seg = VIEWS.index('id="chat-mode-seg"')
+    tools = VIEWS.index('id="chat-tools"')
+    form = VIEWS.index('id="cform"')
+    assert seg < tools < form
+    # Mikro + Anhang sind in die Werkbank gewandert; cform hat sie nicht mehr
+    mic = VIEWS.index('id="micbtn"')
+    assert tools < mic < form                       # micbtn liegt im chat-tools-Block
+    # cform enthält nur noch Eingabe + Senden (kein micbtn/imgbtn dazwischen)
+    cform_block = VIEWS[form:VIEWS.index("</form>", form)]
+    assert 'id="micbtn"' not in cform_block and 'id="imgbtn"' not in cform_block
+    # Modus-Farbe fix: Chat=Violett, Coding=Grün, unabhängig vom Theme
+    assert "--accent-chat:#b026ff" in CSS and "--coding-accent:#39ff14" in CSS
+    assert "#chat-main{--chat-accent:var(--accent-chat)}" in CSS
+    assert '#chat-main[data-mode="coding"]{--chat-accent:var(--coding-accent)}' in CSS
+    # breiter, gefüllter Aktiv-Tab
+    assert "#chat-mode-seg{display:flex;width:100%" in CSS
+    assert "#chat-mode-seg a.on{color:#fff;background:color-mix" in CSS

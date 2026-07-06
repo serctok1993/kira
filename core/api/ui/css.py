@@ -145,21 +145,38 @@ button.ghost{box-shadow:none}
 button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 0 12px color-mix(in srgb,var(--glow) 30%,transparent)}
 button.ghost.on{border-color:var(--accent);color:#fff;background:rgba(168,85,247,.16);box-shadow:0 0 0 1px var(--accent),0 0 14px var(--glow)}
 /* Chat-Modus-Feedback: Coding faerbt den Chat gruen/Terminal, Chat bleibt Neon-Violett */
-#chat-main{--chat-accent:var(--accent)}
-#chat-main[data-mode="coding"]{--chat-accent:#39ff14}
+/* ---- Chat/Coding-Werkbank: Modus-Farbe fix (Chat=Violett, Coding=Gruen), unabhaengig vom Theme ---- */
+:root{--accent-chat:#b026ff;--coding-accent:#39ff14}
+#chat-main{--chat-accent:var(--accent-chat)}
+#chat-main[data-mode="coding"]{--chat-accent:var(--coding-accent)}
+/* Breiter, zentraler Modus-Umschalter ganz oben — zwei gleich breite Tabs */
+#chat-mode-seg{display:flex;width:100%;max-width:880px;margin:0 auto 10px;gap:6px;border:1px solid var(--line);
+ border-radius:12px;padding:5px;background:var(--panel);font-family:inherit;font-size:14px;
+ box-shadow:inset 0 0 22px color-mix(in srgb,var(--chat-accent) 10%,transparent)}
+#chat-mode-seg a{flex:1;text-align:center;padding:11px 0;border-right:none;border-radius:9px;color:var(--muted);
+ font-weight:600;letter-spacing:.5px;transition:all .18s ease}
+#chat-mode-seg a.on{color:#fff;background:color-mix(in srgb,var(--chat-accent) 20%,transparent);
+ box-shadow:inset 0 0 0 1px var(--chat-accent),0 0 18px color-mix(in srgb,var(--chat-accent) 38%,transparent)}
+/* Eingabe/Senden faerben mit dem Modus */
 #chat-main #cin{caret-color:var(--chat-accent)}
 #chat-main #cin:focus{border-color:var(--chat-accent);box-shadow:0 0 0 1px var(--chat-accent),0 0 12px color-mix(in srgb,var(--chat-accent) 38%,transparent);outline:none}
 #chat-main #cform>button:last-child{background:linear-gradient(135deg,var(--chat-accent),var(--accent2))}
-#chat-mode-seg a.on{border-color:var(--chat-accent);color:#fff;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--chat-accent) 45%,transparent),0 0 10px color-mix(in srgb,var(--chat-accent) 28%,transparent)}
 #chat-main[data-mode="coding"] #cin{font-family:var(--mono)}
-/* Engine-Leiste: Modell als sichtbare Neon-Pille neben dem Modus (färbt mit dem Modus mit) */
+/* Modus-Farbe blutet in die Werkbank + den Verlauf durch (verstaerkter Kontrast) */
+#chat-main .chip:hover{border-color:var(--chat-accent);background:color-mix(in srgb,var(--chat-accent) 10%,transparent)}
+#chat-main .chip.tog.on{color:var(--chat-accent);border-color:var(--chat-accent)}
+#chat-main .sess.on{border-left-color:var(--chat-accent)}
+#chat-main .msg.bot .mbody .mdh{color:var(--chat-accent)}
+#chat-tools #micbtn,#chat-tools #imgbtn{color:var(--chat-accent);background:none;display:inline-flex;align-items:center;line-height:1.4}
+/* dünne Modus-Leuchtkante ganz oben am Chat — sofort sichtbar Violett vs Grün */
+#chat-main{box-shadow:inset 0 2px 0 color-mix(in srgb,var(--chat-accent) 55%,transparent)}
+/* Engine-Leiste: Modell als sichtbare Neon-Pille (färbt mit dem Modus mit) */
 #chatbar{gap:10px}
 select.engine-pill{background:var(--panel);color:var(--ink);border:1px solid var(--chat-accent);border-radius:999px;
  padding:6px 14px;font-size:12px;cursor:pointer;max-width:210px;
  box-shadow:0 0 10px color-mix(in srgb,var(--chat-accent) 22%,transparent);transition:box-shadow .18s ease,border-color .18s ease}
 select.engine-pill:hover,select.engine-pill:focus{outline:none;border-color:var(--chat-accent);
  box-shadow:0 0 0 1px var(--chat-accent),0 0 14px color-mix(in srgb,var(--chat-accent) 42%,transparent)}
-#chat-mode-seg{border:1px solid var(--line);border-radius:999px;padding:2px;background:var(--panel)}
 /* Serc-Subtabs: zwei Panels nebeneinander (bricht auf schmalem Screen um) */
 .me-grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start}
 /* Farbwähler im Optik-Popover */

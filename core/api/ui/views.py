@@ -113,17 +113,18 @@ VIEWS = r"""</head><body>
         <div class="sp-f"><a id="sess-archtoggle" class="muted" style="cursor:pointer;font-size:11px">Archiv anzeigen</a></div>
       </div>
       <div id="chat-main">
-        <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:4px 0 8px;flex-wrap:wrap">
+        <!-- Breiter, zentraler Modus-Umschalter ganz oben: sofort sichtbar Chat (violett) vs Coding (gruen) -->
+        <div class="seg" id="chat-mode-seg" title="Chat = Dialog (DeepSeek) · Coding = Plan + Schritte mit GLM 5.2 (fuer Recherche 'work:' davorschreiben)">
+          <a data-m="chat" class="on">💬 Chat</a><a data-m="coding">🛠 Coding</a>
+        </div>
+        <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:0 0 8px;flex-wrap:wrap">
           <button type="button" class="ghost" id="sess-toggle" title="Gespraeche ein-/ausklappen" style="padding:5px 10px">🗂</button>
-          <span class="seg" id="chat-mode-seg" title="Modus: Chat = Dialog · Coding = erst Plan, dann Schritte mit starkem Modell (fuer Recherche 'work:' davor schreiben)">
-            <a data-m="chat" class="on">💬 Chat</a><a data-m="coding">🛠 Coding</a>
-          </span>
           <select id="chat-model" class="engine-pill" title="Modell fuer diesen Chat"></select>
           <span style="flex:1"></span>
           <span class="muted" id="mode-hint" style="font-size:11px">Dialog — kurz &amp; direkt.</span>
         </div>
         <div id="log"></div>
-        <!-- S9.2: Werkzeug-Leiste UNTER dem Verlauf (wie ChatGPT/Claude): Befehle, Reasoning, Modell -->
+        <!-- Werkbank (fuer beide Modi gleich): Commands links · Werkzeuge rechts -->
         <div id="chat-tools">
           <span class="chip" id="chip-ziel" title="Arbeit einem Ziel zuordnen">@ziel:</span>
           <span class="chip" id="chip-mission" title="Kiras Missions-/Ziel-Lage abfragen">/mission</span>
@@ -132,11 +133,11 @@ VIEWS = r"""</head><body>
           <span style="flex:1"></span>
           <label class="chip tog" id="chip-reason" title="Reasoning: staerkeres Modell, denkt gruendlicher"><input type="checkbox" id="reason-on"/> 🧠 Reasoning</label>
           <label class="chip tog" id="chip-tts" title="Kira liest ihre Antworten laut vor (Stimme muss unter Kira → Zugaenge an sein)"><input type="checkbox" id="tts-on"/> 🔊 Vorlesen</label>
+          <button type="button" id="micbtn" class="chip" title="Sprachmemo aufnehmen">🎤</button>
+          <label id="imgbtn" class="chip" title="Bild an Kira" style="cursor:pointer">📎<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
         </div>
         <form id="cform">
           <input id="cin" placeholder="Schreib mir…" autocomplete="off" autofocus/>
-          <button type="button" id="micbtn" class="ghost" title="Sprachmemo aufnehmen">🎤</button>
-          <label id="imgbtn" class="ghost" title="Bild an Kira" style="display:flex;align-items:center;padding:0 14px;border-radius:10px;cursor:pointer">📎<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
           <button>Senden</button>
         </form>
       </div>
