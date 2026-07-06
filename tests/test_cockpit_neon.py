@@ -421,3 +421,14 @@ def test_count_since_backend(tmp_path, monkeypatch):
     assert events.count_since(types, _t.time() - 7 * 86400) == 2
     assert events.count_since(types, _t.time() + 999) == 0   # Zukunfts-Cutoff -> nichts
     assert events.count_since((), 0) == 0                    # keine Typen -> 0
+
+
+# ---- Chat-Datei-Anhang: "+" nimmt auch PDF/Dateien, Text geht an Kira ----
+
+def test_chat_attach_ui():
+    # "+" akzeptiert jetzt auch Dokumente (nicht nur Bilder)
+    assert 'accept="image/*,.pdf,.txt' in VIEWS
+    # Routing: Bild -> Vision, sonst -> attachFile -> /api/chat/attach an Kira
+    assert 'f.type.startsWith("image/")' in SCRIPT
+    assert "function attachFile(" in SCRIPT and '"/api/chat/attach"' in SCRIPT
+    assert "[Angehaengte Datei:" in SCRIPT
