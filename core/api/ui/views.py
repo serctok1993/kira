@@ -118,6 +118,7 @@ VIEWS = r"""</head><body>
           <span class="seg" id="chat-mode-seg" title="Modus: Chat = Dialog · Coding = erst Plan, dann Schritte mit starkem Modell (fuer Recherche 'work:' davor schreiben)">
             <a data-m="chat" class="on">💬 Chat</a><a data-m="coding">🛠 Coding</a>
           </span>
+          <select id="chat-model" class="engine-pill" title="Modell fuer diesen Chat"></select>
           <span style="flex:1"></span>
           <span class="muted" id="mode-hint" style="font-size:11px">Dialog — kurz &amp; direkt.</span>
         </div>
@@ -131,7 +132,6 @@ VIEWS = r"""</head><body>
           <span style="flex:1"></span>
           <label class="chip tog" id="chip-reason" title="Reasoning: staerkeres Modell, denkt gruendlicher"><input type="checkbox" id="reason-on"/> 🧠 Reasoning</label>
           <label class="chip tog" id="chip-tts" title="Kira liest ihre Antworten laut vor (Stimme muss unter Kira → Zugaenge an sein)"><input type="checkbox" id="tts-on"/> 🔊 Vorlesen</label>
-          <select id="chat-model" title="Modell fuer diesen Chat" style="max-width:190px"></select>
         </div>
         <form id="cform">
           <input id="cin" placeholder="Schreib mir…" autocomplete="off" autofocus/>
