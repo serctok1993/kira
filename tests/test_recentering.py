@@ -349,7 +349,7 @@ def test_reason_prefix_escalates(monkeypatch, tmp_path):
 def test_chat_tools_moved_below():
     html = TestClient(s.app).get("/").text
     assert 'id="chat-tools"' in html
-    for marker in ('id="chip-mission"', 'id="chip-status"', 'id="reason-level"', "chipInsert"):
+    for marker in ('id="cmd-help"', 'id="reason-level"', "chipInsert", 'id="cmd-pop"'):
         assert marker in html, f"Chat-Tool-Marker fehlt: {marker}"
     # S11: Modell-Knopf wandert in die Werkzeugleiste (ganz rechts, ueber Senden)
     assert 'id="model-btn"' in html
