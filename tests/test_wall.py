@@ -66,12 +66,26 @@ def test_wall_seite_wird_ausgeliefert():
     assert 'id="mpop"' in body and "/api/model/role" in body and "/api/model/catalog" in body
     assert 'm.kind==="think"' in body and "reasonBuf" in body   # Reasoning wird angezeigt
     assert "/api/news" in body                                   # zusaetzliche Stat
-    # Wall v3: leicht durchsichtige Info-Leiste, force-directed Graph mit Labels, To-Dos + Mails
-    assert "backdrop-filter:blur(5px)" in body and 'function sim(' in body
+    # force-directed Graph mit Labels, To-Dos + Mails
+    assert 'function sim(' in body
     assert "/api/life/board" in body and "/api/mails/unread" in body
     assert '"To-Dos"' in body and '"Mails"' in body
+    # Wall v4: dezente Leiste (leichter Blur), Einstell-Zahnrad (Worte/Bewegung/Farbe), System-Stats
+    assert "backdrop-filter:blur(2px)" in body                 # Blur entschaerft
+    assert 'id="gear"' in body and "kira_wall" in body and "function nodeColor(" in body
+    assert '/api/system' in body and '"CPU"' in body and '"GPU"' in body and '"Temp"' in body
     # PHRASES wurden injiziert (Platzhalter ist ersetzt)
     assert "/*__PHRASES__*/" not in body
+
+
+def test_api_system_null_safe():
+    c = TestClient(app)
+    r = c.get("/api/system")
+    assert r.status_code == 200
+    d = r.json()
+    # nie ein Crash: die Schluessel existieren (Werte duerfen None sein, wo keine Quelle da ist)
+    for k in ("cpu", "ram", "gpu", "gpu_temp"):
+        assert k in d
 
 
 def test_vault_graph_nimmt_config_obsidian_pfad(monkeypatch, tmp_path):
