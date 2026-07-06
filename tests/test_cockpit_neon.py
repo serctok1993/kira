@@ -543,3 +543,10 @@ def test_thinking_klappe_und_typewriter():
     assert ".think .chev{" in CSS and 'class="chev"' in SCRIPT   # Chevron dreht beim Klappen
     # Denkstrom tippt sich rein (Typewriter via rAF) statt als Block zu spawnen
     assert "curThinkLine._buf" in SCRIPT and "requestAnimationFrame(tick)" in SCRIPT
+
+
+def test_denk_status_neon_rainbow():
+    # Der Denk-Status ("kocht…/denkt…") fliesst im Neon-Rainbow — dort wo Textfarbe geht (Web)
+    assert "@keyframes rainflow{" in CSS
+    assert ".thinking .tx{background:linear-gradient(90deg,#b026ff,#ff2d95" in CSS
+    assert "animation:rainflow" in CSS

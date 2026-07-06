@@ -253,10 +253,12 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
  font-size:13.5px;font-weight:500;border-radius:12px;
  background:linear-gradient(90deg,transparent,rgba(139,92,246,.08),transparent)}
 .thinking .sh{color:var(--accent);filter:drop-shadow(0 0 7px var(--accent));animation:spin 3.4s linear infinite}
-.thinking .tx{background:linear-gradient(90deg,var(--muted) 0%,#fff 22%,var(--accent) 44%,var(--muted) 66%);
- background-size:220% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
- animation:shimmer 2.7s linear infinite}
-@keyframes shimmer{to{background-position:-220% 0}}
+/* Denk-Status im Neon-Rainbow-Fluss (wie Claude-Code "Cooking…") — die Farbe wandert durch den Text */
+.thinking .tx{background:linear-gradient(90deg,#b026ff,#ff2d95,#ff8a00,#39ff14,#00e5ff,#b026ff);
+ background-size:300% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
+ animation:rainflow 3.2s linear infinite}
+@keyframes rainflow{to{background-position:-300% 0}}
+@media (prefers-reduced-motion:reduce){.thinking .tx{animation:none}.thinking .sh{animation:none}}
 @keyframes spin{to{transform:rotate(360deg)}}
 /* ===== HUD-Kommandozentrale ===== */
 /* --hud kommt jetzt pro Theme aus dem :root/data-theme oben (faerbt beim Wechsel mit) */

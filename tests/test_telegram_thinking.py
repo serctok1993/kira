@@ -137,10 +137,10 @@ def test_telegram_trace_zeigt_reasoning():
 
 def test_render_trace_hermes_html():
     from core.agency.connectors import telegram_bot as tb
-    out = tb._render_trace(None, "ich pruefe zuerst die Quelle", ["📖 lese: /pfad"], "Denkt", "⠹", True, "💜")
+    out = tb._render_trace(None, "ich pruefe zuerst die Quelle", ["📖 lese: /pfad"], "Denkt", "⠹", True)
     assert "<blockquote expandable>" in out and "ich pruefe zuerst die Quelle" in out  # aufklappbares Denken
-    assert "💜" in out and "<b>Denkt</b>" in out and "⠹" in out                        # Neon + Phase + Spinner
-    assert "🧠" not in out                                                             # Gehirn-Emoji raus
+    assert "<b>Denkt</b>" in out and "⠹" in out                                        # Phase (fett) + Spinner
+    assert "🧠" not in out and "💜" not in out and "💗" not in out                      # weder Gehirn noch Herz
 
 
 def test_render_trace_escapes_html():
@@ -158,3 +158,27 @@ def test_denken_toggle(tmp_path, monkeypatch):
     assert tb._denken_on(42) is True and tb._denken_on(43) is False   # nur diese Session
     tb._denken_set(42, False)
     assert tb._denken_on(42) is False
+
+
+# ---- Premium-Extras: Effekt-Toggle (Default an) + Custom-Emoji-Glow ----
+
+def test_effekt_toggle_default_an(tmp_path, monkeypatch):
+    from core.agency.connectors import telegram_bot as tb
+    monkeypatch.setattr(tb, "_EFFEKT_FILE", tmp_path / "eff.json")
+    assert tb._effekt_on(7) is True          # Default: an (Premium-Flair)
+    tb._effekt_set(7, False)
+    assert tb._effekt_on(7) is False
+    tb._effekt_set(7, True)
+    assert tb._effekt_on(7) is True
+    assert "feuer" in tb._EFFECTS and tb._EFFECTS["feuer"].isdigit()   # echte message_effect_id
+
+
+def test_custom_emoji_learn_und_glow(tmp_path, monkeypatch):
+    from core.agency.connectors import telegram_bot as tb
+    monkeypatch.setattr(tb, "_EMOJI_FILE", tmp_path / "em.json")
+    assert tb._lead_emoji(0) == ""                       # ohne gelernte Emoji: sauber, kein Glow
+    assert tb._emoji_learn(["111", "222"]) == 2 and tb._emoji_ids() == ["111", "222"]
+    lead = tb._lead_emoji(1)                             # rotiert je Takt -> ids[1]
+    assert '<tg-emoji emoji-id="222">' in lead and "</tg-emoji>" in lead
+    out = tb._render_trace(None, "", [], "Denkt", "⠹", True, lead)
+    assert "<tg-emoji" in out and "<b>Denkt</b>" in out   # Glow im Status
