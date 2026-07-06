@@ -63,6 +63,20 @@ def _strip_think(text: str) -> str:
     return cleaned or text.strip()
 
 
+_THINK_INNER_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
+
+
+def _think_content(text: str) -> str:
+    """Inverses zu _strip_think: liefert den INHALT der <think>-Bloecke — den Denk-Strom
+    selbst, fuer ein SICHTBARES Reasoning (Cockpit + Telegram). Bei einem offenen Tag ohne
+    Abschluss den Rest ab <think>. Modelle, die statt Inline-Tags ein dediziertes Feld
+    (reasoning_content) liefern, werden separat in complete() gelesen."""
+    inner = "\n".join(m.group(1).strip() for m in _THINK_INNER_RE.finditer(text))
+    if not inner and "<think>" in text:
+        inner = text.split("<think>", 1)[1].replace("</think>", "").strip()
+    return inner.strip()
+
+
 def _visible_from_raw(raw: str) -> str:
     """Fuer Streaming: sichtbarer Teil aus dem bisherigen Rohtext.
 
@@ -361,6 +375,16 @@ def complete(
     text = _strip_think(raw_text)
     had_think = text != raw_text
 
+    # Sichtbares Reasoning: Denk-Modelle liefern ihren Gedankenstrom entweder im dedizierten
+    # Feld (reasoning_content — so normalisiert litellm OpenRouter/GLM) ODER inline als
+    # <think>...</think> im content. Beides einfangen -> Cockpit und Telegram koennen das
+    # echte Denken zeigen, statt eines leeren „nachdenken…"-Pulses.
+    reasoning = (getattr(message, "reasoning_content", None)
+                 or getattr(message, "reasoning", None) or "")
+    if not reasoning and had_think:
+        reasoning = _think_content(raw_text)
+    reasoning = reasoning.strip() or None
+
     tool_calls: list[dict] = []
     for c in (getattr(message, "tool_calls", None) or []):
         try:
@@ -409,6 +433,7 @@ def complete(
         "latency_s": latency,
         "escalated": escalate,
         "tool_calls": tool_calls,
+        "reasoning": reasoning,
     }
 
 
