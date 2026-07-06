@@ -129,7 +129,7 @@ button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--lin
  box-shadow:0 12px 34px rgba(0,0,0,.6)}
 #theme-pop.open{display:flex}
 #side a .ti{display:inline-block;width:18px;text-align:center;margin-right:2px;color:var(--accent)}
-.direktive{max-width:1120px;margin:0 0 16px;border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));
+.direktive{max-width:560px;margin:0 0 16px;border:1px solid color-mix(in srgb,var(--accent) 22%,var(--line));
  border-radius:12px;padding:15px 16px;background:
   linear-gradient(180deg,color-mix(in srgb,var(--accent) 6%,var(--panel)),var(--panel));
  box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 8%,transparent),0 10px 30px rgba(0,0,0,.45)}
@@ -247,8 +247,8 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
 @keyframes spin{to{transform:rotate(360deg)}}
 /* ===== HUD-Kommandozentrale ===== */
 /* --hud kommt jetzt pro Theme aus dem :root/data-theme oben (faerbt beim Wechsel mit) */
-.hud-strip{display:flex;flex-wrap:wrap;align-items:stretch;margin-bottom:14px;border:1px solid var(--line);
- border-radius:10px;overflow:hidden;background:var(--panel);font-family:var(--mono)}
+.hud-strip{display:flex;flex-wrap:nowrap;align-items:stretch;margin-bottom:14px;border:1px solid var(--line);
+ border-radius:10px;overflow-x:auto;overflow-y:hidden;background:var(--panel);font-family:var(--mono)}
 .hud-cell{padding:8px 14px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:3px;min-width:118px}
 .hud-cell:last-child{border-right:none}
 .hud-cell .k{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted)}
@@ -269,6 +269,9 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
 .panel-h .sp{flex:1}
 .panel-b{padding:10px 13px}
 #ops-feed{max-height:52vh;overflow:auto;font-family:var(--mono);font-size:12px}
+#ops-filter .ofc{font-weight:600;opacity:.6;font-size:10px;font-variant-numeric:tabular-nums}
+#ops-filter a.on .ofc{opacity:1}
+#ops-filter a[data-of=error] .ofc{color:var(--danger);opacity:.9}  /* Fehler faellt auf */
 .op{display:flex;gap:10px;padding:5px 13px;border-bottom:1px solid rgba(255,255,255,.04);align-items:flex-start}
 .op .opt{color:var(--muted);min-width:62px;font-variant-numeric:tabular-nums}
 .op .opx{flex:1;color:var(--ink);word-break:break-word}
@@ -454,9 +457,9 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
 .chip.tog.on{color:var(--accent);border-color:var(--accent)}
 @media(max-width:900px){#sess-panel.open{display:none}}
 /* ===== S6.6d · Kira-Avatar: Hero in der Zentrale + Mini-Avatar im Chat ===== */
-#hero{display:flex;align-items:center;gap:16px;margin:2px 0 14px}
-#hero-av{width:74px;height:74px;border-radius:50%;object-fit:cover;border:2px solid var(--line);
- box-shadow:0 0 0 2px rgba(0,0,0,.35);background:var(--panel)}
+#hero{display:flex;align-items:center;gap:13px;margin:0 0 10px}
+#hero-av{width:50px;height:50px;border-radius:50%;object-fit:cover;border:2px solid var(--line);
+ box-shadow:0 0 0 2px rgba(0,0,0,.35);background:var(--panel);flex:none}
 #hero-av.aura{border-color:var(--accent);animation:aurapulse 3.2s ease-in-out infinite}
 @keyframes aurapulse{0%,100%{box-shadow:0 0 10px var(--glow)}50%{box-shadow:0 0 26px var(--glow)}}
 #hero-name{font-size:21px;letter-spacing:5px;color:#fff;text-shadow:0 0 12px rgba(139,92,246,.40)}
@@ -473,7 +476,7 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
  #v-home .cmd-main .panel{flex:1;display:flex;flex-direction:column;min-height:0;margin:0}
  #v-home #ops-feed{flex:1;max-height:none;overflow:auto}
  #v-home .cmd-side{min-height:0;overflow:auto;padding-right:2px}
- #v-home #news-list{max-height:30vh;overflow:auto}
+ /* KEIN innerer News-Scroll mehr: die Seitenspalte scrollt als EINES (Scroll-Falle weg). */
 }
 /* ===== S9.3/S9.5 · Kein-Scroll-Disziplin: Seite scrollt nicht, Panels scrollen innen ===== */
 /* Basis (schmal, gestapelt) MUSS vor der Media-Query stehen — sonst ueberstimmt die
