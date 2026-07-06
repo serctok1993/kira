@@ -35,8 +35,8 @@ Damit der Desktop „leer" wirkt:
 
 **Variante 2 — dauerhaft weg (durchgängiger Desktop, empfohlen):** versteckt das Taskleisten-Fenster
 komplett, poppt **nicht** bei Mausberührung auf. Deine Desktop-Icons bleiben sichtbar.
-- Ausblenden: `powershell -ExecutionPolicy Bypass -File taskbar-hide.ps1 hide`
-- Zeigen: `powershell -ExecutionPolicy Bypass -File taskbar-hide.ps1 show`
+- **Am einfachsten:** Doppelklick auf **`taskleiste-weg.bat`** (zurück: **`taskleiste-an.bat`**).
+- Oder von Hand: `powershell -ExecutionPolicy Bypass -File taskbar-hide.ps1 hide` / `... show`.
 - Start-Menü geht weiter über die **Windows-Taste**.
 - **Für „immer weg" (auch nach Neustart):** die Verknüpfung mit `hide` in den Autostart legen
   (`Win+R` → `shell:startup` → Verknüpfung auf `taskbar-hide.ps1` mit Argument `hide`).
