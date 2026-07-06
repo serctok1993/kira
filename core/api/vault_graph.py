@@ -31,6 +31,20 @@ def _group_of(root: Path, p: Path) -> str:
     return rel[0] if len(rel) > 1 else "vault"
 
 
+def _default_roots() -> list[Path]:
+    """Kiras Gedaechtnis + optionale echte Obsidian-Vaults aus der Config
+    (desktop.vault_paths). So erscheint Sergens ganzer Obsidian-Graph, nicht nur die Memo-Dateien."""
+    roots = [ROOT / "gedaechtnis", ROOT / "playbooks"]
+    try:
+        from core.config import CONFIG
+        for p in (CONFIG.get("desktop") or {}).get("vault_paths") or []:
+            if p:
+                roots.append(Path(str(p)).expanduser())
+    except Exception:  # noqa: BLE001 — fehlende/kaputte Config darf den Graph nie brechen
+        pass
+    return roots
+
+
 def build_graph(roots: list[Path] | None = None) -> dict:
     """Scannt die Vault-Ordner, baut {nodes, links, counts}.
 
@@ -38,7 +52,7 @@ def build_graph(roots: list[Path] | None = None) -> dict:
     counts: {notes, links} (notes = echte .md-Dateien, links = eindeutige Verbindungen).
     """
     if roots is None:
-        roots = [ROOT / "gedaechtnis", ROOT / "playbooks"]
+        roots = _default_roots()
 
     files: list[tuple[Path, Path]] = []
     for r in roots:
