@@ -29,11 +29,17 @@ Open Source (MIT), läuft lokal, kein Cloud-Zwang — passt zum Prinzip „alles
 
 Damit der Desktop „leer" wirkt:
 
-- **Manuell (sicher, reversibel):** Rechtsklick auf die Taskleiste →
-  *Taskleisteneinstellungen* → **„Taskleiste automatisch ausblenden"** einschalten.
-- **Oder per Skript** (im Kira-Ordner):
-  `powershell -ExecutionPolicy Bypass -File taskbar-autohide.ps1 on`
-  Rückgängig: `... off`.
+**Variante 1 — Auto-Ausblenden** (Windows-Bordmittel, kommt bei Mausberührung unten kurz zurück):
+- Manuell: Rechtsklick auf die Taskleiste → *Taskleisteneinstellungen* → **„Taskleiste automatisch ausblenden"**.
+- Oder: `powershell -ExecutionPolicy Bypass -File taskbar-autohide.ps1 on`  (rückgängig: `... off`).
+
+**Variante 2 — dauerhaft weg (durchgängiger Desktop, empfohlen):** versteckt das Taskleisten-Fenster
+komplett, poppt **nicht** bei Mausberührung auf. Deine Desktop-Icons bleiben sichtbar.
+- Ausblenden: `powershell -ExecutionPolicy Bypass -File taskbar-hide.ps1 hide`
+- Zeigen: `powershell -ExecutionPolicy Bypass -File taskbar-hide.ps1 show`
+- Start-Menü geht weiter über die **Windows-Taste**.
+- **Für „immer weg" (auch nach Neustart):** die Verknüpfung mit `hide` in den Autostart legen
+  (`Win+R` → `shell:startup` → Verknüpfung auf `taskbar-hide.ps1` mit Argument `hide`).
 
 ---
 

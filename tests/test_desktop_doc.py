@@ -18,3 +18,12 @@ def test_taskleisten_helfer_vorhanden():
     ps1 = (ROOT / "taskbar-autohide.ps1").read_text(encoding="utf-8")
     assert "StuckRects3" in ps1 and 'param(' in ps1        # An/Aus, reversibel
     assert '"on"' in ps1 and '"off"' in ps1
+
+
+def test_taskleiste_dauerhaft_verstecken_helfer():
+    # Variante 2: Taskleisten-Fenster wirklich verstecken (durchgaengiger Desktop), reversibel
+    ps1 = (ROOT / "taskbar-hide.ps1").read_text(encoding="utf-8")
+    assert "Shell_TrayWnd" in ps1 and "ShowWindow" in ps1
+    assert '"hide"' in ps1 and '"show"' in ps1
+    doc = (ROOT / "docs" / "DESKTOP.md").read_text(encoding="utf-8")
+    assert "taskbar-hide.ps1" in doc
