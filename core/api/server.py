@@ -1664,8 +1664,24 @@ def index() -> str:
     return DASHBOARD_HTML.replace("/*__PHRASES__*/", inner)
 
 
+@app.get("/wall", response_class=HTMLResponse)
+def wall() -> str:
+    # Desktop-Wallpaper-Seite (rahmenlos): Stats + Live-Vault-Graph + ephemerer Chat.
+    # Gleiche PHRASES-Injektion wie index() -> das Thinking im Wallpaper-Chat nutzt echte Sprueche.
+    inner = json.dumps(THINKING_PHRASES, ensure_ascii=False)[1:-1]
+    return WALL_HTML.replace("/*__PHRASES__*/", inner)
+
+
+@app.get("/api/vault/graph")
+def api_vault_graph() -> dict:
+    # Live-Obsidian-Vault als Graph (rein lesend): Notizen + [[Verlinkungen]] -> Knoten + Faeden.
+    from core.api import vault_graph
+    return vault_graph.build_graph()
+
+
 # Das komplette Cockpit-Frontend lebt seit S5.3a in core/api/ui/ (css.py, views.py,
 # script.py) — drei handliche Module statt einer 90-KB-Wand hier. Der Export bleibt
 # identisch: DASHBOARD_HTML ist weiterhin ueber core.api.server importierbar.
 from core.api.ui import DASHBOARD_HTML  # noqa: E402
+from core.api.ui.wall import WALL_HTML  # noqa: E402
 from core.kernel.fs import atomic_write
