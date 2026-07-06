@@ -579,11 +579,13 @@ function msgEl(text,cls,ts){const d=document.createElement("div");d.className="m
  log.appendChild(d);log.scrollTop=log.scrollHeight;return d;}
 /* Shimmernder Denk-Indikator: rotierender Spruch, solange Kira arbeitet */
 let thinkTimer=null,thinkEl=null;
+/* Eine rotierende Phrase, ueberall live: der Vor-Trace-Puls UND die Rainbow-Ueberschrift des Traces
+   (Thinking/Cooking/Clauding…) lesen dieselbe Phrase — nur EIN Timer, kein Flackern. */
+function refreshPhrase(){const p=rndPhrase()+"…";document.querySelectorAll(".tx.live").forEach(t=>{t.textContent=p;});}
 function startThinking(){stopThinking();thinkEl=document.createElement("div");thinkEl.className="thinking";
- thinkEl.innerHTML='<span class="sh">✦</span><span class="tx"></span>';
- const setp=()=>{const t=thinkEl&&thinkEl.querySelector(".tx");if(t)t.textContent=rndPhrase()+"…";};
- setp();log.appendChild(thinkEl);log.scrollTop=log.scrollHeight;
- thinkTimer=setInterval(setp,3500);}
+ thinkEl.innerHTML='<span class="sh">✦</span><span class="tx live"></span>';
+ log.appendChild(thinkEl);log.scrollTop=log.scrollHeight;refreshPhrase();
+ thinkTimer=setInterval(refreshPhrase,2600);}
 function stopThinking(){if(thinkTimer){clearInterval(thinkTimer);thinkTimer=null;}
  if(thinkEl){thinkEl.remove();thinkEl=null;}}
 const proto=location.protocol==="https:"?"wss":"ws";
@@ -606,14 +608,20 @@ function renderDiff(box,txt){const pre=document.createElement("pre");pre.classNa
 function wsDot(ok){const d=$("#ws-dot");if(d){d.classList.toggle("on",ok);d.classList.toggle("off",!ok);d.title=ok?"Chat verbunden":"Chat getrennt — verbinde neu";}}
 function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/chat"+(curSid?("?sid="+encodeURIComponent(curSid)):"");ws=new WebSocket(url);
  ws.onopen=()=>{wsDelay=1000;wsDot(true);};
- function ensureTrace(){if(!curThink){curThink=document.createElement("div");curThink.className="think show";
-    curThink.innerHTML='<span class="h"><span class="chev">▸</span> 💭 Denken &amp; Aktionen <span style="opacity:.55">— klick zum Ein-/Ausklappen</span></span><div class="c"></div>';
+ /* eingeklappt neu generieren: kommt ein neuer Schritt, klappt ein manuell geoeffneter Trace wieder zu */
+ function traceLive(){if(curThink&&curThink.classList.contains("show"))curThink.classList.remove("show");}
+ /* nach dem Lauf: Rainbow-Ueberschrift beruhigen (statischer Titel statt fliessender Phrase) */
+ function settleTrace(){if(curThink){const tx=curThink.querySelector(".h .tx");if(tx){tx.classList.remove("live");tx.textContent="Denken & Aktionen";}}}
+ function ensureTrace(){if(!curThink){curThink=document.createElement("div");curThink.className="think";
+    curThink.innerHTML='<span class="h"><span class="chev">▸</span> <span class="tx live">…</span> <span class="hint">— klick zum Ein-/Ausklappen</span></span><div class="c"></div>';
     curThink.querySelector(".h").onclick=()=>curThink.classList.toggle("show");log.appendChild(curThink);
-    traceC=curThink.querySelector(".c");curThinkLine=null;}return curThink;}
+    traceC=curThink.querySelector(".c");curThinkLine=null;
+    if(thinkEl){thinkEl.remove();thinkEl=null;}   /* Vor-Trace-Puls in die Trace-Ueberschrift falten (Timer laeuft weiter) */
+    refreshPhrase();}return curThink;}
  function traceScroll(){log.scrollTop=log.scrollHeight;}
  /* Denkstrom tippt sich rein statt als Block zu spawnen (Typewriter, Rueckstau-adaptiv). */
  function traceThink(t){ensureTrace();
-  if(!curThinkLine){curThinkLine=document.createElement("div");curThinkLine.className="tthink";curThinkLine._buf="";curThinkLine._shown=0;traceC.appendChild(curThinkLine);}
+  if(!curThinkLine){traceLive();curThinkLine=document.createElement("div");curThinkLine.className="tthink";curThinkLine._buf="";curThinkLine._shown=0;traceC.appendChild(curThinkLine);}
   const el=curThinkLine;el._buf+=t;
   const rm=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if(rm){el._shown=el._buf.length;el.textContent=el._buf;traceScroll();return;}
@@ -624,12 +632,12 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
     el.textContent=el._buf.slice(0,el._shown);traceScroll();
     el._raf=requestAnimationFrame(tick);};
    el._raf=requestAnimationFrame(tick);}}
- function traceTool(name,args){ensureTrace();curThinkLine=null;
+ function traceTool(name,args){ensureTrace();traceLive();curThinkLine=null;
   const L=toolLabel(name,args);const row=document.createElement("div");row.className="trow";
   row.innerHTML='<span class="ti">'+esc(L.icon)+'</span><span class="tl">'+esc(L.label)+'</span>'
    +(L.target?'<span class="tt">'+esc(L.target)+'</span>':'');
   traceC.appendChild(row);traceScroll();}
- function traceObs(name,text){ensureTrace();curThinkLine=null;
+ function traceObs(name,text){ensureTrace();traceLive();curThinkLine=null;
   const t=text||"";const m=t.match(/```diff\n([\s\S]*?)```/);
   const head=(m?t.slice(0,m.index):t).trim();
   const bad=/Fehlgeschlagen|ROT|⚠|Fehler|blockiert|nicht gefunden/i.test(head);
@@ -640,11 +648,11 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
   traceC.appendChild(row);traceScroll();}
  ws.onmessage=ev=>{const m=JSON.parse(ev.data);
   if(m.role==="system"){add(m.text,"sys");return;}
-  if(m.done){stopThinking();setStreaming(false);curBot=null;curThink=null;traceC=null;curThinkLine=null;loadChatSessions();return;}
+  if(m.done){stopThinking();settleTrace();setStreaming(false);curBot=null;curThink=null;traceC=null;curThinkLine=null;loadChatSessions();return;}
   if(m.kind==="think"){traceThink(m.text);return;}
   if(m.kind==="tool"){traceTool(m.name,m.args);return;}
   if(m.kind==="obs"){traceObs(m.name,m.text);return;}
-  if(m.kind==="final"||m.kind==="answer"){stopThinking();msgEl(m.text||"","bot");onKiraReply(m.text||"");}};
+  if(m.kind==="final"||m.kind==="answer"){stopThinking();settleTrace();msgEl(m.text||"","bot");onKiraReply(m.text||"");}};
  ws.onclose=()=>{wsDot(false);setStreaming(false);if(!wsIntentional){wsDelay=Math.min(wsDelay*2,30000);setTimeout(connect,wsDelay);}};}
 function reconnect(){wsIntentional=true;if(ws){try{ws.onclose=null;ws.close();}catch(e){}}connect();}  /* alten onclose stummschalten -> kein Doppel-Socket/doppeltes "Verbunden" */
 function relTime(ts){const s=Date.now()/1000-ts;if(s<90)return "gerade";if(s<3600)return Math.round(s/60)+" Min";if(s<86400)return Math.round(s/3600)+" Std";return Math.round(s/86400)+" Tg";}
