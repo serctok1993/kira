@@ -322,7 +322,8 @@ async function loadHud(){const el=$("#hud-strip");if(!el)return;
   const svc=(sv&&sv.services)||{};
   const dienste=sv?('<div class="hud-cell"><span class="k">Dienste</span><span class="val">'
    +dd(sv.supervisor,"Supervisor")+dd(svc.cockpit!==false,"Cockpit")+dd(svc.bot,"Telegram-Bot")+dd(svc.runner,"Runner")+dd(sv.ollama,"Ollama")+'</span></div>'):'';
-  const errs=(ec.turn_timeout||0)+(ec.llm_call_timeout||0)+(ec.service_crash||0)+(ec.act_degraded||0);
+  /* S11: ehrliches 7-Tage-Fenster (nicht mehr kumulativ seit DB-Beginn) — klickbar zum Protokoll */
+  const errs=(st.errors_recent!=null)?st.errors_recent:((ec.turn_timeout||0)+(ec.llm_call_timeout||0)+(ec.service_crash||0)+(ec.act_degraded||0));
   const dayPct=b.day_limit?Math.min(100,Math.round(100*(b.day_spent||0)/b.day_limit)):0;
   const warn=dayPct>=85?" warn":"";
   const kill=o.kill_switch?'<span style="color:var(--danger)">⛔ NOT-AUS</span>':'<span style="color:var(--ok)">● bereit</span>';
@@ -344,10 +345,11 @@ async function loadHud(){const el=$("#hud-strip");if(!el)return;
    +cell("Aufgaben",'<b style="color:var(--hud)">'+jobs+'</b> offen'+(running?' · '+running+' laeuft':''))
    +cell("Deine Todos",'<b>'+todos+'</b>')
    +dienste
-   +cell("Fehler",'<span style="color:'+(errs?"var(--warn)":"var(--ok)")+'">'+errs+'</span>')
+   +cell("Fehler · 7 Tg",'<a id="hud-errs" title="Timeouts/Crashes der letzten 7 Tage — klick fuers Protokoll" style="cursor:pointer;color:'+(errs?"var(--warn)":"var(--ok)")+'">'+errs+'</a>')
    +'<div class="hud-cell spacer"></div>'
    +cell("Aktion",'<a id="hud-restart" style="cursor:pointer;color:var(--hud)">↻ Neustart</a>');
   const rb=$("#hud-restart");if(rb)rb.onclick=async()=>{if(!confirm("Kira neu starten? Dienste bouncen in ~20s."))return;await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});rb.textContent="↻ …";};
+  const eb=$("#hud-errs");if(eb)eb.onclick=()=>{nav("kira");if(typeof subnav==="function")subnav("kira","log");};  /* Fehler-Zahl -> Protokoll */
   /* Assistenz-Modus direkt in der Zentrale (freihaendiges Zuhoeren, Weckwort "Kira"). */
   const ha=$("#hud-assist");if(ha&&typeof toggleAssist==="function")ha.onclick=toggleAssist;
   /* S11.4: DER Heartbeat-Schalter — begleitete Aktivierung passiert hier, bewusst per Klick. */
@@ -484,7 +486,12 @@ async function loadDigest(){const el=$("#digest");if(!el)return;
   let h='<div class="muted" style="font-size:11px;letter-spacing:1px">'+d.date+'</div>';
   h+='<div style="margin:6px 0"><b>'+d.tasks_done_count+'</b> Aufgaben erledigt · <b>'+d.planned+'</b> geplant · <b>'+d.news+'</b> News</div>';
   if(d.tasks_done&&d.tasks_done.length)h+='<ul style="margin:4px 0;padding-left:16px;font-size:12px">'+d.tasks_done.map(t=>'<li>'+(""+t).replace(/</g,"&lt;")+'</li>').join("")+'</ul>';
+  /* S11: heute angefasste Dateien (der greifbarste "was wurde gebaut"-Beleg) + Tagesausgabe */
+  if(d.artifacts&&d.artifacts.length)h+='<div style="margin-top:6px;font-size:12px"><span class="muted">Heute angefasst ('+d.artifacts.length+'):</span> '+d.artifacts.slice(0,6).map(a=>'<code style="font-size:11px">'+(""+a).replace(/</g,"&lt;").split("/").pop()+'</code>').join(", ")+'</div>';
+  if(d.spend_usd!=null&&d.spend_usd>0)h+='<div style="margin-top:4px;font-size:12px" class="muted">Ausgaben heute: '+(d.spend_usd).toFixed(2)+' $</div>';
   h+='<div style="margin-top:6px;font-size:12px">Freigaben offen: <b style="color:'+(d.pending_approvals?"var(--warn)":"var(--ok)")+'">'+d.pending_approvals+'</b> · Fehler heute: <b style="color:'+(d.errors?"var(--danger)":"var(--ok)")+'">'+d.errors+'</b></div>';
+  /* ruhiger Tag? nicht leer wirken lassen */
+  if(!d.tasks_done_count&&!(d.artifacts&&d.artifacts.length)&&!d.news)h+='<div class="muted" style="margin-top:6px;font-size:12px">Noch ruhig heute — gib mir oben einen Auftrag, dann fuellt sich das hier.</div>';
   /* S9.1: Budget-Dopplung raus — steht schon im HUD-Streifen oben. */
   el.innerHTML=h;
  }catch(e){}}
@@ -1094,11 +1101,19 @@ function saveCustom(c){try{localStorage.setItem("kira_custom",JSON.stringify(c))
 function applyCustom(c){c=c||{};const r=document.documentElement.style;
  if(c.bg)r.setProperty("--bg",c.bg);
  if(c.panel){r.setProperty("--panel",c.panel);r.setProperty("--panel2",c.panel);}
- if(c.accent){r.setProperty("--accent",c.accent);r.setProperty("--glow",c.accent);r.setProperty("--hud",c.accent);}}
+ if(c.accent){r.setProperty("--accent",c.accent);r.setProperty("--glow",c.accent);r.setProperty("--hud",c.accent);}
+ if(c.hud)r.setProperty("--hud",c.hud);        /* eigener HUD-Regler gewinnt ueber den Accent */
+ if(c.ink)r.setProperty("--ink",c.ink);        /* Schrift-Farbe (auch Seitenleiste) */
+ if(c.muted)r.setProperty("--muted",c.muted);  /* gedaempfte Schrift */
+ if(c.line)r.setProperty("--line",c.line);     /* Linien & Rahmen */
+ if(c.font)r.setProperty("--font",c.font);}    /* Schriftart fuers ganze Dashboard */
 function bindColor(sel,key,fallback){const el=$(sel);if(!el)return;const c=loadCustom();
  el.value=c[key]||fallback;
  el.oninput=()=>{const cc=loadCustom();cc[key]=el.value;saveCustom(cc);applyCustom(cc);};}
 bindColor("#col-bg","bg","#0a0a0d");bindColor("#col-panel","panel","#0e0e13");bindColor("#col-accent","accent","#8b5cf6");
+bindColor("#col-hud","hud","#c084fc");bindColor("#col-ink","ink","#eceef4");bindColor("#col-muted","muted","#9b97b0");bindColor("#col-line","line","#26203a");
+(function(){const el=$("#font-sel");if(!el)return;const c=loadCustom();el.value=c.font||"";
+ el.onchange=()=>{const cc=loadCustom();cc.font=el.value;saveCustom(cc);applyCustom(cc);};})();
 $("#col-reset")&&($("#col-reset").onclick=()=>{localStorage.removeItem("kira_custom");location.reload();});
 applyCustom(loadCustom());  /* eigene Farben beim Start anwenden (nach setTheme, gewinnt) */
 

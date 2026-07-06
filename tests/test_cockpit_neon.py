@@ -376,3 +376,48 @@ def test_bg_kein_cache():
     from core.api import server
     src = inspect.getsource(server.api_bg)
     assert 'Cache-Control' in src and 'no-store' in src
+
+
+# ---- Grosses Anpass-Panel: mehr Farbregler + Schriftart, alles live/persistent ----
+
+def test_anpass_panel_gross():
+    # neue Farbwaehler im Theme-Popover
+    for m in ('id="col-hud"', 'id="col-ink"', 'id="col-muted"', 'id="col-line"', 'id="font-sel"'):
+        assert m in VIEWS, f"Regler fehlt: {m}"
+    # applyCustom setzt die neuen Variablen
+    for prop in ('"--hud",c.hud', '"--ink",c.ink', '"--muted",c.muted', '"--line",c.line', '"--font",c.font'):
+        assert prop in SCRIPT, f"applyCustom setzt {prop} nicht"
+    # Bindings + Font-Auswahl
+    assert 'bindColor("#col-ink","ink"' in SCRIPT and 'bindColor("#col-hud","hud"' in SCRIPT
+    assert '$("#font-sel")' in SCRIPT
+    # Schrift ist jetzt eine Variable (vorher hart) + Sidebar-Text folgt --ink
+    assert "font-family:var(--font," in CSS
+    assert "#side h1{" in CSS and "color:var(--ink)" in CSS
+
+
+# ---- Heute-Karte voller: heute angefasste Dateien + Ausgaben ----
+
+def test_heute_karte_voller():
+    assert "d.artifacts&&d.artifacts.length" in SCRIPT      # heute angefasste Dateien
+    assert "Ausgaben heute" in SCRIPT                        # Tagesausgabe
+    assert "Noch ruhig heute" in SCRIPT                      # Leerzustand-Fallback
+
+
+# ---- Fehler ehrlich: 7-Tage-Fenster statt All-Time, klickbar zum Protokoll ----
+
+def test_fehler_fenster_klickbar():
+    assert "st.errors_recent" in SCRIPT                      # HUD nutzt das Fenster
+    assert 'id="hud-errs"' in SCRIPT and 'subnav("kira","log")' in SCRIPT
+    assert "Fehler · 7 Tg" in SCRIPT
+
+
+def test_count_since_backend(tmp_path, monkeypatch):
+    import time as _t
+    from core.kernel import events
+    monkeypatch.setattr(events, "DB_PATH", str(tmp_path / "e.db"))
+    events.init_db()
+    events.emit("turn_timeout", {}); events.emit("service_crash", {}); events.emit("user_message", {})
+    types = ("turn_timeout", "llm_call_timeout", "service_crash", "act_degraded")
+    assert events.count_since(types, _t.time() - 7 * 86400) == 2
+    assert events.count_since(types, _t.time() + 999) == 0   # Zukunfts-Cutoff -> nichts
+    assert events.count_since((), 0) == 0                    # keine Typen -> 0
