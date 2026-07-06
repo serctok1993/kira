@@ -171,7 +171,7 @@ VIEWS = r"""</head><body>
           <input type="hidden" id="chat-model"/>
         </div>
         <form id="cform">
-          <label id="plusbtn" class="plus" title="Bild oder Datei hochladen">+<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
+          <label id="plusbtn" class="plus" title="Bild oder Datei (PDF, txt, md, csv) hochladen">+<input id="imgfile" type="file" accept="image/*,.pdf,.txt,.md,.markdown,.csv,.log,.json,.yaml,.yml,.html,.htm" style="display:none"/></label>
           <input id="cin" placeholder="Schreib mir…" autocomplete="off" autofocus/>
           <button id="sendbtn">Senden</button>
         </form>

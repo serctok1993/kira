@@ -1030,6 +1030,24 @@ async def api_knowledge_delete(body: dict) -> dict:
     return {"ok": knowledge.delete(body.get("id", ""))}
 
 
+@app.post("/api/chat/attach")
+async def api_chat_attach(file: UploadFile = File(...)) -> dict:
+    """Datei (PDF/txt/md/csv/html) im Chat anhaengen: Text extrahieren, damit Kira
+    direkt darauf antworten/eine Mail schreiben kann. Bild-Anhaenge laufen ueber /api/vision."""
+    from core.mind import knowledge
+
+    data = await file.read()
+    if len(data) > 15 * 1024 * 1024:
+        return {"ok": False, "error": "Datei zu gross (max 15 MB)"}
+    fname = file.filename or "datei"
+    text, err = await anyio.to_thread.run_sync(lambda: knowledge._extract(data, fname))
+    if not text:
+        return {"ok": False, "name": fname, "error": err or "kein Text extrahierbar"}
+    cap = 12000
+    return {"ok": True, "name": fname, "text": text[:cap],
+            "chars": len(text), "truncated": len(text) > cap}
+
+
 # ---------- Agenten-Sicht + Projekt-Spuren (S5.3b, rein lesend) ----------
 _ORGANS = {
     "Planner": ("mission_planned", "objective_planned", "plan_made"),

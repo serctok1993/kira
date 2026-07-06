@@ -802,16 +802,33 @@ function toggleAssist(){handsFree=!handsFree;paintAssist();
 
 /* ---- Bild an Kira (Vision) ---- */
 $("#imgfile")&&($("#imgfile").onchange=ev=>{const f=ev.target.files[0];if(!f)return;
- const rd=new FileReader();rd.onload=async()=>{
-  const im=document.createElement("div");im.className="msg me";
-  im.innerHTML='<img src="'+rd.result+'" style="max-width:240px;border-radius:8px;display:block"/>';log.appendChild(im);log.scrollTop=log.scrollHeight;
+ if(f.type&&f.type.startsWith("image/")){                       /* Bild -> Vision (wie gehabt) */
+  const rd=new FileReader();rd.onload=async()=>{
+   const im=document.createElement("div");im.className="msg me";
+   im.innerHTML='<img src="'+rd.result+'" style="max-width:240px;border-radius:8px;display:block"/>';log.appendChild(im);log.scrollTop=log.scrollHeight;
+   const prompt=$("#cin").value.trim();$("#cin").value="";
+   const b=msgEl("… Kira betrachtet das Bild …","bot");
+   try{const r=await (await fetch("/api/vision",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:prompt,image:rd.result})})).json();
+    b.querySelector(".mbody").innerHTML=md(r.ok?(r.text||""):("(Bild-Fehler: "+(r.error||"")+")"));}
+   catch(err){b.querySelector(".mbody").textContent="(Bild-Fehler: "+err+")";}
+   log.scrollTop=log.scrollHeight;};
+  rd.readAsDataURL(f);
+ } else { attachFile(f); }                                       /* PDF/Datei -> Text an Kira in den Chat */
+ ev.target.value="";});
+/* Datei anhaengen: Text extrahieren (Server) + als Kontext an Kira senden — sie kann dann
+   analysieren ODER (mit email_send) eine Mail schreiben. Die Blase zeigt nur 📎 Name + dein Auftrag. */
+async function attachFile(f){
+ const b=msgEl("… Kira liest "+f.name+" …","bot");
+ try{const fd=new FormData();fd.append("file",f);
+  const r=await (await fetch("/api/chat/attach",{method:"POST",body:fd})).json();
+  if(!r.ok){b.querySelector(".mbody").textContent="(Datei-Fehler: "+(r.error||"?")+")";return;}
+  b.remove();
   const prompt=$("#cin").value.trim();$("#cin").value="";
-  const b=msgEl("… Kira betrachtet das Bild …","bot");
-  try{const r=await (await fetch("/api/vision",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:prompt,image:rd.result})})).json();
-   b.querySelector(".mbody").innerHTML=md(r.ok?(r.text||""):("(Bild-Fehler: "+(r.error||"")+")"));}
-  catch(err){b.querySelector(".mbody").textContent="(Bild-Fehler: "+err+")";}
-  log.scrollTop=log.scrollHeight;};
- rd.readAsDataURL(f);ev.target.value="";});
+  msgEl("📎 "+r.name+(r.truncated?" (gekuerzt)":"")+(prompt?(" — "+prompt):""),"me");
+  const full=(prompt?prompt+"\n\n":"Fasse mir diese Datei zusammen.\n\n")
+   +"[Angehaengte Datei: "+r.name+(r.truncated?" — auf "+Math.round(12000/1000)+"k Zeichen gekuerzt, gesamt "+r.chars+"]":"]")+"\n\n"+r.text;
+  if(ws&&ws.readyState===1){startThinking();ws.send(full);setStreaming(true);curBot=null;curThink=null;traceC=null;curThinkLine=null;}
+ }catch(err){b.querySelector(".mbody").textContent="(Fehler: "+err+")";}}
 
 /* ---- Files ---- */
 let fcur=null;
