@@ -57,7 +57,7 @@ body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Cod
 .view{flex:1;overflow:auto;display:none;padding:18px}
 .view.on{display:flex;flex-direction:column}
 /* chat */
-#log{flex:1;overflow:auto;display:flex;flex-direction:column;gap:12px;max-width:880px;margin:0 auto;width:100%}
+#log{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;gap:12px;max-width:880px;margin:0 auto;width:100%;padding-bottom:4px}
 .msg{padding:11px 14px;border-radius:12px;border:1px solid var(--line);white-space:pre-wrap;max-width:84%}
 .me{align-self:flex-end;background:rgba(124,58,237,.22);border-color:rgba(168,85,247,.35)}
 .bot{align-self:flex-start;background:rgba(21,15,32,.72)}
@@ -170,9 +170,15 @@ button.ghost.on{border-color:var(--accent);color:#fff;background:rgba(168,85,247
 #chat-main{--chat-accent:var(--accent-chat)}
 #chat-main[data-mode="work"]{--chat-accent:var(--work-accent)}     /* Work = Bernstein */
 #chat-main[data-mode="coding"]{--chat-accent:var(--coding-accent)} /* Coding = Gruen */
-/* Modus-Umschalter UNTEN am Composer — Segmented-Slider: der aktive Teil (.pill) gleitet weich rueber */
-#modebar{display:flex;align-items:center;gap:12px;margin:0 0 8px}
-#modebar #chat-mode-seg{flex:0 1 360px}
+/* Modus-Umschalter OBEN, mittig ueber dem Chat — Reasoning sitzt rechts daneben.
+   3-Spalten-Grid (1fr auto 1fr): der Slider steht exakt zentriert, das Reasoning
+   startet im rechten Track direkt rechts daneben. */
+#modebar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin:0 0 12px}
+#modebar #chat-mode-seg{width:340px}
+#modebar .mb-tools{justify-self:start;display:inline-flex;align-items:center;gap:7px}
+/* Reasoning-Popover oeffnet oben nach UNTEN (statt nach oben, sonst clippt es am Chat-Rand) */
+#modebar .reason-pop{bottom:auto;top:calc(100% + 6px)}
+@media(max-width:720px){#modebar{grid-template-columns:1fr;justify-items:center}#modebar #chat-mode-seg{width:100%;max-width:340px}#modebar .mb-tools{justify-self:center}}
 #chat-mode-seg{--i:0;position:relative;display:flex;padding:4px;isolation:isolate;border:1px solid var(--line);
  border-radius:12px;background:var(--panel);font-family:inherit;font-size:13.5px}
 #chat-mode-seg .pill{position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/3);border-radius:9px;z-index:-1;
@@ -197,8 +203,19 @@ button.ghost.on{border-color:var(--accent);color:#fff;background:rgba(168,85,247
 #chat-main .sess.on{border-left-color:var(--chat-accent)}
 #chat-main .msg.bot .mbody .mdh{color:var(--chat-accent)}
 #chat-tools #micbtn,#chat-tools #imgbtn{color:var(--chat-accent);background:none;display:inline-flex;align-items:center;line-height:1.4}
-/* dünne Modus-Leuchtkante ganz oben am Chat — sofort sichtbar Violett vs Grün */
-#chat-main{box-shadow:inset 0 2px 0 color-mix(in srgb,var(--chat-accent) 55%,transparent)}
+/* Modus-Leuchtbalken ganz oben am Chat — glueht & pulsiert im Herzschlag-Takt, faerbt mit dem Modus.
+   Dedizierter ::before-Balken (kein inset-Schatten mehr), damit der Glow nach aussen strahlen kann. */
+#chat-main{position:relative}
+#chat-main::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;border-radius:0 0 3px 3px;z-index:3;
+ background:linear-gradient(90deg,transparent,var(--chat-accent) 22%,var(--chat-accent) 78%,transparent);
+ box-shadow:0 0 10px var(--chat-accent),0 0 22px color-mix(in srgb,var(--chat-accent) 65%,transparent),
+  0 0 40px color-mix(in srgb,var(--chat-accent) 40%,transparent);
+ animation:beatglow 2.6s ease-in-out infinite;transition:background .3s,box-shadow .3s}
+/* Doppel-Puls (Herzschlag): zwei schnelle Schlaege, dann Ruhe — ruhig getaktet, kein Geflacker */
+@keyframes beatglow{0%,100%{opacity:.5;filter:brightness(.85)}
+ 10%{opacity:1;filter:brightness(1.4)}22%{opacity:.62;filter:brightness(.95)}
+ 32%{opacity:.96;filter:brightness(1.3)}46%{opacity:.55;filter:brightness(.85)}}
+@media (prefers-reduced-motion:reduce){#chat-main::before{animation:none;opacity:.85}}
 /* Engine-Leiste: Modell als sichtbare Neon-Pille (färbt mit dem Modus mit) */
 #chatbar{gap:10px}
 select.engine-pill,button.engine-pill{background:var(--panel);color:var(--ink);border:1px solid var(--chat-accent);border-radius:999px;
@@ -402,7 +419,7 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
 @media (prefers-reduced-motion: reduce){#side{transition:none}.toast{animation:none}#side h1{animation:none;background-position:40% 0}}
 /* ===== S6.6b · Chat: Session-Panel, Markdown, Nachrichten-Meta, Chips ===== */
 #chat-wrap{flex:1;display:flex;gap:0;min-height:0}  /* kein flex-gap -> das Panel bringt seinen Abstand selbst mit (animierbar) */
-#chat-main{flex:1;display:flex;flex-direction:column;min-width:0}
+#chat-main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
 /* Gespraeche gleiten SANFT rein statt hart zu erscheinen: wir animieren Breite+Rand+Opacity
    (order:2 -> rechts). Zu = width:0, transparenter Rand, kein Abstand -> kein Fussabdruck.
    Kein display:none noetig -> die Breiten-Transition kann sauber laufen (auf und zu). */
