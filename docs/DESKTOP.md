@@ -25,9 +25,21 @@ Open Source (MIT), läuft lokal, kein Cloud-Zwang — passt zum Prinzip „alles
 
 ---
 
-## 2 · Taskleiste ausblenden
+## 2 · Taskleiste durchsichtig (empfohlen) — TranslucentTB
 
-Damit der Desktop „leer" wirkt:
+Damit die Taskleiste **sichtbar bleibt, aber durchsichtig** ist (Wallpaper scheint durch,
+Buttons bleiben) — das echte „durchgängiger Desktop"-Gefühl:
+
+1. **Installieren:** `winget install --id 9PF4KZ2VN4W9`  (TranslucentTB, Open Source, MIT).
+2. Rechtsklick aufs TranslucentTB-Tray-Icon → **Desktop → Clear** → Taskleiste ist komplett durchsichtig.
+3. Läuft ab Autostart von selbst.
+
+> Windows-Bordmittel allein geben nur eine leichte Acryl-Trübung (Einstellungen → Personalisierung
+> → Farben → Transparenzeffekte), nicht wirklich klar — deshalb TranslucentTB.
+
+### (Alternative) Taskleiste ganz ausblenden
+
+Nur falls du sie wirklich WEG willst (nicht durchsichtig):
 
 **Variante 1 — Auto-Ausblenden** (Windows-Bordmittel, kommt bei Mausberührung unten kurz zurück):
 - Manuell: Rechtsklick auf die Taskleiste → *Taskleisteneinstellungen* → **„Taskleiste automatisch ausblenden"**.
