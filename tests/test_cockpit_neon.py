@@ -121,11 +121,12 @@ def test_serc_subtabs():
 # ---- Chat/Coding-Werkbank: breiter Umschalter oben, Werkzeuge gebündelt, Modus-Farbe fix ----
 
 def test_chat_werkbank():
-    # Modus-Umschalter sitzt jetzt UNTEN: nach der Werkzeugleiste, direkt ueber dem Eingabeformular
+    # Modus-Umschalter sitzt jetzt OBEN: mittig ueber dem Chat-Log, vor der unteren Werkzeugleiste
     seg = VIEWS.index('id="chat-mode-seg"')
+    log = VIEWS.index('id="log"')
     tools = VIEWS.index('id="chat-tools"')
     form = VIEWS.index('id="cform"')
-    assert tools < seg < form
+    assert seg < log < tools < form
     # Mikro bleibt in der Werkbank; das Upload-"+" sitzt jetzt direkt am Eingabefeld
     mic = VIEWS.index('id="micbtn"')
     assert tools < mic < form                       # micbtn liegt im chat-tools-Block
@@ -136,7 +137,7 @@ def test_chat_werkbank():
     assert "--accent-chat:#b026ff" in CSS and "--coding-accent:#39ff14" in CSS
     assert "#chat-main{--chat-accent:var(--accent-chat)}" in CSS
     assert '#chat-main[data-mode="coding"]{--chat-accent:var(--coding-accent)}' in CSS
-    # Segmented-Slider: gleitende .pill, aktiver Teil folgt --i, unten am Composer
+    # Segmented-Slider: gleitende .pill, aktiver Teil folgt --i, oben mittig ueber dem Chat
     assert "#chat-mode-seg{--i:0;position:relative" in CSS
     assert "#chat-mode-seg .pill{position:absolute" in CSS
     assert 'seg.style.setProperty("--i"' in SCRIPT   # Slider gleitet per JS
@@ -155,11 +156,14 @@ def test_chat_politur():
     # Vorlesen ohne Emoji davor
     assert "> 🔊 Vorlesen</label>" not in VIEWS
     assert "/> Vorlesen</label>" in VIEWS
-    # die Steuerelemente (Reasoning/Vorlesen/Memo) liegen in der Werkzeug-Box (vor dem Modell-Speicher)
+    # Vorlesen + Memo liegen in der unteren Werkzeug-Box (vor dem Modell-Speicher)
     box_start = VIEWS.index('<span class="toolbox">')
     tools_end = VIEWS.index('id="chat-model"')
-    for m in ('id="chip-denk"', 'id="chip-tts"', 'id="micbtn"'):
+    for m in ('id="chip-tts"', 'id="micbtn"'):
         assert box_start < VIEWS.index(m) < tools_end, f"{m} fehlt in der Werkzeug-Box"
+    # Reasoning ist nach OBEN in die Modus-Leiste gewandert (rechts neben dem Slider)
+    assert 'class="mb-tools"' in VIEWS
+    assert VIEWS.index('id="chip-denk"') < VIEWS.index('id="log"')
 
 
 # ---- Projekte-Tab entzerrt: Akte als eigener Kasten, Radar scrollt, kein "Venture" mehr ----
@@ -550,3 +554,24 @@ def test_denk_status_neon_rainbow():
     assert "@keyframes rainflow{" in CSS
     assert ".thinking .tx{background:linear-gradient(90deg,#b026ff,#ff2d95" in CSS
     assert "animation:rainflow" in CSS
+
+
+# ---- Chat-Layout-Fix: Beat-Glow oben, Slider mittig oben, kein Ueberlappen unten ----
+
+def test_top_beatglow_und_slider_oben():
+    # der obere Modus-Balken glueht & pulsiert im Herzschlag-Takt (kein statischer inset-Schatten mehr)
+    assert "@keyframes beatglow{" in CSS
+    assert "#chat-main::before{" in CSS and "animation:beatglow" in CSS
+    assert "box-shadow:inset 0 2px 0 color-mix(in srgb,var(--chat-accent) 55%,transparent)}" not in CSS
+    # Balken faerbt mit dem Modus (var(--chat-accent)) und strahlt nach aussen (mehrfacher box-shadow-Glow)
+    assert "background:linear-gradient(90deg,transparent,var(--chat-accent)" in CSS
+    # der Slider steht jetzt mittig oben (3-Spalten-Grid), Reasoning startet rechts daneben
+    assert "#modebar{display:grid;grid-template-columns:1fr auto 1fr" in CSS
+    assert "#modebar .mb-tools{justify-self:start" in CSS
+
+
+def test_chat_kein_ueberlappen():
+    # Ueberlappen von Chat-Ende und Werkzeugleiste: der Log-Flex darf schrumpfen (min-height:0),
+    # sonst waechst er ueber die Leiste hinweg statt intern zu scrollen
+    assert "#log{flex:1;min-height:0;overflow:auto" in CSS
+    assert "#chat-main{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}" in CSS
