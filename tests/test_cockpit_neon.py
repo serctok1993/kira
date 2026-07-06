@@ -89,3 +89,18 @@ def test_zentrale_voice_und_schwarm():
     assert "function simpleRecord(" in SCRIPT
     assert 'simpleRecord("#dir-mic","#dir-text")' in SCRIPT
     assert '"/schwarm "+rang+" "' in SCRIPT and 'nav("chat")' in SCRIPT
+
+
+# ---- Stufe 2b: Chat-Engine-Leiste (Modell als Neon-Pille neben dem Modus) ---------------
+
+def test_chat_engine_leiste():
+    # genau EIN Modell-Select, jetzt als Engine-Pille (nicht mehr grau im Werkzeug-Bereich)
+    assert VIEWS.count('id="chat-model"') == 1
+    assert 'id="chat-model" class="engine-pill"' in VIEWS
+    assert 'id="chat-model" title="Modell fuer diesen Chat" style="max-width:190px"' not in VIEWS
+    # steht in der Modus-Leiste (nach dem Umschalter, vor dem Spacer)
+    seg = VIEWS.index('id="chat-mode-seg"')
+    mod = VIEWS.index('id="chat-model"')
+    assert seg < mod
+    # Pille faerbt mit dem Modus (--chat-accent)
+    assert "select.engine-pill" in CSS and "var(--chat-accent)" in CSS
