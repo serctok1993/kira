@@ -30,13 +30,13 @@ body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Cod
  background:var(--bg);color:var(--ink)}  /* S6.7: flaches Schwarz/Anthrazit statt Glow-Gradient */
 #side{width:210px;flex-shrink:0;border-right:1px solid var(--line);background:var(--bg);
  backdrop-filter:blur(8px);display:flex;flex-direction:column}
-#side h1{font-size:19px;letter-spacing:4px;padding:16px 16px 2px;color:#fff;margin:0;
+#side h1{font-size:19px;letter-spacing:4px;padding:16px 16px 2px;color:var(--ink);margin:0;
  text-shadow:0 0 10px rgba(139,92,246,.30)}
 #side .sub{font-size:11px;color:var(--muted);padding:0 16px 14px;letter-spacing:1px}
 #side a{display:block;padding:10px 16px;color:var(--ink);text-decoration:none;cursor:pointer;
  border-left:3px solid transparent}
 #side a:hover{background:rgba(168,85,247,.10)}
-#side a.on{background:rgba(168,85,247,.14);border-left-color:var(--accent);color:#fff}
+#side a.on{background:rgba(168,85,247,.14);border-left-color:var(--accent);color:var(--ink)}
 #side .spacer{flex:1}
 #side .kill{margin:12px;padding:9px;text-align:center;border:1px solid var(--line);border-radius:8px;
  cursor:pointer;color:var(--muted)}
@@ -142,7 +142,7 @@ textarea.k:focus{border-color:var(--accent2)}
 .muted{color:var(--muted)}
 /* ===== Kira-Signature: UI-Font, Aura/Glow, Motion (additiv, ueberschreibt via Quellreihenfolge) ===== */
 :root{--mono:ui-monospace,"Cascadia Code",Consolas,monospace}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,"Helvetica Neue",Arial,sans-serif}
+body{font-family:var(--font,-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,"Helvetica Neue",Arial,sans-serif)}
 .think,#farea,#evlog,#memlist,#feed-list,.e{font-family:var(--mono)}
 /* S6.7: Scanline-/Karo-Overlay und Farb-Glows entfernt — Sergen will glattes Schwarz/Anthrazit. */
 #side h1{font-size:24px;letter-spacing:6px;text-shadow:0 0 18px var(--glow),0 0 42px var(--glow);animation:flickerin 1.3s ease both}
@@ -197,6 +197,8 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
 #theme-pop .colrow input[type=color]{width:26px;height:22px;border:1px solid var(--line);border-radius:6px;background:none;cursor:pointer;padding:0}
 #theme-pop #col-reset{cursor:pointer;color:var(--muted);font-size:14px;margin-left:auto}
 #theme-pop #col-reset:hover{color:var(--accent)}
+#theme-pop .fontrow{border-top:none;margin-top:6px;padding-top:0}
+#theme-pop #font-sel{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;font-size:11px;padding:2px 5px;outline:none;cursor:pointer}
 .card{transition:border-color .2s ease,transform .2s ease,box-shadow .2s ease}
 .card:hover{transform:translateY(-1px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
 .pill{transition:border-color .15s ease,color .15s ease,background .15s ease}
