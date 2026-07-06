@@ -351,7 +351,6 @@ def test_chat_tools_moved_below():
     assert 'id="chat-tools"' in html
     for marker in ('id="chip-mission"', 'id="chip-status"', 'id="reason-on"', "chipInsert"):
         assert marker in html, f"Chat-Tool-Marker fehlt: {marker}"
-    # Modell-Select sitzt jetzt in der unteren Werkzeug-Leiste, nicht mehr in der Topbar
-    tools_pos = html.find('id="chat-tools"')
+    # Stufe 2b: Modell-Select wandert in die Engine-Leiste oben (neben den Modus-Umschalter)
     model_pos = html.find('id="chat-model"')
-    assert tools_pos < model_pos < html.find('id="cform"')
+    assert html.find('id="chat-mode-seg"') < model_pos < html.find('id="chat-tools"')

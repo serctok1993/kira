@@ -152,6 +152,14 @@ button.ghost.on{border-color:var(--accent);color:#fff;background:rgba(168,85,247
 #chat-main #cform>button:last-child{background:linear-gradient(135deg,var(--chat-accent),var(--accent2))}
 #chat-mode-seg a.on{border-color:var(--chat-accent);color:#fff;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--chat-accent) 45%,transparent),0 0 10px color-mix(in srgb,var(--chat-accent) 28%,transparent)}
 #chat-main[data-mode="coding"] #cin{font-family:var(--mono)}
+/* Engine-Leiste: Modell als sichtbare Neon-Pille neben dem Modus (färbt mit dem Modus mit) */
+#chatbar{gap:10px}
+select.engine-pill{background:var(--panel);color:var(--ink);border:1px solid var(--chat-accent);border-radius:999px;
+ padding:6px 14px;font-size:12px;cursor:pointer;max-width:210px;
+ box-shadow:0 0 10px color-mix(in srgb,var(--chat-accent) 22%,transparent);transition:box-shadow .18s ease,border-color .18s ease}
+select.engine-pill:hover,select.engine-pill:focus{outline:none;border-color:var(--chat-accent);
+ box-shadow:0 0 0 1px var(--chat-accent),0 0 14px color-mix(in srgb,var(--chat-accent) 42%,transparent)}
+#chat-mode-seg{border:1px solid var(--line);border-radius:999px;padding:2px;background:var(--panel)}
 /* Farbwähler im Optik-Popover */
 #theme-pop .colrow{display:flex;gap:8px;align-items:center;margin-top:9px;padding-top:9px;border-top:1px solid var(--line);flex-wrap:wrap}
 #theme-pop .colrow label{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;color:var(--muted);letter-spacing:.3px}
