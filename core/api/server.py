@@ -1603,7 +1603,7 @@ async def ws_chat(ws: WebSocket) -> None:
 
     await ws.accept()
     sid = ws.query_params.get("sid") or ("cockpit-" + uuid.uuid4().hex[:8])
-    await ws.send_json({"role": "system", "text": f"Verbunden. Session {sid[-8:]}."})
+    # Kein "Verbunden. Session …"-Rauschen mehr im Chat — der Verbindungspunkt (ws-dot) reicht.
     try:
         while True:
             user_text = await ws.receive_text()

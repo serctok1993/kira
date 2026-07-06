@@ -14,7 +14,7 @@ identity:
 #   STUFE 2  CHAT     = chat/default (Flash, Cents)        Dialog mit Sergen
 #   STUFE 3  ARBEITER = worker/bulk (Flash, Cents)         Schwarm, Masse, 24/7-Grind
 #   STUFE 4  DENKER   = reason (GLM 5.2)                   Coding, harte Tasks, laengere Schritte
-#   STUFE 5  RICHTER  = escalation_model (Fable)           Orchestrator/Langzeitplaner, Urteile, Council
+#   STUFE 5  RICHTER  = escalation_model (GLM 5.2)         Orchestrator/Langzeitplaner, Urteile, Council
 models:
   default: openrouter/deepseek/deepseek-v4-flash   # Live-Baseline: guenstiger Flash fuer Default/Chat/Grind
   routing:
@@ -27,10 +27,10 @@ models:
   # Lokaler DENKER-Kandidat bei 32 GB RAM: ollama_chat/qwen3.6:35b (MoE, 3B aktiv, ~24 GB).
   # Erst nach bestandenem B-012-Benchmark auf 'reason' legen — bis dahin bleibt reason Cloud.
   # VORAUSSETZUNG am PC: 'ollama pull qwen3.5:9b' VOR dem naechsten kira-update.bat!
-  escalation_model: openrouter/anthropic/claude-fable-5   # STUFE 5 RICHTER: Langzeitplaner/Urteile bei escalate=True
-  # Fable feuert NUR bei escalate=True (reason:-Prefix, /plan- & code:-Denkschritte, self_edit,
-  # /council!, Richter-Delegation) — nie im 24/7-Grind. Kosten deckelt governance.budget hart.
-  # Die strong_markers unten erkennen Fable automatisch -> grosse Arbeitsflaeche ohne Extra-Schalter.
+  escalation_model: openrouter/z-ai/glm-5.2   # STUFE 5 RICHTER: GLM 5.2 (Fable RAUS — war zu teuer)
+  # Sergens Entscheidung: kein Fable in der Auto-Oekonomie. Die Spitze ist GLM 5.2 (= Denker).
+  # Wer Fable dennoch bewusst will, schaltet manuell per '/model anthropic/claude-fable-5'.
+  # escalate=True (reason:-Prefix, /plan-/code:-Denkschritte, Richter-Delegation) laeuft jetzt auf GLM.
   vision_model: openrouter/z-ai/glm-4.6v         # fuer Bild-Erkennung im Chat (/api/vision)
   embeddings: ollama/nomic-embed-text       # 0 EUR Gedaechtnis (optional)
   # Denk-faehige Modelle (extended reasoning). Nur bei diesen zeigt das Cockpit den

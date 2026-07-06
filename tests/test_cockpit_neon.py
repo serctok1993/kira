@@ -348,6 +348,8 @@ def test_drei_modi_und_stop():
     assert "function setStreaming(" in SCRIPT and "function stopStream(" in SCRIPT
     assert 'if(streaming){stopStream();return;}' in SCRIPT
     assert "#sendbtn.stopping" in CSS
+    # Stop nutzt reconnect(); der alte Socket wird stummgeschaltet -> kein Doppel-Socket beim Abbrechen
+    assert "ws.onclose=null;ws.close()" in SCRIPT
 
 
 def test_reasoning_popover_ehrlich():
