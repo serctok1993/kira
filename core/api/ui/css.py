@@ -59,11 +59,14 @@ body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Cod
  border-left:2px solid var(--accent2);padding:4px 10px;margin:-4px 0 0;white-space:pre-wrap;display:none}
 .think.show{display:block}
 .think .h{color:var(--accent2);font-style:normal;cursor:pointer}
-#cform{display:flex;gap:10px;max-width:880px;margin:10px auto 0;width:100%;align-items:center}
+#cform{display:flex;gap:10px;max-width:880px;margin:10px auto 0;width:100%;align-items:stretch}
+#cform>button{flex-shrink:0;min-height:46px;padding:0 24px}   /* Senden/Stop bleibt so hoch wie das Eingabefeld */
 /* S11: unauffaelliges "+" links am Eingabefeld — Bild/Datei hochladen */
-.plus{flex-shrink:0;width:36px;height:36px;border-radius:9px;border:1px solid var(--line);background:var(--panel);
- color:var(--muted);font-size:20px;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s}
+.plus{flex-shrink:0;width:46px;align-self:stretch;border-radius:10px;border:1px solid var(--line);background:var(--panel);
+ color:var(--muted);font-size:22px;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s}
 .plus:hover{border-color:var(--chat-accent);color:var(--chat-accent)}
+/* Stop-Zustand: Senden wird rot, solange eine Antwort laeuft */
+#sendbtn.stopping{background:var(--danger)!important;box-shadow:0 0 14px color-mix(in srgb,var(--danger) 45%,transparent)}
 #cin{flex:1;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);
  outline:none;font-family:inherit}
 #cin:focus{border-color:var(--accent2)}
@@ -154,9 +157,10 @@ button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)
 button.ghost.on{border-color:var(--accent);color:#fff;background:rgba(168,85,247,.16);box-shadow:0 0 0 1px var(--accent),0 0 14px var(--glow)}
 /* Chat-Modus-Feedback: Coding faerbt den Chat gruen/Terminal, Chat bleibt Neon-Violett */
 /* ---- Chat/Coding-Werkbank: Modus-Farbe fix (Chat=Violett, Coding=Gruen), unabhaengig vom Theme ---- */
-:root{--accent-chat:#b026ff;--coding-accent:#39ff14}
+:root{--accent-chat:#b026ff;--coding-accent:#39ff14;--work-accent:#ffb02e}
 #chat-main{--chat-accent:var(--accent-chat)}
-#chat-main[data-mode="coding"]{--chat-accent:var(--coding-accent)}
+#chat-main[data-mode="work"]{--chat-accent:var(--work-accent)}     /* Work = Bernstein */
+#chat-main[data-mode="coding"]{--chat-accent:var(--coding-accent)} /* Coding = Gruen */
 /* Breiter, zentraler Modus-Umschalter ganz oben — zwei gleich breite Tabs */
 #chat-mode-seg{display:flex;width:100%;max-width:880px;margin:0 auto 10px;gap:6px;border:1px solid var(--line);
  border-radius:12px;padding:5px;background:var(--panel);font-family:inherit;font-size:14px;
@@ -418,6 +422,9 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
 .model-pop .mrows{max-height:320px;overflow:auto}
 .model-pop .cmd-grp{position:sticky;top:0;background:var(--panel)}
 .model-pop .rbadge{font-size:10px;white-space:nowrap}
+/* Reasoning-Popover: schmal, einheitlich mit Commands/Modell */
+.reason-pop{min-width:150px}
+.reason-pop .cmd-row{justify-content:flex-start}
 .chip{cursor:pointer;border:1px solid var(--line);border-radius:14px;padding:3px 11px;font-size:11.5px;color:var(--hud);white-space:nowrap}
 .chip:hover{border-color:var(--accent);background:rgba(168,85,247,.10)}
 .chip.tog{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}

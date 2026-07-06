@@ -153,12 +153,11 @@ def test_chat_politur():
     # Vorlesen ohne Emoji davor
     assert "> 🔊 Vorlesen</label>" not in VIEWS
     assert "/> Vorlesen</label>" in VIEWS
-    # die Box umschließt die vier Steuerelemente (Denk-Tiefe/Vorlesen/Memo/Anhang)
+    # die Steuerelemente (Reasoning/Vorlesen/Memo) liegen in der Werkzeug-Box (vor dem Modell-Speicher)
     box_start = VIEWS.index('<span class="toolbox">')
-    box_end = VIEWS.index("</span>", box_start)
-    box = VIEWS[box_start:box_end]
+    tools_end = VIEWS.index('id="chat-model"')
     for m in ('id="chip-denk"', 'id="chip-tts"', 'id="micbtn"'):
-        assert m in box, f"{m} fehlt in der Werkzeug-Box"
+        assert box_start < VIEWS.index(m) < tools_end, f"{m} fehlt in der Werkzeug-Box"
 
 
 # ---- Projekte-Tab entzerrt: Akte als eigener Kasten, Radar scrollt, kein "Venture" mehr ----
@@ -255,7 +254,8 @@ def test_chatbutton_rechts_und_palette():
     assert 'id="cmd-help"' in VIEWS and 'id="cmd-pop"' in VIEWS
     assert ".cmd-pop{position:absolute" in CSS
     assert "const CMDS=[" in SCRIPT and "function renderCmdPop(" in SCRIPT
-    for cmd in ('"/work ",', '"code: ",', '"reason: ",', '"/model ",', '"/schwarm arbeiter'):
+    # /work & code: sind jetzt Modi (oben) — die Palette listet die uebrigen echten Befehle
+    for cmd in ('"/plan ",', '"reason: ",', '"/model ",', '"/schwarm arbeiter', '"@ziel:",'):
         assert cmd in SCRIPT, f"Befehl fehlt in der Palette: {cmd}"
 
 
@@ -317,7 +317,9 @@ def test_modell_picker_und_plus_upload():
     assert "/api/model/catalog" in SCRIPT
     assert "function renderModelRows(" in SCRIPT
     assert "isReasoningModel(m.id)" in SCRIPT
-    assert "function useChatModel(" in SCRIPT and "/api/model/use" in SCRIPT
+    # Modellwahl setzt NUR die Chat-Rolle (nicht default -> reason/bulk bleiben unangetastet)
+    assert "function useChatModel(" in SCRIPT and '"/api/model/role"' in SCRIPT
+    assert 'role:"chat"' in SCRIPT
     assert ".model-pop{right:0" in CSS
     # das Upload-"+" sitzt links im Eingabeformular und traegt das Datei-Feld
     assert 'id="plusbtn"' in VIEWS and 'id="imgfile"' in VIEWS
@@ -326,3 +328,33 @@ def test_modell_picker_und_plus_upload():
     plus = VIEWS.index('id="plusbtn"')
     cin = VIEWS.index('id="cin"')
     assert form < plus < cin                          # "+" steht links VOR dem Eingabefeld
+
+
+# ---- Chat-Werkbank 2.0: 3 Modi, ein Commands-Knopf, Reasoning-Popover, Stop-Button ----
+
+def test_drei_modi_und_stop():
+    # genau drei Modi im Umschalter: Chat / Work / Coding (kein Plan o.ae.)
+    assert '<a data-m="chat" class="on">Chat</a><a data-m="work">Work</a><a data-m="coding">Coding</a>' in VIEWS
+    assert 'data-m="plan"' not in VIEWS
+    # Work-Modus haengt "work:" an, Coding "code:" — beide im Send-Pfad
+    assert 't="work: "+raw' in SCRIPT and 't="code: "+raw' in SCRIPT
+    assert '--work-accent' in CSS and '#chat-main[data-mode="work"]' in CSS
+    # die einzelnen Befehl-Chips sind weg; nur noch EIN Commands-Knopf + Palette
+    for gone in ('id="chip-ziel"', 'id="chip-mission"', 'id="chip-status"', 'id="chip-plan"'):
+        assert gone not in VIEWS, f"{gone} sollte weg sein"
+    assert 'id="cmd-help"' in VIEWS and '⌘ Commands' in VIEWS
+    # Stop-Button: Senden wird im Lauf zu Stop und bricht ab
+    assert 'id="sendbtn"' in VIEWS
+    assert "function setStreaming(" in SCRIPT and "function stopStream(" in SCRIPT
+    assert 'if(streaming){stopStream();return;}' in SCRIPT
+    assert "#sendbtn.stopping" in CSS
+
+
+def test_reasoning_popover_ehrlich():
+    # Reasoning heisst "Reasoning" (nicht "Denken"), kein Emoji, eigenes Popover statt weissem Select
+    assert 'Reasoning: Standard' in VIEWS
+    assert 'Denken: Standard' not in VIEWS
+    assert 'id="reason-pop"' in VIEWS and 'id="reason-level"' in VIEWS
+    assert 'type="hidden" id="reason-level"' in VIEWS      # kein natives <select> mehr
+    assert 'id="reason-level" style' not in VIEWS
+    assert "function setReason(" in SCRIPT
