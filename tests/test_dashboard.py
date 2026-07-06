@@ -314,8 +314,8 @@ def test_ws_roundtrip_contract(monkeypatch):
 
     client = TestClient(s.app)
     with client.websocket_connect("/ws/chat?sid=t-vertrag") as ws:
-        first = ws.receive_json()
-        assert first["role"] == "system"
+        # S11: kein "Verbunden. Session …"-Systemgruss mehr beim Connect (Rauschen raus) —
+        # der WS meldet sich erst NACH der ersten Nachricht.
         ws.send_text("hi")
         kinds = []
         while True:
