@@ -204,3 +204,21 @@ def test_ziele_dashboard():
     assert "loadZielePinned()" in SCRIPT              # in der Zentrale aufgerufen
     assert 'metriken:()=>loadZiele()' in SCRIPT       # Loader umgehaengt
     assert '/api/metrics/meta' in SCRIPT              # Anheften/Ziel setzen
+
+
+# ---- Automatisierungspanel: Uhrzeit/Intervall + freier Auftrag statt Ein-Knopf-Briefing ----
+
+def test_automatisierungspanel():
+    # der alte Morgen-Briefing-Einzelknopf ist weg, ein Panel ist da
+    assert 'id="me-brief-setup"' not in VIEWS
+    assert 'id="auto-panel"' in VIEWS
+    for m in ('id="au-what"', 'id="au-time"', 'id="au-interval"', 'id="au-now"', 'id="au-add"'):
+        assert m in VIEWS, f"Automatik-Feld fehlt: {m}"
+    # Morgen-Briefing lebt als Schnell-Vorlage weiter (nicht mehr der einzige Weg)
+    assert 'class="chip au-preset"' in VIEWS and '☀ Morgen-Briefing' in VIEWS
+    # JS: legt eine Routine an (scope me), Preset fuellt das Feld
+    assert '$("#au-add")' in SCRIPT and '"/api/cron/add"' in SCRIPT
+    assert 'scope:"me"' in SCRIPT
+    assert "$$('.au-preset')" in SCRIPT
+    # der tote alte Handler ist raus
+    assert '#me-brief-setup' not in SCRIPT
