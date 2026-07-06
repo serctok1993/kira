@@ -467,6 +467,18 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
     obs_cap = _budget("obs_max_chars", _OBS_MAX, task_type, escalate)  # starkes Modell -> sieht mehr
     used_tools = False
     nudged = False
+    last_reasoning = ""
+
+    def _emit_reasoning(res: dict) -> None:
+        # Sichtbares Denken auch fuer Cloud-Modelle: das reasoning-Feld aus complete()
+        # als think-Event durchreichen -> Telegram (💭) UND Cockpit zeigen den echten
+        # Gedankenstrom, nicht nur einen leeren Puls. Duplikate desselben Zugs unterdruecken.
+        nonlocal last_reasoning
+        r = (res.get("reasoning") or "").strip()
+        if r and r != last_reasoning:
+            last_reasoning = r
+            emit({"kind": "think", "text": r + "\n"})
+
     for step in range(max_steps):
         try:
             res = _complete_resilient(messages, system=system, task_type=task_type,
@@ -475,6 +487,7 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
         except Exception as e:  # noqa: BLE001 -> Teilstand liefern statt ganzen Task abreissen
             events.emit("act_degraded", {"step": step, "error": str(e)[:300]}, session_id=session_id)
             return _degrade_text(messages, e)
+        _emit_reasoning(res)
         calls = res.get("tool_calls") or []
         recovered = False
         if not calls:  # kein strukturierter Call -> evtl. als Text geleakt (DeepSeek)? rausparsen
@@ -526,6 +539,7 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
     except Exception as e:  # noqa: BLE001
         events.emit("act_degraded", {"step": "final", "error": str(e)[:300]}, session_id=session_id)
         return _degrade_text(messages, e)
+    _emit_reasoning(res)
     return (res["text"].strip()
             or "Ich habe die Werkzeuge genutzt, aber keine saubere Schluss-Antwort hinbekommen — frag mich gern konkret nach, dann liefere ich dir das Ergebnis.")
 
