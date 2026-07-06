@@ -167,3 +167,47 @@ def metric_list(name: str = "", days: str = "30") -> str:
         + (f" ({'+' if m['delta'] > 0 else ''}{m['delta']})" if m.get("delta") is not None else "")
         + f" [{m['count']} Eintraege]"
         for m in latest)
+
+
+@tool("metric_ziel",
+      "Macht aus einer Kennzahl ein sichtbares Ziel im Dashboard: setzt Zielwert/Einheit/Emoji "
+      "und heftet sie optional in die Zentrale. So gestaltest du das Ziele-Dashboard selbst. "
+      "Beispiel: metric_ziel('follower', ziel='10000', einheit='Abos', emoji='📈', zentrale='ja'). "
+      "zentrale='nein' nimmt sie wieder aus der Zentrale.",
+      {"name": "Name der Kennzahl (z.B. follower)",
+       "ziel": "optional: Zielwert als Zahl",
+       "einheit": "optional: Einheit (z.B. Abos, kg, €)",
+       "emoji": "optional: ein Emoji fuers Kaertchen",
+       "zentrale": "optional: 'ja' anheften / 'nein' loesen"})
+def metric_ziel(name: str, ziel: str = "", einheit: str = "",
+                emoji: str = "", zentrale: str = "") -> str:
+    from core.agency.missions import metrics
+
+    name = (name or "").strip()
+    if not name:
+        return "Welche Kennzahl? z.B. metric_ziel('follower', ziel='10000', zentrale='ja')."
+    target = None
+    if str(ziel).strip() != "":
+        try:
+            target = float(str(ziel).replace(",", ".").strip())
+        except ValueError:
+            return f"'{ziel}' ist keine Zahl fuer den Zielwert."
+    unit = einheit.strip() if einheit and einheit.strip() else None
+    em = emoji.strip() if emoji and emoji.strip() else None
+    pin = None
+    z = (zentrale or "").strip().lower()
+    if z in ("ja", "an", "true", "1", "yes", "zeigen", "on"):
+        pin = True
+    elif z in ("nein", "aus", "false", "0", "no", "off"):
+        pin = False
+    metrics.set_meta(name, pinned=pin, target=target, unit=unit, emoji=em)
+    parts = [f"Ziele-Dashboard aktualisiert: '{name.lower()}'"]
+    if target is not None:
+        parts.append(f"Zielwert {target}" + (f" {unit}" if unit else ""))
+    if pin is True:
+        parts.append("in der Zentrale angeheftet")
+    elif pin is False:
+        parts.append("aus der Zentrale geloest")
+    if metrics.get_meta(name)["target"] and not metrics.series(name, days=3650):
+        parts.append("(noch kein Wert — logg einen mit metric_log)")
+    return " · ".join(parts) + "."
