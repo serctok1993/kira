@@ -1679,6 +1679,16 @@ def api_vault_graph() -> dict:
     return vault_graph.build_graph()
 
 
+@app.get("/api/mails/unread")
+def api_mails_unread() -> dict:
+    # Ungelesene Mails fuer die Desktop-Leiste (gecacht). None -> Postfach nicht eingerichtet.
+    from core.agency.connectors import mail
+    try:
+        return {"count": mail.unread_count()}
+    except Exception:  # noqa: BLE001
+        return {"count": None}
+
+
 # Das komplette Cockpit-Frontend lebt seit S5.3a in core/api/ui/ (css.py, views.py,
 # script.py) — drei handliche Module statt einer 90-KB-Wand hier. Der Export bleibt
 # identisch: DASHBOARD_HTML ist weiterhin ueber core.api.server importierbar.
