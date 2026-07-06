@@ -165,3 +165,24 @@ def test_chat_politur():
     box = VIEWS[box_start:box_end]
     for m in ('id="chip-reason"', 'id="chip-tts"', 'id="micbtn"', 'id="imgbtn"'):
         assert m in box, f"{m} fehlt in der Werkzeug-Box"
+
+
+# ---- Projekte-Tab entzerrt: Akte als eigener Kasten, Radar scrollt, kein "Venture" mehr ----
+
+def test_projekte_entzerrt():
+    # die Projekt-Akte ist ein eigener Vollbreiten-Kasten, NICHT mehr in proj-top gequetscht
+    top_start = VIEWS.index('id="proj-top"')
+    top_end = VIEWS.index('id="vent-detail"')
+    assert 'id="vent-detail"' not in VIEWS[top_start:top_end]   # detail liegt hinter proj-top
+    assert 'class="panel" id="vent-detail"' in VIEWS            # eigener Panel-Kasten
+    # Radar-Liste scrollt jetzt intern (der vergessene #rd-list ist in der Overflow-Regel)
+    assert ".proj-cols>.panel>#rd-list{flex:1;overflow:auto}" in CSS \
+        or "#rd-list{flex:1;overflow:auto}" in CSS
+    assert ".proj-cols>.panel>#rd-list" in CSS
+    # Drilldown-Mechanik: offenes Projekt schiebt die 3 Spalten weg
+    assert "#v-projekte.drill .proj-cols{display:none}" in CSS
+    assert 'classList.add("drill")' in SCRIPT and 'classList.remove("drill")' in SCRIPT
+    # das Wort "Venture" ist aus der Oberflaeche verschwunden (IDs/API bleiben)
+    assert "&rarr; Venture</a>" not in SCRIPT
+    assert "&rarr; Projekt</a>" in SCRIPT
+    assert "Noch keine Ventures" not in SCRIPT

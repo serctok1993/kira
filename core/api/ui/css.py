@@ -430,12 +430,17 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
 @media(min-width:1050px){
  /* Projekte: Standbeine oben, darunter 3 Spalten (Ziele/Backlog/Radar) — alles auf einem Screen */
  #v-projekte.on{overflow:hidden;gap:14px}
- #proj-top{flex-shrink:0;max-height:40%;display:flex;flex-direction:column;min-height:0;margin:0}
+ #proj-top{flex-shrink:0;max-height:38%;display:flex;flex-direction:column;min-height:0;margin:0}
  #proj-top #vent-list{overflow:auto}
- #proj-top #vent-detail{overflow:auto;max-height:60vh}
+ /* Projekt-AKTE: eigener Vollbreiten-Kasten (nicht mehr in proj-top gequetscht), scrollt intern */
+ #vent-detail{flex:1;min-height:0;overflow:auto;margin:0}
  .proj-cols{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
  .proj-cols>.panel{min-height:0;display:flex;flex-direction:column;margin:0}
- .proj-cols>.panel>[class*="-list"],.proj-cols>.panel>#todo-board,.proj-cols>.panel>#obj-list{flex:1;overflow:auto}
+ /* jede Spalten-Liste scrollt intern — #rd-list (Radar) war vergessen -> Liste lief unten aus dem Bild */
+ .proj-cols>.panel>[class*="-list"],.proj-cols>.panel>#todo-board,.proj-cols>.panel>#obj-list,.proj-cols>.panel>#rd-list{flex:1;overflow:auto}
+ /* Drilldown: sobald ein Projekt offen ist, tritt die Akte in den Vordergrund, die 3 Spalten weichen */
+ #v-projekte.drill .proj-cols{display:none}
+ #v-projekte:not(.drill) #vent-detail{display:none!important}
  /* Me: 3 App-Style-Spalten, jede stapelt schlanke Panels mit internem Scroll — kein Seiten-Scroll */
  #v-me.on{overflow:hidden}
  .me-grid{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
