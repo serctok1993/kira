@@ -105,13 +105,14 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   <img id="bg" src="/api/bg" onerror="this.style.display='none'" alt=""/>
   <canvas id="graph"></canvas>
   <div class="edge"></div>
-  <div class="tag"><span class="d"></span> Ambienter Desktop · läuft immer</div>
   <button class="gear" id="gear" title="Desktop-Einstellungen">⚙</button>
   <div class="wpop" id="wpop">
     <div class="wt">Vault-Graph</div>
     <label><input type="checkbox" id="w-labels"/> Worte (Labels)</label>
     <label><input type="checkbox" id="w-motion"/> Bewegung</label>
     <label>Farbe <select id="w-color"><option value="vault">Vault</option><option value="modus">Modus</option><option value="mono">Mono</option></select></label>
+    <label>Position <select id="w-pos"><option value="links">Links</option><option value="mitte">Mitte</option><option value="rechts">Rechts</option></select></label>
+    <label>Größe <select id="w-size"><option value="klein">Klein</option><option value="mittel">Mittel</option><option value="gross">Groß</option></select></label>
   </div>
 
   <div class="topbar">
@@ -204,52 +205,59 @@ let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia
 /* Wallpaper-Einstellungen (Zahnrad) — leben im localStorage, das offene Wallpaper hoert per
    'storage'-Event mit -> aendere sie in einem Browser-Tab, der Desktop uebernimmt live. */
 const MODE_RGB={chat:"176,38,255",work:"57,255,20",coding:"0,229,255"};
-let WALL={labels:true,motion:true,color:"vault"};
+const POSX={links:0.32,mitte:0.5,rechts:0.68},SIZ={klein:0.72,mittel:1,gross:1.4};
+let curG=null;   // zuletzt geladener Graph (fuer Re-Layout bei Groesse/Position)
+let WALL={labels:true,motion:false,color:"vault",pos:"mitte",size:"mittel"};   // Bewegung AUS = ruhig + spart CPU
 function loadWall(){try{Object.assign(WALL,JSON.parse(localStorage.getItem("kira_wall")||"{}"));}catch(e){}}
 function saveWall(){try{localStorage.setItem("kira_wall",JSON.stringify(WALL));}catch(e){}}
 function nodeColor(n){return WALL.color==="modus"?(MODE_RGB[mode]||"176,38,255"):WALL.color==="mono"?"233,228,244":n.g0;}
 function sz(){W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
-const CX=()=>W/2, CY=()=>H*0.46;
+const CX=()=>W*(POSX[WALL.pos]||0.5), CY=()=>H*0.46, SCALE=()=>SIZ[WALL.size]||1;
 function layout(g){
-  const by={};settle=0;
-  ns=(g.nodes||[]).slice(0,120).map((n,i)=>{const a=i*2.399,rr=40+Math.random()*Math.min(W,H)*0.22;   // Startspirale um die Mitte
+  curG=g;const by={},sc=SCALE();settle=0;
+  ns=(g.nodes||[]).slice(0,120).map((n,i)=>{const a=i*2.399,rr=(36+Math.random()*Math.min(W,H)*0.2)*sc;
     const o={id:n.id,g0:n.color||"176,38,255",x:CX()+Math.cos(a)*rr,y:CY()+Math.sin(a)*rr,vx:0,vy:0,deg:0};by[n.id]=o;return o;});
   ls=(g.links||[]).map(l=>[by[l.source],by[l.target]]).filter(p=>p[0]&&p[1]);
   ls.forEach(([a,b])=>{a.deg++;b.deg++;});
-  ns.forEach(n=>{n.r=2.4+Math.min(7,n.deg*0.9);});   // groesserer Knoten = mehr Verbindungen (wie Obsidian)
+  ns.forEach(n=>{n.r=(2.3+Math.min(6.5,n.deg*0.8))*Math.sqrt(sc);});   // groesserer Knoten = mehr Verbindungen
 }
-function sim(){   // force-directed: Repulsion + Federn entlang der Links + sanfte Zentrierung
-  const cx=CX(),cy=CY(),REP=560,LEN=62,K=0.018;
+function sim(){   // force-directed, ruhig getaktet: Repulsion + Federn + sanfte Zentrierung, starke Daempfung
+  const cx=CX(),cy=CY(),sc=SCALE(),REP=470*sc,LEN=60*sc,K=0.012,CL=2.4;
   for(let i=0;i<ns.length;i++){const a=ns[i];
     for(let j=i+1;j<ns.length;j++){const b=ns[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy||1;
-      if(d2<45000){const d=Math.sqrt(d2),f=REP/d2;dx/=d;dy/=d;a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}}}
+      if(d2<50000){const d=Math.sqrt(d2),f=REP/d2;dx/=d;dy/=d;a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}}}
   for(const [a,b] of ls){let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,f=(d-LEN)*K;dx/=d;dy/=d;
     a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}
-  for(const n of ns){n.vx+=(cx-n.x)*0.006;n.vy+=(cy-n.y)*0.006;
-    n.x+=Math.max(-3.2,Math.min(3.2,n.vx));n.y+=Math.max(-3.2,Math.min(3.2,n.vy));n.vx*=0.8;n.vy*=0.8;}
+  for(const n of ns){n.vx+=(cx-n.x)*0.005;n.vy+=(cy-n.y)*0.005;
+    n.x+=Math.max(-CL,Math.min(CL,n.vx));n.y+=Math.max(-CL,Math.min(CL,n.vy));n.vx*=0.86;n.vy*=0.86;}
 }
-function draw(){ctx.clearRect(0,0,W,H);
-  // Bewegung: bis der Graph gesetzt ist (settle) laeuft die Physik immer; danach nur, wenn "Bewegung" an
-  if(!reduce&&(WALL.motion||settle<240)){sim();settle++;}
-  for(const [a,b] of ls){const ca=nodeColor(a),cb=nodeColor(b);const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),al=Math.max(.14,1-d/320);
+function render(){ctx.clearRect(0,0,W,H);const sc=SCALE();
+  for(const [a,b] of ls){const ca=nodeColor(a),cb=nodeColor(b);const d=Math.hypot(b.x-a.x,b.y-a.y),al=Math.max(.14,1-d/(320*sc));
     const gr=ctx.createLinearGradient(a.x,a.y,b.x,b.y);gr.addColorStop(0,'rgba('+ca+','+(al*.55)+')');gr.addColorStop(1,'rgba('+cb+','+(al*.55)+')');
     ctx.strokeStyle=gr;ctx.lineWidth=al*1.0+.3;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
   for(const n of ns){const c=nodeColor(n);ctx.shadowColor='rgba('+c+',.85)';ctx.shadowBlur=9;
     ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,7);ctx.fillStyle='rgba('+c+',.92)';ctx.fill();}
   ctx.shadowBlur=0;
-  // Worte/Labels wie in Obsidian (nur an vernetzten Knoten) — per Zahnrad an/aus
-  if(WALL.labels){ctx.font='10px "Segoe UI",system-ui,sans-serif';ctx.textAlign='center';
+  if(WALL.labels){ctx.font=(10*Math.sqrt(sc)|0)+'px "Segoe UI",system-ui,sans-serif';ctx.textAlign='center';
     ctx.shadowColor='rgba(0,0,0,.9)';ctx.shadowBlur=3;ctx.fillStyle='rgba(233,228,244,.8)';
     for(const n of ns){if(n.deg>=2)ctx.fillText(n.id.slice(0,24),n.x,n.y-n.r-4);}
     ctx.shadowBlur=0;}
-  if(!reduce)requestAnimationFrame(draw);
 }
+/* Loop stoppt, sobald der Graph gesetzt ist und "Bewegung" aus ist -> 0% CPU im Ruhezustand
+   (genau das, was Lively sonst dauernd rendern liess). Aenderungen wecken ihn per kick(). */
+const SETTLE_MAX=280;let raf=0;
+function frame(){const moving=!reduce&&(WALL.motion||settle<SETTLE_MAX);
+  if(moving){sim();settle++;}
+  render();
+  raf=moving?requestAnimationFrame(frame):0;}
+function kick(){if(!raf)raf=requestAnimationFrame(frame);}
+function relayout(){if(curG){layout(curG);kick();}}
 
 /* ---- Modus + LED-Rand ---- */
 let mode="chat";const COL={chat:"var(--chat)",work:"var(--work)",coding:"var(--coding)"};
 document.querySelectorAll('#seg button').forEach(b=>b.addEventListener('click',()=>{
   document.querySelectorAll('#seg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');
-  mode=b.dataset.m;document.body.dataset.mode=mode;document.documentElement.style.setProperty('--accent',COL[mode]);
+  mode=b.dataset.m;document.body.dataset.mode=mode;document.documentElement.style.setProperty('--accent',COL[mode]);kick();
 }));
 
 /* ---- ephemerer Chat ueber /ws/chat (frische Session je Aufruf) ---- */
@@ -301,19 +309,21 @@ $("#model").addEventListener('click',async ()=>{
 document.addEventListener('click',e=>{if(!e.target.closest('#model')&&!e.target.closest('#mpop')){const p=$("#mpop");if(p)p.classList.remove('on');}});
 
 /* ---- Zahnrad: Graph-Einstellungen (Worte/Bewegung/Farbe), live ueber localStorage ---- */
-function syncWallUI(){$("#w-labels").checked=WALL.labels;$("#w-motion").checked=WALL.motion;$("#w-color").value=WALL.color;}
+function syncWallUI(){$("#w-labels").checked=WALL.labels;$("#w-motion").checked=WALL.motion;$("#w-color").value=WALL.color;$("#w-pos").value=WALL.pos;$("#w-size").value=WALL.size;}
 $("#gear").addEventListener('click',()=>{const p=$("#wpop");p.classList.toggle('on');if(p.classList.contains('on'))syncWallUI();});
-$("#w-labels").addEventListener('change',e=>{WALL.labels=e.target.checked;saveWall();});
-$("#w-motion").addEventListener('change',e=>{WALL.motion=e.target.checked;settle=0;saveWall();});
-$("#w-color").addEventListener('change',e=>{WALL.color=e.target.value;saveWall();});
-window.addEventListener('storage',e=>{if(e.key==="kira_wall"){loadWall();syncWallUI();settle=0;}});   // aus einem Browser-Tab geaendert -> Wallpaper zieht live nach
+$("#w-labels").addEventListener('change',e=>{WALL.labels=e.target.checked;saveWall();kick();});
+$("#w-motion").addEventListener('change',e=>{WALL.motion=e.target.checked;saveWall();kick();});
+$("#w-color").addEventListener('change',e=>{WALL.color=e.target.value;saveWall();kick();});
+$("#w-pos").addEventListener('change',e=>{WALL.pos=e.target.value;saveWall();relayout();});
+$("#w-size").addEventListener('change',e=>{WALL.size=e.target.value;saveWall();relayout();});
+window.addEventListener('storage',e=>{if(e.key==="kira_wall"){loadWall();syncWallUI();relayout();}});   // aus einem Browser-Tab geaendert -> Wallpaper zieht live nach
 document.addEventListener('click',e=>{if(!e.target.closest('#gear')&&!e.target.closest('#wpop')){const p=$("#wpop");if(p)p.classList.remove('on');}});
 
 /* ---- Boot ---- */
 (async function(){loadWall();cv=$("#graph");ctx=cv.getContext("2d");sz();
-  const g=await loadStats();layout(g);reduce?draw(0):requestAnimationFrame(draw);
-  addEventListener('resize',()=>{sz();layout(g);if(reduce)draw(0);});
-  connect();setInterval(loadStats,30000);   // Stats leben (alle 30 s frisch)
+  const g=await loadStats();layout(g);kick();
+  addEventListener('resize',()=>{sz();relayout();});
+  connect();setInterval(loadStats,30000);   // Stats leben (alle 30 s frisch) — Graph bleibt ruhig
 })();
 </script>
 </body></html>"""
