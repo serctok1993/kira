@@ -59,7 +59,11 @@ body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Cod
  border-left:2px solid var(--accent2);padding:4px 10px;margin:-4px 0 0;white-space:pre-wrap;display:none}
 .think.show{display:block}
 .think .h{color:var(--accent2);font-style:normal;cursor:pointer}
-#cform{display:flex;gap:10px;max-width:880px;margin:10px auto 0;width:100%}
+#cform{display:flex;gap:10px;max-width:880px;margin:10px auto 0;width:100%;align-items:center}
+/* S11: unauffaelliges "+" links am Eingabefeld — Bild/Datei hochladen */
+.plus{flex-shrink:0;width:36px;height:36px;border-radius:9px;border:1px solid var(--line);background:var(--panel);
+ color:var(--muted);font-size:20px;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s}
+.plus:hover{border-color:var(--chat-accent);color:var(--chat-accent)}
 #cin{flex:1;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);
  outline:none;font-family:inherit}
 #cin:focus{border-color:var(--accent2)}
@@ -176,10 +180,10 @@ button.ghost.on{border-color:var(--accent);color:#fff;background:rgba(168,85,247
 #chat-main{box-shadow:inset 0 2px 0 color-mix(in srgb,var(--chat-accent) 55%,transparent)}
 /* Engine-Leiste: Modell als sichtbare Neon-Pille (färbt mit dem Modus mit) */
 #chatbar{gap:10px}
-select.engine-pill{background:var(--panel);color:var(--ink);border:1px solid var(--chat-accent);border-radius:999px;
+select.engine-pill,button.engine-pill{background:var(--panel);color:var(--ink);border:1px solid var(--chat-accent);border-radius:999px;
  padding:6px 14px;font-size:12px;cursor:pointer;max-width:210px;
  box-shadow:0 0 10px color-mix(in srgb,var(--chat-accent) 22%,transparent);transition:box-shadow .18s ease,border-color .18s ease}
-select.engine-pill:hover,select.engine-pill:focus{outline:none;border-color:var(--chat-accent);
+select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,button.engine-pill:focus{outline:none;border-color:var(--chat-accent);
  box-shadow:0 0 0 1px var(--chat-accent),0 0 14px color-mix(in srgb,var(--chat-accent) 42%,transparent)}
 /* Serc-Subtabs: zwei Panels nebeneinander (bricht auf schmalem Screen um) */
 .me-grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start}
@@ -407,6 +411,13 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
 .cmd-pop .cmd-row:hover{background:color-mix(in srgb,var(--chat-accent) 14%,transparent)}
 .cmd-pop .cmd-k{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--chat-accent);font-size:12px;white-space:nowrap}
 .cmd-pop .cmd-d{color:var(--muted);font-size:11.5px}
+/* S11: Modell-Auswahl-Popover (alle Modelle, rechtsbuendig ueber dem Senden-Knopf) */
+.model-pop{right:0;left:auto;min-width:340px;max-width:420px}
+.model-pop input.mq{width:100%;box-sizing:border-box;padding:7px 9px;margin-bottom:6px;border:1px solid var(--line);
+ border-radius:8px;background:var(--panel2);color:var(--ink);font-size:12px;outline:none}
+.model-pop .mrows{max-height:320px;overflow:auto}
+.model-pop .cmd-grp{position:sticky;top:0;background:var(--panel)}
+.model-pop .rbadge{font-size:10px;white-space:nowrap}
 .chip{cursor:pointer;border:1px solid var(--line);border-radius:14px;padding:3px 11px;font-size:11.5px;color:var(--hud);white-space:nowrap}
 .chip:hover{border-color:var(--accent);background:rgba(168,85,247,.10)}
 .chip.tog{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}

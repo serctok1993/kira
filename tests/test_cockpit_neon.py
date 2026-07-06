@@ -94,16 +94,12 @@ def test_zentrale_voice_und_schwarm():
 # ---- Stufe 2b: Chat-Engine-Leiste (Modell als Neon-Pille neben dem Modus) ---------------
 
 def test_chat_engine_leiste():
-    # genau EIN Modell-Select, jetzt als Engine-Pille (nicht mehr grau im Werkzeug-Bereich)
-    assert VIEWS.count('id="chat-model"') == 1
-    assert 'id="chat-model" class="engine-pill"' in VIEWS
-    assert 'id="chat-model" title="Modell fuer diesen Chat" style="max-width:190px"' not in VIEWS
-    # steht in der Modus-Leiste (nach dem Umschalter, vor dem Spacer)
-    seg = VIEWS.index('id="chat-mode-seg"')
-    mod = VIEWS.index('id="chat-model"')
-    assert seg < mod
+    # S11: der Modell-Knopf (engine-pill) sitzt in der Werkzeugleiste, oeffnet den Katalog
+    assert 'id="model-btn" class="chip engine-pill"' in VIEWS
+    assert VIEWS.count('id="chat-model"') == 1          # nur noch der versteckte Speicher
+    assert 'type="hidden" id="chat-model"' in VIEWS
     # Pille faerbt mit dem Modus (--chat-accent)
-    assert "select.engine-pill" in CSS and "var(--chat-accent)" in CSS
+    assert ".engine-pill" in CSS and "var(--chat-accent)" in CSS
 
 
 # ---- Stufe 2c: Serc mit Kira-artigen Subtabs -------------------------------------------
@@ -130,12 +126,12 @@ def test_chat_werkbank():
     tools = VIEWS.index('id="chat-tools"')
     form = VIEWS.index('id="cform"')
     assert seg < tools < form
-    # Mikro + Anhang sind in die Werkbank gewandert; cform hat sie nicht mehr
+    # Mikro bleibt in der Werkbank; das Upload-"+" sitzt jetzt direkt am Eingabefeld
     mic = VIEWS.index('id="micbtn"')
     assert tools < mic < form                       # micbtn liegt im chat-tools-Block
-    # cform enthält nur noch Eingabe + Senden (kein micbtn/imgbtn dazwischen)
     cform_block = VIEWS[form:VIEWS.index("</form>", form)]
-    assert 'id="micbtn"' not in cform_block and 'id="imgbtn"' not in cform_block
+    assert 'id="micbtn"' not in cform_block          # Mikro NICHT im Eingabeformular
+    assert 'id="plusbtn"' in cform_block             # aber das "+" (Upload) schon
     # Modus-Farbe fix: Chat=Violett, Coding=Grün, unabhängig vom Theme
     assert "--accent-chat:#b026ff" in CSS and "--coding-accent:#39ff14" in CSS
     assert "#chat-main{--chat-accent:var(--accent-chat)}" in CSS
@@ -161,7 +157,7 @@ def test_chat_politur():
     box_start = VIEWS.index('<span class="toolbox">')
     box_end = VIEWS.index("</span>", box_start)
     box = VIEWS[box_start:box_end]
-    for m in ('id="chip-denk"', 'id="chip-tts"', 'id="micbtn"', 'id="imgbtn"'):
+    for m in ('id="chip-denk"', 'id="chip-tts"', 'id="micbtn"'):
         assert m in box, f"{m} fehlt in der Werkzeug-Box"
 
 
@@ -309,3 +305,24 @@ def test_denk_tiefe_regler_live():
     assert "REASON_MARKERS=s.reasoning_markers" in SCRIPT
     assert 'syncDenk()' in SCRIPT
     assert 't="denk:"+rl.value+" "+t' in SCRIPT
+
+
+# ---- Modell-Auswahl-Popover (alle Modelle, ehrliches Reasoning) + Upload-"+" am Eingabefeld ----
+
+def test_modell_picker_und_plus_upload():
+    # Modell-Knopf far right der Werkzeugleiste, oeffnet ein Popover; versteckter Speicher bleibt
+    assert 'id="model-btn"' in VIEWS and 'id="model-pop"' in VIEWS
+    assert 'type="hidden" id="chat-model"' in VIEWS
+    # Popover laedt ALLE Modelle aus dem Katalog + zeigt Reasoning-Faehigkeit pro Modell
+    assert "/api/model/catalog" in SCRIPT
+    assert "function renderModelRows(" in SCRIPT
+    assert "isReasoningModel(m.id)" in SCRIPT
+    assert "function useChatModel(" in SCRIPT and "/api/model/use" in SCRIPT
+    assert ".model-pop{right:0" in CSS
+    # das Upload-"+" sitzt links im Eingabeformular und traegt das Datei-Feld
+    assert 'id="plusbtn"' in VIEWS and 'id="imgfile"' in VIEWS
+    assert ".plus{flex-shrink:0" in CSS
+    form = VIEWS.index('id="cform"')
+    plus = VIEWS.index('id="plusbtn"')
+    cin = VIEWS.index('id="cin"')
+    assert form < plus < cin                          # "+" steht links VOR dem Eingabefeld
