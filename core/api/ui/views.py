@@ -169,9 +169,8 @@ VIEWS = r"""</head><body>
         <div id="modebar">
           <div id="chat-mode-seg" title="Chat = Dialog (DeepSeek) · Work = laengerer Auftrag mit vollem Werkzeug-Budget (GLM) · Coding = an Kira schrauben (Plan + Schritte + Diff-Review)">
             <span class="pill"></span>
-            <a data-m="chat" class="on"><span class="mi">💬</span>Chat</a><a data-m="work"><span class="mi">⚙</span>Work</a><a data-m="coding"><span class="mi">‹/›</span>Coding</a>
+            <a data-m="chat" class="on"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>Chat</a><a data-m="work"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Work</a><a data-m="coding"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>Coding</a>
           </div>
-          <span class="muted" id="mode-hint" style="font-size:11px"></span>
         </div>
         <form id="cform">
           <label id="plusbtn" class="plus" title="Bild oder Datei (PDF, txt, md, csv) hochladen">+<input id="imgfile" type="file" accept="image/*,.pdf,.txt,.md,.markdown,.csv,.log,.json,.yaml,.yml,.html,.htm" style="display:none"/></label>

@@ -171,9 +171,8 @@ button.ghost.on{border-color:var(--accent);color:#fff;background:rgba(168,85,247
 #chat-main[data-mode="work"]{--chat-accent:var(--work-accent)}     /* Work = Bernstein */
 #chat-main[data-mode="coding"]{--chat-accent:var(--coding-accent)} /* Coding = Gruen */
 /* Modus-Umschalter UNTEN am Composer — Segmented-Slider: der aktive Teil (.pill) gleitet weich rueber */
-#modebar{display:flex;align-items:center;gap:12px;margin:0 0 8px;flex-wrap:wrap}
+#modebar{display:flex;align-items:center;gap:12px;margin:0 0 8px}
 #modebar #chat-mode-seg{flex:0 1 360px}
-#modebar #mode-hint{flex:1 1 200px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #chat-mode-seg{--i:0;position:relative;display:flex;padding:4px;isolation:isolate;border:1px solid var(--line);
  border-radius:12px;background:var(--panel);font-family:inherit;font-size:13.5px}
 #chat-mode-seg .pill{position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/3);border-radius:9px;z-index:-1;
@@ -184,7 +183,8 @@ button.ghost.on{border-color:var(--accent);color:#fff;background:rgba(168,85,247
 #chat-mode-seg a{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 0;border-radius:9px;
  color:var(--muted);font-weight:600;letter-spacing:.3px;cursor:pointer;transition:color .25s}
 #chat-mode-seg a.on{color:#fff}
-#chat-mode-seg a .mi{font-size:13px;opacity:.9}
+/* generierte SVG-Icons statt Emojis — bewusst gedaempftes Grau-Lila (bleibt subtil, auch aktiv) */
+#chat-mode-seg a .mi{width:15px;height:15px;flex:none;color:#7d768f}
 @media (prefers-reduced-motion:reduce){#chat-mode-seg .pill{transition:none}}
 /* Eingabe/Senden faerben mit dem Modus */
 #chat-main #cin{caret-color:var(--chat-accent)}

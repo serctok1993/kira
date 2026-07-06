@@ -335,9 +335,15 @@ def test_modell_picker_und_plus_upload():
 # ---- Chat-Werkbank 2.0: 3 Modi, ein Commands-Knopf, Reasoning-Popover, Stop-Button ----
 
 def test_drei_modi_und_stop():
-    # genau drei Modi im Slider: Chat / Work / Coding (kein Plan o.ae.), mit Icons
-    assert '<a data-m="chat" class="on"><span class="mi">💬</span>Chat</a><a data-m="work"><span class="mi">⚙</span>Work</a><a data-m="coding"><span class="mi">‹/›</span>Coding</a>' in VIEWS
+    # genau drei Modi im Slider: Chat / Work / Coding — mit generierten SVG-Icons (keine Emojis)
+    assert 'data-m="chat" class="on">' in VIEWS
+    _seg = VIEWS[VIEWS.index('id="chat-mode-seg"'):VIEWS.index("</div>", VIEWS.index('id="chat-mode-seg"'))]
+    assert _seg.count('<svg class="mi"') == 3
+    assert ">Chat</a>" in _seg and ">Work</a>" in _seg and ">Coding</a>" in _seg
+    assert "💬" not in _seg and "⚙" not in _seg          # Emojis raus -> Icons
     assert 'data-m="plan"' not in VIEWS
+    # Beschreibungstext neben den Buttons ist raus (Sergen kennt die Modi)
+    assert 'id="mode-hint"' not in VIEWS
     # Work-Modus haengt "work:" an, Coding "code:" — beide im Send-Pfad
     assert 't="work: "+raw' in SCRIPT and 't="code: "+raw' in SCRIPT
     assert '--work-accent' in CSS and '#chat-main[data-mode="work"]' in CSS
