@@ -137,10 +137,10 @@ def test_telegram_trace_zeigt_reasoning():
 
 def test_render_trace_hermes_html():
     from core.agency.connectors import telegram_bot as tb
-    out = tb._render_trace(None, "ich pruefe zuerst die Quelle", ["📖 lese: /pfad"], "Denkt", "⠹", True, "💜")
+    out = tb._render_trace(None, "ich pruefe zuerst die Quelle", ["📖 lese: /pfad"], "Denkt", "⠹", True)
     assert "<blockquote expandable>" in out and "ich pruefe zuerst die Quelle" in out  # aufklappbares Denken
-    assert "💜" in out and "<b>Denkt</b>" in out and "⠹" in out                        # Neon + Phase + Spinner
-    assert "🧠" not in out                                                             # Gehirn-Emoji raus
+    assert "<b>Denkt</b>" in out and "⠹" in out                                        # Phase (fett) + Spinner
+    assert "🧠" not in out and "💜" not in out and "💗" not in out                      # weder Gehirn noch Herz
 
 
 def test_render_trace_escapes_html():

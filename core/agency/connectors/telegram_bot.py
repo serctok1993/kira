@@ -285,8 +285,7 @@ def _action_label(name: str, args: dict | None) -> str:
 
 # Ruhiger Takt fuer die Denk-/Arbeits-Anzeige: EIN bewegtes Element je Pump-Takt -> pulsiert, flackert nicht.
 _PULSE_INTERVAL = 1.8  # Sekunden zwischen Edits: gemaechlich = kein Flackern, kein 429
-_SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧"       # ruhiger Braille-Spinner (ein Frame je Takt)
-_NEON = ["💜", "💗", "💚"]   # Neon-Farbzyklus (Lila -> Pink -> Gruen) statt statischem 🧠
+_SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧"       # ruhiger Braille-Spinner (ein Frame je Takt); kein 🧠 mehr
 
 
 def _esc(s: str) -> str:
@@ -295,13 +294,13 @@ def _esc(s: str) -> str:
 
 
 def _render_trace(voice_text: str | None, think: str, lines: list[str],
-                  phrase: str, spin: str, running: bool, neon: str = "💜") -> str:
+                  phrase: str, spin: str, running: bool) -> str:
     """Reiner Renderer der Live-Trace-Nachricht (pur -> testbar), HTML fuer Telegram.
 
     Hermes-Stil in drei Zonen: DENKEN oben (aufklappbares Zitat, clean Prosa — kein
-    Code) · SCHRITTE (Werkzeuge mit passendem Icon) · animierter STATUS unten
-    (Neon-Farbe + Phase + Spinner). Bei Abschluss (running=False) faellt der Status
-    weg -> ruhige Finalisierung."""
+    Code) · SCHRITTE (Werkzeuge mit passendem Icon) · STATUS unten (Phase fett +
+    Spinner). Telegram kann Text NICHT faerben -> bewusst einfarbig; den Neon-/Rainbow-
+    Farbwechsel gibt es in der Web-App. Bei Abschluss (running=False) faellt der Status weg."""
     parts: list[str] = []
     if voice_text:
         parts.append("🎙️ <i>«" + _esc(voice_text[:160]) + "»</i>")
@@ -312,7 +311,7 @@ def _render_trace(voice_text: str | None, think: str, lines: list[str],
         parts.append("──────────")
         parts += [_esc(l) for l in lines[-12:]]
     if running:
-        parts.append(neon + " <b>" + _esc(phrase) + "</b> <code>" + spin + "</code>")
+        parts.append("<b>" + _esc(phrase) + "</b> <code>" + spin + "</code>")
     return ("\n".join(parts))[:3900] or "💭 …"
 
 
@@ -357,7 +356,7 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
 
     _typing(client, chat_id)
     phrase0 = next_phrase()
-    init_txt = _render_trace(voice_text, "", [], phrase0, _SPIN[0], True, _NEON[0])
+    init_txt = _render_trace(voice_text, "", [], phrase0, _SPIN[0], True)
     init = client.post(f"{API}/sendMessage",
                        json={"chat_id": chat_id, "text": init_txt, "parse_mode": "HTML"}).json()
     mid = init.get("result", {}).get("message_id")
@@ -376,8 +375,7 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
             return
         running = not stop.is_set()
         spin = _SPIN[state["tick"] % len(_SPIN)]
-        neon = _NEON[state["tick"] % len(_NEON)]  # Neon-Farbe wechselt je Takt (Lila->Pink->Gruen)
-        txt = _render_trace(voice_text, state["think"], state["lines"], state["phrase"], spin, running, neon)
+        txt = _render_trace(voice_text, state["think"], state["lines"], state["phrase"], spin, running)
         if txt == state["last_render"]:
             return
         # Reine Puls-Bewegung (kein neuer Inhalt) nur gedrosselt senden -> waehrend Kira
