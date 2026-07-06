@@ -1203,8 +1203,9 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     # Plan-Modus: "plan:"/"/plan" -> erst Plan, dann Schritt fuer Schritt (wie ein Coding-Agent).
     # "code:" (Coding-Chat im Cockpit) laeuft identisch, haengt aber die CODING-REGELN an —
     # der Verify-Reflex erreicht so JEDEN Teilschritt (via 'Gesamtziel' im Step-Prompt).
-    # 5-Stufen-Oekonomie: code: laeuft auf dem DENKER (GLM) — Fable nur, wenn Sergen
-    # explizit eskaliert (reason:-Prefix / 🧠-Toggle). plan: bleibt der Langzeitplaner (Fable).
+    # 5-Stufen-Oekonomie: Planen/Arbeiten/Coden laeuft auf dem DENKER (GLM 5.2) — Fable
+    # (Eskalation) nur, wenn Sergen explizit will (reason:-Prefix / 🧠-Toggle). Sowohl code:
+    # als auch plan: fahren also standardmaessig GLM, nicht das teure Fable.
     _s = user_message.strip()
     code_mode = _s.lower().startswith("code:")
     if code_mode or _s.lower().startswith(("plan:", "/plan")):
@@ -1215,7 +1216,7 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
         if code_mode:
             kern += "\n\n" + _CODING_REGELN
         final = plan_and_execute(kern, session_id=session_id, on_event=on_event,
-                                 escalate=(escalate if code_mode else True),
+                                 escalate=escalate,
                                  code_review=code_mode)
         memory.remember(final, role="partner", session_id=session_id)
         events.emit("partner_message", {"text": final, "plan": True}, session_id=session_id)
@@ -1261,11 +1262,15 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     ]
     messages.append({"role": "user", "content": user_message})
 
+    # Modell-Route: normaler Dialog = 'chat' (DeepSeek, guenstig). Sobald es ein echter
+    # Arbeitsauftrag ist (/work bzw. work:), auf 'reason' heben -> GLM 5.2. So bleibt Plaudern
+    # billig, aber echtes Arbeiten laeuft auf dem staerkeren Modell.
+    _tt = "reason" if work_mode else "chat"
     # Cloud-Modelle: natives Function-Calling (robust, kein ACT-Text-Leak)
     _vstyle = _VOICE_STYLE if voice_mode else ""
-    if _cloud(escalate, "chat"):
+    if _cloud(escalate, _tt):
         system = build_system_prompt(user_message, session_id=session_id) + _NATIVE_TOOLS_HINT + _vstyle
-        text = _native_loop(messages, system, session_id, escalate, emit, max_steps=step_ceiling, task_type="chat")
+        text = _native_loop(messages, system, session_id, escalate, emit, max_steps=step_ceiling, task_type=_tt)
         return _finalize(text)
 
     # Lokale Modelle: bewaehrtes Text-Protokoll (ACT <tool> {json}) mit Streaming
@@ -1286,7 +1291,7 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
     for step in range(step_ceiling):
         parts = []
         for piece in llm_router.stream_tagged(
-            messages, system=system, task_type="chat", session_id=session_id, escalate=escalate
+            messages, system=system, task_type=_tt, session_id=session_id, escalate=escalate
         ):
             if piece["kind"] == "think":
                 emit({"kind": "think", "text": piece["text"]})
@@ -1322,7 +1327,7 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
         messages.append({"role": "user", "content": f"ERGEBNIS von {name}:\n{obs}\n\nMach weiter oder gib die finale Antwort."})
 
     messages.append({"role": "user", "content": "Fasse jetzt final fuer Sergen zusammen — ohne weiteres ACT."})
-    res = llm_router.complete(messages, system=system, task_type="chat", session_id=session_id, escalate=escalate)
+    res = llm_router.complete(messages, system=system, task_type=_tt, session_id=session_id, escalate=escalate)
     return _finalize(res["text"].strip())
 
 
