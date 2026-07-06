@@ -227,10 +227,22 @@ VIEWS = r"""</head><body>
     <div class="subview" id="v-routinen">
       <div class="panel">
         <div class="panel-h">◈ DEINE ROUTINEN <span class="sp"></span><span class="muted" style="font-size:10px">per Telegram diktierbar</span></div>
-        <div id="me-crons" class="panel-b me-scroll" style="max-height:40vh"><span class="muted">…</span></div>
-        <div class="panel-b" style="border-top:1px solid var(--line)">
-          <button class="ghost" id="me-brief-setup" style="font-size:12px">☀ Morgen-Briefing (08:00, aus)</button>
-          <span class="muted" id="me-brief-hint" style="font-size:11px;margin-left:6px"></span>
+        <div id="me-crons" class="panel-b me-scroll" style="max-height:38vh"><span class="muted">…</span></div>
+        <div class="panel-b" id="auto-panel" style="border-top:1px solid var(--line)">
+          <div class="muted" style="font-size:11px;letter-spacing:1px;margin-bottom:6px">+ AUTOMATISIEREN</div>
+          <input id="au-what" placeholder="Was soll Kira regelmaessig tun? (z.B. Follower zaehlen und ins Ziele-Dashboard eintragen)" style="width:100%"/>
+          <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center">
+            <input id="au-time" type="time" value="08:00" title="taeglich um dieser Uhrzeit" style="width:110px"/>
+            <span class="muted" style="font-size:11px">taeglich — oder alle</span>
+            <input id="au-interval" placeholder="6h / 30m" title="Intervall statt Uhrzeit" style="width:80px"/>
+            <label class="chip" style="font-size:11px;display:inline-flex;align-items:center;gap:4px"><input type="checkbox" id="au-now"/> gleich aktiv</label>
+            <button id="au-add">Einrichten</button>
+            <span class="muted" id="au-hint" style="font-size:11px"></span>
+          </div>
+          <div style="margin-top:7px">
+            <span class="muted" style="font-size:10px">Schnell:</span>
+            <a class="chip au-preset" data-time="08:00" data-what="Erstelle mein Tages-Briefing aus dem Lagebericht: {{standup}} — 1) wie der Tag aussieht (Termine, faellige Todos), 2) was du heute vorhast, 3) EIN proaktiver Vorschlag. Warm, knapp, strukturiert — dann per Telegram senden.">☀ Morgen-Briefing</a>
+          </div>
         </div>
       </div>
     </div>

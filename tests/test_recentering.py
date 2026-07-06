@@ -313,7 +313,7 @@ def test_ia_shift_ui_markers():
     assert 'id="v-keys"' in kira_block, "Zugaenge nicht im Kira-Tab"
     config_block = html[html.find('id="v-config"'):]
     assert 'data-s="keys"' not in config_block[:config_block.find("</div>\n")] or True
-    for marker in ('id="me-crons"', 'id="me-brief-setup"', "Morgen-Briefing",
+    for marker in ('id="me-crons"', 'id="auto-panel"', "Morgen-Briefing",
                    'data-at="rout"', "loadMeCrons"):
         assert marker in html, f"S8.4-Marker fehlt: {marker}"
 

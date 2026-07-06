@@ -132,18 +132,27 @@ async function loadMeCrons(){const el=$("#me-crons");if(!el)return;try{
   return '<div class="memrow"><div class="mh"><span class="badge kind">'+(j.enabled?"AN":"aus")+'</span>'
    +'<b>'+esc(j.label||"")+'</b><span class="muted" style="font-size:11px">'+esc(j.schedule_text||"")+' · naechster: '+nxt+'</span>'
    +'<span style="flex:1"></span><a data-ctog="'+esc(j.id)+'" style="cursor:pointer;color:var(--hud)">'+(j.enabled?"pausieren":"aktivieren")+'</a></div></div>';}).join("")
-  :'<div class="emptybox">Noch keine Routinen.<br>Unten das Morgen-Briefing einrichten — oder sag es mir per Telegram.</div>';
+  :'<div class="emptybox">Noch keine Routinen.<br>Unten eine Automatisierung einrichten — oder sag es mir per Telegram.</div>';
  el.querySelectorAll("[data-ctog]").forEach(a=>a.onclick=async()=>{
   await fetch("/api/cron/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.ctog})});loadMeCrons();});
 }catch(e){}}
-$("#me-brief-setup")&&($("#me-brief-setup").onclick=async()=>{
- const prompt="Guten Morgen! Erstelle Sergens Tages-Briefing aus dem Lagebericht:\n{{standup}}\n"
-  +"Struktur: 1) Wie sieht der Tag aus (Termine, faellige Todos, was ansteht). "
-  +"2) Was ICH (Kira) heute vorhabe. 3) EIN konkreter, proaktiver Vorschlag fuer den Tag. "
-  +"Warm, knapp, strukturiert — dann per Telegram senden.";
+/* Automatisierungspanel: Uhrzeit/Intervall + freier Auftrag -> Routine (scope me). */
+$$('.au-preset').forEach(a=>a.onclick=()=>{
+ const w=$("#au-what");if(w)w.value=a.dataset.what||"";
+ if(a.dataset.time){const t=$("#au-time");if(t)t.value=a.dataset.time;}
+ const iv=$("#au-interval");if(iv)iv.value="";if(w)w.focus();});
+$("#au-add")&&($("#au-add").onclick=async()=>{
+ const what=($("#au-what").value||"").trim();
+ const hint=$("#au-hint");
+ if(!what){if(hint)hint.textContent="Was soll ich tun?";return;}
+ const iv=($("#au-interval").value||"").trim();
+ const schedule=iv||($("#au-time").value||"08:00");
+ const label=(what.length>44?what.slice(0,44)+"…":what);
+ const enabled=$("#au-now").checked;
  const r=await (await fetch("/api/cron/add",{method:"POST",headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({label:"Morgen-Briefing",prompt:prompt,schedule:"08:00",scope:"me",enabled:false})})).json();
- $("#me-brief-hint").textContent=r.ok?"✓ angelegt (AUS) — oben aktivieren, wenn du bereit bist":"Fehler";
+  body:JSON.stringify({label:label,prompt:what,schedule:schedule,scope:"me",enabled:enabled})})).json();
+ if(hint)hint.textContent=r.ok?("✓ eingerichtet "+(enabled?"(aktiv)":"(aus — oben aktivieren)")):"Fehler";
+ $("#au-what").value="";$("#au-interval").value="";$("#au-now").checked=false;
  loadMeCrons();});
 
 /* ---- Evolution (S8.1): was Kira zuletzt an sich verbessert hat ---- */
