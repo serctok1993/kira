@@ -352,9 +352,9 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
 /* ===== S6.6b · Chat: Session-Panel, Markdown, Nachrichten-Meta, Chips ===== */
 #chat-wrap{flex:1;display:flex;gap:14px;min-height:0}
 #chat-main{flex:1;display:flex;flex-direction:column;min-width:0}
-#sess-panel{width:232px;flex-shrink:0;border:1px solid var(--line);border-radius:12px;background:var(--panel);
- display:none;flex-direction:column;overflow:hidden}
-#sess-panel.open{display:flex}  /* S7c: Gespraeche nur auf Klick (🗂), nicht dauer-praesent */
+#sess-panel{width:250px;flex-shrink:0;order:2;border:1px solid var(--line);border-radius:12px;background:var(--panel);
+ display:none;flex-direction:column;overflow:hidden}  /* order:2 -> Gespraeche rechts, Chat rueckt nach links */
+#sess-panel.open{display:flex}  /* Gespraeche nur auf Klick (🗂), nicht dauer-praesent */
 #sess-panel .sp-f{padding:7px 12px;border-top:1px solid var(--line);text-align:center}
 .sday{padding:7px 12px 3px;font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;
  border-bottom:1px solid var(--line);background:var(--panel2)}
@@ -389,6 +389,11 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
 /* S9.2: Werkzeug-Leiste unter dem Verlauf */
 #chat-tools{display:flex;gap:8px;align-items:center;max-width:880px;margin:0 auto 6px;width:100%;flex-wrap:wrap}
 #chat-tools select{max-width:190px;padding:4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font-size:12px;outline:none}
+/* S10: die vier Werkzeuge (Reasoning/Vorlesen/Memo/Anhang) in einer eigenen, dezent gerahmten Box */
+#chat-tools .toolbox{display:inline-flex;align-items:center;gap:7px;padding:3px 8px;border:1px solid var(--line);
+ border-radius:14px;background:color-mix(in srgb,var(--panel) 70%,transparent)}
+#chat-tools .toolbox .chip{border-color:transparent;background:none}
+#chat-tools .toolbox .chip:hover{border-color:var(--chat-accent);background:color-mix(in srgb,var(--chat-accent) 10%,transparent)}
 .chip{cursor:pointer;border:1px solid var(--line);border-radius:14px;padding:3px 11px;font-size:11.5px;color:var(--hud);white-space:nowrap}
 .chip:hover{border-color:var(--accent);background:rgba(168,85,247,.10)}
 .chip.tog{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}

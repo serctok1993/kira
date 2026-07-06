@@ -131,10 +131,12 @@ VIEWS = r"""</head><body>
           <span class="chip" id="chip-status" title="Status &amp; Selbst-Check">/status</span>
           <span class="chip" id="chip-plan" title="Erst Plan, dann Schritte">/plan</span>
           <span style="flex:1"></span>
-          <label class="chip tog" id="chip-reason" title="Reasoning: staerkeres Modell, denkt gruendlicher"><input type="checkbox" id="reason-on"/> 🧠 Reasoning</label>
-          <label class="chip tog" id="chip-tts" title="Kira liest ihre Antworten laut vor (Stimme muss unter Kira → Zugaenge an sein)"><input type="checkbox" id="tts-on"/> 🔊 Vorlesen</label>
-          <button type="button" id="micbtn" class="chip" title="Sprachmemo aufnehmen">🎤</button>
-          <label id="imgbtn" class="chip" title="Bild an Kira" style="cursor:pointer">📎<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
+          <span class="toolbox">
+            <label class="chip tog" id="chip-reason" title="Reasoning: staerkeres Modell, denkt gruendlicher"><input type="checkbox" id="reason-on"/> Reasoning</label>
+            <label class="chip tog" id="chip-tts" title="Kira liest ihre Antworten laut vor (Stimme muss unter Kira → Zugaenge an sein)"><input type="checkbox" id="tts-on"/> Vorlesen</label>
+            <button type="button" id="micbtn" class="chip" title="Sprachmemo aufnehmen">🎤</button>
+            <label id="imgbtn" class="chip" title="Bild an Kira" style="cursor:pointer">📎<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
+          </span>
         </div>
         <form id="cform">
           <input id="cin" placeholder="Schreib mir…" autocomplete="off" autofocus/>
