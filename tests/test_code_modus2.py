@@ -127,7 +127,7 @@ def test_code_mode_eskaliert_nicht_mehr_automatisch(monkeypatch, tmp_path):
     assert seen == {"escalate": True, "review": True}      # explizit -> Richter (Fable)
 
     act.act_chat("plan: grosser Auftrag", session_id="cm1")
-    assert seen == {"escalate": True, "review": False}     # plan: bleibt Langzeitplaner
+    assert seen == {"escalate": False, "review": False}    # plan: laeuft jetzt auf GLM (Denker), nicht Fable
 
 
 # ---- B-029: Diff-Review -----------------------------------------------------------------
