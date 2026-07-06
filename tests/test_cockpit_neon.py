@@ -432,3 +432,19 @@ def test_chat_attach_ui():
     assert 'f.type.startsWith("image/")' in SCRIPT
     assert "function attachFile(" in SCRIPT and '"/api/chat/attach"' in SCRIPT
     assert "[Angehaengte Datei:" in SCRIPT
+
+
+# ---- Hover-Chats: Drueberfahren oeffnet, Klick pinnt (Hover-Intent) ----
+
+def test_gespraeche_hover_intent():
+    # Hover oeffnet ueber mouseenter (nicht mehr nur onclick-Toggle)
+    assert 'b.addEventListener("mouseenter",open)' in SCRIPT
+    # Gnadenfrist gegen das Zuschnappen beim diagonalen Rueberziehen (400ms)
+    assert "setTimeout(hide,400)" in SCRIPT
+    # Panel haelt offen, solange die Maus drueber ist
+    assert 'p.addEventListener("mouseenter",()=>clearTimeout(t))' in SCRIPT
+    # Klick pinnt und merkt den Zustand (Touch-/Fallback-Weg bleibt)
+    assert 'localStorage.setItem("kira_sess_open"' in SCRIPT
+    assert 'b.classList.toggle("pinned"' in SCRIPT
+    # sichtbarer Pin-Zustand am Button
+    assert "#sess-toggle.pinned{" in CSS

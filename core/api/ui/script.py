@@ -644,10 +644,22 @@ async function openSession(sid){curSid=sid;log.innerHTML="";curBot=null;curThink
  markActiveSession();reconnect();}
 function newSession(){curSid="cockpit-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;markActiveSession();reconnect();}
 $("#sess-new")&&($("#sess-new").onclick=()=>newSession());
-/* Panel nur auf Klick (Zustand merken) */
-$("#sess-toggle")&&($("#sess-toggle").onclick=()=>{const p=$("#sess-panel");p.classList.toggle("open");
- localStorage.setItem("kira_sess_open",p.classList.contains("open")?"1":"0");});
-(localStorage.getItem("kira_sess_open")==="1")&&$("#sess-panel")&&$("#sess-panel").classList.add("open");
+/* Gespraeche: Hover-Intent — Drueberfahren oeffnet, Klick PINNT (bleibt offen bis zum
+   naechsten Klick). Bleibt offen solange die Maus ueber Button ODER Panel ist; schliesst
+   erst 400ms nach Verlassen beider -> keine Zuschnapp-Macke beim diagonalen Rueberziehen.
+   Der Pin-Zustand wird gemerkt (localStorage), Klick bleibt der Touch-/Fallback-Weg. */
+(function(){const p=$("#sess-panel"),b=$("#sess-toggle");if(!p||!b)return;
+ let t=null,pinned=localStorage.getItem("kira_sess_open")==="1";
+ const show=()=>p.classList.add("open"),hide=()=>{if(!pinned)p.classList.remove("open");};
+ const open=()=>{clearTimeout(t);show();},later=()=>{clearTimeout(t);t=setTimeout(hide,400);};
+ const setPin=v=>{pinned=v;localStorage.setItem("kira_sess_open",v?"1":"0");b.classList.toggle("pinned",v);};
+ setPin(pinned); if(pinned)show();
+ b.addEventListener("mouseenter",open);
+ b.addEventListener("mouseleave",later);
+ p.addEventListener("mouseenter",()=>clearTimeout(t));
+ p.addEventListener("mouseleave",later);
+ b.addEventListener("click",()=>{setPin(!pinned);pinned?open():hide();});
+})();
 $("#sess-archtoggle")&&($("#sess-archtoggle").onclick=()=>{showArchived=!showArchived;
  $("#sess-archtoggle").textContent=showArchived?"Archiv ausblenden":"Archiv anzeigen";loadChatSessions();});
 /* Modus-Schalter: Chat = Dialog · Research = /work (Werkzeug-Budget) · Coding = code: (Plan->Schritte + Coding-Regeln) */
