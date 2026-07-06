@@ -377,14 +377,18 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
 }
 @media (prefers-reduced-motion: reduce){#side{transition:none}.toast{animation:none}#side h1{animation:none;background-position:40% 0}}
 /* ===== S6.6b · Chat: Session-Panel, Markdown, Nachrichten-Meta, Chips ===== */
-#chat-wrap{flex:1;display:flex;gap:14px;min-height:0}
+#chat-wrap{flex:1;display:flex;gap:0;min-height:0}  /* kein flex-gap -> das Panel bringt seinen Abstand selbst mit (animierbar) */
 #chat-main{flex:1;display:flex;flex-direction:column;min-width:0}
-#sess-panel{width:250px;flex-shrink:0;order:2;border:1px solid var(--line);border-radius:12px;background:var(--panel);
- display:none;flex-direction:column;overflow:hidden}  /* order:2 -> Gespraeche rechts, Chat rueckt nach links */
-#sess-panel.open{display:flex;animation:sessIn .16s ease both}  /* Hover oeffnet, Klick pinnt (JS) */
-@keyframes sessIn{from{opacity:0;transform:translateX(6px)}to{opacity:1;transform:none}}
+/* Gespraeche gleiten SANFT rein statt hart zu erscheinen: wir animieren Breite+Rand+Opacity
+   (order:2 -> rechts). Zu = width:0, transparenter Rand, kein Abstand -> kein Fussabdruck.
+   Kein display:none noetig -> die Breiten-Transition kann sauber laufen (auf und zu). */
+#sess-panel{width:0;margin-left:0;flex-shrink:0;order:2;border:1px solid transparent;border-radius:12px;
+ background:var(--panel);display:flex;flex-direction:column;overflow:hidden;opacity:0;
+ transition:width .42s cubic-bezier(.22,.61,.36,1),margin-left .42s cubic-bezier(.22,.61,.36,1),
+  opacity .34s ease,border-color .42s ease}
+#sess-panel.open{width:250px;margin-left:14px;opacity:1;border-color:var(--line)}  /* Hover oeffnet, Klick pinnt (JS) */
 #sess-toggle.pinned{border-color:var(--accent);color:var(--accent);background:rgba(168,85,247,.12)}
-@media(prefers-reduced-motion:reduce){#sess-panel.open{animation:none}}
+@media(prefers-reduced-motion:reduce){#sess-panel{transition:none}}
 #sess-panel .sp-f{padding:7px 12px;border-top:1px solid var(--line);text-align:center}
 .sday{padding:7px 12px 3px;font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;
  border-bottom:1px solid var(--line);background:var(--panel2)}

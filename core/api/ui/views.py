@@ -72,7 +72,7 @@ VIEWS = r"""</head><body>
   <!-- ================= ZENTRALE ================= -->
   <div class="view on" id="v-home">
     <div id="hero">
-      <img id="hero-av" alt="" src="/api/avatar"/>
+      <img id="hero-av" alt=""/>
       <div id="hero-txt">
         <div id="hero-name">KIRA</div>
         <div id="hero-status" class="muted">…</div>
