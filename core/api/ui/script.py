@@ -497,7 +497,6 @@ async function loadDigest(){const el=$("#digest");if(!el)return;
  }catch(e){}}
 
 async function refreshStatus(){let s;try{s=await J("/api/status");}catch(e){return null;}  // Backoff via pollFails in J()
- $("#who").textContent=s.partner.toLowerCase()+" · cockpit";
  $("#b-model").textContent=s.model;
  $("#b-spend").textContent="$"+s.spend_usd_today+((s.budget&&s.budget.day_limit!=null)?(" / "+s.budget.day_limit+"€"):"");
  const k=$("#kill"); k.classList.toggle("active",s.kill_switch);
@@ -644,10 +643,22 @@ async function openSession(sid){curSid=sid;log.innerHTML="";curBot=null;curThink
  markActiveSession();reconnect();}
 function newSession(){curSid="cockpit-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;markActiveSession();reconnect();}
 $("#sess-new")&&($("#sess-new").onclick=()=>newSession());
-/* Panel nur auf Klick (Zustand merken) */
-$("#sess-toggle")&&($("#sess-toggle").onclick=()=>{const p=$("#sess-panel");p.classList.toggle("open");
- localStorage.setItem("kira_sess_open",p.classList.contains("open")?"1":"0");});
-(localStorage.getItem("kira_sess_open")==="1")&&$("#sess-panel")&&$("#sess-panel").classList.add("open");
+/* Gespraeche: Hover-Intent — Drueberfahren oeffnet, Klick PINNT (bleibt offen bis zum
+   naechsten Klick). Bleibt offen solange die Maus ueber Button ODER Panel ist; schliesst
+   erst 400ms nach Verlassen beider -> keine Zuschnapp-Macke beim diagonalen Rueberziehen.
+   Der Pin-Zustand wird gemerkt (localStorage), Klick bleibt der Touch-/Fallback-Weg. */
+(function(){const p=$("#sess-panel"),b=$("#sess-toggle");if(!p||!b)return;
+ let t=null,pinned=localStorage.getItem("kira_sess_open")==="1";
+ const show=()=>p.classList.add("open"),hide=()=>{if(!pinned)p.classList.remove("open");};
+ const open=()=>{clearTimeout(t);show();},later=()=>{clearTimeout(t);t=setTimeout(hide,400);};
+ const setPin=v=>{pinned=v;localStorage.setItem("kira_sess_open",v?"1":"0");b.classList.toggle("pinned",v);};
+ setPin(pinned); if(pinned)show();
+ b.addEventListener("mouseenter",open);
+ b.addEventListener("mouseleave",later);
+ p.addEventListener("mouseenter",()=>clearTimeout(t));
+ p.addEventListener("mouseleave",later);
+ b.addEventListener("click",()=>{setPin(!pinned);pinned?open():hide();});
+})();
 $("#sess-archtoggle")&&($("#sess-archtoggle").onclick=()=>{showArchived=!showArchived;
  $("#sess-archtoggle").textContent=showArchived?"Archiv ausblenden":"Archiv anzeigen";loadChatSessions();});
 /* Modus-Schalter: Chat = Dialog · Research = /work (Werkzeug-Budget) · Coding = code: (Plan->Schritte + Coding-Regeln) */
@@ -802,16 +813,33 @@ function toggleAssist(){handsFree=!handsFree;paintAssist();
 
 /* ---- Bild an Kira (Vision) ---- */
 $("#imgfile")&&($("#imgfile").onchange=ev=>{const f=ev.target.files[0];if(!f)return;
- const rd=new FileReader();rd.onload=async()=>{
-  const im=document.createElement("div");im.className="msg me";
-  im.innerHTML='<img src="'+rd.result+'" style="max-width:240px;border-radius:8px;display:block"/>';log.appendChild(im);log.scrollTop=log.scrollHeight;
+ if(f.type&&f.type.startsWith("image/")){                       /* Bild -> Vision (wie gehabt) */
+  const rd=new FileReader();rd.onload=async()=>{
+   const im=document.createElement("div");im.className="msg me";
+   im.innerHTML='<img src="'+rd.result+'" style="max-width:240px;border-radius:8px;display:block"/>';log.appendChild(im);log.scrollTop=log.scrollHeight;
+   const prompt=$("#cin").value.trim();$("#cin").value="";
+   const b=msgEl("… Kira betrachtet das Bild …","bot");
+   try{const r=await (await fetch("/api/vision",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:prompt,image:rd.result})})).json();
+    b.querySelector(".mbody").innerHTML=md(r.ok?(r.text||""):("(Bild-Fehler: "+(r.error||"")+")"));}
+   catch(err){b.querySelector(".mbody").textContent="(Bild-Fehler: "+err+")";}
+   log.scrollTop=log.scrollHeight;};
+  rd.readAsDataURL(f);
+ } else { attachFile(f); }                                       /* PDF/Datei -> Text an Kira in den Chat */
+ ev.target.value="";});
+/* Datei anhaengen: Text extrahieren (Server) + als Kontext an Kira senden — sie kann dann
+   analysieren ODER (mit email_send) eine Mail schreiben. Die Blase zeigt nur 📎 Name + dein Auftrag. */
+async function attachFile(f){
+ const b=msgEl("… Kira liest "+f.name+" …","bot");
+ try{const fd=new FormData();fd.append("file",f);
+  const r=await (await fetch("/api/chat/attach",{method:"POST",body:fd})).json();
+  if(!r.ok){b.querySelector(".mbody").textContent="(Datei-Fehler: "+(r.error||"?")+")";return;}
+  b.remove();
   const prompt=$("#cin").value.trim();$("#cin").value="";
-  const b=msgEl("… Kira betrachtet das Bild …","bot");
-  try{const r=await (await fetch("/api/vision",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:prompt,image:rd.result})})).json();
-   b.querySelector(".mbody").innerHTML=md(r.ok?(r.text||""):("(Bild-Fehler: "+(r.error||"")+")"));}
-  catch(err){b.querySelector(".mbody").textContent="(Bild-Fehler: "+err+")";}
-  log.scrollTop=log.scrollHeight;};
- rd.readAsDataURL(f);ev.target.value="";});
+  msgEl("📎 "+r.name+(r.truncated?" (gekuerzt)":"")+(prompt?(" — "+prompt):""),"me");
+  const full=(prompt?prompt+"\n\n":"Fasse mir diese Datei zusammen.\n\n")
+   +"[Angehaengte Datei: "+r.name+(r.truncated?" — auf "+Math.round(12000/1000)+"k Zeichen gekuerzt, gesamt "+r.chars+"]":"]")+"\n\n"+r.text;
+  if(ws&&ws.readyState===1){startThinking();ws.send(full);setStreaming(true);curBot=null;curThink=null;traceC=null;curThinkLine=null;}
+ }catch(err){b.querySelector(".mbody").textContent="(Fehler: "+err+")";}}
 
 /* ---- Files ---- */
 let fcur=null;
