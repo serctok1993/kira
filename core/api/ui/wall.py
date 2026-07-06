@@ -209,7 +209,14 @@ const POSX={links:0.32,mitte:0.5,rechts:0.68},SIZ={klein:0.72,mittel:1,gross:1.4
 let curG=null;   // zuletzt geladener Graph (fuer Re-Layout bei Groesse/Position)
 let WALL={labels:true,motion:false,color:"vault",pos:"mitte",size:"mittel"};   // Bewegung AUS = ruhig + spart CPU
 function loadWall(){try{Object.assign(WALL,JSON.parse(localStorage.getItem("kira_wall")||"{}"));}catch(e){}}
-function saveWall(){try{localStorage.setItem("kira_wall",JSON.stringify(WALL));}catch(e){}}
+async function loadWallServer(){try{const s=await (await fetch("/api/wall/settings")).json();if(s&&typeof s==="object")Object.assign(WALL,s);}catch(e){}}
+function saveWall(){try{localStorage.setItem("kira_wall",JSON.stringify(WALL));}catch(e){}
+  try{fetch("/api/wall/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(WALL)});}catch(e){}}
+let _wallSig="";
+async function pollWall(){try{const raw=await (await fetch("/api/wall/settings")).text();if(raw===_wallSig)return;_wallSig=raw;
+  const s=JSON.parse(raw||"{}");const op=WALL.pos,os=WALL.size;Object.assign(WALL,s);
+  try{syncWallUI();}catch(e){}
+  if(WALL.pos!==op||WALL.size!==os)relayout();else kick();}catch(e){}}
 function nodeColor(n){return WALL.color==="modus"?(MODE_RGB[mode]||"176,38,255"):WALL.color==="mono"?"233,228,244":n.g0;}
 function sz(){W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
 const CX=()=>W*(POSX[WALL.pos]||0.5), CY=()=>H*0.46, SCALE=()=>SIZ[WALL.size]||1;
@@ -220,6 +227,9 @@ function layout(g){
   ls=(g.links||[]).map(l=>[by[l.source],by[l.target]]).filter(p=>p[0]&&p[1]);
   ls.forEach(([a,b])=>{a.deg++;b.deg++;});
   ns.forEach(n=>{n.r=(2.3+Math.min(6.5,n.deg*0.8))*Math.sqrt(sc);});   // groesserer Knoten = mehr Verbindungen
+  // vorab fertig rechnen -> der Graph erscheint direkt gesetzt (kein sichtbares Zappeln/Flackern)
+  if(!reduce){for(let k=0;k<200;k++)sim();}
+  settle=999;   // gilt als gesetzt: der Loop rendert 1x und friert ein (ausser "Bewegung" ist an)
 }
 function sim(){   // force-directed, ruhig getaktet: Repulsion + Federn + sanfte Zentrierung, starke Daempfung
   const cx=CX(),cy=CY(),sc=SCALE(),REP=470*sc,LEN=60*sc,K=0.012,CL=2.4;
@@ -320,10 +330,11 @@ window.addEventListener('storage',e=>{if(e.key==="kira_wall"){loadWall();syncWal
 document.addEventListener('click',e=>{if(!e.target.closest('#gear')&&!e.target.closest('#wpop')){const p=$("#wpop");if(p)p.classList.remove('on');}});
 
 /* ---- Boot ---- */
-(async function(){loadWall();cv=$("#graph");ctx=cv.getContext("2d");sz();
+(async function(){loadWall();await loadWallServer();cv=$("#graph");ctx=cv.getContext("2d");sz();
   const g=await loadStats();layout(g);kick();
   addEventListener('resize',()=>{sz();relayout();});
   connect();setInterval(loadStats,30000);   // Stats leben (alle 30 s frisch) — Graph bleibt ruhig
+  setInterval(pollWall,3000);                // Einstellungen serverseitig -> Lively-Wallpaper zieht nach
 })();
 </script>
 </body></html>"""
