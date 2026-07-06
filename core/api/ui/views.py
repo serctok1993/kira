@@ -118,8 +118,8 @@ VIEWS = r"""</head><body>
       </div>
       <div id="chat-main">
         <!-- Breiter, zentraler Modus-Umschalter ganz oben: sofort sichtbar Chat (violett) vs Coding (gruen) -->
-        <div class="seg" id="chat-mode-seg" title="Chat = Dialog (DeepSeek) · Coding = Plan + Schritte mit GLM 5.2 (fuer Recherche 'work:' davorschreiben)">
-          <a data-m="chat" class="on">💬 Chat</a><a data-m="coding">🛠 Coding</a>
+        <div class="seg" id="chat-mode-seg" title="Chat = Dialog (DeepSeek) · Work = laengerer Auftrag mit vollem Werkzeug-Budget (GLM) · Coding = an Kira schrauben (Plan + Schritte + Diff-Review)">
+          <a data-m="chat" class="on">Chat</a><a data-m="work">Work</a><a data-m="coding">Coding</a>
         </div>
         <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:0 0 8px;flex-wrap:wrap">
           <span class="muted" id="mode-hint" style="font-size:11px">Dialog — kurz &amp; direkt.</span>
@@ -127,25 +127,24 @@ VIEWS = r"""</head><body>
           <button type="button" class="ghost" id="sess-toggle" title="Gespraeche ein-/ausklappen (rechts)" style="padding:5px 10px">🗂</button>
         </div>
         <div id="log"></div>
-        <!-- Werkbank (fuer beide Modi gleich): Commands links · Werkzeuge rechts -->
+        <!-- Werkbank: EIN Commands-Knopf links · Werkzeuge rechts -->
         <div id="chat-tools">
-          <span class="chip" id="chip-ziel" title="Arbeit einem Ziel zuordnen">@ziel:</span>
-          <span class="chip" id="chip-mission" title="Kiras Missions-/Ziel-Lage abfragen">/mission</span>
-          <span class="chip" id="chip-status" title="Status &amp; Selbst-Check">/status</span>
-          <span class="chip" id="chip-plan" title="Erst Plan, dann Schritte">/plan</span>
           <span style="position:relative;display:inline-block">
-            <span class="chip" id="cmd-help" title="Alle Befehle anzeigen">⌘ Befehle</span>
+            <span class="chip" id="cmd-help" title="Alle Befehle anzeigen">⌘ Commands</span>
             <div id="cmd-pop" class="cmd-pop" style="display:none"></div>
           </span>
           <span style="flex:1"></span>
           <span class="toolbox">
-            <label class="chip tog" id="chip-denk" title="Denk-Tiefe — nur bei denk-faehigen Modellen (GLM, Fable). Steuert, wie gruendlich das Modell vor der Antwort denkt (Token-Hebel)." style="display:none;gap:5px">🧠
-              <select id="reason-level" style="background:none;border:none;color:inherit;font-size:11.5px;outline:none;cursor:pointer">
-                <option value="">Denken: Standard</option>
-                <option value="aus">Denken: aus</option>
-                <option value="niedrig">Denken: niedrig</option>
-                <option value="hoch">Denken: hoch</option>
-              </select></label>
+            <span style="position:relative;display:inline-block">
+              <button type="button" class="chip tog" id="chip-denk" title="Reasoning-Tiefe — nur bei denk-faehigen Modellen (GLM, Fable). Steuert, wie gruendlich das Modell vor der Antwort denkt (Token-Hebel)." style="display:none">Reasoning: Standard</button>
+              <div id="reason-pop" class="cmd-pop reason-pop" style="display:none">
+                <div class="cmd-row" data-rl="">Standard</div>
+                <div class="cmd-row" data-rl="aus">aus</div>
+                <div class="cmd-row" data-rl="niedrig">niedrig</div>
+                <div class="cmd-row" data-rl="hoch">hoch</div>
+              </div>
+              <input type="hidden" id="reason-level"/>
+            </span>
             <label class="chip tog" id="chip-tts" title="Kira liest ihre Antworten laut vor (Stimme muss unter Kira → Zugaenge an sein)"><input type="checkbox" id="tts-on"/> Vorlesen</label>
             <button type="button" id="micbtn" class="chip" title="Sprachmemo aufnehmen">🎤</button>
           </span>
@@ -158,7 +157,7 @@ VIEWS = r"""</head><body>
         <form id="cform">
           <label id="plusbtn" class="plus" title="Bild oder Datei hochladen">+<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
           <input id="cin" placeholder="Schreib mir…" autocomplete="off" autofocus/>
-          <button>Senden</button>
+          <button id="sendbtn">Senden</button>
         </form>
       </div>
     </div>

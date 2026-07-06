@@ -217,9 +217,10 @@ function setChatModel(id){const h=$("#chat-model");if(h)h.value=id||"";
  const b=$("#model-btn");if(b)b.textContent=id?shortModel(id):"Modell";syncDenk();}
 async function loadChatModels(){const s=await (await fetch("/api/status")).json();
  REASON_MARKERS=s.reasoning_markers||REASON_MARKERS;
- setChatModel(s.model);}   /* aktuelles Modell in den versteckten Speicher + Knopf-Label */
+ setChatModel(s.resolved_model||s.model);}   /* das Modell, das der Chat WIRKLICH nutzt */
 async function useChatModel(id){
- await fetch("/api/model/use",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id})});
+ /* NUR die Chat-Rolle setzen — NICHT default (das wuerde reason/bulk mitreissen und den GLM-Denker kapern). */
+ await fetch("/api/model/role",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role:"chat",model:id})});
  setChatModel(id);const p=$("#model-pop");if(p)p.style.display="none";refreshStatus();}
 /* Modell-Popover: ALLE Modelle (wie in den Einstellungen), mit ehrlichem Reasoning-Hinweis pro Modell. */
 let MODEL_CACHE=null;
@@ -590,12 +591,12 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
   traceC.appendChild(row);traceScroll();}
  ws.onmessage=ev=>{const m=JSON.parse(ev.data);
   if(m.role==="system"){add(m.text,"sys");return;}
-  if(m.done){stopThinking();curBot=null;curThink=null;traceC=null;curThinkLine=null;loadChatSessions();return;}
+  if(m.done){stopThinking();setStreaming(false);curBot=null;curThink=null;traceC=null;curThinkLine=null;loadChatSessions();return;}
   if(m.kind==="think"){traceThink(m.text);return;}
   if(m.kind==="tool"){traceTool(m.name,m.args);return;}
   if(m.kind==="obs"){traceObs(m.name,m.text);return;}
   if(m.kind==="final"||m.kind==="answer"){stopThinking();msgEl(m.text||"","bot");onKiraReply(m.text||"");}};
- ws.onclose=()=>{wsDot(false);if(!wsIntentional){wsDelay=Math.min(wsDelay*2,30000);setTimeout(connect,wsDelay);}};}
+ ws.onclose=()=>{wsDot(false);setStreaming(false);if(!wsIntentional){wsDelay=Math.min(wsDelay*2,30000);setTimeout(connect,wsDelay);}};}
 function reconnect(){wsIntentional=true;if(ws){try{ws.close();}catch(e){}}connect();}
 function relTime(ts){const s=Date.now()/1000-ts;if(s<90)return "gerade";if(s<3600)return Math.round(s/60)+" Min";if(s<86400)return Math.round(s/3600)+" Std";return Math.round(s/86400)+" Tg";}
 /* ==== S7c: Chat 2.0 — Tages-Sessions, aufklappbares Panel, Archiv, Modus-Schalter ==== */
@@ -644,8 +645,9 @@ $("#sess-archtoggle")&&($("#sess-archtoggle").onclick=()=>{showArchived=!showArc
  $("#sess-archtoggle").textContent=showArchived?"Archiv ausblenden":"Archiv anzeigen";loadChatSessions();});
 /* Modus-Schalter: Chat = Dialog · Research = /work (Werkzeug-Budget) · Coding = code: (Plan->Schritte + Coding-Regeln) */
 let chatMode="chat";
-const MODE_HINT={chat:"Dialog — kurz & direkt. Coding fuer echte Coding-Auftraege.",
- coding:"Claude-Code-Stil auf dem Denker-Rang (GLM): lesen → chirurgisch editieren → Tests + Diff-Review automatisch. 🧠 Reasoning = Richter (Fable)."};
+const MODE_HINT={chat:"Dialog — kurz & direkt.",
+ work:"Laengerer Auftrag mit vollem Werkzeug-Budget (GLM 5.2) — Recherche & mehrschrittige Aufgaben.",
+ coding:"Claude-Code-Stil (GLM): lesen → chirurgisch editieren → Tests + Diff-Review. Reasoning hoch = Richter (Fable)."};
 function applyChatMode(){const m=$("#chat-main");if(m)m.setAttribute("data-mode",chatMode);
  const h=$("#mode-hint");if(h)h.textContent=MODE_HINT[chatMode]||"";}
 $$("#chat-mode-seg a").forEach(a=>a.onclick=()=>{chatMode=a.dataset.m;
@@ -657,17 +659,12 @@ function chipInsert(txt,prefix){const i=$("#cin");
  if(prefix){if(!new RegExp("^"+txt.replace(/[./]/g,"\\$&")).test(i.value.trim()))i.value=(txt+" "+i.value).trim();}
  else if(!i.value.includes(txt))i.value=(i.value+" "+txt).replace(/^\s+/,"");
  i.focus();}
-$("#chip-ziel")&&($("#chip-ziel").onclick=()=>chipInsert("@ziel:",false));
-$("#chip-mission")&&($("#chip-mission").onclick=()=>chipInsert("/mission",true));
-$("#chip-status")&&($("#chip-status").onclick=()=>chipInsert("/status",true));
-$("#chip-plan")&&($("#chip-plan").onclick=()=>chipInsert("/plan",true));
-/* Befehls-Palette: ALLE echten Befehle (mehr als die vier Chips). Klick fuellt das Eingabefeld. */
+/* Befehls-Palette: ALLE echten Befehle auf einen Klick. Klick fuellt das Eingabefeld.
+   Chat/Work/Coding sind oben Modi — hier stehen die uebrigen Befehle. */
 const CMDS=[
- ["grp","Modi"],
+ ["grp","Denken & Planen"],
  ["/plan ","Erst planen, dann Schritt fuer Schritt",false],
- ["/work ","Laengerer Auftrag, volles Werkzeug-Budget",false],
- ["code: ","Coding-Modus — an Kira selbst schrauben",false],
- ["reason: ","Staerkeres Modell, denkt gruendlicher",false],
+ ["reason: ","Staerkstes Modell (Richter/Fable)",false],
  ["grp","Abfragen"],
  ["/status","Heartbeat, Budget & Modell auf einen Blick",true],
  ["/mission","Missions- & Ziel-Lage abfragen",true],
@@ -691,7 +688,15 @@ function isReasoningModel(id){id=(id||"").toLowerCase();return REASON_MARKERS.so
 function syncDenk(){const chip=$("#chip-denk");if(!chip)return;
  const sel=$("#chat-model");const id=sel?sel.value:"";
  chip.style.display=isReasoningModel(id)?"inline-flex":"none";}
-$("#reason-level")&&($("#reason-level").onchange=()=>{const c=$("#chip-denk");if(c)c.classList.toggle("on",!!$("#reason-level").value);});
+/* Reasoning-Regler: eigenes Chip+Popover (einheitlich mit Commands/Modell, transparent statt weiss). */
+function setReason(v){const rl=$("#reason-level");if(rl)rl.value=v||"";
+ const chip=$("#chip-denk");if(chip){chip.textContent="Reasoning: "+(v||"Standard");chip.classList.toggle("on",!!v);}
+ const p=$("#reason-pop");if(p)p.style.display="none";}
+$("#chip-denk")&&($("#chip-denk").onclick=e=>{e.stopPropagation();const p=$("#reason-pop");if(!p)return;
+ p.style.display=p.style.display==="none"?"block":"none";});
+$$('#reason-pop .cmd-row').forEach(r=>r.onclick=()=>setReason(r.dataset.rl));
+document.addEventListener("click",e=>{const p=$("#reason-pop");
+ if(p&&p.style.display!=="none"&&!e.target.closest("#reason-pop")&&e.target.id!=="chip-denk")p.style.display="none";});
 function sendText(raw,opts){raw=(raw||"").trim();if(!raw||!ws||ws.readyState!==1)return false;
  opts=opts||{};
  msgEl((opts.voice?"🎙️ ":"")+raw,"me");startThinking();
@@ -699,13 +704,21 @@ function sendText(raw,opts){raw=(raw||"").trim();if(!raw||!ws||ws.readyState!==1
  if(opts.voice){t="sprich: "+raw;}  /* Assistenz-Modus: knappe, vorgelesene Antwort */
  else{
   /* Slash-Befehle (/model, /status, ...) NIE mit Modus-Praefix verschlucken */
-  if(chatMode==="coding"&&!/^(\/|work:|plan:|code:)/i.test(raw))t="code: "+raw;  /* code: = plan + Coding-Regeln */
+  if(chatMode==="coding"&&!/^(\/|work:|plan:|code:)/i.test(raw))t="code: "+raw;       /* code: = plan + Coding-Regeln */
+  else if(chatMode==="work"&&!/^(\/|work:|plan:|code:|reason:)/i.test(raw))t="work: "+raw; /* work: = volles Werkzeug-Budget */
   /* Denk-Tiefe nur, wenn der Regler sichtbar (= Modell denk-faehig) und gesetzt ist */
   const rl=$("#reason-level");const chip=$("#chip-denk");
   if(rl&&rl.value&&chip&&chip.style.display!=="none"&&!/^denk:/i.test(t))t="denk:"+rl.value+" "+t;
  }
- ws.send(t);curBot=null;curThink=null;traceC=null;curThinkLine=null;return true;}
-$("#cform").onsubmit=e=>{e.preventDefault();if(sendText($("#cin").value))$("#cin").value="";};
+ ws.send(t);curBot=null;curThink=null;traceC=null;curThinkLine=null;setStreaming(true);return true;}
+/* Senden wird zu Stop, solange eine Antwort laeuft — Klick bricht ab und gibt dir die Kontrolle zurueck. */
+let streaming=false;
+function setStreaming(on){streaming=on;const b=$("#sendbtn");if(b){b.textContent=on?"⏹ Stop":"Senden";b.classList.toggle("stopping",on);}}
+function stopStream(){if(!streaming)return;reconnect();stopThinking();
+ curBot=null;curThink=null;traceC=null;curThinkLine=null;add("— gestoppt —","sys");setStreaming(false);}
+$("#cform").onsubmit=e=>{e.preventDefault();
+ if(streaming){stopStream();return;}                                   /* im Lauf: Stop statt neue Nachricht */
+ if(sendText($("#cin").value))$("#cin").value="";};
 
 /* ---- Sprachmemo (Aufnahme -> Whisper) + Assistenz-Modus (freihaendige Schleife) ---- */
 let mediaRec=null,chunks=[],recAutoSend=false,vadSpoke=false;
