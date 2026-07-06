@@ -360,3 +360,19 @@ def test_reasoning_popover_ehrlich():
     assert 'type="hidden" id="reason-level"' in VIEWS      # kein natives <select> mehr
     assert 'id="reason-level" style' not in VIEWS
     assert "function setReason(" in SCRIPT
+
+
+# ---- Serc/Kira-Subtableiste: durchgehend lila, weisse Schrift; aktiv = schwarz/lila ----
+
+def test_subtab_leiste_lila():
+    assert "#me-tabs,#kira-tabs{background:var(--accent)" in CSS
+    assert "#me-tabs a,#kira-tabs a{color:#fff" in CSS
+    assert "#me-tabs a.on,#kira-tabs a.on{background:var(--bg);color:var(--accent)}" in CSS
+
+
+def test_bg_kein_cache():
+    # /api/bg darf nie aus dem Cache -> sonst haengt ein altes Hintergrundbild nach dem Wechsel
+    import inspect
+    from core.api import server
+    src = inspect.getsource(server.api_bg)
+    assert 'Cache-Control' in src and 'no-store' in src
