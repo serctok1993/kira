@@ -448,3 +448,19 @@ def test_gespraeche_hover_intent():
     assert 'b.classList.toggle("pinned"' in SCRIPT
     # sichtbarer Pin-Zustand am Button
     assert "#sess-toggle.pinned{" in CSS
+
+
+# ---- Wordmark: KIRA gross in Audiowide mit Neon-Lila-Glow, Untertitel raus ----
+
+def test_kira_wordmark_cyberpunk():
+    # Schrift ist offline eingebettet (kein CDN) und nur fuer den Titel
+    assert "@font-face{font-family:'Audiowide'" in CSS
+    assert "data:font/woff2;base64," in CSS
+    # Titel nutzt Audiowide, ist groesser + Verlauf-im-Text (background-clip) + drop-shadow-Glow
+    assert "#side h1{font-family:'Audiowide'" in CSS
+    assert "font-size:33px" in CSS and "background-clip:text" in CSS
+    assert "-webkit-text-fill-color:transparent" in CSS and "drop-shadow(" in CSS
+    assert "@keyframes kiraflow{" in CSS       # Verlauf fliesst (Regenbogen in Lila)
+    # Untertitel 'kira · cockpit' ist weg — Element UND JS-Schreiber
+    assert 'id="who"' not in VIEWS and 'class="sub"' not in VIEWS
+    assert "#who" not in SCRIPT

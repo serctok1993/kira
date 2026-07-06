@@ -497,7 +497,6 @@ async function loadDigest(){const el=$("#digest");if(!el)return;
  }catch(e){}}
 
 async function refreshStatus(){let s;try{s=await J("/api/status");}catch(e){return null;}  // Backoff via pollFails in J()
- $("#who").textContent=s.partner.toLowerCase()+" · cockpit";
  $("#b-model").textContent=s.model;
  $("#b-spend").textContent="$"+s.spend_usd_today+((s.budget&&s.budget.day_limit!=null)?(" / "+s.budget.day_limit+"€"):"");
  const k=$("#kill"); k.classList.toggle("active",s.kill_switch);
