@@ -77,10 +77,17 @@ agency:
   read_before_edit: true
   # Delegation (Unteragenten nach Rang): Schritt-Deckel je Rang, Kosten-Deckel je
   # Delegation (global bremst weiterhin governance.budget), Schwarm-Breite.
+  # Schwarm v2 laeuft ECHT PARALLEL:
+  #   schwarm_max       = max. Items/Agenten je Aufruf (Rest wird in Wellen empfohlen)
+  #   schwarm_parallel  = wie viele Agenten gleichzeitig (gedeckelt gegen Rate-Limits)
+  #   schwarm_budget_eur= weiche Euro-Bremse fuer DIESEN Schwarm; darueber startet keiner
+  #                       mehr (die harte Tages-Bremse haelt zusaetzlich governance.budget)
   delegate:
     schritte: {reflex: 6, arbeiter: 12, denker: 20, richter: 12}
     max_kosten_eur: 1.0
-    schwarm_max: 8
+    schwarm_max: 50
+    schwarm_parallel: 6
+    schwarm_budget_eur: 5.0
 
 # Selbst-Entwicklung: nach jedem self_edit laeuft dieser Test; faellt er durch -> Auto-Rollback.
 # Leer = Standard (Import-Smoke der Kernmodule mit dem venv-Python). Beispiel: "uv run pytest -q"

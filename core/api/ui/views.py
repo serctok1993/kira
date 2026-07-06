@@ -16,7 +16,7 @@ sitzt als Icon+Popover in der Topbar (nicht mehr in der Nav). Panel-IDs sind sta
 
 VIEWS = r"""</head><body>
 <div id="side">
-  <h1>KIRA</h1><div class="sub" id="who">cockpit</div>
+  <h1>KIRA</h1>
   <a data-v="home" class="on" title="Kommandostand: Status, Befehl, Live-Ops, Digest"><i class="ti">◈</i> Zentrale</a>
   <a data-v="chat" title="Mit mir reden"><i class="ti">›</i> Chat</a>
   <a data-v="projekte" title="Projekte, Ziele, Radar-Chancen"><i class="ti">◈</i> Projekte</a>
@@ -140,7 +140,7 @@ VIEWS = r"""</head><body>
         <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:0 0 8px;flex-wrap:wrap">
           <span class="muted" id="mode-hint" style="font-size:11px">Dialog — kurz &amp; direkt.</span>
           <span style="flex:1"></span>
-          <button type="button" class="ghost" id="sess-toggle" title="Deine Gespraeche ein-/ausklappen (rechts)" style="padding:5px 12px;font-size:12px">Chats</button>
+          <button type="button" class="ghost" id="sess-toggle" title="Drueberfahren = Gespraeche auf · Klick = angepinnt (bleibt offen)" style="padding:5px 12px;font-size:12px">Chats</button>
         </div>
         <div id="log"></div>
         <!-- Werkbank: EIN Commands-Knopf links · Werkzeuge rechts -->
@@ -171,7 +171,7 @@ VIEWS = r"""</head><body>
           <input type="hidden" id="chat-model"/>
         </div>
         <form id="cform">
-          <label id="plusbtn" class="plus" title="Bild oder Datei hochladen">+<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
+          <label id="plusbtn" class="plus" title="Bild oder Datei (PDF, txt, md, csv) hochladen">+<input id="imgfile" type="file" accept="image/*,.pdf,.txt,.md,.markdown,.csv,.log,.json,.yaml,.yml,.html,.htm" style="display:none"/></label>
           <input id="cin" placeholder="Schreib mir…" autocomplete="off" autofocus/>
           <button id="sendbtn">Senden</button>
         </form>

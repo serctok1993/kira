@@ -421,3 +421,46 @@ def test_count_since_backend(tmp_path, monkeypatch):
     assert events.count_since(types, _t.time() - 7 * 86400) == 2
     assert events.count_since(types, _t.time() + 999) == 0   # Zukunfts-Cutoff -> nichts
     assert events.count_since((), 0) == 0                    # keine Typen -> 0
+
+
+# ---- Chat-Datei-Anhang: "+" nimmt auch PDF/Dateien, Text geht an Kira ----
+
+def test_chat_attach_ui():
+    # "+" akzeptiert jetzt auch Dokumente (nicht nur Bilder)
+    assert 'accept="image/*,.pdf,.txt' in VIEWS
+    # Routing: Bild -> Vision, sonst -> attachFile -> /api/chat/attach an Kira
+    assert 'f.type.startsWith("image/")' in SCRIPT
+    assert "function attachFile(" in SCRIPT and '"/api/chat/attach"' in SCRIPT
+    assert "[Angehaengte Datei:" in SCRIPT
+
+
+# ---- Hover-Chats: Drueberfahren oeffnet, Klick pinnt (Hover-Intent) ----
+
+def test_gespraeche_hover_intent():
+    # Hover oeffnet ueber mouseenter (nicht mehr nur onclick-Toggle)
+    assert 'b.addEventListener("mouseenter",open)' in SCRIPT
+    # Gnadenfrist gegen das Zuschnappen beim diagonalen Rueberziehen (400ms)
+    assert "setTimeout(hide,400)" in SCRIPT
+    # Panel haelt offen, solange die Maus drueber ist
+    assert 'p.addEventListener("mouseenter",()=>clearTimeout(t))' in SCRIPT
+    # Klick pinnt und merkt den Zustand (Touch-/Fallback-Weg bleibt)
+    assert 'localStorage.setItem("kira_sess_open"' in SCRIPT
+    assert 'b.classList.toggle("pinned"' in SCRIPT
+    # sichtbarer Pin-Zustand am Button
+    assert "#sess-toggle.pinned{" in CSS
+
+
+# ---- Wordmark: KIRA gross in Audiowide mit Neon-Lila-Glow, Untertitel raus ----
+
+def test_kira_wordmark_cyberpunk():
+    # Schrift ist offline eingebettet (kein CDN) und nur fuer den Titel
+    assert "@font-face{font-family:'Audiowide'" in CSS
+    assert "data:font/woff2;base64," in CSS
+    # Titel nutzt Audiowide, ist groesser + Verlauf-im-Text (background-clip) + drop-shadow-Glow
+    assert "#side h1{font-family:'Audiowide'" in CSS
+    assert "font-size:33px" in CSS and "background-clip:text" in CSS
+    assert "-webkit-text-fill-color:transparent" in CSS and "drop-shadow(" in CSS
+    assert "@keyframes kiraflow{" in CSS       # Verlauf fliesst (Regenbogen in Lila)
+    # Untertitel 'kira · cockpit' ist weg — Element UND JS-Schreiber
+    assert 'id="who"' not in VIEWS and 'class="sub"' not in VIEWS
+    assert "#who" not in SCRIPT
