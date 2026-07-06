@@ -160,6 +160,8 @@ select.engine-pill{background:var(--panel);color:var(--ink);border:1px solid var
 select.engine-pill:hover,select.engine-pill:focus{outline:none;border-color:var(--chat-accent);
  box-shadow:0 0 0 1px var(--chat-accent),0 0 14px color-mix(in srgb,var(--chat-accent) 42%,transparent)}
 #chat-mode-seg{border:1px solid var(--line);border-radius:999px;padding:2px;background:var(--panel)}
+/* Serc-Subtabs: zwei Panels nebeneinander (bricht auf schmalem Screen um) */
+.me-grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start}
 /* Farbwähler im Optik-Popover */
 #theme-pop .colrow{display:flex;gap:8px;align-items:center;margin-top:9px;padding-top:9px;border-top:1px solid var(--line);flex-wrap:wrap}
 #theme-pop .colrow label{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;color:var(--muted);letter-spacing:.3px}

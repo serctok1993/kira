@@ -46,7 +46,10 @@ const SUBTABS={
                     keys:()=>loadKeys(),checkliste:()=>loadCheckliste(),
                     /* Config aufgeloest: Technik lebt jetzt unter Kira */
                     models:()=>loadModels(),steuer:()=>loadSteuer(),gov:()=>loadGov(),
-                    cron:()=>loadCron(),monitor:()=>loadMonitor(),log:()=>loadEvents(),cockpit:()=>loadDesktop()}}};
+                    cron:()=>loadCron(),monitor:()=>loadMonitor(),log:()=>loadEvents(),cockpit:()=>loadDesktop()}},
+ me:      {bar:"#me-tabs", cur:"todos",
+           loaders:{todos:()=>loadLeben(),freigaben:()=>{loadInbox();loadTodoSecrets();},
+                    routinen:()=>loadMeCrons(),post:()=>{},metriken:()=>loadLeben()}}};
 
 /* ---- Desktop-Pflege (S8.5) ---- */
 async function loadDesktop(){const st=$("#dw-status");if(!st)return;try{
