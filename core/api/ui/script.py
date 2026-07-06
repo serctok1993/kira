@@ -693,7 +693,6 @@ const MODE_HINT={
  work:"Work — echter Auftrag mit vollem Werkzeug-Budget auf GLM 5.2: Recherche, mehrere Schritte, Web/Dateien.",
  coding:"Coding — an Kira selbst schrauben (GLM 5.2): lesen → chirurgisch editieren → Tests + Diff-Review."};
 function applyChatMode(){const m=$("#chat-main");if(m)m.setAttribute("data-mode",chatMode);
- const h=$("#mode-hint");if(h)h.textContent=MODE_HINT[chatMode]||"";
  const seg=$("#chat-mode-seg");if(seg)seg.style.setProperty("--i",{chat:0,work:1,coding:2}[chatMode]||0);}  /* Slider gleitet */
 $$("#chat-mode-seg a").forEach(a=>a.onclick=()=>{chatMode=a.dataset.m;
  $$("#chat-mode-seg a").forEach(x=>x.classList.toggle("on",x===a));
