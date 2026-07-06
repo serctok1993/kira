@@ -45,7 +45,11 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
     -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
   @keyframes spin{to{--ang:360deg}}
 
-  .topbar{position:fixed;top:28px;left:0;right:0;z-index:3;display:flex;flex-direction:column;align-items:center;gap:9px;pointer-events:none}
+  /* leicht durchsichtige Info-Leiste, damit die Stats auf jedem Wallpaper lesbar bleiben */
+  .topbar{position:fixed;top:0;left:0;right:0;z-index:3;display:flex;flex-direction:column;align-items:center;gap:9px;
+    padding:22px 0 16px;pointer-events:none;
+    background:linear-gradient(180deg,rgba(10,8,16,.66),rgba(10,8,16,.34) 72%,transparent);
+    -webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
   .srow{display:flex;justify-content:center;gap:44px;flex-wrap:wrap;padding:0 24px}
   .stat{display:flex;flex-direction:column;align-items:center;text-align:center;text-shadow:0 1px 4px rgba(0,0,0,.85),0 0 22px rgba(0,0,0,.55)}
   .stat .n{font-family:var(--mono);font-size:27px;font-variant-numeric:tabular-nums;line-height:1;color:#fff;
@@ -136,7 +140,13 @@ async function loadStats(){
   try{g=await (await fetch("/api/vault/graph")).json();}catch(e){}
   try{bd=await (await fetch("/api/mission/board")).json();}catch(e){}
   try{news=await (await fetch("/api/news")).json();}catch(e){}
+  let life={board:[]},mail={count:null};
+  try{life=await (await fetch("/api/life/board")).json();}catch(e){}
+  try{mail=await (await fetch("/api/mails/unread")).json();}catch(e){}
   const newsN=(news.items||news.news||[]).length;
+  const lifeB=Array.isArray(life.board)?life.board:(life.board&&Array.isArray(life.board.tasks)?life.board.tasks:[]);
+  const todosN=lifeB.filter(t=>t&&t.status&&t.status!=="done").length;
+  const mailsN=(mail&&mail.count!=null)?mail.count:null;
   const hb=ov.mission&&ov.mission.heartbeat;
   const tasks=Array.isArray(bd.board)?bd.board:(bd.board&&Array.isArray(bd.board.tasks)?bd.board.tasks:[]);
   const open=tasks.filter(t=>t&&t.status&&t.status!=="done").length;
@@ -150,6 +160,8 @@ async function loadStats(){
     +stat(errs,"Fehler · 7 Tg",errs?"":"g")
     +stat(g.counts.notes,"Vault-Notizen")
     +stat(g.counts.links,"Verbindungen")
+    +stat(todosN,"To-Dos")
+    +stat(mailsN==null?"—":mailsN,"Mails",mailsN?"a":"")
     +stat(newsN,"News");
   const model=st.resolved_model||st.model||"—";
   const last=(ov.last_mission&&ov.last_mission.summary)?ov.last_mission.summary.slice(0,42):"—";
@@ -165,21 +177,39 @@ function esc(s){return (s==null?"":""+s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"
 /* ---- Live-Vault-Graph ---- */
 let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches;
 function sz(){W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
+const CX=()=>W/2, CY=()=>H*0.46;
 function layout(g){
-  const lx=()=>W*(0.27+0.46*Math.random()),ty=()=>H*(0.2+0.52*Math.random());
-  const by={};ns=(g.nodes||[]).slice(0,140).map(n=>{const o={id:n.id,c:n.color||"176,38,255",x:lx(),y:ty(),vx:(Math.random()-.5)*.12,vy:(Math.random()-.5)*.12,r:1.7+Math.random()*2.4};by[n.id]=o;return o;});
+  const by={};
+  ns=(g.nodes||[]).slice(0,120).map((n,i)=>{const a=i*2.399,rr=40+Math.random()*Math.min(W,H)*0.22;   // Startspirale um die Mitte
+    const o={id:n.id,c:n.color||"176,38,255",x:CX()+Math.cos(a)*rr,y:CY()+Math.sin(a)*rr,vx:0,vy:0,deg:0};by[n.id]=o;return o;});
   ls=(g.links||[]).map(l=>[by[l.source],by[l.target]]).filter(p=>p[0]&&p[1]);
+  ls.forEach(([a,b])=>{a.deg++;b.deg++;});
+  ns.forEach(n=>{n.r=2.4+Math.min(7,n.deg*0.9);});   // groesserer Knoten = mehr Verbindungen (wie Obsidian)
 }
-function draw(t){ctx.clearRect(0,0,W,H);
-  const lx=W*0.26,rx=W*0.74,ty=H*0.2,by=H*0.72;
-  if(!reduce)for(const a of ns){a.x+=a.vx;a.y+=a.vy;if(a.x<lx||a.x>rx)a.vx*=-1;if(a.y<ty||a.y>by)a.vy*=-1;a.x=Math.max(lx,Math.min(rx,a.x));a.y=Math.max(ty,Math.min(by,a.y));}
-  for(const [a,b] of ls){const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d>260)continue;const al=Math.max(.12,1-d/260);
-    const gr=ctx.createLinearGradient(a.x,a.y,b.x,b.y);gr.addColorStop(0,'rgba('+a.c+','+(al*.5)+')');gr.addColorStop(1,'rgba('+b.c+','+(al*.5)+')');
-    ctx.strokeStyle=gr;ctx.lineWidth=al*1.1+.3;ctx.shadowColor='rgba('+a.c+',.5)';ctx.shadowBlur=6;
-    const mx=(a.x+b.x)/2-dy*.06,my=(a.y+b.y)/2+dx*.06;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(mx,my,b.x,b.y);ctx.stroke();}
+function sim(){   // force-directed: Repulsion + Federn entlang der Links + sanfte Zentrierung
+  const cx=CX(),cy=CY(),REP=560,LEN=62,K=0.018;
+  for(let i=0;i<ns.length;i++){const a=ns[i];
+    for(let j=i+1;j<ns.length;j++){const b=ns[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy||1;
+      if(d2<45000){const d=Math.sqrt(d2),f=REP/d2;dx/=d;dy/=d;a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}}}
+  for(const [a,b] of ls){let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,f=(d-LEN)*K;dx/=d;dy/=d;
+    a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}
+  for(const n of ns){n.vx+=(cx-n.x)*0.006;n.vy+=(cy-n.y)*0.006;
+    n.x+=Math.max(-3.2,Math.min(3.2,n.vx));n.y+=Math.max(-3.2,Math.min(3.2,n.vy));n.vx*=0.8;n.vy*=0.8;}
+}
+function draw(){ctx.clearRect(0,0,W,H);
+  if(!reduce)sim();
+  for(const [a,b] of ls){const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),al=Math.max(.14,1-d/320);
+    const gr=ctx.createLinearGradient(a.x,a.y,b.x,b.y);gr.addColorStop(0,'rgba('+a.c+','+(al*.55)+')');gr.addColorStop(1,'rgba('+b.c+','+(al*.55)+')');
+    ctx.strokeStyle=gr;ctx.lineWidth=al*1.0+.3;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
+  for(const n of ns){ctx.shadowColor='rgba('+n.c+',.85)';ctx.shadowBlur=9;
+    ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,7);ctx.fillStyle='rgba('+n.c+',.92)';ctx.fill();}
   ctx.shadowBlur=0;
-  for(let k=0;k<ns.length;k++){const n=ns[k],p=reduce?.75:.55+.45*Math.sin(t/700+k);ctx.shadowColor='rgba('+n.c+',.85)';ctx.shadowBlur=10;ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,7);ctx.fillStyle='rgba('+n.c+','+(.85*p)+')';ctx.fill();}
-  ctx.shadowBlur=0;if(!reduce)requestAnimationFrame(draw);
+  // Labels wie in Obsidian (dezent, nur an vernetzten Knoten -> kein Gematsche)
+  ctx.font='10px "Segoe UI",system-ui,sans-serif';ctx.textAlign='center';
+  ctx.shadowColor='rgba(0,0,0,.9)';ctx.shadowBlur=3;ctx.fillStyle='rgba(233,228,244,.8)';
+  for(const n of ns){if(n.deg>=2)ctx.fillText(n.id.slice(0,24),n.x,n.y-n.r-4);}
+  ctx.shadowBlur=0;
+  if(!reduce)requestAnimationFrame(draw);
 }
 
 /* ---- Modus + LED-Rand ---- */
