@@ -288,6 +288,11 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
 .seg a{padding:5px 10px;color:var(--muted);cursor:pointer;border-right:1px solid var(--line)}
 .seg a:last-child{border-right:none}
 .seg a.on{background:color-mix(in srgb,var(--hud) 14%,transparent);color:var(--hud)}
+/* S11: Serc- & Kira-Subtableiste komplett lila mit weisser Schrift; Aktiv = schwarz mit lilaner Schrift */
+#me-tabs,#kira-tabs{background:var(--accent);border-color:var(--accent)}
+#me-tabs a,#kira-tabs a{color:#fff;border-right-color:color-mix(in srgb,#fff 28%,transparent)}
+#me-tabs a:hover,#kira-tabs a:hover{background:color-mix(in srgb,#000 16%,var(--accent))}
+#me-tabs a.on,#kira-tabs a.on{background:var(--bg);color:var(--accent)}
 .thinking .tx{color:var(--hud)}
 /* ===== NEON v2: Scrollbars + Panel-Glow + Theme-follow + Mission-Grid ===== */
 *{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--accent) 45%,#2a2440) transparent}

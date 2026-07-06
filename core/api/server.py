@@ -1419,10 +1419,12 @@ async def api_kill(body: dict) -> dict:
 
 @app.get("/api/bg")
 def api_bg():
+    # no-store: der Browser soll das Hintergrundbild nie aus dem Cache holen, sonst
+    # "haengt" ein altes Bild nach dem Wechsel (Sergen: aendern -> neu laden -> alt).
     for ext in ("jpg", "jpeg", "png", "webp", "gif"):
         p = ROOT / "data" / f"background.{ext}"
         if p.exists():
-            return FileResponse(str(p))
+            return FileResponse(str(p), headers={"Cache-Control": "no-store, max-age=0"})
     return Response(status_code=404)
 
 
