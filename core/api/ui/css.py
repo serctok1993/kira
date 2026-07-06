@@ -63,9 +63,10 @@ body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Cod
 .bot{align-self:flex-start;background:rgba(21,15,32,.72)}
 .sys{align-self:center;color:var(--muted);font-size:12px;border:none}
 .think{align-self:flex-start;max-width:84%;color:var(--muted);font-size:12px;font-style:italic;
- border-left:2px solid var(--accent2);padding:4px 10px;margin:-4px 0 0;white-space:pre-wrap;display:none}
-.think.show{display:block}
-.think .h{color:var(--accent2);font-style:normal;cursor:pointer}
+ border-left:2px solid var(--accent2);padding:4px 10px;margin:-4px 0 0;white-space:pre-wrap;display:block}
+.think .h{color:var(--accent2);font-style:normal;cursor:pointer;user-select:none}
+.think .chev{display:inline-block;transition:transform .3s ease}
+.think.show .chev{transform:rotate(90deg)}
 #cform{display:flex;gap:10px;max-width:880px;margin:10px auto 0;width:100%;align-items:stretch}
 #cform>button{flex-shrink:0;min-height:46px;padding:0 24px}   /* Senden/Stop bleibt so hoch wie das Eingabefeld */
 /* S11: unauffaelliges "+" links am Eingabefeld — Bild/Datei hochladen */
@@ -169,14 +170,22 @@ button.ghost.on{border-color:var(--accent);color:#fff;background:rgba(168,85,247
 #chat-main{--chat-accent:var(--accent-chat)}
 #chat-main[data-mode="work"]{--chat-accent:var(--work-accent)}     /* Work = Bernstein */
 #chat-main[data-mode="coding"]{--chat-accent:var(--coding-accent)} /* Coding = Gruen */
-/* Breiter, zentraler Modus-Umschalter ganz oben — zwei gleich breite Tabs */
-#chat-mode-seg{display:flex;width:100%;max-width:880px;margin:0 auto 10px;gap:6px;border:1px solid var(--line);
- border-radius:12px;padding:5px;background:var(--panel);font-family:inherit;font-size:14px;
- box-shadow:inset 0 0 22px color-mix(in srgb,var(--chat-accent) 10%,transparent)}
-#chat-mode-seg a{flex:1;text-align:center;padding:11px 0;border-right:none;border-radius:9px;color:var(--muted);
- font-weight:600;letter-spacing:.5px;transition:all .18s ease}
-#chat-mode-seg a.on{color:#fff;background:color-mix(in srgb,var(--chat-accent) 20%,transparent);
- box-shadow:inset 0 0 0 1px var(--chat-accent),0 0 18px color-mix(in srgb,var(--chat-accent) 38%,transparent)}
+/* Modus-Umschalter UNTEN am Composer — Segmented-Slider: der aktive Teil (.pill) gleitet weich rueber */
+#modebar{display:flex;align-items:center;gap:12px;margin:0 0 8px}
+#modebar #chat-mode-seg{flex:0 1 360px}
+#chat-mode-seg{--i:0;position:relative;display:flex;padding:4px;isolation:isolate;border:1px solid var(--line);
+ border-radius:12px;background:var(--panel);font-family:inherit;font-size:13.5px}
+#chat-mode-seg .pill{position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/3);border-radius:9px;z-index:-1;
+ background:color-mix(in srgb,var(--chat-accent) 20%,transparent);border:1px solid color-mix(in srgb,var(--chat-accent) 55%,transparent);
+ box-shadow:0 0 18px color-mix(in srgb,var(--chat-accent) 30%,transparent);
+ transform:translateX(calc(var(--i) * 100%));
+ transition:transform .38s cubic-bezier(.22,.61,.36,1),background .3s,border-color .3s,box-shadow .3s}
+#chat-mode-seg a{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;padding:10px 0;border-radius:9px;
+ color:var(--muted);font-weight:600;letter-spacing:.3px;cursor:pointer;transition:color .25s}
+#chat-mode-seg a.on{color:#fff}
+/* generierte SVG-Icons statt Emojis — bewusst gedaempftes Grau-Lila (bleibt subtil, auch aktiv) */
+#chat-mode-seg a .mi{width:15px;height:15px;flex:none;color:#7d768f}
+@media (prefers-reduced-motion:reduce){#chat-mode-seg .pill{transition:none}}
 /* Eingabe/Senden faerben mit dem Modus */
 #chat-main #cin{caret-color:var(--chat-accent)}
 #chat-main #cin:focus{border-color:var(--chat-accent);box-shadow:0 0 0 1px var(--chat-accent),0 0 12px color-mix(in srgb,var(--chat-accent) 38%,transparent);outline:none}
@@ -218,7 +227,11 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
 @keyframes msgin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .think{background:rgba(139,92,246,.05);border-left:2px solid var(--accent);border-radius:10px;padding:8px 12px;box-shadow:inset 0 0 0 1px rgba(139,92,246,.06)}
 /* ---- Code-Modus-Trace: strukturierte Schritte + farbige Diffs (Claude-Code-Look) ---- */
-.think .c{white-space:normal}
+/* Eingeklappt = Peek der ersten ~4 Zeilen mit Fade-Auslauf; ausgeklappt = voll. Smooth, kein Verschwinden. */
+.think .c{white-space:normal;overflow:hidden;max-height:5.4em;transition:max-height .4s ease;
+ -webkit-mask-image:linear-gradient(180deg,#000 62%,transparent);mask-image:linear-gradient(180deg,#000 62%,transparent)}
+.think.show .c{max-height:9999px;-webkit-mask-image:none;mask-image:none}
+@media (prefers-reduced-motion:reduce){.think .c{transition:none}}
 .tthink{white-space:pre-wrap;color:var(--muted);font-style:italic;margin:2px 0 4px}
 .trow{display:flex;align-items:baseline;gap:8px;margin:3px 0;font-style:normal;padding:2px 6px;
  border-radius:7px;background:rgba(255,255,255,.02)}
