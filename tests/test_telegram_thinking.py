@@ -131,3 +131,30 @@ def test_telegram_trace_zeigt_reasoning():
     from core.agency.connectors import telegram_bot
     txt = telegram_bot._render_trace(None, "ich waege die Optionen ab", [], "denkt", "·", True)
     assert "💭" in txt and "waege die Optionen" in txt
+
+
+# ---- Trace-Upgrade (Hermes-Stil): aufklappbares Denken, Neon-Status, HTML-sicher ----
+
+def test_render_trace_hermes_html():
+    from core.agency.connectors import telegram_bot as tb
+    out = tb._render_trace(None, "ich pruefe zuerst die Quelle", ["📖 lese: /pfad"], "Denkt", "⠹", True, "💜")
+    assert "<blockquote expandable>" in out and "ich pruefe zuerst die Quelle" in out  # aufklappbares Denken
+    assert "💜" in out and "<b>Denkt</b>" in out and "⠹" in out                        # Neon + Phase + Spinner
+    assert "🧠" not in out                                                             # Gehirn-Emoji raus
+
+
+def test_render_trace_escapes_html():
+    # Denk-/Pfad-Text mit < & > darf die HTML-Nachricht nicht sprengen (sonst editiert Telegram nicht)
+    from core.agency.connectors import telegram_bot as tb
+    out = tb._render_trace(None, "wenn a<b & c>d dann <script>", [], "p", "·", True)
+    assert "<script>" not in out and "&lt;script&gt;" in out and "&amp;" in out
+
+
+def test_denken_toggle(tmp_path, monkeypatch):
+    from core.agency.connectors import telegram_bot as tb
+    monkeypatch.setattr(tb, "_DENKEN_FILE", tmp_path / "denken.json")
+    assert tb._denken_on(42) is False
+    tb._denken_set(42, True)
+    assert tb._denken_on(42) is True and tb._denken_on(43) is False   # nur diese Session
+    tb._denken_set(42, False)
+    assert tb._denken_on(42) is False
