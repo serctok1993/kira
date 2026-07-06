@@ -136,15 +136,77 @@ def test_schwarm_iteriert_und_deckelt(monkeypatch, tmp_path):
     from core.agency.tools import delegate_tools as dt
     calls: list = []
     monkeypatch.setattr(act_mod, "act", _fake_act(calls))
-    monkeypatch.setattr(dt, "_cfg", lambda: {"schwarm_max": 2})
+    # schwarm_max deckelt auf 2; Budget-Gate aus (0) -> deterministisch, unabhaengig vom realen Spend
+    monkeypatch.setattr(dt, "_cfg", lambda: {"schwarm_max": 2, "schwarm_budget_eur": 0})
 
     out = dt.schwarm("Recherchiere: {item}", "Lead A\nLead B\nLead C")
     assert len(calls) == 2  # gedeckelt
-    assert "Recherchiere: Lead A" in calls[0]["task"]
+    tasks = [c["task"] for c in calls]
+    assert any("Recherchiere: Lead A" in t for t in tasks)   # parallel -> Reihenfolge offen
+    assert any("Recherchiere: Lead B" in t for t in tasks)
     assert "uebersprungen" in out
     assert "1/2" in out and "2/2" in out
+    assert out.startswith("🐝 Schwarm:")                     # Aggregat-Kopf
+    assert dt._AKTIV is False                                 # Tiefen-Sperre sauber geloest
 
     assert "ohne Liste" in dt.schwarm("x {item}", "   ")
+
+
+def test_schwarm_laeuft_wirklich_parallel(monkeypatch, tmp_path):
+    """v2: die Unteragenten laufen ECHT gleichzeitig, nicht sequenziell nacheinander."""
+    import threading
+    import time as _t
+    _tmp_events(monkeypatch, tmp_path)
+    from core.agency import act as act_mod
+    from core.agency.tools import delegate_tools as dt
+    lock = threading.Lock()
+    state = {"active": 0, "max": 0}
+
+    def slow_act(task, session_id=None, **kw):
+        with lock:
+            state["active"] += 1
+            state["max"] = max(state["max"], state["active"])
+        _t.sleep(0.05)
+        with lock:
+            state["active"] -= 1
+        return {"text": "ok", "steps": 1}
+
+    monkeypatch.setattr(act_mod, "act", slow_act)
+    monkeypatch.setattr(dt, "_cfg", lambda: {"schwarm_max": 8, "schwarm_parallel": 4,
+                                             "schwarm_budget_eur": 0})
+    dt.schwarm("tu: {item}", "\n".join(f"item{i}" for i in range(6)))
+    assert state["max"] >= 2                                  # mind. 2 Agenten gleichzeitig aktiv
+    assert dt._AKTIV is False
+
+
+def test_schwarm_budget_bremst(monkeypatch, tmp_path):
+    """v2: der Schwarm stoppt neue Agenten, sobald sein Euro-Budget erreicht ist."""
+    _tmp_events(monkeypatch, tmp_path)
+    from core.agency import act as act_mod
+    from core.governance import treasury
+    from core.agency.tools import delegate_tools as dt
+    calls: list = []
+    monkeypatch.setattr(act_mod, "act", _fake_act(calls))
+    # today_spend: Start 0, erster Agent laeuft (0), danach 10 EUR -> ueber Budget (1.0) -> Rest stoppt
+    spends = iter([0.0, 0.0, 10.0, 10.0, 10.0])
+    monkeypatch.setattr(treasury, "today_spend", lambda: next(spends, 10.0))
+    monkeypatch.setattr(dt, "_cfg", lambda: {"schwarm_max": 5, "schwarm_parallel": 1,
+                                             "schwarm_budget_eur": 1.0})
+
+    out = dt.schwarm("tu: {item}", "a\nb\nc")
+    assert "budget-gestoppt" in out
+    assert len(calls) == 1                                    # nur der erste Agent lief wirklich
+
+
+def test_schwarm_bilanz_kopf(monkeypatch, tmp_path):
+    _tmp_events(monkeypatch, tmp_path)
+    from core.agency import act as act_mod
+    from core.agency.tools import delegate_tools as dt
+    monkeypatch.setattr(act_mod, "act", _fake_act([]))
+    monkeypatch.setattr(dt, "_cfg", lambda: {"schwarm_max": 8, "schwarm_budget_eur": 0})
+    out = dt.schwarm("tu: {item}", "a\nb")
+    assert out.splitlines()[0].startswith("🐝 Schwarm: 2 Agenten parallel")
+    assert "2 fertig" in out
 
 
 def test_werkzeuge_registriert():
