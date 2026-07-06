@@ -194,6 +194,10 @@ def _handle(client: httpx.Client, update: dict) -> None:
             events.emit("knowledge_error", {"error": str(e)[:200]})
 
     events.emit("telegram_in", {"chat_id": chat_id, "text": text}, session_id=f"telegram-{chat_id}")
+    # /denken an -> diese Session denkt sichtbar: auf den Denker (GLM) heben + Reasoning anfordern.
+    if _denken_on(chat_id) and not text.lstrip().lower().startswith(
+            ("reason:", "work:", "code:", "plan:", "denk:", "/")):
+        text = "reason: denk:hoch " + text
     _agentic_reply(client, chat_id, f"telegram-{chat_id}", text, voice_text=voice_text)
 
 
@@ -279,30 +283,62 @@ def _action_label(name: str, args: dict | None) -> str:
     return f"{emoji} {verb}" + (f": {arg}" if arg else "")
 
 
-# Ruhiger „Atem"-Puls fuer die Denk-/Arbeits-Anzeige: EIN einziges bewegtes Element,
-# das im gemaechlichen Pump-Takt atmet (waechst/schrumpft) -> pulsiert, flackert nicht.
-_PULSE = ["·", "··", "···", "··"]
+# Ruhiger Takt fuer die Denk-/Arbeits-Anzeige: EIN bewegtes Element je Pump-Takt -> pulsiert, flackert nicht.
 _PULSE_INTERVAL = 1.8  # Sekunden zwischen Edits: gemaechlich = kein Flackern, kein 429
+_SPIN = "⠋⠙⠹⠸⠼⠴⠦⠧"       # ruhiger Braille-Spinner (ein Frame je Takt)
+_NEON = ["💜", "💗", "💚"]   # Neon-Farbzyklus (Lila -> Pink -> Gruen) statt statischem 🧠
+
+
+def _esc(s: str) -> str:
+    """HTML-sicher fuer parse_mode=HTML — sonst bricht Telegram bei < & > im Denk-/Pfad-Text."""
+    return (s or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def _render_trace(voice_text: str | None, think: str, lines: list[str],
-                  phrase: str, pulse: str, running: bool) -> str:
-    """Reiner Renderer der Live-Trace-Nachricht (pur -> testbar).
+                  phrase: str, spin: str, running: bool, neon: str = "💜") -> str:
+    """Reiner Renderer der Live-Trace-Nachricht (pur -> testbar), HTML fuer Telegram.
 
-    Struktur: Transkript-Kopf (falls Sprachmemo) · voller Denk-Strom · Trenner +
-    Werkzeug-Schritte · EINE bewegte Puls-Zeile unten. Bei Abschluss (running=False)
-    faellt die Puls-Zeile weg -> ruhige Finalisierung."""
+    Hermes-Stil in drei Zonen: DENKEN oben (aufklappbares Zitat, clean Prosa — kein
+    Code) · SCHRITTE (Werkzeuge mit passendem Icon) · animierter STATUS unten
+    (Neon-Farbe + Phase + Spinner). Bei Abschluss (running=False) faellt der Status
+    weg -> ruhige Finalisierung."""
     parts: list[str] = []
     if voice_text:
-        parts.append("🎙️ «" + voice_text[:160] + "»")
+        parts.append("🎙️ <i>«" + _esc(voice_text[:160]) + "»</i>")
     if think:
-        parts.append("💭 " + think.strip()[-1400:])
+        # Aufklappbares Zitat = Telegram-natives Ein-/Ausklappen (wie in der Web-App).
+        parts.append("<blockquote expandable>💭 " + _esc(think.strip()[-1500:]) + "</blockquote>")
     if lines:
-        parts.append("─" * 18)
-        parts += lines[-12:]
+        parts.append("──────────")
+        parts += [_esc(l) for l in lines[-12:]]
     if running:
-        parts.append("🧠 " + phrase + " " + pulse)
-    return ("\n".join(parts))[:4000] or "💭 …"
+        parts.append(neon + " <b>" + _esc(phrase) + "</b> <code>" + spin + "</code>")
+    return ("\n".join(parts))[:3900] or "💭 …"
+
+
+_DENKEN_FILE = DATA_DIR / "telegram_denken.json"
+
+
+def _denken_on(chat_id: int) -> bool:
+    """Zeigt Kira in DIESEM Telegram-Chat ihren Denkstrom? (dann laeuft's auf dem Denker GLM)."""
+    try:
+        import json
+        return int(chat_id) in set(json.loads(_DENKEN_FILE.read_text(encoding="utf-8")))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _denken_set(chat_id: int, on: bool) -> None:
+    import json
+    try:
+        s = set(json.loads(_DENKEN_FILE.read_text(encoding="utf-8")))
+    except Exception:  # noqa: BLE001
+        s = set()
+    s.add(int(chat_id)) if on else s.discard(int(chat_id))
+    try:
+        _DENKEN_FILE.write_text(json.dumps(sorted(s)), encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: str,
@@ -320,10 +356,10 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
     client = _ctrl()  # dedizierter Sende-/Edit-Client (nicht der getUpdates-Long-Poll)
 
     _typing(client, chat_id)
-    head = ("🎙️ «" + voice_text[:200] + "»\n") if voice_text else ""
     phrase0 = next_phrase()
+    init_txt = _render_trace(voice_text, "", [], phrase0, _SPIN[0], True, _NEON[0])
     init = client.post(f"{API}/sendMessage",
-                       json={"chat_id": chat_id, "text": head + "🧠 " + phrase0 + " ·"}).json()
+                       json={"chat_id": chat_id, "text": init_txt, "parse_mode": "HTML"}).json()
     mid = init.get("result", {}).get("message_id")
 
     state = {"think": "", "lines": [], "tools": [], "tick": 0, "last_render": "", "phrase": phrase0}
@@ -339,8 +375,9 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
         if not mid:
             return
         running = not stop.is_set()
-        pulse = _PULSE[state["tick"] % len(_PULSE)]
-        txt = _render_trace(voice_text, state["think"], state["lines"], state["phrase"], pulse, running)
+        spin = _SPIN[state["tick"] % len(_SPIN)]
+        neon = _NEON[state["tick"] % len(_NEON)]  # Neon-Farbe wechselt je Takt (Lila->Pink->Gruen)
+        txt = _render_trace(voice_text, state["think"], state["lines"], state["phrase"], spin, running, neon)
         if txt == state["last_render"]:
             return
         # Reine Puls-Bewegung (kein neuer Inhalt) nur gedrosselt senden -> waehrend Kira
@@ -351,7 +388,7 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
         state["last_sig"] = content_sig()
         try:
             client.post(f"{API}/editMessageText",
-                        json={"chat_id": chat_id, "message_id": mid, "text": txt})
+                        json={"chat_id": chat_id, "message_id": mid, "text": txt, "parse_mode": "HTML"})
         except Exception:
             pass
 
@@ -402,9 +439,9 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
     if mid:
         try:
             if state["tools"]:
-                done = "\n".join(state["lines"][-6:]) + f"\n✅ erledigt ({len(state['tools'])} Schritte)"
+                done = "\n".join(_esc(l) for l in state["lines"][-6:]) + f"\n✅ <b>erledigt</b> ({len(state['tools'])} Schritte)"
                 client.post(f"{API}/editMessageText",
-                            json={"chat_id": chat_id, "message_id": mid, "text": done[:4000]})
+                            json={"chat_id": chat_id, "message_id": mid, "text": done[:3900], "parse_mode": "HTML"})
             else:
                 # Transkript-/Trace-Nachricht restlos entfernen. Wichtig: Ergebnis PRUEFEN —
                 # ein still scheiterndes Loeschen laesst das Sprachmemo-Transkript stehen
@@ -510,6 +547,7 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
               "/plan <große aufgabe> – ich erstelle einen Plan und arbeite ihn Schritt fuer Schritt ab\n"
               "/code <coding-auftrag> – Coding-Modus (an Kira selbst schrauben; erbt den Chat davor)\n"
               "/work <auftrag> – voller Werkzeug-Modus fuer laengere Aufgaben\n"
+              "/denken an|aus – Gedankenstrom sichtbar machen (laeuft dann auf dem Denker GLM)\n"
               "/act <aufgabe>  – ich nutze Werkzeuge (z.B. Web), um etwas zu erledigen\n"
               "/build <idee>   – ich baue mir ein neues Werkzeug\n"
               "/model – Modelle anzeigen/wechseln\n"
@@ -552,6 +590,19 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
             _send(client, chat_id, "Nutzung: /work <langer Auftrag mit vollem Werkzeug-Budget>")
             return
         _agentic_reply(client, chat_id, f"telegram-{chat_id}", "/work " + rest)
+        return
+    if cmd == "denken":
+        arg = rest.lower().strip()
+        if arg in ("an", "on", "ein", "1"):
+            _denken_set(chat_id, True)
+            _send(client, chat_id, "💜 <b>Denken an</b> — ich zeige dir jetzt meinen Gedankenstrom "
+                  "(laeuft auf dem Denker GLM, etwas teurer). <code>/denken aus</code> schaltet zurueck.")
+        elif arg in ("aus", "off", "0"):
+            _denken_set(chat_id, False)
+            _send(client, chat_id, "💤 <b>Denken aus</b> — zurueck auf schnelle, guenstige Antworten.")
+        else:
+            _send(client, chat_id, "Denken ist gerade <b>" + ("an" if _denken_on(chat_id) else "aus")
+                  + "</b>. Nutzung: <code>/denken an</code> · <code>/denken aus</code>")
         return
     if cmd == "stop":
         kill_switch_path().write_text("stop", encoding="utf-8")
@@ -850,6 +901,7 @@ _BOT_COMMANDS = [
     ("code", "Coding-Modus: an Kira selbst schrauben"),
     ("plan", "Große Aufgabe planen und Schritt für Schritt abarbeiten"),
     ("work", "Längerer Auftrag mit vollem Werkzeug-Budget"),
+    ("denken", "Gedankenstrom an/aus – zeigt, wie ich denke (läuft auf GLM)"),
     ("act", "Etwas mit Werkzeugen erledigen (z. B. Web)"),
     ("build", "Ein neues Werkzeug für mich bauen"),
     ("model", "Modelle anzeigen oder wechseln"),
