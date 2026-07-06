@@ -137,14 +137,19 @@ VIEWS = r"""</head><body>
           <span style="flex:1"></span>
           <button type="button" class="ghost" id="sess-toggle" title="Drueberfahren = Gespraeche auf · Klick = angepinnt (bleibt offen)" style="padding:5px 12px;font-size:12px">Chats</button>
         </div>
-        <!-- Modus-Umschalter OBEN, mittig ueber dem Chat · Reasoning rechts daneben -->
-        <div id="modebar">
-          <span class="mb-side"></span>
+        <div id="log"></div>
+        <!-- Werkbank UNTEN: Modus-Slider links (direkt ueber dem "+") · Werkzeuge rechts -->
+        <div id="chat-tools">
           <div id="chat-mode-seg" title="Chat = Dialog (DeepSeek) · Work = laengerer Auftrag mit vollem Werkzeug-Budget (GLM) · Coding = an Kira schrauben (Plan + Schritte + Diff-Review)">
             <span class="pill"></span>
             <a data-m="chat" class="on"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>Chat</a><a data-m="work"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Work</a><a data-m="coding"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>Coding</a>
           </div>
-          <span class="mb-tools">
+          <span style="flex:1"></span>
+          <span class="toolbox">
+            <span style="position:relative;display:inline-block">
+              <span class="chip" id="cmd-help" title="Alle Befehle anzeigen">⌘ Commands</span>
+              <div id="cmd-pop" class="cmd-pop" style="display:none"></div>
+            </span>
             <span style="position:relative;display:inline-block">
               <button type="button" class="chip tog" id="chip-denk" title="Reasoning-Tiefe — nur bei denk-faehigen Modellen (GLM, Fable). Steuert, wie gruendlich das Modell vor der Antwort denkt (Token-Hebel)." style="display:none">Reasoning: Standard</button>
               <div id="reason-pop" class="cmd-pop reason-pop" style="display:none">
@@ -155,19 +160,8 @@ VIEWS = r"""</head><body>
               </div>
               <input type="hidden" id="reason-level"/>
             </span>
-          </span>
-        </div>
-        <div id="log"></div>
-        <!-- Werkbank: EIN Commands-Knopf links · Werkzeuge rechts -->
-        <div id="chat-tools">
-          <span style="position:relative;display:inline-block">
-            <span class="chip" id="cmd-help" title="Alle Befehle anzeigen">⌘ Commands</span>
-            <div id="cmd-pop" class="cmd-pop" style="display:none"></div>
-          </span>
-          <span style="flex:1"></span>
-          <span class="toolbox">
             <label class="chip tog" id="chip-tts" title="Kira liest ihre Antworten laut vor (Stimme muss unter Kira → Zugaenge an sein)"><input type="checkbox" id="tts-on"/> Vorlesen</label>
-            <button type="button" id="micbtn" class="chip" title="Sprachmemo aufnehmen">🎤</button>
+            <button type="button" id="micbtn" class="chip" title="Sprachmemo aufnehmen — Kira hoert zu">Sprechen</button>
           </span>
           <span style="position:relative;display:inline-block">
             <button type="button" id="model-btn" class="chip engine-pill" title="Modell fuer diesen Chat — klick fuer alle Modelle">Modell</button>

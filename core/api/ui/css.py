@@ -166,19 +166,13 @@ button.ghost:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)
 button.ghost.on{border-color:var(--accent);color:#fff;background:rgba(168,85,247,.16);box-shadow:0 0 0 1px var(--accent),0 0 14px var(--glow)}
 /* Chat-Modus-Feedback: Coding faerbt den Chat gruen/Terminal, Chat bleibt Neon-Violett */
 /* ---- Chat/Coding-Werkbank: Modus-Farbe fix (Chat=Violett, Coding=Gruen), unabhaengig vom Theme ---- */
-:root{--accent-chat:#b026ff;--coding-accent:#39ff14;--work-accent:#ffb02e}
+:root{--accent-chat:#b026ff;--coding-accent:#00e5ff;--work-accent:#39ff14}
 #chat-main{--chat-accent:var(--accent-chat)}
-#chat-main[data-mode="work"]{--chat-accent:var(--work-accent)}     /* Work = Bernstein */
-#chat-main[data-mode="coding"]{--chat-accent:var(--coding-accent)} /* Coding = Gruen */
-/* Modus-Umschalter OBEN, mittig ueber dem Chat — Reasoning sitzt rechts daneben.
-   3-Spalten-Grid (1fr auto 1fr): der Slider steht exakt zentriert, das Reasoning
-   startet im rechten Track direkt rechts daneben. */
-#modebar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;margin:0 0 12px}
-#modebar #chat-mode-seg{width:340px}
-#modebar .mb-tools{justify-self:start;display:inline-flex;align-items:center;gap:7px}
-/* Reasoning-Popover oeffnet oben nach UNTEN (statt nach oben, sonst clippt es am Chat-Rand) */
-#modebar .reason-pop{bottom:auto;top:calc(100% + 6px)}
-@media(max-width:720px){#modebar{grid-template-columns:1fr;justify-items:center}#modebar #chat-mode-seg{width:100%;max-width:340px}#modebar .mb-tools{justify-self:center}}
+#chat-main[data-mode="work"]{--chat-accent:var(--work-accent)}     /* Work = Gruen */
+#chat-main[data-mode="coding"]{--chat-accent:var(--coding-accent)} /* Coding = Rainbow (Chrome: Cyan) */
+/* Modus-Umschalter UNTEN-LINKS in der Werkzeugleiste — direkt ueber dem "+"/Eingabefeld.
+   Segmented-Slider: der aktive Teil (.pill) gleitet weich rueber. */
+#chat-tools #chat-mode-seg{flex:0 0 auto;width:330px}
 #chat-mode-seg{--i:0;position:relative;display:flex;padding:4px;isolation:isolate;border:1px solid var(--line);
  border-radius:12px;background:var(--panel);font-family:inherit;font-size:13.5px}
 #chat-mode-seg .pill{position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/3);border-radius:9px;z-index:-1;
@@ -203,19 +197,20 @@ button.ghost.on{border-color:var(--accent);color:#fff;background:rgba(168,85,247
 #chat-main .sess.on{border-left-color:var(--chat-accent)}
 #chat-main .msg.bot .mbody .mdh{color:var(--chat-accent)}
 #chat-tools #micbtn,#chat-tools #imgbtn{color:var(--chat-accent);background:none;display:inline-flex;align-items:center;line-height:1.4}
-/* Modus-Leuchtbalken ganz oben am Chat — glueht & pulsiert im Herzschlag-Takt, faerbt mit dem Modus.
-   Dedizierter ::before-Balken (kein inset-Schatten mehr), damit der Glow nach aussen strahlen kann. */
+/* Modus-LED-Balken ganz oben am Chat: die Farben rotieren wie bei einer LED-Tastatur von
+   links nach rechts durch (kein Puls/Flackern) — dicker & praesenter, ruhig getaktet.
+   Chat = Lila-Fluss · Work = Gruen-Fluss · Coding = voller Regenbogen. */
 #chat-main{position:relative}
-#chat-main::before{content:"";position:absolute;top:0;left:0;right:0;height:3px;border-radius:0 0 3px 3px;z-index:3;
- background:linear-gradient(90deg,transparent,var(--chat-accent) 22%,var(--chat-accent) 78%,transparent);
- box-shadow:0 0 10px var(--chat-accent),0 0 22px color-mix(in srgb,var(--chat-accent) 65%,transparent),
-  0 0 40px color-mix(in srgb,var(--chat-accent) 40%,transparent);
- animation:beatglow 2.6s ease-in-out infinite;transition:background .3s,box-shadow .3s}
-/* Doppel-Puls (Herzschlag): zwei schnelle Schlaege, dann Ruhe — ruhig getaktet, kein Geflacker */
-@keyframes beatglow{0%,100%{opacity:.5;filter:brightness(.85)}
- 10%{opacity:1;filter:brightness(1.4)}22%{opacity:.62;filter:brightness(.95)}
- 32%{opacity:.96;filter:brightness(1.3)}46%{opacity:.55;filter:brightness(.85)}}
-@media (prefers-reduced-motion:reduce){#chat-main::before{animation:none;opacity:.85}}
+#chat-main::before{content:"";position:absolute;top:0;left:0;right:0;height:5px;border-radius:0 0 5px 5px;z-index:3;
+ background-size:200% 100%;
+ background-image:linear-gradient(90deg,#7d2fff,#b026ff,#d16bff,#ff2d95,#b026ff,#7d2fff);
+ box-shadow:0 0 12px var(--chat-accent),0 0 26px color-mix(in srgb,var(--chat-accent) 60%,transparent),
+  0 0 44px color-mix(in srgb,var(--chat-accent) 34%,transparent);
+ animation:ledflow 7s linear infinite;transition:box-shadow .35s}
+#chat-main[data-mode="work"]::before{background-image:linear-gradient(90deg,#0aff9d,#39ff14,#9bff3c,#00e5a8,#39ff14,#0aff9d)}
+#chat-main[data-mode="coding"]::before{background-image:linear-gradient(90deg,#ff004d,#ff8a00,#ffe600,#39ff14,#00e5ff,#b026ff,#ff004d);animation-duration:5.5s}
+@keyframes ledflow{to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){#chat-main::before{animation:none}}
 /* Engine-Leiste: Modell als sichtbare Neon-Pille (färbt mit dem Modus mit) */
 #chatbar{gap:10px}
 select.engine-pill,button.engine-pill{background:var(--panel);color:var(--ink);border:1px solid var(--chat-accent);border-radius:999px;
@@ -270,12 +265,17 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
  font-size:13.5px;font-weight:500;border-radius:12px;
  background:linear-gradient(90deg,transparent,rgba(139,92,246,.08),transparent)}
 .thinking .sh{color:var(--accent);filter:drop-shadow(0 0 7px var(--accent));animation:spin 3.4s linear infinite}
-/* Denk-Status im Neon-Rainbow-Fluss (wie Claude-Code "Cooking…") — die Farbe wandert durch den Text */
-.thinking .tx{background:linear-gradient(90deg,#b026ff,#ff2d95,#ff8a00,#39ff14,#00e5ff,#b026ff);
+/* Denk-Status im Neon-Rainbow-Fluss (wie Claude-Code "Cooking…") — die Farbe wandert durch den Text.
+   Gilt fuer den Vor-Trace-Puls UND die Live-Ueberschrift des Denk-Traces (Thinking/Cooking/Clauding…). */
+.tx.live{background:linear-gradient(90deg,#b026ff,#ff2d95,#ff8a00,#39ff14,#00e5ff,#b026ff);
  background-size:300% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;
- animation:rainflow 3.2s linear infinite}
+ font-weight:600;animation:rainflow 3.2s linear infinite}
 @keyframes rainflow{to{background-position:-300% 0}}
-@media (prefers-reduced-motion:reduce){.thinking .tx{animation:none}.thinking .sh{animation:none}}
+@media (prefers-reduced-motion:reduce){.tx.live{animation:none}.thinking .sh{animation:none}}
+/* Vorlesen als sauberer Toggle-Chip (kein rohes weisses Kaestchen mehr) */
+#chip-tts input{display:none}
+/* dezenter Hinweis in der Trace-Ueberschrift */
+.think .h .hint{opacity:.5;font-weight:400;font-size:11px}
 @keyframes spin{to{transform:rotate(360deg)}}
 /* ===== HUD-Kommandozentrale ===== */
 /* --hud kommt jetzt pro Theme aus dem :root/data-theme oben (faerbt beim Wechsel mit) */
