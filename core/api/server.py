@@ -1689,6 +1689,16 @@ def api_mails_unread() -> dict:
         return {"count": None}
 
 
+@app.get("/api/system")
+def api_system() -> dict:
+    # CPU/RAM/GPU/Temperatur fuer die Desktop-Leiste (best effort, None wo keine Quelle da ist).
+    from core.api import sysinfo
+    try:
+        return sysinfo.snapshot()
+    except Exception:  # noqa: BLE001
+        return {}
+
+
 # Das komplette Cockpit-Frontend lebt seit S5.3a in core/api/ui/ (css.py, views.py,
 # script.py) — drei handliche Module statt einer 90-KB-Wand hier. Der Export bleibt
 # identisch: DASHBOARD_HTML ist weiterhin ueber core.api.server importierbar.
