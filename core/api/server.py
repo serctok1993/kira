@@ -94,6 +94,10 @@ def api_status() -> dict:
         "budget": treasury.status(),
         "kill_switch": kill_switch_active(),
         "events": events.counts_by_type(),
+        # Ehrliches Fehler-Fenster (7 Tage) statt kumulativem All-Time-Zaehler:
+        "errors_recent": events.count_since(
+            ("turn_timeout", "llm_call_timeout", "service_crash", "act_degraded"),
+            time.time() - 7 * 86400),
         "lessons": memory.recall_lessons(8),
     }
 
