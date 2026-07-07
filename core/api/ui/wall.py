@@ -201,7 +201,7 @@ async function loadStats(){
 function esc(s){return (s==null?"":""+s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
 
 /* ---- Live-Vault-Graph ---- */
-let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches,settle=0;
+let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches,settle=0,drag=null;
 /* Wallpaper-Einstellungen (Zahnrad) — leben im localStorage, das offene Wallpaper hoert per
    'storage'-Event mit -> aendere sie in einem Browser-Tab, der Desktop uebernimmt live. */
 const MODE_RGB={chat:"176,38,255",work:"57,255,20",coding:"0,229,255"};
@@ -238,7 +238,8 @@ function sim(){   // force-directed, ruhig getaktet: Repulsion + Federn + sanfte
       if(d2<50000){const d=Math.sqrt(d2),f=REP/d2;dx/=d;dy/=d;a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}}}
   for(const [a,b] of ls){let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,f=(d-LEN)*K;dx/=d;dy/=d;
     a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}
-  for(const n of ns){n.vx+=(cx-n.x)*0.005;n.vy+=(cy-n.y)*0.005;
+  for(const n of ns){if(n.fx)continue;   // angefasster Knoten haengt an der Maus -> nicht integrieren
+    n.vx+=(cx-n.x)*0.005;n.vy+=(cy-n.y)*0.005;
     n.x+=Math.max(-CL,Math.min(CL,n.vx));n.y+=Math.max(-CL,Math.min(CL,n.vy));n.vx*=0.86;n.vy*=0.86;}
 }
 function render(){ctx.clearRect(0,0,W,H);const sc=SCALE();
@@ -256,12 +257,21 @@ function render(){ctx.clearRect(0,0,W,H);const sc=SCALE();
 /* Loop stoppt, sobald der Graph gesetzt ist und "Bewegung" aus ist -> 0% CPU im Ruhezustand
    (genau das, was Lively sonst dauernd rendern liess). Aenderungen wecken ihn per kick(). */
 const SETTLE_MAX=280;let raf=0;
-function frame(){const moving=!reduce&&(WALL.motion||settle<SETTLE_MAX);
+function frame(){const moving=!reduce&&(WALL.motion||settle<SETTLE_MAX||drag);
   if(moving){sim();settle++;}
   render();
   raf=moving?requestAnimationFrame(frame):0;}
 function kick(){if(!raf)raf=requestAnimationFrame(frame);}
 function relayout(){if(curG){layout(curG);kick();}}
+/* Node anfassen & ziehen — der Rest folgt ueber die Federn (Obsidian-Gefuehl). Greift, wenn /wall
+   in einem Fenster/Tab offen ist; die Wallpaper-Ebene hinter den Icons nimmt keine Maus an. */
+function nodeAt(mx,my){let best=null,bd=1e9;for(const n of ns){const d=Math.hypot(n.x-mx,n.y-my),hit=Math.max(14,n.r+10);if(d<hit&&d<bd){bd=d;best=n;}}return best;}
+function setupDrag(){cv.style.pointerEvents='auto';
+  cv.addEventListener('pointerdown',e=>{const r=cv.getBoundingClientRect(),n=nodeAt(e.clientX-r.left,e.clientY-r.top);
+    if(n){drag=n;n.fx=true;try{cv.setPointerCapture(e.pointerId);}catch(_){}settle=0;kick();}});
+  cv.addEventListener('pointermove',e=>{if(!drag)return;const r=cv.getBoundingClientRect();drag.x=e.clientX-r.left;drag.y=e.clientY-r.top;drag.vx=drag.vy=0;kick();});
+  const up=()=>{if(drag){drag.fx=false;drag=null;settle=0;kick();}};   // loslassen -> setzt sich wieder + friert danach ein
+  cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);}
 
 /* ---- Modus + LED-Rand ---- */
 let mode="chat";const COL={chat:"var(--chat)",work:"var(--work)",coding:"var(--coding)"};
@@ -330,7 +340,7 @@ window.addEventListener('storage',e=>{if(e.key==="kira_wall"){loadWall();syncWal
 document.addEventListener('click',e=>{if(!e.target.closest('#gear')&&!e.target.closest('#wpop')){const p=$("#wpop");if(p)p.classList.remove('on');}});
 
 /* ---- Boot ---- */
-(async function(){loadWall();await loadWallServer();cv=$("#graph");ctx=cv.getContext("2d");sz();
+(async function(){loadWall();await loadWallServer();cv=$("#graph");ctx=cv.getContext("2d");sz();setupDrag();
   const g=await loadStats();layout(g);kick();
   addEventListener('resize',()=>{sz();relayout();});
   connect();setInterval(loadStats,30000);   // Stats leben (alle 30 s frisch) — Graph bleibt ruhig
