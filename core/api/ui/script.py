@@ -612,7 +612,7 @@ let thinkTimer=null,thinkEl=null;
    (Thinking/Cooking/Clauding…) lesen dieselbe Phrase — nur EIN Timer, kein Flackern. */
 function refreshPhrase(){const p=rndPhrase()+"…";document.querySelectorAll(".tx.live").forEach(t=>{t.textContent=p;});}
 function startThinking(){stopThinking();thinkEl=document.createElement("div");thinkEl.className="thinking";
- thinkEl.innerHTML='<span class="sh">✦</span><span class="tx live"></span>';
+ thinkEl.innerHTML='<span class="sh"></span><span class="tx live"></span>';
  log.appendChild(thinkEl);log.scrollTop=log.scrollHeight;refreshPhrase();
  thinkTimer=setInterval(refreshPhrase,2600);}
 function stopThinking(){if(thinkTimer){clearInterval(thinkTimer);thinkTimer=null;}
@@ -768,7 +768,7 @@ applyChatMode();  /* Startzustand faerben (Chat) */
 function chipInsert(txt,prefix){const i=$("#cin");
  if(prefix){if(!new RegExp("^"+txt.replace(/[./]/g,"\\$&")).test(i.value.trim()))i.value=(txt+" "+i.value).trim();}
  else if(!i.value.includes(txt))i.value=(i.value+" "+txt).replace(/^\s+/,"");
- i.focus();}
+ i.focus();if(typeof growCin==="function")growCin();}
 /* Befehls-Palette: ALLE echten Befehle auf einen Klick. Klick fuellt das Eingabefeld.
    Chat/Work/Coding sind oben Modi — hier stehen die uebrigen Befehle. */
 const CMDS=[
@@ -828,7 +828,12 @@ function stopStream(){if(!streaming)return;reconnect();stopThinking();
  curBot=null;curThink=null;traceC=null;curThinkLine=null;add("— gestoppt —","sys");setStreaming(false);}
 $("#cform").onsubmit=e=>{e.preventDefault();
  if(streaming){stopStream();return;}                                   /* im Lauf: Stop statt neue Nachricht */
- if(sendText($("#cin").value))$("#cin").value="";};
+ if(sendText($("#cin").value)){$("#cin").value="";growCin();}};
+/* Eingabefeld waechst mit dem Text (kein Seit-Scrollen); Enter sendet, Shift+Enter = neue Zeile */
+function growCin(){const c=$("#cin");if(!c)return;c.style.height="auto";c.style.height=Math.min(c.scrollHeight,200)+"px";}
+$("#cin")&&$("#cin").addEventListener("input",growCin);
+$("#cin")&&$("#cin").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();
+ if(streaming){stopStream();return;} if(sendText($("#cin").value)){$("#cin").value="";growCin();}}});
 
 /* ---- Sprachmemo (Aufnahme -> Whisper) + Assistenz-Modus (freihaendige Schleife) ---- */
 let mediaRec=null,chunks=[],recAutoSend=false,vadSpoke=false;
