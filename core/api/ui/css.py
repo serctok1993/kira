@@ -322,6 +322,12 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
 .op.action .opx{color:var(--hud)} .op.chat .opx{color:var(--accent)} .op.info .opx{color:var(--muted)}
 .op .od{width:6px;height:6px;border-radius:50%;margin-top:6px;background:var(--muted);flex-shrink:0}
 .op.action .od{background:var(--hud)} .op.error .od{background:var(--danger)} .op.chat .od{background:var(--accent)}
+/* Live-Ops-Transparenz: Detail (Werkzeug/Datei/Label) + Typ-Badge + aufklappbare Payload */
+.op{cursor:pointer} .op:hover{background:rgba(255,255,255,.03)}
+.op .opd{color:var(--muted);font-size:11px}
+.op .opk{display:block;color:var(--muted);opacity:.55;font-size:9.5px;letter-spacing:.4px;margin-top:1px}
+.oppay{margin:0;padding:7px 13px 9px 31px;font-size:10.5px;line-height:1.45;color:var(--muted);
+ background:rgba(0,0,0,.28);border-bottom:1px solid rgba(255,255,255,.05);white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto}
 .ticker{overflow:hidden;white-space:nowrap;border-bottom:1px solid var(--line);background:rgba(0,0,0,.25)}
 .ticker>span{display:inline-block;padding:7px 0;font-family:var(--mono);font-size:12px;color:var(--hud);animation:tick 140s linear infinite}
 @keyframes tick{from{transform:translateX(100%)}to{transform:translateX(-100%)}}

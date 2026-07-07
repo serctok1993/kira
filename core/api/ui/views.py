@@ -715,6 +715,7 @@ VIEWS = r"""</head><body>
           <div class="row" style="flex-wrap:wrap;gap:10px 18px;align-items:center">
             <label class="muted" style="cursor:pointer"><input type="checkbox" id="wp-labels"/> Worte (Labels)</label>
             <label class="muted" style="cursor:pointer"><input type="checkbox" id="wp-motion"/> Bewegung</label>
+            <label class="muted" style="cursor:pointer" title="Aktivitaets-Stream unten links auf dem Desktop: was Kira gerade tut"><input type="checkbox" id="wp-ticker"/> Live-Ticker</label>
             <label class="muted">Farbe <select id="wp-color"><option value="vault">Vault</option><option value="modus">Modus</option><option value="mono">Mono</option></select></label>
             <label class="muted">Position <select id="wp-pos"><option value="links">Links</option><option value="mitte">Mitte</option><option value="rechts">Rechts</option></select></label>
             <label class="muted">Größe <select id="wp-size"><option value="klein">Klein</option><option value="mittel">Mittel</option><option value="gross">Groß</option><option value="riesig">Riesig</option></select></label>
