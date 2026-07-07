@@ -69,12 +69,19 @@ def request_restart() -> None:
 
 
 def _load_icon():
-    """Tray-Icon: schlichtes Kira-Lila 'K'. Nutzt Pillow, wenn vorhanden; sonst None
-    (pystray zeigt dann sein Default-Symbol) — die App laeuft in beiden Faellen."""
+    """Tray-Icon: das App-Logo aus data/kira-icon.png (wenn vorhanden), sonst ein schlichtes
+    Kira-Lila 'K'. Nutzt Pillow; fehlt es, None (pystray-Default) — die App laeuft immer."""
     try:
         from PIL import Image, ImageDraw
     except Exception:  # noqa: BLE001 — Pillow ist optional
         return None
+    for ext in ("png", "jpg", "jpeg", "webp", "ico"):
+        p = ROOT / "data" / f"kira-icon.{ext}"
+        if p.exists():
+            try:
+                return Image.open(str(p)).convert("RGBA")
+            except Exception:  # noqa: BLE001 — kaputtes Bild -> auf das gezeichnete 'K' zurueckfallen
+                break
     img = Image.new("RGBA", (64, 64), (14, 14, 18, 255))
     d = ImageDraw.Draw(img)
     d.rounded_rectangle([4, 4, 59, 59], radius=12, outline=(176, 38, 255, 255), width=4)
