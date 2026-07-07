@@ -7,12 +7,18 @@
 
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
-$png  = Join-Path $root "data\kira-icon.png"
 $ico  = Join-Path $root "data\kira-icon.ico"
 $bat  = Join-Path $root "kira-desktop.bat"
 
-# --- 1) PNG -> ICO (fuer Verknuepfungs-Symbole; Windows-Shortcuts brauchen .ico) ----------
-if (Test-Path $png) {
+# Logo-Quelle finden: egal ob .png, .jpg, .jpeg oder .webp (System.Drawing liest alle)
+$png = $null
+foreach ($ext in @("png","jpg","jpeg","webp")) {
+  $cand = Join-Path $root "data\kira-icon.$ext"
+  if (Test-Path $cand) { $png = $cand; break }
+}
+
+# --- 1) Logo -> ICO (fuer Verknuepfungs-Symbole; Windows-Shortcuts brauchen .ico) ----------
+if ($png) {
   try {
     Add-Type -AssemblyName System.Drawing
     $src = [System.Drawing.Image]::FromFile($png)
@@ -32,7 +38,7 @@ if (Test-Path $png) {
     $ico = $null
   }
 } else {
-  Write-Host "Hinweis: data\kira-icon.png fehlt — lege dein Logo dort ab und starte erneut, dann bekommt die Verknuepfung dein Bild."
+  Write-Host "Hinweis: kein data\kira-icon.(png|jpg|jpeg|webp) gefunden — lege dein Logo dort ab und starte erneut, dann bekommt die Verknuepfung dein Bild."
   $ico = $null
 }
 

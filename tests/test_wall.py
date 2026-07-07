@@ -84,9 +84,12 @@ def test_wall_seite_wird_ausgeliefert():
     # Wall v5: Loop stoppt im Ruhezustand (CPU-Fix), Groesse+Position regelbar
     assert "function kick(" in body
     assert 'id="w-pos"' in body and 'id="w-size"' in body
-    # Wall v9: sanftes Schweben default AN (guenstig, abschaltbar) + Gruppen-Baender (Ordnung + Breite)
-    assert "motion:true" in body and "function setHomes(" in body
+    # Wall v9: Gruppen-Baender (Ordnung + Breite) + Ruhelage
+    assert "function setHomes(" in body
     assert "GX[n.group" in body and "ans Gruppen-Band" in body
+    # Wall v10: last-schonend — Standard Standbild (motion:false) + grosser Graph, LED-Sweep nur bei Bewegung
+    assert "motion:false" in body and 'size:"gross"' in body
+    assert 'body[data-anim="on"] .edge::before' in body and "function applyAnim(" in body
     # Wall v6: Einstellungen serverseitig (Lively-WebView teilt keinen localStorage) + Graph vorab gesetzt
     assert "/api/wall/settings" in body and "function pollWall(" in body and "loadWallServer(" in body
     assert "for(let k=0;k<350;k++)sim()" in body                # vorab fertig gerechnet -> kein Zappeln
