@@ -26,11 +26,29 @@ from core.kernel.fs import atomic_write
 JOBS = ROOT / "data" / "cron.json"
 
 
+_LOAD_ERR_TS = 0.0  # Drossel: kaputtes cron.json nur ~alle 30 min melden, nicht pro Loop-Tick
+
+
 def _load() -> list[dict]:
+    """Jobs laden. NIE still scheitern: ein beschaedigtes cron.json liess frueher ALLE Crons
+    lautlos verschwinden (leere Liste, kein Event, keine Nachricht) — jetzt wird es gemeldet,
+    und die kaputte Datei bleibt als .broken-Kopie zur Diagnose liegen."""
+    global _LOAD_ERR_TS
     if JOBS.exists():
         try:
             return json.loads(JOBS.read_text(encoding="utf-8"))
-        except Exception:
+        except Exception as e:  # noqa: BLE001
+            now = time.time()
+            if now - _LOAD_ERR_TS > 1800:
+                _LOAD_ERR_TS = now
+                try:
+                    JOBS.with_suffix(".json.broken").write_text(
+                        JOBS.read_text(encoding="utf-8", errors="replace"), encoding="utf-8")
+                except Exception:  # noqa: BLE001
+                    pass
+                events.emit("cron_load_error", {"error": str(e)[:200]})
+                _notify("⚠ cron.json ist beschaedigt — alle geplanten Aufgaben pausieren! "
+                        "Kopie liegt als cron.json.broken. Bitte im Cockpit unter Kira→Cron neu anlegen.")
             return []
     return []
 
