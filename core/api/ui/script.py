@@ -893,15 +893,25 @@ function toggleAssist(){handsFree=!handsFree;paintAssist();
 
 /* ---- Bild an Kira (Vision) ---- */
 $("#imgfile")&&($("#imgfile").onchange=ev=>{const f=ev.target.files[0];if(!f)return;
- if(f.type&&f.type.startsWith("image/")){                       /* Bild -> Vision (wie gehabt) */
+ if(f.type&&f.type.startsWith("image/")){                       /* Bild -> Vision-Beschreibung -> in den Chat */
   const rd=new FileReader();rd.onload=async()=>{
    const im=document.createElement("div");im.className="msg me";
    im.innerHTML='<img src="'+rd.result+'" style="max-width:240px;border-radius:8px;display:block"/>';log.appendChild(im);log.scrollTop=log.scrollHeight;
    const prompt=$("#cin").value.trim();$("#cin").value="";
    const b=msgEl("… Kira betrachtet das Bild …","bot");
+   let desc="";
    try{const r=await (await fetch("/api/vision",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:prompt,image:rd.result})})).json();
-    b.querySelector(".mbody").innerHTML=md(r.ok?(r.text||""):("(Bild-Fehler: "+(r.error||"")+")"));}
-   catch(err){b.querySelector(".mbody").textContent="(Bild-Fehler: "+err+")";}
+    if(!r.ok){b.querySelector(".mbody").innerHTML=md("(Bild-Fehler: "+(r.error||"")+")");log.scrollTop=log.scrollHeight;return;}
+    desc=r.text||"";}
+   catch(err){b.querySelector(".mbody").textContent="(Bild-Fehler: "+err+")";return;}
+   /* Beschreibung in den laufenden Chat einspeisen -> Kira kann darauf aufbauen (nachfragen,
+      Mail schreiben, merken). Kein Chat verbunden -> wenigstens die Beschreibung zeigen. */
+   if(ws&&ws.readyState===1){
+    b.remove();
+    const full=(prompt?prompt:"Schau dir das Bild an und sag mir, was du siehst.")
+     +"\n\n[Angehaengtes Bild — Kiras Bildbeschreibung: "+desc+"]";
+    startThinking();ws.send(full);setStreaming(true);curBot=null;curThink=null;traceC=null;curThinkLine=null;
+   } else { b.querySelector(".mbody").innerHTML=md(desc); }
    log.scrollTop=log.scrollHeight;};
   rd.readAsDataURL(f);
  } else { attachFile(f); }                                       /* PDF/Datei -> Text an Kira in den Chat */
