@@ -16,7 +16,7 @@ import re
 from core.kernel import events, executor, llm_router
 from core.agency.tools import builtin  # noqa: F401  -> registriert die eingebauten Tools
 from core.agency.tools import registry, synthesize
-from core.mind.agent import _read, PERSONA_DIRECTIVE, build_system_prompt
+from core.mind.agent import _read, persona_text, build_system_prompt
 from core.mind.memory import store as memory
 from core.config import CONFIG
 
@@ -102,7 +102,7 @@ def _identity() -> str:
         f"# DEIN ZIEL\n{_read('GOAL.md')}\n\n"
         + (f"# DEIN KOERPER (Details: read_file(\"core/mind/BODY.md\"))\n{koerper}\n\n" if koerper else "")
         + (f"{pb}\n\n" if pb else "")
-        + f"{PERSONA_DIRECTIVE}"
+        + f"{persona_text()}"
     )
 
 

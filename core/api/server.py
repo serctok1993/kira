@@ -51,6 +51,7 @@ FILES: dict[str, dict] = {
     "SOUL.md": {"path": MIND_DIR / "SOUL.md", "editable": True, "label": "Seele (SOUL)"},
     "GOAL.md": {"path": MIND_DIR / "GOAL.md", "editable": True, "label": "Ziel (GOAL)"},
     "USER.md": {"path": MIND_DIR / "USER.md", "editable": True, "label": "Nutzer-Profil (Sergen)"},
+    "PERSONA.md": {"path": MIND_DIR / "PERSONA.md", "editable": True, "label": "Verhalten & Ton (PERSONA)"},
     "config.yaml": {"path": ROOT / "config.yaml", "editable": True, "label": "Konfiguration (Vorsicht: YAML)"},
     # Gedaechtnis + Handbuch (frei editierbar — nie im Prompt, siehe HANDBUCH §7)
     "HANDBUCH.md": {"path": ROOT / "docs" / "HANDBUCH.md", "editable": True, "label": "HANDBUCH (Bedienbuch fuer Sergen)"},

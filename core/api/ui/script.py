@@ -40,7 +40,7 @@ function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle(
    Kein Spezialcode pro Tab mehr (vorher: syst() + kirat() doppelt). */
 const SUBTABS={
  kira:    {bar:"#kira-tabs", cur:"files",
-           loaders:{files:()=>loadFiles(),mem:()=>loadMem(),wissen:()=>loadWissen(),
+           loaders:{files:()=>loadFiles(),charakter:()=>loadCharakter(),mem:()=>loadMem(),wissen:()=>loadWissen(),
                     playbooks:()=>loadPlaybooks(),
                     anatomie:()=>loadAgenten(),evolution:()=>loadEvolution(),stats:()=>loadStats(),
                     keys:()=>loadKeys(),checkliste:()=>loadCheckliste(),
@@ -1635,6 +1635,24 @@ $("#reset-episodic")&&($("#reset-episodic").onclick=async()=>{
  try{const r=await (await fetch("/api/memory/reset-episodic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({confirm:true})})).json();
   $("#reset-episodic-hint").textContent=r.ok?("✓ "+r.deleted+" Nachrichten geloescht ("+r.kept+" Fakten/Skills behalten) — Backup gesichert"):("Fehler: "+(r.error||"?"));}
  catch(e){$("#reset-episodic-hint").textContent="Fehler beim Zuruecksetzen";}});
+
+/* ---- Charakter-Editor: charakter-praegende Prompts als Text (Erklaerung + Feld + Speichern) ---- */
+const CHARAKTER=[
+ {name:"SOUL.md",t:"Seele — wer sie ist",h:"Kiras Identität, Haltung, Rolle als Counterweight."},
+ {name:"GOAL.md",t:"Ziel — wofür sie da ist",h:"Zweck, Nordstern, Antriebe. Die Meilensteine (§6) gehören Dir."},
+ {name:"USER.md",t:"Über Dich (Sergen)",h:"Wer Du bist — Kira baut ihr Bild von Dir daraus."},
+ {name:"PERSONA.md",t:"Verhalten & Ton",h:"Wie sie spricht, mitdenkt, nachschaut — der Verhaltens-Kern (schlank halten, ~4200 Zeichen)."}];
+async function loadCharakter(){const w=$("#charakter-list");if(!w)return;w.innerHTML='<div class="muted" style="padding:10px">lädt …</div>';
+ let html="";
+ for(const it of CHARAKTER){let c="";try{const r=await (await fetch("/api/file?name="+encodeURIComponent(it.name))).json();c=r.content||"";}catch(e){}
+  html+='<div class="card"><h3>'+esc(it.t)+' <span class="muted" style="font-size:11px;font-weight:400">('+esc(it.name)+')</span></h3>'
+   +'<div class="muted" style="margin-bottom:6px">'+esc(it.h)+'</div>'
+   +'<textarea class="char-ta" data-name="'+esc(it.name)+'" spellcheck="false" style="width:100%;min-height:160px;font-family:monospace;font-size:12px;line-height:1.45">'+esc(c)+'</textarea>'
+   +'<div class="row" style="margin-top:6px;align-items:center;gap:10px"><button class="char-save" data-name="'+esc(it.name)+'">Speichern</button><span class="muted char-hint" data-h="'+esc(it.name)+'" style="font-size:12px"></span></div></div>';}
+ w.innerHTML=html;
+ $$(".char-save").forEach(b=>b.onclick=async()=>{const n=b.dataset.name;const ta=w.querySelector('.char-ta[data-name="'+n+'"]');const hint=w.querySelector('.char-hint[data-h="'+n+'"]');hint.textContent="… speichere";
+  try{const r=await (await fetch("/api/file",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:n,content:ta.value})})).json();hint.textContent=r.ok?"✓ gespeichert — Backup angelegt, wirkt sofort":("Fehler: "+(r.error||"?"));}
+  catch(e){hint.textContent="Fehler beim Speichern";}});}
 
 /* ---- Coding-Benchmark: Live-Lauf ueber /ws/bench (isolierter Worktree, Live-Gedankenstrom) ---- */
 let benchWs=null,benchPassed=0,benchTotal=0;
