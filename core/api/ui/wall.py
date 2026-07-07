@@ -12,7 +12,7 @@ from __future__ import annotations
 
 WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<link rel="icon" href="data:,"/>
+<link rel="icon" href="/api/icon"/>
 <title>Kira · Desktop</title>
 <style>
   @property --ang{syntax:'<angle>';inherits:false;initial-value:0deg}
@@ -158,6 +158,7 @@ async function loadStats(){
   try{ov=await (await fetch("/api/overview")).json();}catch(e){}
   try{st=await (await fetch("/api/status")).json();}catch(e){}
   try{g=await (await fetch("/api/vault/graph")).json();}catch(e){}
+  graphVault=(g&&g.vault)||graphVault;   // Vault-Name fuer obsidian://open beim Node-Klick
   try{bd=await (await fetch("/api/mission/board")).json();}catch(e){}
   try{news=await (await fetch("/api/news")).json();}catch(e){}
   let life={board:[]},mail={count:null},sys={};
@@ -201,7 +202,7 @@ async function loadStats(){
 function esc(s){return (s==null?"":""+s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
 
 /* ---- Live-Vault-Graph ---- */
-let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches,settle=0,drag=null;
+let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches,settle=0,drag=null,graphVault=null,dragStart=null,dragMoved=false;
 /* Wallpaper-Einstellungen (Zahnrad) — leben im localStorage, das offene Wallpaper hoert per
    'storage'-Event mit -> aendere sie in einem Browser-Tab, der Desktop uebernimmt live. */
 const MODE_RGB={chat:"176,38,255",work:"57,255,20",coding:"0,229,255"};
@@ -227,12 +228,12 @@ function layout(g){
   ls=(g.links||[]).map(l=>[by[l.source],by[l.target]]).filter(p=>p[0]&&p[1]);
   ls.forEach(([a,b])=>{a.deg++;b.deg++;});
   ns.forEach(n=>{n.r=(2.3+Math.min(6.5,n.deg*0.8))*Math.sqrt(sc);});   // groesserer Knoten = mehr Verbindungen
-  // vorab fertig rechnen -> der Graph erscheint direkt gesetzt (kein sichtbares Zappeln/Flackern)
-  if(!reduce){for(let k=0;k<200;k++)sim();}
+  // vorab fertig rechnen -> der Graph erscheint direkt gesetzt & sauber verteilt (kein Zappeln)
+  if(!reduce){for(let k=0;k<350;k++)sim();}
   settle=999;   // gilt als gesetzt: der Loop rendert 1x und friert ein (ausser "Bewegung" ist an)
 }
 function sim(){   // force-directed, ruhig getaktet: Repulsion + Federn + sanfte Zentrierung, starke Daempfung
-  const cx=CX(),cy=CY(),sc=SCALE(),REP=470*sc,LEN=60*sc,K=0.012,CL=2.4;
+  const cx=CX(),cy=CY(),sc=SCALE(),REP=620*sc,LEN=66*sc,K=0.011,CL=2.4;   // mehr Abstand -> saubere Struktur
   for(let i=0;i<ns.length;i++){const a=ns[i];
     for(let j=i+1;j<ns.length;j++){const b=ns[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy||1;
       if(d2<50000){const d=Math.sqrt(d2),f=REP/d2;dx/=d;dy/=d;a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}}}
@@ -266,11 +267,16 @@ function relayout(){if(curG){layout(curG);kick();}}
 /* Node anfassen & ziehen — der Rest folgt ueber die Federn (Obsidian-Gefuehl). Greift, wenn /wall
    in einem Fenster/Tab offen ist; die Wallpaper-Ebene hinter den Icons nimmt keine Maus an. */
 function nodeAt(mx,my){let best=null,bd=1e9;for(const n of ns){const d=Math.hypot(n.x-mx,n.y-my),hit=Math.max(14,n.r+10);if(d<hit&&d<bd){bd=d;best=n;}}return best;}
-function setupDrag(){cv.style.pointerEvents='auto';
+function openObs(id){if(!graphVault)return;try{location.href="obsidian://open?vault="+encodeURIComponent(graphVault)+"&file="+encodeURIComponent(id);}catch(e){}}
+function setupDrag(){cv.style.pointerEvents='auto';cv.style.cursor='default';
   cv.addEventListener('pointerdown',e=>{const r=cv.getBoundingClientRect(),n=nodeAt(e.clientX-r.left,e.clientY-r.top);
-    if(n){drag=n;n.fx=true;try{cv.setPointerCapture(e.pointerId);}catch(_){}settle=0;kick();}});
-  cv.addEventListener('pointermove',e=>{if(!drag)return;const r=cv.getBoundingClientRect();drag.x=e.clientX-r.left;drag.y=e.clientY-r.top;drag.vx=drag.vy=0;kick();});
-  const up=()=>{if(drag){drag.fx=false;drag=null;settle=0;kick();}};   // loslassen -> setzt sich wieder + friert danach ein
+    if(n){drag=n;dragStart={x:e.clientX,y:e.clientY};dragMoved=false;n.fx=true;try{cv.setPointerCapture(e.pointerId);}catch(_){}settle=0;kick();}});
+  cv.addEventListener('pointermove',e=>{const r=cv.getBoundingClientRect();
+    if(!drag){cv.style.cursor=nodeAt(e.clientX-r.left,e.clientY-r.top)?'pointer':'default';return;}
+    if(dragStart&&Math.hypot(e.clientX-dragStart.x,e.clientY-dragStart.y)>5)dragMoved=true;
+    drag.x=e.clientX-r.left;drag.y=e.clientY-r.top;drag.vx=drag.vy=0;kick();});
+  const up=()=>{if(!drag)return;const n=drag;n.fx=false;drag=null;settle=0;kick();
+    if(!dragMoved)openObs(n.id);};   // kurzer Klick (nicht gezogen) -> Notiz in Obsidian oeffnen
   cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);}
 
 /* ---- Modus + LED-Rand ---- */
