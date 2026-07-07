@@ -149,6 +149,14 @@ def test_wall_editor_im_cockpit():
     assert "const STATS=[" in wall and "WALL.stats" in wall and "function applyColors(" in wall
 
 
+def test_api_desktop_shortcut_endpoint_und_knopf():
+    # Ein-Klick-Desktop-Verknuepfung: Endpoint crasht nie (nur Windows) + Knopf im Cockpit vorhanden
+    c = TestClient(app)
+    r = c.post("/api/desktop/shortcut", json={})
+    assert r.status_code == 200 and "ok" in r.json()      # Nicht-Windows: {ok:False, error:"nur unter Windows"}
+    assert 'id="make-shortcut"' in c.get("/").text
+
+
 def test_api_system_null_safe():
     c = TestClient(app)
     r = c.get("/api/system")

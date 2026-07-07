@@ -1345,6 +1345,33 @@ async def api_desktop_scan(body: dict) -> dict:
     return await anyio.to_thread.run_sync(desktop_watch.propose)
 
 
+@app.post("/api/desktop/shortcut")
+async def api_desktop_shortcut(body: dict) -> dict:
+    """Ein-Klick: legt (nur Windows) die Desktop-Verknuepfung 'Kira' mit Logo + Autostart an,
+    indem desktop-setup.ps1 ausgefuehrt wird. So braucht Sergen keinen Ordner und keine .bat."""
+    import sys
+
+    if not sys.platform.startswith("win"):
+        return {"ok": False, "error": "nur unter Windows"}
+    ps1 = ROOT / "desktop-setup.ps1"
+    if not ps1.exists():
+        return {"ok": False, "error": "desktop-setup.ps1 fehlt"}
+
+    def _run() -> dict:
+        import subprocess
+        try:
+            p = subprocess.run(
+                ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(ps1)],
+                cwd=str(ROOT), capture_output=True, text=True, timeout=90,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            out = ((p.stdout or "") + (p.stderr or "")).strip()
+            return {"ok": p.returncode == 0, "output": out[-800:]}
+        except Exception as e:  # noqa: BLE001
+            return {"ok": False, "error": str(e)}
+
+    return await anyio.to_thread.run_sync(_run)
+
+
 @app.get("/api/evolution")
 def api_evolution(limit: int = 40) -> dict:
     """S8.1: 'Was ich zuletzt an mir verbessert habe' — Timeline aus dem Event-Log
