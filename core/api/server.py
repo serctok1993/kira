@@ -1681,12 +1681,46 @@ def api_vault_graph() -> dict:
 
 @app.get("/api/icon")
 def api_icon():
-    # App-Logo (data/kira-icon.png) fuer Favicon + Desktop-App-Tray. 404 -> Default.
+    # App-Logo (data/kira-icon.*) fuer Cockpit-Kopf + Favicon + Desktop-App-Tray. 404 -> Default.
     for ext in ("png", "jpg", "jpeg", "webp", "ico"):
         p = ROOT / "data" / f"kira-icon.{ext}"
         if p.exists():
             return FileResponse(str(p), headers={"Cache-Control": "no-store"})
     return Response(status_code=404)
+
+
+@app.post("/api/icon/upload")
+async def api_icon_upload(body: dict) -> dict:
+    # App-Logo bequem aus dem Cockpit setzen (kein Datei-Geschiebe): speichert data/kira-icon.<ext>.
+    # Wird sofort ueberall genutzt (Cockpit-Kopf, /wall-Favicon, Desktop-Tray).
+    import base64
+    import re
+
+    m = re.match(r"data:image/(\w+);base64,(.+)$", body.get("dataurl", ""), re.DOTALL)
+    if not m:
+        return {"ok": False, "error": "kein gueltiges Bild"}
+    ext = m.group(1).lower().replace("jpeg", "jpg")
+    if ext not in ("png", "jpg", "webp", "ico"):
+        return {"ok": False, "error": f"Format .{ext} nicht unterstuetzt"}
+    raw = base64.b64decode(m.group(2))
+    data_dir = ROOT / "data"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    for e in ("png", "jpg", "jpeg", "webp", "ico"):   # alte Logos raeumen -> nur eins bleibt
+        old = data_dir / f"kira-icon.{e}"
+        if old.exists():
+            old.unlink()
+    (data_dir / f"kira-icon.{ext}").write_bytes(raw)
+    events.emit("app_icon_set", {"ext": ext, "bytes": len(raw)})
+    return {"ok": True, "ext": ext, "bytes": len(raw)}
+
+
+@app.post("/api/icon/clear")
+async def api_icon_clear(body: dict) -> dict:
+    for e in ("png", "jpg", "jpeg", "webp", "ico"):
+        p = ROOT / "data" / f"kira-icon.{e}"
+        if p.exists():
+            p.unlink()
+    return {"ok": True}
 
 
 @app.get("/api/mails/unread")
