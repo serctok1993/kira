@@ -45,7 +45,7 @@ const SUBTABS={
                     anatomie:()=>loadAgenten(),evolution:()=>loadEvolution(),stats:()=>loadStats(),
                     keys:()=>loadKeys(),checkliste:()=>loadCheckliste(),
                     /* Config aufgeloest: Technik lebt jetzt unter Kira */
-                    models:()=>loadModels(),steuer:()=>loadSteuer(),gov:()=>loadGov(),
+                    models:()=>loadModels(),bench:()=>loadBench(),steuer:()=>loadSteuer(),gov:()=>loadGov(),
                     cron:()=>loadCron(),monitor:()=>loadMonitor(),log:()=>loadEvents(),cockpit:()=>loadDesktop(),
                     wall:()=>loadWallEditor()}},
  me:      {bar:"#me-tabs", cur:"todos",
@@ -1635,6 +1635,32 @@ $("#reset-episodic")&&($("#reset-episodic").onclick=async()=>{
  try{const r=await (await fetch("/api/memory/reset-episodic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({confirm:true})})).json();
   $("#reset-episodic-hint").textContent=r.ok?("✓ "+r.deleted+" Nachrichten geloescht ("+r.kept+" Fakten/Skills behalten) — Backup gesichert"):("Fehler: "+(r.error||"?"));}
  catch(e){$("#reset-episodic-hint").textContent="Fehler beim Zuruecksetzen";}});
+
+/* ---- Coding-Benchmark: Live-Lauf ueber /ws/bench (isolierter Worktree, Live-Gedankenstrom) ---- */
+let benchWs=null,benchPassed=0,benchTotal=0;
+function benchLog(html){const l=$("#bench-log");if(!l)return;const d=document.createElement("div");d.style.padding="3px 0";d.innerHTML=html;l.appendChild(d);l.scrollTop=l.scrollHeight;}
+function updateBenchScore(){const s=$("#bench-score");if(!s)return;const pct=benchTotal?Math.round(100*benchPassed/benchTotal):0;const col=pct>=70?"ok":pct>=40?"warn":"danger";s.innerHTML='Score: <span style="color:var(--'+col+')">'+benchPassed+'/'+benchTotal+'</span> ('+pct+'%)';}
+function loadBench(){const b=$("#bench-start");if(!b)return;
+ fetch("/api/status").then(r=>r.json()).then(s=>{const m=$("#bench-model");if(m&&s&&s.model)m.textContent="Aktuelles Modell: "+s.model;}).catch(()=>{});
+ b.onclick=()=>startBench();const st=$("#bench-stop");if(st)st.onclick=()=>stopBench();}
+function startBench(){if(benchWs){try{benchWs.close();}catch(e){}}
+ $("#bench-log").innerHTML="";$("#bench-score").textContent="";benchPassed=0;benchTotal=0;
+ $("#bench-start").style.display="none";$("#bench-stop").style.display="";
+ const allow=$("#bench-allow-llm")?$("#bench-allow-llm").checked:true;
+ const proto=location.protocol==="https:"?"wss":"ws";
+ benchWs=new WebSocket(proto+"://"+location.host+"/ws/bench");
+ benchWs.onopen=()=>{benchWs.send(JSON.stringify({allow_llm:!!allow}));benchLog('<span class="muted">Sandbox wird vorbereitet … (jeder Lauf ist isoliert)</span>');};
+ benchWs.onmessage=e=>{let ev;try{ev=JSON.parse(e.data);}catch(x){return;}renderBenchEvent(ev);};
+ benchWs.onclose=()=>{$("#bench-start").style.display="";$("#bench-stop").style.display="none";benchWs=null;};
+ benchWs.onerror=()=>{benchLog('<span style="color:var(--danger)">Verbindungsfehler</span>');};}
+function stopBench(){if(benchWs){try{benchWs.close();}catch(e){}}benchWs=null;$("#bench-start").style.display="";$("#bench-stop").style.display="none";benchLog('<span class="muted">Abgebrochen.</span>');}
+function renderBenchEvent(ev){const k=ev.kind,a=ev.ev||{};
+ if(k==="suite_start"){benchTotal=ev.total;benchPassed=0;updateBenchScore();benchLog('<b>Benchmark: '+ev.total+' Aufgabe(n)</b>');}
+ else if(k==="task_start")benchLog('<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:6px"><b>▶ '+esc(ev.id)+'</b> <span class="muted">'+esc(ev.prompt||"")+'</span></div>');
+ else if(k==="act"){let s="";if(a.kind==="think")s='<span class="muted">💭 '+esc((a.text||"").slice(0,300))+'</span>';else if(a.kind==="tool")s='🔧 '+esc(a.name||"")+' <span class="muted">'+esc(JSON.stringify(a.args||{}).slice(0,120))+'</span>';else if(a.kind==="obs")s='<span class="muted">↳ '+esc(((a.name||"")+" "+(a.text||"")).slice(0,300))+'</span>';else if(a.kind==="final")s='<span class="muted">'+esc((a.text||"").slice(0,200))+'</span>';if(s)benchLog(s);}
+ else if(k==="task_done"){if(ev.passed)benchPassed++;updateBenchScore();benchLog((ev.passed?'<span style="color:var(--ok)">✓ bestanden</span>':'<span style="color:var(--danger)">✗ nicht bestanden (rc='+ev.rc+')</span>')+' — '+esc(ev.id));}
+ else if(k==="summary"){benchPassed=ev.passed;benchTotal=ev.total;updateBenchScore();benchLog('<div style="margin-top:8px"><b>Fertig: '+ev.passed+'/'+ev.total+' bestanden</b></div>');}
+ else if(k==="error")benchLog('<span style="color:var(--danger)">Fehler: '+esc(ev.text||"")+'</span>');}
 
 refreshStatus();loadCommand();
 /* ---- S6.4: EIN Poll-Scheduler statt zweier nackter setInterval ----

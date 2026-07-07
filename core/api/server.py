@@ -1698,6 +1698,45 @@ async def ws_chat(ws: WebSocket) -> None:
         pass
 
 
+@app.websocket("/ws/bench")
+async def ws_bench(ws: WebSocket) -> None:
+    """Coding-Benchmark live: startet die Suite in einem isolierten Worktree und streamt
+    Kiras Denk-/Werkzeug-Strom + je Aufgabe das Ergebnis + den Endstand ans Cockpit."""
+    from core.config import ROOT
+    from core.testkit import bench
+
+    await ws.accept()
+    try:
+        try:
+            msg = await ws.receive_text()
+            cfg = json.loads(msg) if (msg or "").strip().startswith("{") else {}
+        except Exception:  # noqa: BLE001
+            cfg = {}
+        suite = str(ROOT / (cfg.get("suite") or "tests/bench/suite.json"))
+        allow = bool(cfg.get("allow_llm", True))  # echtes Modell testen (Modell-Vergleich)
+        gen = bench.stream_suite(suite, allow_llm=allow)
+
+        def _next():
+            try:
+                return next(gen)
+            except StopIteration:
+                return None
+
+        while True:
+            ev = await anyio.to_thread.run_sync(_next)
+            if ev is None:
+                break
+            await ws.send_json(ev)
+        await ws.send_json({"kind": "done"})
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:  # noqa: BLE001
+        try:
+            await ws.send_json({"kind": "error", "text": str(e)[:300]})
+        except Exception:  # noqa: BLE001
+            pass
+
+
 @app.get("/", response_class=HTMLResponse)
 def index() -> str:
     # Sprüche-Katalog (eine Quelle) in die Seite injizieren -> kein Extra-Request, kein Drift.

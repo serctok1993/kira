@@ -319,7 +319,7 @@ VIEWS = r"""</head><body>
       <a data-g="geist" class="on">Geist</a><a data-g="gewissen">Gewissen</a><a data-g="automatik">Automatik</a><a data-g="technik">Technik</a><a data-g="zustand">Zustand &amp; Lernen</a>
     </div>
     <div class="seg" id="kira-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="playbooks">Playbooks</a><a data-s="models">⚙ Modelle</a><a data-s="steuer">🎛 Steuerpult</a><a data-s="keys">Zugaenge</a><a data-s="cockpit">Cockpit</a><a data-s="wall">🖥 Wallpaper</a><a data-s="checkliste">Checkliste</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a><a data-s="evolution">Evolution</a><a data-s="log">Protokoll</a>
+      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="playbooks">Playbooks</a><a data-s="models">⚙ Modelle</a><a data-s="bench">🏁 Benchmark</a><a data-s="steuer">🎛 Steuerpult</a><a data-s="keys">Zugaenge</a><a data-s="cockpit">Cockpit</a><a data-s="wall">🖥 Wallpaper</a><a data-s="checkliste">Checkliste</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a><a data-s="evolution">Evolution</a><a data-s="log">Protokoll</a>
     </div>
 
     <div class="subview" id="v-keys">
@@ -637,6 +637,26 @@ VIEWS = r"""</head><body>
     </div>
     <div id="evlog"></div>
     <div style="text-align:center;margin-top:12px"><button class="ghost" id="log-more">mehr laden ↓</button></div>
+  </div>
+
+  <div class="subview" id="v-bench">
+    <div class="card"><h3>🏁 Coding-Benchmark</h3>
+      <div class="muted">Lässt Kira die Aufgaben aus <code>tests/bench/suite.json</code> lösen — jede
+      in einem <b>isolierten Wegwerf-Arbeitsbaum</b> (kein echtes Repo, keine Live-DB, keine Mails).
+      Du siehst <b>live</b>, wie das aktuelle Modell denkt, wo es hakt, und den Punktestand. So
+      vergleichst Du Modelle: welches löst mehr, welches ist zuverlässiger.</div>
+      <div class="row" style="margin-top:10px;align-items:center;gap:12px;flex-wrap:wrap">
+        <button id="bench-start">▶ Benchmark starten</button>
+        <button id="bench-stop" class="ghost" style="display:none">■ Stopp</button>
+        <label class="muted" style="font-size:12px;display:inline-flex;align-items:center;gap:6px">
+          <input type="checkbox" id="bench-allow-llm" checked> echtes Modell (statt lokal)</label>
+        <span class="muted" id="bench-model" style="font-size:12px"></span>
+      </div>
+      <div id="bench-score" style="margin-top:12px;font-size:20px;font-weight:600"></div>
+    </div>
+    <div class="card"><h3>Live-Verlauf</h3>
+      <div id="bench-log" style="font-size:13px;max-height:60vh;overflow:auto"><div class="muted">Noch kein Lauf. Drück „Benchmark starten".</div></div>
+    </div>
   </div>
 
   <div class="subview" id="v-wall">

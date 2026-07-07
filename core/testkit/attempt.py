@@ -9,6 +9,15 @@ import json
 import sys
 
 
+def _emit(ev: dict) -> None:
+    """Ein Denk-/Werkzeug-Ereignis als @EV-Zeile an stdout streamen (der Runner leitet es live
+    ans Cockpit weiter). Best-effort — Serialisierungs-Fehler duerfen den Lauf nie abreissen."""
+    try:
+        print("@EV " + json.dumps(ev, ensure_ascii=False), flush=True)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def main() -> None:
     task = json.loads(sys.stdin.read() or "{}")
     # Sandbox-DB frisch anlegen (leere state.db im Worktree -> Tabellen erst erzeugen), sonst
@@ -21,10 +30,10 @@ def main() -> None:
     try:
         out = plan_and_execute(task.get("prompt", ""),
                                session_id="bench-" + str(task.get("id", "x")),
-                               code_review=True)
-        print(json.dumps({"text": (out or "")[:2000]}))
+                               code_review=True, on_event=_emit)
+        print("@RESULT " + json.dumps({"text": (out or "")[:2000]}), flush=True)
     except Exception as e:  # noqa: BLE001
-        print(json.dumps({"error": str(e)[:500]}))
+        print("@RESULT " + json.dumps({"error": str(e)[:500]}), flush=True)
 
 
 if __name__ == "__main__":
