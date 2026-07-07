@@ -1710,7 +1710,9 @@ def api_system() -> dict:
 
 
 _WALL_FILE = ROOT / "data" / "wall_settings.json"
-_WALL_KEYS = ("labels", "motion", "color", "pos", "size")
+# labels/motion/color/pos/size = Graph; stats = Liste sichtbarer Stat-Schluessel (Reihenfolge);
+# colors = Modus-Akzente {chat,work,coding} (Hex). Alles ueber den Desktop-Editor (Kira->Wallpaper) setzbar.
+_WALL_KEYS = ("labels", "motion", "color", "pos", "size", "stats", "colors")
 
 
 @app.get("/api/wall/settings")
