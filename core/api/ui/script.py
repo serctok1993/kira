@@ -1593,7 +1593,7 @@ function pollTick(){
    refreshStatus();
    if(cur==="kira"&&SUBTABS.kira.cur==="log"&&logRaw.length<=100)loadEvents();
    if(cur==="kira"&&SUBTABS.kira.cur==="gov")loadGov();
-   if(cur==="home"){loadHud();loadOps();loadNeeds();}
+   if(cur==="home"){loadHud();loadOps();}   /* 'Von Kira'-Panel lebt im Me-Tab (loadInbox); loadNeeds war toter Code -> ReferenceError */
    if(cur==="home"&&(_pollN%6===0))loadNews();  // News seltener (~alle 30s)
    _pollN++;
  }
