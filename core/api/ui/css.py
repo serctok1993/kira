@@ -73,16 +73,18 @@ body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Cod
 .think .h{color:var(--accent2);font-style:normal;cursor:pointer;user-select:none}
 .think .chev{display:inline-block;transition:transform .3s ease}
 .think.show .chev{transform:rotate(90deg)}
-#cform{display:flex;gap:10px;max-width:880px;margin:10px auto 0;width:100%;align-items:stretch}
-#cform>button{flex-shrink:0;min-height:46px;padding:0 24px}   /* Senden/Stop bleibt so hoch wie das Eingabefeld */
+#cform{display:flex;gap:10px;max-width:880px;margin:10px auto 0;width:100%;align-items:flex-end}
+#cform>button{flex-shrink:0;height:46px;padding:0 24px}   /* Senden/Stop bleibt unten buendig, waechst nicht mit */
 /* S11: unauffaelliges "+" links am Eingabefeld — Bild/Datei hochladen */
-.plus{flex-shrink:0;width:46px;align-self:stretch;border-radius:10px;border:1px solid var(--line);background:var(--panel);
+.plus{flex-shrink:0;width:46px;height:46px;align-self:flex-end;border-radius:10px;border:1px solid var(--line);background:var(--panel);
  color:var(--muted);font-size:22px;line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s}
 .plus:hover{border-color:var(--chat-accent);color:var(--chat-accent)}
 /* Stop-Zustand: Senden wird rot, solange eine Antwort laeuft */
 #sendbtn.stopping{background:var(--danger)!important;box-shadow:0 0 14px color-mix(in srgb,var(--danger) 45%,transparent)}
-#cin{flex:1;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);
- outline:none;font-family:inherit}
+/* mehrzeiliges Eingabefeld: waechst mit dem Text (bis max), dann vertikal scrollbar — kein Seit-Scrollen mehr */
+#cin{flex:1;padding:11px 12px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--ink);
+ outline:none;font:inherit;line-height:1.45;resize:none;overflow-y:auto;min-height:46px;max-height:200px;
+ white-space:pre-wrap;overflow-wrap:break-word}
 #cin:focus{border-color:var(--accent2)}
 button{padding:0 16px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-family:inherit;
  background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
@@ -270,7 +272,10 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
 .thinking{align-self:flex-start;display:flex;align-items:center;gap:9px;margin:2px 0;padding:7px 14px;
  font-size:13.5px;font-weight:500;border-radius:12px;
  background:linear-gradient(90deg,transparent,rgba(139,92,246,.08),transparent)}
-.thinking .sh{color:var(--accent);filter:drop-shadow(0 0 7px var(--accent));animation:spin 3.4s linear infinite}
+/* CSS-gezeichneter Ring-Spinner statt eines Glyphs (kein "Tofu"-Kaestchen, wenn ein Zeichen fehlt) */
+.thinking .sh{width:13px;height:13px;flex:none;box-sizing:border-box;border-radius:50%;
+ border:2px solid color-mix(in srgb,var(--accent) 26%,transparent);border-top-color:var(--accent);
+ filter:drop-shadow(0 0 6px color-mix(in srgb,var(--accent) 55%,transparent));animation:spin .8s linear infinite}
 /* Denk-Status im Neon-Rainbow-Fluss (wie Claude-Code "Cooking…") — die Farbe wandert durch den Text.
    Gilt fuer den Vor-Trace-Puls UND die Live-Ueberschrift des Denk-Traces (Thinking/Cooking/Clauding…). */
 .tx.live{background:linear-gradient(90deg,#b026ff,#ff2d95,#ff8a00,#39ff14,#00e5ff,#b026ff);
