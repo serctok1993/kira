@@ -691,6 +691,15 @@ VIEWS = r"""</head><body>
         <span class="muted" id="set-logo-hint" style="align-self:center"></span>
       </div>
     </div>
+    <div class="card"><h3>Desktop-Verknüpfung</h3>
+      <div class="muted">Legt ein <b>Kira-Icon auf deinen Desktop</b> (mit deinem Logo) — Doppelklick
+      startet die App — und richtet den <b>Autostart</b> ein. Danach das laufende Fenster per
+      <b>Rechtsklick → „An Taskleiste anheften"</b>. Ein Klick, kein Ordner. (Nur Windows.)</div>
+      <div class="row" style="margin-top:8px;align-items:center;gap:10px">
+        <button id="make-shortcut">🖥 Desktop-Icon erstellen</button>
+        <span class="muted" id="make-shortcut-hint" style="font-size:12px;align-self:center"></span>
+      </div>
+    </div>
     <div class="card"><h3>Kira-Avatar</h3>
       <div class="muted">Ihr Gesicht im Cockpit: gross in der Zentrale, klein an ihren Chat-Antworten.
       Erzeuge Bilder z.B. in <b>Higgsfield</b> und lade sie hier hoch (quadratisch wirkt am besten).</div>

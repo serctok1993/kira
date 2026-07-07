@@ -1572,6 +1572,12 @@ $("#set-logo")&&($("#set-logo").onchange=e=>{const f=e.target.files[0];if(!f)ret
  rd.readAsDataURL(f);e.target.value="";});
 $("#set-logo-clear")&&($("#set-logo-clear").onclick=async()=>{await fetch("/api/icon/clear",{method:"POST"});
  $("#set-logo-hint").textContent="✓ entfernt";const b=$("#brand");if(b){const im=b.querySelector("img");if(im)im.remove();}const p=$("#logo-prev");if(p)p.style.visibility="hidden";});
+/* Ein-Klick: Desktop-Verknuepfung 'Kira' + Autostart anlegen (nur Windows; ruft desktop-setup.ps1) */
+$("#make-shortcut")&&($("#make-shortcut").onclick=async()=>{
+ $("#make-shortcut-hint").textContent="… lege an";
+ try{const r=await (await fetch("/api/desktop/shortcut",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();
+  $("#make-shortcut-hint").textContent=r.ok?"✓ Desktop-Icon angelegt — jetzt das Fenster per Rechtsklick an die Taskleiste anheften":("Fehler: "+(r.error||"?"));}
+ catch(e){$("#make-shortcut-hint").textContent="Fehler beim Anlegen";}});
 
 refreshStatus();loadCommand();
 /* ---- S6.4: EIN Poll-Scheduler statt zweier nackter setInterval ----
