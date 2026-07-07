@@ -25,6 +25,7 @@ def _spent_since(ts_start: float) -> float:
     Spend wurde still zu NIEDRIG gezaehlt — die Budget-Bremse griff zu spaet."""
     try:
         with sqlite3.connect(DB_PATH) as c:
+            c.execute("PRAGMA busy_timeout=5000")  # Budget-Lesung nie an Schreib-Lock scheitern
             row = c.execute(
                 "SELECT "
                 " COALESCE(SUM(CASE WHEN type='llm_call' "
