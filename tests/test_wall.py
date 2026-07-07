@@ -36,7 +36,7 @@ def test_graph_liest_notizen_und_wikilinks(tmp_path):
 
 def test_graph_leerer_ordner_raist_nicht(tmp_path):
     g = vault_graph.build_graph([tmp_path / "nix"])
-    assert g == {"nodes": [], "links": [], "counts": {"notes": 0, "links": 0}}
+    assert g["nodes"] == [] and g["links"] == [] and g["counts"] == {"notes": 0, "links": 0}
 
 
 # ---- Endpoint + Seite ---------------------------------------------------------------
@@ -48,6 +48,13 @@ def test_api_vault_graph_liefert_struktur():
     d = r.json()
     assert "nodes" in d and "links" in d and "counts" in d
     assert isinstance(d["nodes"], list) and isinstance(d["links"], list)
+    assert "vault" in d          # Vault-Name (fuer obsidian://open) — kann None sein
+
+
+def test_api_icon_404_ohne_datei():
+    c = TestClient(app)
+    r = c.get("/api/icon")
+    assert r.status_code in (200, 404)   # 404 wenn kein data/kira-icon.* liegt
 
 
 def test_wall_seite_wird_ausgeliefert():
@@ -79,9 +86,12 @@ def test_wall_seite_wird_ausgeliefert():
     assert 'id="w-pos"' in body and 'id="w-size"' in body
     # Wall v6: Einstellungen serverseitig (Lively-WebView teilt keinen localStorage) + Graph vorab gesetzt
     assert "/api/wall/settings" in body and "function pollWall(" in body and "loadWallServer(" in body
-    assert "for(let k=0;k<200;k++)sim()" in body                # vorab fertig gerechnet -> kein Zappeln
+    assert "for(let k=0;k<350;k++)sim()" in body                # vorab fertig gerechnet -> kein Zappeln
     # Node-Dragging (Obsidian-Gefuehl): anfassen -> der Rest folgt ueber die Federn
     assert "function setupDrag(" in body and "function nodeAt(" in body and "n.fx" in body
+    # Node-Klick oeffnet die Notiz in Obsidian; App-Logo als Favicon
+    assert "function openObs(" in body and "obsidian://open?vault=" in body
+    assert 'rel="icon" href="/api/icon"' in body
     # PHRASES wurden injiziert (Platzhalter ist ersetzt)
     assert "/*__PHRASES__*/" not in body
 

@@ -72,6 +72,19 @@ den Icons). Sag Bescheid; Windows-only, Abnahme auf deinem PC.
 
 ---
 
+## App-Logo
+
+Leg dein Logo als **`data/kira-icon.png`** ab (im Kira-Ordner). Es wird dann als **Tray-Symbol**
+der Desktop-App und als **Browser-Tab-Favicon** von `/wall` genutzt. `data/` ist gitignored →
+dein Bild bleibt lokal.
+
+## Node-Klick → Notiz in Obsidian
+
+Wenn du `/wall` in einem **Browser-Tab** offen hast: **kurz auf einen Knoten klicken** öffnet die
+Notiz direkt in Obsidian (`obsidian://open`). **Ziehen** verschiebt den Knoten (der Rest folgt).
+Voraussetzung: `desktop.vault_paths` in `config.yaml` zeigt auf deinen Obsidian-Vault (der Ordnername
+ist der Vault-Name).
+
 ## Farben / Optik anpassen
 
 Alle Farben der `/wall`-Seite sind CSS-Variablen und **übernehmen deine Cockpit-Anpassung**

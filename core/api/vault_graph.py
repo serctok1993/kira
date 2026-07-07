@@ -45,6 +45,19 @@ def _default_roots() -> list[Path]:
     return roots
 
 
+def obsidian_vault_name() -> str | None:
+    """Name des Obsidian-Vaults (fuer obsidian://open-Links) — der Ordnername des ersten
+    konfigurierten desktop.vault_paths, z.B. 'Kira-Brain'."""
+    try:
+        from core.config import CONFIG
+        for p in (CONFIG.get("desktop") or {}).get("vault_paths") or []:
+            if p:
+                return Path(str(p)).name
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
 def build_graph(roots: list[Path] | None = None) -> dict:
     """Scannt die Vault-Ordner, baut {nodes, links, counts}.
 
@@ -98,4 +111,5 @@ def build_graph(roots: list[Path] | None = None) -> dict:
         "nodes": list(nodes.values()),
         "links": links,
         "counts": {"notes": note_count, "links": len(links)},
+        "vault": obsidian_vault_name(),   # fuer obsidian://open beim Node-Klick
     }
