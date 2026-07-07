@@ -1559,6 +1559,19 @@ $("#set-avatar")&&($("#set-avatar").onchange=e=>{const f=e.target.files[0];if(!f
  rd.readAsDataURL(f);e.target.value="";});
 $("#set-avatar-clear")&&($("#set-avatar-clear").onclick=async()=>{await fetch("/api/avatar/clear",{method:"POST"});
  hasAvatar=false;const hv=$("#hero-av");if(hv)hv.style.display="none";$("#set-avatar-hint").textContent="✓ entfernt";});
+/* App-Logo (Cockpit-Kopf + /wall-Favicon + Desktop-Tray) direkt hier hochladen — kein Datei-Geschiebe */
+function refreshLogo(){const t=Date.now();
+ const p=$("#logo-prev");if(p){p.style.visibility="";p.src="/api/icon?t="+t;}
+ const b=$("#brand");if(b){let im=b.querySelector("img");if(!im){im=document.createElement("img");b.insertBefore(im,b.firstChild);}im.onerror=()=>im.remove();im.src="/api/icon?t="+t;}
+ const fav=document.querySelector('link[rel="icon"]');if(fav)fav.href="/api/icon?t="+t;}
+$("#set-logo")&&($("#set-logo").onchange=e=>{const f=e.target.files[0];if(!f)return;
+ const rd=new FileReader();rd.onload=async()=>{
+  const r=await (await fetch("/api/icon/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dataurl:rd.result})})).json();
+  $("#set-logo-hint").textContent=r.ok?"✓ Logo gesetzt (Desktop-App: nach Neustart)":("Fehler: "+(r.error||"?"));
+  if(r.ok)refreshLogo();};
+ rd.readAsDataURL(f);e.target.value="";});
+$("#set-logo-clear")&&($("#set-logo-clear").onclick=async()=>{await fetch("/api/icon/clear",{method:"POST"});
+ $("#set-logo-hint").textContent="✓ entfernt";const b=$("#brand");if(b){const im=b.querySelector("img");if(im)im.remove();}const p=$("#logo-prev");if(p)p.style.visibility="hidden";});
 
 refreshStatus();loadCommand();
 /* ---- S6.4: EIN Poll-Scheduler statt zweier nackter setInterval ----

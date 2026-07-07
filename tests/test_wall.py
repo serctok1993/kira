@@ -57,6 +57,24 @@ def test_api_icon_404_ohne_datei():
     assert r.status_code in (200, 404)   # 404 wenn kein data/kira-icon.* liegt
 
 
+def test_api_icon_upload_roundtrip(tmp_path, monkeypatch):
+    # App-Logo bequem aus dem Cockpit hochladen -> data/kira-icon.<ext>, sofort ueber /api/icon da
+    import core.api.server as srv
+    monkeypatch.setattr(srv, "ROOT", tmp_path)
+    c = TestClient(app)
+    png = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwC"
+           "AAAAC0lEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+    r = c.post("/api/icon/upload", json={"dataurl": png}).json()
+    assert r["ok"] is True and r["ext"] == "png"
+    assert (tmp_path / "data" / "kira-icon.png").exists()
+    assert c.get("/api/icon").status_code == 200
+    # unsinniges Format wird abgelehnt (kein Crash)
+    assert c.post("/api/icon/upload", json={"dataurl": "nope"}).json()["ok"] is False
+    # entfernen -> wieder 404
+    c.post("/api/icon/clear", json={})
+    assert c.get("/api/icon").status_code == 404
+
+
 def test_wall_seite_wird_ausgeliefert():
     c = TestClient(app)
     r = c.get("/wall")

@@ -68,14 +68,13 @@ def request_restart() -> None:
     RESTART_FLAG.write_text("all", encoding="utf-8")
 
 
-def _icon_path():
-    """Pfad zum App-Logo als Datei (fuer das Fenster-/Taskleisten-Symbol). .ico bevorzugt
-    (Windows-Taskleiste mag das Format am liebsten), sonst PNG etc. None, wenn keins liegt."""
-    for ext in ("ico", "png", "jpg", "jpeg", "webp"):
-        p = ROOT / "data" / f"kira-icon.{ext}"
-        if p.exists():
-            return str(p)
-    return None
+def _window_icon():
+    """Fenster-/Taskleisten-Symbol fuer pywebview: NUR .ico. Windows/EdgeChromium akzeptiert als
+    Fenster-Icon ausschliesslich das ICO-Format — ein .png/.jpg hier laesst die App beim Start
+    crashen. Fehlt ein .ico (z.B. weil kira-einrichten.bat noch nicht lief), geben wir None zurueck
+    und starten ohne Icon. Das Tray-Symbol (Pillow) und das /wall-Favicon nutzen weiter JEDES Format."""
+    p = ROOT / "data" / "kira-icon.ico"
+    return str(p) if p.exists() else None
 
 
 def _load_icon():
@@ -151,12 +150,16 @@ def run() -> None:
     window = webview.create_window("Kira · Cockpit", cockpit_url(),
                                    width=1280, height=860, min_size=(900, 600))
     _start_tray(window)
-    # Fenster-/Taskleisten-Symbol = unser Logo (data/kira-icon.*). Aeltere pywebview-Versionen
-    # kennen den icon-Parameter nicht -> dann ohne starten (App laeuft trotzdem).
-    icon = _icon_path()
+    # Fenster-/Taskleisten-Symbol = data/kira-icon.ico (nur ICO, s. _window_icon). Fehlt es oder
+    # mag die pywebview-Version den icon-Parameter nicht -> IMMER ohne Icon weiterstarten, damit die
+    # App auf keinen Fall am Symbol scheitert.
+    icon = _window_icon()
+    if not icon:
+        webview.start()
+        return
     try:
-        webview.start(icon=icon) if icon else webview.start()
-    except TypeError:
+        webview.start(icon=icon)
+    except Exception:  # noqa: BLE001 — alte pywebview / Icon-Problem -> ohne Icon starten
         webview.start()
 
 
