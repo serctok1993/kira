@@ -1560,9 +1560,10 @@ $("#set-avatar")&&($("#set-avatar").onchange=e=>{const f=e.target.files[0];if(!f
 $("#set-avatar-clear")&&($("#set-avatar-clear").onclick=async()=>{await fetch("/api/avatar/clear",{method:"POST"});
  hasAvatar=false;const hv=$("#hero-av");if(hv)hv.style.display="none";$("#set-avatar-hint").textContent="✓ entfernt";});
 /* App-Logo (Cockpit-Kopf + /wall-Favicon + Desktop-Tray) direkt hier hochladen — kein Datei-Geschiebe */
+/* Logo = NUR Fenster-/Taskleisten-/Desktop-Symbol + /wall-Favicon (nicht mehr der Cockpit-Kopf,
+   der bleibt der Neon-„KIRA"-Schriftzug). Hier nur die Vorschau + das Browser-Tab-Favicon frischen. */
 function refreshLogo(){const t=Date.now();
  const p=$("#logo-prev");if(p){p.style.visibility="";p.src="/api/icon?t="+t;}
- const b=$("#brand");if(b){let im=b.querySelector("img");if(!im){im=document.createElement("img");b.insertBefore(im,b.firstChild);}im.onerror=()=>im.remove();im.src="/api/icon?t="+t;}
  const fav=document.querySelector('link[rel="icon"]');if(fav)fav.href="/api/icon?t="+t;}
 $("#set-logo")&&($("#set-logo").onchange=e=>{const f=e.target.files[0];if(!f)return;
  const rd=new FileReader();rd.onload=async()=>{
@@ -1571,7 +1572,7 @@ $("#set-logo")&&($("#set-logo").onchange=e=>{const f=e.target.files[0];if(!f)ret
   if(r.ok)refreshLogo();};
  rd.readAsDataURL(f);e.target.value="";});
 $("#set-logo-clear")&&($("#set-logo-clear").onclick=async()=>{await fetch("/api/icon/clear",{method:"POST"});
- $("#set-logo-hint").textContent="✓ entfernt";const b=$("#brand");if(b){const im=b.querySelector("img");if(im)im.remove();}const p=$("#logo-prev");if(p)p.style.visibility="hidden";});
+ $("#set-logo-hint").textContent="✓ entfernt";const p=$("#logo-prev");if(p)p.style.visibility="hidden";});
 /* Ein-Klick: Desktop-Verknuepfung 'Kira' + Autostart anlegen (nur Windows; ruft desktop-setup.ps1) */
 $("#make-shortcut")&&($("#make-shortcut").onclick=async()=>{
  $("#make-shortcut-hint").textContent="… lege an";
