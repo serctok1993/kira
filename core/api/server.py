@@ -1742,9 +1742,18 @@ async def ws_bench(ws: WebSocket) -> None:
             cfg = json.loads(msg) if (msg or "").strip().startswith("{") else {}
         except Exception:  # noqa: BLE001
             cfg = {}
-        suite = str(ROOT / (cfg.get("suite") or "tests/bench/suite.json"))
-        allow = bool(cfg.get("allow_llm", True))  # echtes Modell testen (Modell-Vergleich)
-        gen = bench.stream_suite(suite, allow_llm=allow)
+        if (cfg.get("suite") or "") == "humaneval":
+            # Internationaler Standard (pass@1, vergleichbar mit publizierten Scores) —
+            # misst das MODELL direkt, Rolle waehlbar (reason/bulk/chat/classify).
+            from core.testkit import humaneval
+
+            gen = humaneval.stream_humaneval(
+                limit=max(1, min(int(cfg.get("limit") or 20), 164)),
+                role=str(cfg.get("role") or "reason"))
+        else:
+            suite = str(ROOT / (cfg.get("suite") or "tests/bench/suite.json"))
+            allow = bool(cfg.get("allow_llm", True))  # echtes Modell testen (Modell-Vergleich)
+            gen = bench.stream_suite(suite, allow_llm=allow)
 
         def _next():
             try:
