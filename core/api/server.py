@@ -897,6 +897,7 @@ async def api_ventures_add(body: dict) -> dict:
         ms = None
     vid = ventures.add(name, hypothesis=body.get("hypothesis") or "",
                        milestone_eur=ms, notes=body.get("notes") or None)
+    ventures.ensure_vault_leaf(name, vid)  # neues Business -> Stammbaum-Ast automatisch anlegen
     return {"ok": True, "id": vid}
 
 

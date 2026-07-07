@@ -23,7 +23,13 @@ def venture_add(name: str, hypothesis: str = "", milestone_eur: str = "") -> str
     except ValueError:
         ms = None
     vid = ventures.add(name, hypothesis=hypothesis, milestone_eur=ms)
-    return f"Venture angelegt: {name} (id {vid[:8]}, Status idea" + (f", Meilenstein {ms:.0f} EUR" if ms else "") + ")"
+    leaf = ventures.ensure_vault_leaf(name, vid)  # idempotent — Ast wurde in add() schon angelegt
+    zusatz = ""
+    if leaf.get("created"):
+        zusatz = (f". Stammbaum-Ast angelegt: gedaechtnis/stammbaum/business/{ventures._slug(name)}.md "
+                  "(??? -Felder fuellt die taegliche Logbuch-Frage; frag bei Bedarf gezielt nach)")
+    return (f"Venture angelegt: {name} (id {vid[:8]}, Status idea"
+            + (f", Meilenstein {ms:.0f} EUR" if ms else "") + ")" + zusatz)
 
 
 @tool("venture_list",

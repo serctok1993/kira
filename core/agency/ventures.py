@@ -26,6 +26,7 @@ STATUSES = ("idea", "building", "live", "scaling", "paused", "dead")
 def _conn() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")  # Nebenlaeufigkeit: bis 5s warten statt sofort locken
     return conn
 
 
@@ -63,6 +64,47 @@ def init_ventures() -> None:
         # UNIQUE nur fuer gesetzte refs: erlaubt beliebig viele manuelle Buchungen (ref NULL),
         # verhindert aber doppelte Sync-Buchungen derselben externen Zahlung.
         c.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_vledger_ref ON venture_ledger(ref) WHERE ref IS NOT NULL")
+
+
+def _slug(name: str) -> str:
+    """Dateiname-tauglicher Slug aus einem Projektnamen (Umlaute -> ascii)."""
+    import re
+    s = (name or "").strip().lower()
+    for a, b in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        s = s.replace(a, b)
+    s = re.sub(r"[^a-z0-9]+", "-", s).strip("-")
+    return s or "projekt"
+
+
+def ensure_vault_leaf(name: str, vid: str = "") -> dict:
+    """Legt fuer ein Business automatisch das Stammbaum-Blatt aus _VORLAGE.md an.
+
+    Wird von den ABSICHTLICHEN Anlege-Pfaden gerufen (Chat-Tool venture_add + Cockpit-API),
+    NICHT vom rohen ventures.add() — so bekommt jedes echte Projekt seine Obsidian-Struktur mit
+    ???-Feldern (die die taegliche Logbuch-Frage fuellt), waehrend spekulative Radar-/Stripe-
+    Ventures keinen Ast erzeugen. Idempotent (ueberschreibt nie ein bestehendes Blatt) und
+    fail-soft (darf die Anlage nie brechen)."""
+    try:
+        from core.config import ROOT
+        from core.kernel.fs import atomic_write
+
+        base = ROOT / "gedaechtnis" / "stammbaum" / "business"
+        vorlage = base / "_VORLAGE.md"
+        leaf = base / f"{_slug(name)}.md"
+        if leaf.exists():
+            return {"created": False, "path": str(leaf), "reason": "exists"}
+        if not vorlage.exists():
+            return {"created": False, "reason": "no_template"}
+        text = vorlage.read_text(encoding="utf-8").replace("# PROJEKTNAME", f"# {name.strip()}", 1)
+        if vid:
+            text = text.replace("venture-id (falls angelegt): ???",
+                                f"venture-id (falls angelegt): {vid}", 1)
+        atomic_write(leaf, text)
+        events.emit("stammbaum_leaf_created", {"name": name.strip(), "path": str(leaf), "vid": vid})
+        return {"created": True, "path": str(leaf)}
+    except Exception as e:  # noqa: BLE001 — Vault-Anlage darf die Venture-Anlage nie brechen
+        events.emit("stammbaum_leaf_error", {"error": str(e)[:200]})
+        return {"created": False, "error": str(e)[:200]}
 
 
 def add(name: str, hypothesis: str = "", milestone_eur: float | None = None,

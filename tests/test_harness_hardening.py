@@ -17,14 +17,20 @@ def _tmp_events(monkeypatch, tmp_path):
 
 # ---- DB busy_timeout auf den heissen Verbindungen -------------------------------------
 
-def test_busy_timeout_gesetzt(monkeypatch, tmp_path):
+def test_busy_timeout_auf_allen_verbindungen(monkeypatch, tmp_path):
+    """Alle _conn-Helfer warten unter Nebenlaeufigkeit bis 5s statt sofort zu locken —
+    so kollidieren Heartbeat + Chat nirgends mehr an der SQLite-Schreibsperre."""
     from core.kernel import events
+    from core.mind import knowledge
     from core.mind.memory import store
-    from core.agency.missions import queue
+    from core.agency import ventures, outcomes, radar, approvals, insights
+    from core.agency.missions import queue, metrics, objectives
     db = str(tmp_path / "state.db")
-    for mod in (events, store, queue):
+    mods = (events, store, queue, knowledge, ventures, outcomes, radar,
+            approvals, insights, metrics, objectives)
+    for mod in mods:
         monkeypatch.setattr(mod, "DB_PATH", db)
-    for mod in (events, store, queue):
+    for mod in mods:
         c = mod._conn()
         try:
             assert c.execute("PRAGMA busy_timeout").fetchone()[0] == 5000, mod.__name__
