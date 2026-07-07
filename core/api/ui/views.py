@@ -16,7 +16,7 @@ sitzt als Icon+Popover in der Topbar (nicht mehr in der Nav). Panel-IDs sind sta
 
 VIEWS = r"""</head><body>
 <div id="side">
-  <h1 id="brand"><img src="/api/icon" alt="Kira" onerror="this.remove()"/><span class="txt">KIRA</span></h1>
+  <h1 id="brand"><span class="txt">KIRA</span></h1>
   <a data-v="home" class="on" title="Kommandostand: Status, Befehl, Live-Ops, Digest"><i class="ti">◈</i> Zentrale</a>
   <a data-v="chat" title="Mit mir reden"><i class="ti">›</i> Chat</a>
   <a data-v="projekte" title="Projekte, Ziele, Radar-Chancen"><i class="ti">◈</i> Projekte</a>
@@ -679,10 +679,10 @@ VIEWS = r"""</head><body>
   </div>
   <div class="subview" id="v-cockpit">
     <div class="card"><h3>App-Logo</h3>
-      <div class="muted">Dein Kira-Logo — erscheint <b>oben links im Cockpit</b>, als <b>Browser-Tab-Symbol</b>
-      von /wall und (nach einem App-Neustart) als <b>Fenster-Symbol</b> (Titelleiste oben links) und
-      <b>Taskleisten-Symbol</b> der Desktop-App. Einfach hier hochladen — es wird automatisch auch ins
-      Windows-Icon-Format (.ico) umgewandelt, kein Datei-Geschiebe nötig.</div>
+      <div class="muted">Dein Kira-Logo — genutzt als <b>Browser-Tab-Symbol</b> von /wall und (nach einem
+      App-Neustart) als <b>Fenster-Symbol</b> (Titelleiste oben links) und <b>Taskleisten-Symbol</b> der
+      Desktop-App. <i>Nicht</i> im Cockpit-Kopf (der bleibt der „KIRA"-Schriftzug). Einfach hier hochladen —
+      es wird automatisch ins Windows-Icon-Format (.ico) umgewandelt, kein Datei-Geschiebe nötig.</div>
       <div class="row" style="margin-top:8px;align-items:center;gap:12px">
         <img id="logo-prev" src="/api/icon" alt="" onerror="this.style.visibility='hidden'"
           style="width:46px;height:46px;border-radius:10px;object-fit:cover;border:1px solid var(--line)"/>

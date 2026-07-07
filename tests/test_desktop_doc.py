@@ -44,10 +44,12 @@ def test_desktop_setup_helfer_vorhanden():
     assert "kira-einrichten.bat" in doc
 
 
-def test_cockpit_kopf_nutzt_app_logo():
-    # Der Kopf oben links zeigt das App-Logo (/api/icon); fehlt es, faellt onerror auf "KIRA" zurueck
+def test_cockpit_kopf_ist_wortmarke_nicht_logo():
+    # Sergen wollte das Logo NICHT im Cockpit-Kopf: der Kopf zeigt den „KIRA"-Schriftzug,
+    # kein /api/icon-Bild. Das Logo bleibt fuer Fenster-/Taskleisten-Symbol + /wall-Favicon.
     from core.api.ui.views import VIEWS
-    from core.api.ui.css import HEAD_AND_CSS
-    assert 'id="brand"' in VIEWS and 'src="/api/icon"' in VIEWS and "onerror=" in VIEWS
-    assert 'class="txt">KIRA<' in VIEWS                    # Text-Fallback bleibt erhalten
-    assert "#side h1:has(img) .txt{display:none}" in HEAD_AND_CSS
+    from core.api.ui.script import SCRIPT
+    assert '<h1 id="brand"><span class="txt">KIRA</span></h1>' in VIEWS   # nur Wortmarke im Kopf
+    assert 'id="brand"><img' not in VIEWS                                # kein Logo-Bild im Kopf
+    # refreshLogo frischt nur Vorschau + Favicon, injiziert NICHTS mehr in den Kopf (#brand)
+    assert "function refreshLogo(" in SCRIPT and "b.insertBefore(im" not in SCRIPT
