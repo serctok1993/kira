@@ -314,7 +314,7 @@ VIEWS = r"""</head><body>
       <a data-g="geist" class="on">Geist</a><a data-g="gewissen">Gewissen</a><a data-g="automatik">Automatik</a><a data-g="technik">Technik</a><a data-g="zustand">Zustand &amp; Lernen</a>
     </div>
     <div class="seg" id="kira-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="playbooks">Playbooks</a><a data-s="models">⚙ Modelle</a><a data-s="steuer">🎛 Steuerpult</a><a data-s="keys">Zugaenge</a><a data-s="cockpit">Cockpit</a><a data-s="checkliste">Checkliste</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a><a data-s="evolution">Evolution</a><a data-s="log">Protokoll</a>
+      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="playbooks">Playbooks</a><a data-s="models">⚙ Modelle</a><a data-s="steuer">🎛 Steuerpult</a><a data-s="keys">Zugaenge</a><a data-s="cockpit">Cockpit</a><a data-s="wall">🖥 Wallpaper</a><a data-s="checkliste">Checkliste</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a><a data-s="evolution">Evolution</a><a data-s="log">Protokoll</a>
     </div>
 
     <div class="subview" id="v-keys">
@@ -634,6 +634,49 @@ VIEWS = r"""</head><body>
     <div style="text-align:center;margin-top:12px"><button class="ghost" id="log-more">mehr laden ↓</button></div>
   </div>
 
+  <div class="subview" id="v-wall">
+    <div class="card"><h3>🖥 Wallpaper-Editor</h3>
+      <div class="muted">Stellt die Desktop-Seite <b>/wall</b> (Lively-Wallpaper) live ein: welche Stats oben
+      erscheinen, Bewegung/Worte, Farbe, Position, Größe und die Modus-Farben. Wird serverseitig
+      gespeichert — das Wallpaper zieht in ~3&nbsp;s nach.</div>
+      <div class="row" style="margin-top:12px;gap:18px;flex-wrap:wrap;align-items:flex-start">
+        <div style="flex:1;min-width:320px">
+          <div class="muted" style="font-size:11px;letter-spacing:1px;margin-bottom:4px">LIVE-VORSCHAU</div>
+          <div style="position:relative;width:100%;padding-top:56.25%;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#000">
+            <iframe id="wp-prev" src="/wall" title="Wallpaper-Vorschau"
+              style="position:absolute;top:0;left:0;width:200%;height:200%;transform:scale(.5);transform-origin:top left;border:0"></iframe>
+          </div>
+          <button class="ghost" id="wp-open" style="margin-top:6px">↗ /wall in neuem Tab öffnen</button>
+        </div>
+        <div style="flex:1;min-width:280px;display:flex;flex-direction:column;gap:12px">
+          <div>
+            <div class="muted" style="font-size:11px;letter-spacing:1px;margin-bottom:6px">STATS OBEN (anhaken = sichtbar)</div>
+            <div id="wp-stats" class="row" style="flex-wrap:wrap;gap:6px 14px"></div>
+          </div>
+          <div class="row" style="flex-wrap:wrap;gap:10px 18px;align-items:center">
+            <label class="muted" style="cursor:pointer"><input type="checkbox" id="wp-labels"/> Worte (Labels)</label>
+            <label class="muted" style="cursor:pointer"><input type="checkbox" id="wp-motion"/> Bewegung</label>
+            <label class="muted">Farbe <select id="wp-color"><option value="vault">Vault</option><option value="modus">Modus</option><option value="mono">Mono</option></select></label>
+            <label class="muted">Position <select id="wp-pos"><option value="links">Links</option><option value="mitte">Mitte</option><option value="rechts">Rechts</option></select></label>
+            <label class="muted">Größe <select id="wp-size"><option value="klein">Klein</option><option value="mittel">Mittel</option><option value="gross">Groß</option><option value="riesig">Riesig</option></select></label>
+          </div>
+          <div>
+            <div class="muted" style="font-size:11px;letter-spacing:1px;margin-bottom:6px">MODUS-FARBEN</div>
+            <div class="row" style="gap:16px;flex-wrap:wrap;align-items:center">
+              <label class="muted" style="display:inline-flex;align-items:center;gap:6px">Chat <input type="color" id="wp-c-chat" value="#b026ff"/></label>
+              <label class="muted" style="display:inline-flex;align-items:center;gap:6px">Work <input type="color" id="wp-c-work" value="#39ff14"/></label>
+              <label class="muted" style="display:inline-flex;align-items:center;gap:6px">Coding <input type="color" id="wp-c-coding" value="#00e5ff"/></label>
+            </div>
+          </div>
+          <div class="row" style="gap:8px;align-items:center">
+            <button id="wp-save">Speichern</button>
+            <button class="ghost" id="wp-reset">Standard</button>
+            <span class="muted" id="wp-status" style="font-size:12px"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   <div class="subview" id="v-cockpit">
     <div class="card"><h3>Kira-Avatar</h3>
       <div class="muted">Ihr Gesicht im Cockpit: gross in der Zentrale, klein an ihren Chat-Antworten.
