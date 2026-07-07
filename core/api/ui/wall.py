@@ -31,8 +31,8 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   /* wechselbares Hintergrundbild (aus dem Cockpit gesetzt, /api/bg) — LED-Rand liegt drueber */
   #bg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.9}
   #graph{position:fixed;inset:0;width:100%;height:100%;z-index:1;opacity:.55;
-    -webkit-mask:radial-gradient(58% 56% at 50% 45%,#000 30%,transparent 82%);
-    mask:radial-gradient(58% 56% at 50% 45%,#000 30%,transparent 82%)}
+    -webkit-mask:radial-gradient(66% 50% at 50% 45%,#000 34%,transparent 86%);
+    mask:radial-gradient(66% 50% at 50% 45%,#000 34%,transparent 86%)}
   /* LED-Bildschirmrand, faerbt mit dem Modus */
   .edge{position:fixed;inset:0;z-index:40;pointer-events:none;
     box-shadow:inset 0 0 2px var(--accent),inset 0 0 26px color-mix(in srgb,var(--accent) 42%,transparent),
@@ -202,13 +202,13 @@ async function loadStats(){
 function esc(s){return (s==null?"":""+s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
 
 /* ---- Live-Vault-Graph ---- */
-let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches,settle=0,drag=null,graphVault=null,dragStart=null,dragMoved=false;
+let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches,settle=0,drag=null,graphVault=null,dragStart=null,dragMoved=false,GX={},lastFloat=0;
 /* Wallpaper-Einstellungen (Zahnrad) — leben im localStorage, das offene Wallpaper hoert per
    'storage'-Event mit -> aendere sie in einem Browser-Tab, der Desktop uebernimmt live. */
 const MODE_RGB={chat:"176,38,255",work:"57,255,20",coding:"0,229,255"};
 const POSX={links:0.32,mitte:0.5,rechts:0.68},SIZ={klein:0.72,mittel:1,gross:2.6,riesig:3.6};
 let curG=null;   // zuletzt geladener Graph (fuer Re-Layout bei Groesse/Position)
-let WALL={labels:true,motion:false,color:"vault",pos:"mitte",size:"mittel"};   // Bewegung AUS = ruhig + spart CPU
+let WALL={labels:true,motion:true,color:"vault",pos:"mitte",size:"mittel"};   // Bewegung AN = sanftes Schweben (guenstig), abschaltbar = Standbild
 function loadWall(){try{Object.assign(WALL,JSON.parse(localStorage.getItem("kira_wall")||"{}"));}catch(e){}}
 async function loadWallServer(){try{const s=await (await fetch("/api/wall/settings")).json();if(s&&typeof s==="object")Object.assign(WALL,s);}catch(e){}}
 function saveWall(){try{localStorage.setItem("kira_wall",JSON.stringify(WALL));}catch(e){}
@@ -221,26 +221,35 @@ async function pollWall(){try{const raw=await (await fetch("/api/wall/settings")
 function nodeColor(n){return WALL.color==="modus"?(MODE_RGB[mode]||"176,38,255"):WALL.color==="mono"?"233,228,244":n.g0;}
 function sz(){W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
 const CX=()=>W*(POSX[WALL.pos]||0.5), CY=()=>H*0.46, SCALE=()=>SIZ[WALL.size]||1;
+function setHomes(){for(const n of ns){n.hx=n.x;n.hy=n.y;if(n.ph==null){n.ph=Math.random()*6.283;n.sp=0.5+Math.random()*0.7;}}}
 function layout(g){
   curG=g;const by={},sc=SCALE();settle=0;
-  ns=(g.nodes||[]).slice(0,120).map((n,i)=>{const a=i*2.399,rr=(36+Math.random()*Math.min(W,H)*0.2)*sc;
-    const o={id:n.id,g0:n.color||"176,38,255",x:CX()+Math.cos(a)*rr,y:CY()+Math.sin(a)*rr,vx:0,vy:0,deg:0};by[n.id]=o;return o;});
+  const raw=(g.nodes||[]).slice(0,120);
+  // Gruppen (Ordner/Bereich) auf Baender ueber die Breite verteilen -> sichtbare Ordnung + Querformat.
+  // Position verschiebt das ganze Feld (links/mitte/rechts), Groesse spreizt die Baender.
+  const groups=[...new Set(raw.map(n=>n.group||"·"))],gN=groups.length||1,base=POSX[WALL.pos]||0.5;
+  const span=Math.min(0.7,0.16+0.12*gN);GX={};
+  groups.forEach((gp,k)=>{GX[gp]=base+((gN===1)?0:((k/(gN-1))-0.5)*span);});
+  ns=raw.map((n,i)=>{const a=i*2.399,rr=(30+Math.random()*Math.min(W,H)*0.18)*sc,gx=GX[n.group||"·"]||base;
+    const o={id:n.id,g0:n.color||"176,38,255",grp:(n.group||"·"),gx:gx,
+      x:W*gx+Math.cos(a)*rr,y:CY()+Math.sin(a)*rr*0.7,vx:0,vy:0,deg:0};by[n.id]=o;return o;});
   ls=(g.links||[]).map(l=>[by[l.source],by[l.target]]).filter(p=>p[0]&&p[1]);
   ls.forEach(([a,b])=>{a.deg++;b.deg++;});
   ns.forEach(n=>{n.r=(2.3+Math.min(6.5,n.deg*0.8))*Math.sqrt(sc);});   // groesserer Knoten = mehr Verbindungen
   // vorab fertig rechnen -> der Graph erscheint direkt gesetzt & sauber verteilt (kein Zappeln)
   if(!reduce){for(let k=0;k<350;k++)sim();}
-  settle=999;   // gilt als gesetzt: der Loop rendert 1x und friert ein (ausser "Bewegung" ist an)
+  setHomes();settle=999;   // Ruhelage merken; gilt als gesetzt (Loop schwebt sanft oder friert ein)
 }
-function sim(){   // force-directed, ruhig getaktet: Repulsion + Federn + sanfte Zentrierung, starke Daempfung
-  const cx=CX(),cy=CY(),sc=SCALE(),REP=620*sc,LEN=66*sc,K=0.011,CL=2.4;   // mehr Abstand -> saubere Struktur
+function sim(){   // force-directed, ruhig getaktet: Repulsion + Federn + Gruppen-Baender, starke Daempfung
+  const cy=CY(),sc=SCALE(),REP=560*sc,LEN=64*sc,K=0.011,CL=2.4;
   for(let i=0;i<ns.length;i++){const a=ns[i];
     for(let j=i+1;j<ns.length;j++){const b=ns[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy||1;
       if(d2<50000){const d=Math.sqrt(d2),f=REP/d2;dx/=d;dy/=d;a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}}}
   for(const [a,b] of ls){let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,f=(d-LEN)*K;dx/=d;dy/=d;
     a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}
   for(const n of ns){if(n.fx)continue;   // angefasster Knoten haengt an der Maus -> nicht integrieren
-    n.vx+=(cx-n.x)*0.005;n.vy+=(cy-n.y)*0.005;
+    n.vx+=(W*n.gx-n.x)*0.006;            // horizontal ans Gruppen-Band -> ordnet + zieht in die Breite
+    n.vy+=(cy-n.y)*0.011;                // vertikal enger halten -> Querformat statt Kreis
     n.x+=Math.max(-CL,Math.min(CL,n.vx));n.y+=Math.max(-CL,Math.min(CL,n.vy));n.vx*=0.86;n.vy*=0.86;}
 }
 function render(){ctx.clearRect(0,0,W,H);const sc=SCALE();
@@ -258,10 +267,14 @@ function render(){ctx.clearRect(0,0,W,H);const sc=SCALE();
 /* Loop stoppt, sobald der Graph gesetzt ist und "Bewegung" aus ist -> 0% CPU im Ruhezustand
    (genau das, was Lively sonst dauernd rendern liess). Aenderungen wecken ihn per kick(). */
 const SETTLE_MAX=280;let raf=0;
-function frame(){const moving=!reduce&&(WALL.motion||settle<SETTLE_MAX||drag);
-  if(moving){sim();settle++;}
-  render();
-  raf=moving?requestAnimationFrame(frame):0;}
+function frame(ts){ts=ts||0;
+  const active=!reduce&&(drag||settle<SETTLE_MAX);   // echte Physik: nur beim Setzen/Ziehen
+  if(active){sim();settle++;if(settle>=SETTLE_MAX)setHomes();render();raf=requestAnimationFrame(frame);return;}
+  if(reduce||!WALL.motion){render();raf=0;return;}   // "Bewegung" aus -> Standbild, 0% CPU
+  if(ts-lastFloat<45){raf=requestAnimationFrame(frame);return;}   // ~22 fps: sanftes Schweben, sparsam
+  lastFloat=ts;const A=3.4*Math.sqrt(SCALE());
+  for(const n of ns){if(n.fx)continue;n.x=n.hx+Math.sin(ts*0.0005*n.sp+n.ph)*A;n.y=n.hy+Math.cos(ts*0.00042*n.sp+n.ph)*A*0.75;}
+  render();raf=requestAnimationFrame(frame);}
 function kick(){if(!raf)raf=requestAnimationFrame(frame);}
 function relayout(){if(curG){layout(curG);kick();}}
 /* Node anfassen & ziehen — der Rest folgt ueber die Federn (Obsidian-Gefuehl). Greift, wenn /wall
