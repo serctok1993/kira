@@ -307,7 +307,7 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
 .panel-h .sp{flex:1}
 .panel-b{padding:10px 13px}
 #ops-feed{max-height:52vh;overflow:auto;font-family:var(--mono);font-size:12px}
-#ops-filter .ofc{font-weight:600;opacity:.6;font-size:10px;font-variant-numeric:tabular-nums}
+#ops-filter .ofc{font-weight:600;opacity:.75;font-size:10px;font-variant-numeric:tabular-nums}
 #ops-filter a.on .ofc{opacity:1}
 #ops-filter a[data-of=error] .ofc{color:var(--danger);opacity:.9}  /* Fehler faellt auf */
 .op{display:flex;gap:10px;padding:5px 13px;border-bottom:1px solid rgba(255,255,255,.04);align-items:flex-start}
