@@ -32,6 +32,41 @@ COMPONENTS: dict[str, list[str]] = {
 }
 RESTART_FLAG = ROOT / "data" / "restart.flag"
 
+# Absturz-Bremse: haelt einen kaputten Dienst nicht in einer Sekunden-Schleife am Leben.
+_CRASH_WINDOW = 300.0   # Beobachtungsfenster (5 Min)
+_CRASH_LIMIT = 5        # so viele Abstuerze im Fenster -> Krisenmodus (langer Cooldown + Alarm)
+_MAX_BACKOFF = 60.0     # Deckel fuer den exponentiellen Wiederanlauf-Abstand
+
+
+def _backoff_plan(recent: int) -> tuple[bool, float, bool]:
+    """Reine Politik-Entscheidung fuer die Absturz-Bremse (testbar).
+
+    recent = Zahl der Abstuerze im Fenster (inkl. diesem). Rueckgabe:
+    (jetzt_neustarten?, Wartezeit_bis_naechster_Versuch_s, Krisenmodus?).
+    Krise ab _CRASH_LIMIT: NICHT sofort neustarten, langer Cooldown. Sonst exponentiell
+    (2,4,8,16,32 …) gedeckelt auf _MAX_BACKOFF."""
+    if recent >= _CRASH_LIMIT:
+        return False, _CRASH_WINDOW, True
+    return True, min(_MAX_BACKOFF, 2.0 ** recent), False
+
+
+def _alert(text: str) -> None:
+    """Einmalige Telegram-Warnung bei Dauer-Crash — respektiert die Firewall."""
+    try:
+        from core.config import CONFIG, outbound_blocked
+
+        if outbound_blocked():
+            return
+        import httpx
+
+        token = os.getenv("TELEGRAM_BOT_TOKEN")
+        chat = CONFIG.get("channels", {}).get("telegram", {}).get("allowed_chat_id")
+        if token and chat:
+            httpx.post(f"https://api.telegram.org/bot{token}/sendMessage",
+                       json={"chat_id": chat, "text": text[:4000]}, timeout=15)
+    except Exception:  # noqa: BLE001 — Alarm darf den Supervisor nie mitreissen
+        pass
+
 
 def _port_in_use(port: int = 8000) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -89,6 +124,9 @@ def main() -> None:
         RESTART_FLAG.unlink()
 
     procs: dict[str, subprocess.Popen] = {}
+    crashes: dict[str, list[float]] = {n: [] for n in COMPONENTS}   # Absturz-Zeitpunkte je Dienst
+    next_ok: dict[str, float] = {n: 0.0 for n in COMPONENTS}        # frueheste Neustart-Zeit (Backoff)
+    alerted: set[str] = set()                                       # schon per Telegram gewarnt?
     for name in COMPONENTS:
         procs[name] = _launch(name)
         time.sleep(1)  # Cockpit zuerst -> Port belegen, bevor andere starten
@@ -97,17 +135,41 @@ def main() -> None:
     while True:
         try:
             time.sleep(5)
+            now = time.time()
 
-            # 1) Tote Komponenten neu starten
+            # 1) Tote Komponenten neu starten — mit Absturz-Bremse gegen Crash-Loops
             for name, p in list(procs.items()):
-                if p.poll() is not None:
-                    code = p.returncode
-                    tail = _log_tail(name)
-                    print(f"[supervisor] {name} gestorben (code {code}) -> Neustart")
-                    try:
-                        events.emit("service_crash", {"service": name, "exit_code": code, "tail": tail})
-                    except Exception:  # noqa: BLE001
-                        pass
+                if p.poll() is None:
+                    # Laeuft wieder stabil (letzter Absturz laenger als ein Fenster her)? -> Zaehler leeren
+                    if crashes[name] and now - crashes[name][-1] > _CRASH_WINDOW:
+                        crashes[name].clear()
+                        alerted.discard(name)
+                    continue
+                if now < next_ok[name]:
+                    continue  # noch im Backoff/Krisen-Cooldown -> diesmal NICHT neustarten
+                code = p.returncode
+                tail = _log_tail(name)
+                crashes[name].append(now)
+                crashes[name] = [t for t in crashes[name] if now - t <= _CRASH_WINDOW]
+                recent = len(crashes[name])
+                try:
+                    events.emit("service_crash",
+                                {"service": name, "exit_code": code, "tail": tail, "recent": recent})
+                except Exception:  # noqa: BLE001
+                    pass
+                relaunch, wait_s, crisis = _backoff_plan(recent)
+                next_ok[name] = now + wait_s
+                if crisis:
+                    print(f"[supervisor] {name}: {recent} Abstuerze in 5 Min -> Krisen-Cooldown "
+                          f"{int(wait_s)}s (kein Neustart)")
+                    if name not in alerted:
+                        alerted.add(name)
+                        _alert(f"⚠ Kira-Dienst '{name}' stuerzt dauernd ab "
+                               f"({recent}× in 5 Min). Pausiert fuer 5 Min. Letzte Zeilen:\n{tail[-800:]}")
+                    continue
+                print(f"[supervisor] {name} gestorben (code {code}) -> Neustart in Kuerze "
+                      f"(Absturz {recent}, naechster Versuch fruehestens +{int(wait_s)}s)")
+                if relaunch:
                     procs[name] = _launch(name)
 
             # 1b) Herzschlag fuers Dashboard: welche Dienste leben gerade?
