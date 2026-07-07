@@ -678,6 +678,18 @@ VIEWS = r"""</head><body>
     </div>
   </div>
   <div class="subview" id="v-cockpit">
+    <div class="card"><h3>App-Logo</h3>
+      <div class="muted">Dein Kira-Logo — erscheint <b>oben links im Cockpit</b>, als <b>Browser-Tab-Symbol</b>
+      von /wall und (nach Neustart) als <b>Tray-/Taskleisten-Symbol</b> der Desktop-App. Einfach hier
+      hochladen — kein Datei-Geschiebe noetig.</div>
+      <div class="row" style="margin-top:8px;align-items:center;gap:12px">
+        <img id="logo-prev" src="/api/icon" alt="" onerror="this.style.visibility='hidden'"
+          style="width:46px;height:46px;border-radius:10px;object-fit:cover;border:1px solid var(--line)"/>
+        <label class="ghost" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer">🖼 Logo waehlen<input id="set-logo" type="file" accept="image/png,image/jpeg,image/webp" style="display:none"/></label>
+        <button class="ghost" id="set-logo-clear">Entfernen</button>
+        <span class="muted" id="set-logo-hint" style="align-self:center"></span>
+      </div>
+    </div>
     <div class="card"><h3>Kira-Avatar</h3>
       <div class="muted">Ihr Gesicht im Cockpit: gross in der Zentrale, klein an ihren Chat-Antworten.
       Erzeuge Bilder z.B. in <b>Higgsfield</b> und lade sie hier hoch (quadratisch wirkt am besten).</div>
