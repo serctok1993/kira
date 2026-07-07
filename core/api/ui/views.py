@@ -35,6 +35,7 @@ VIEWS = r"""</head><body>
     <span class="muted"><b id="b-model">…</b></span>
     <span class="muted">heute <b id="b-spend">…</b></span>
     <span id="b-kill"></span>
+    <a id="gear" title="Einstellungen (Modelle, Steuerpult, Zugänge, Cockpit, Wallpaper)" style="cursor:pointer;font-size:16px;padding:0 4px">⚙</a>
     <span id="theme-wrap">
       <a id="theme-btn" title="Optik anpassen">◐</a>
       <div id="theme-pop" class="look">
@@ -316,7 +317,7 @@ VIEWS = r"""</head><body>
   <div class="view" id="v-kira">
     <!-- 2-Ebenen-Navi: 5 Gruppen (oben) filtern die Sub-Tabs (unten). Views/Loader unveraendert. -->
     <div class="seg" id="kira-groups">
-      <a data-g="geist" class="on">Geist</a><a data-g="gewissen">Gewissen</a><a data-g="automatik">Automatik</a><a data-g="technik">Technik</a><a data-g="zustand">Zustand &amp; Lernen</a>
+      <a data-g="geist" class="on">Geist</a><a data-g="gewissen">Gewissen</a><a data-g="automatik">Automatik</a><a data-g="technik">⚙ Einstellungen</a><a data-g="zustand">Zustand &amp; Lernen</a>
     </div>
     <div class="seg" id="kira-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
       <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="charakter">🎭 Charakter</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="playbooks">Playbooks</a><a data-s="models">⚙ Modelle</a><a data-s="bench">🏁 Benchmark</a><a data-s="steuer">🎛 Steuerpult</a><a data-s="keys">Zugaenge</a><a data-s="cockpit">Cockpit</a><a data-s="wall">🖥 Wallpaper</a><a data-s="checkliste">Checkliste</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a><a data-s="evolution">Evolution</a><a data-s="log">Protokoll</a>
@@ -447,6 +448,9 @@ VIEWS = r"""</head><body>
         Hier siehst du, ob sie <b>besser</b> wird — nicht nur fleissiger.</div>
         <div id="st-kpi" style="display:flex;gap:26px;flex-wrap:wrap;margin-top:12px"><span class="muted">…</span></div>
       </div>
+      <div class="card"><h3>Token-Verbrauch heute</h3>
+        <div class="muted" style="font-size:12px">Sichtbarkeit statt harter Limits: bei Gratis-Modellen zählt die €-Bremse nichts — hier siehst du die echte Menge je Rolle.</div>
+        <div id="st-tokens" class="muted" style="margin-top:8px">…</div></div>
       <div class="card"><h3>Task-Arten — was klappt, was hakt</h3><div id="st-kinds" class="muted">…</div></div>
       <div class="card"><h3>Zaehe Ziele</h3><div id="st-objs" class="muted">…</div></div>
       <div class="card"><h3>Wiederkehrende Pruefer-Kritik</h3><div id="st-themes" class="muted">…</div></div>
