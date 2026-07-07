@@ -34,8 +34,14 @@ body{margin:0;height:100vh;display:flex;font:14px/1.5 ui-monospace,"Cascadia Cod
  backdrop-filter:blur(8px);display:flex;flex-direction:column}
 /* Wordmark KIRA: Audiowide + Neon-Lila-Regenbogen (Verlauf IM Text, Glow ueber drop-shadow,
    weil text-shadow bei transparentem Verlaufstext nicht greift). Untertitel entfaellt. */
-#side h1{font-family:'Audiowide',ui-sans-serif,system-ui,sans-serif;font-size:33px;
- letter-spacing:1px;padding:18px 16px 14px;margin:0;line-height:1.02;
+#side h1{margin:0;padding:0;line-height:1.02}
+/* App-Logo (data/kira-icon.png) als Kopf; fehlt es, faellt onerror auf den KIRA-Schriftzug zurueck */
+#side h1 img{display:block;width:calc(100% - 24px);max-width:170px;height:auto;margin:14px 12px 8px;
+ border-radius:16px;box-shadow:0 0 0 1px rgba(176,38,255,.25);
+ filter:drop-shadow(0 0 10px rgba(176,38,255,.45)) drop-shadow(0 0 22px rgba(176,38,255,.25))}
+#side h1:has(img) .txt{display:none}   /* Bild da -> Schriftzug aus */
+#side h1 .txt{display:block;font-family:'Audiowide',ui-sans-serif,system-ui,sans-serif;font-size:33px;
+ letter-spacing:1px;padding:18px 16px 14px;line-height:1.02;
  background:linear-gradient(100deg,#e9d5ff,#c084fc,#b026ff,#d946ef,#9333ea,#c084fc,#e9d5ff);
  background-size:260% 100%;-webkit-background-clip:text;background-clip:text;
  -webkit-text-fill-color:transparent;color:transparent;
