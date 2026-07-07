@@ -319,7 +319,7 @@ VIEWS = r"""</head><body>
       <a data-g="geist" class="on">Geist</a><a data-g="gewissen">Gewissen</a><a data-g="automatik">Automatik</a><a data-g="technik">Technik</a><a data-g="zustand">Zustand &amp; Lernen</a>
     </div>
     <div class="seg" id="kira-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="playbooks">Playbooks</a><a data-s="models">⚙ Modelle</a><a data-s="bench">🏁 Benchmark</a><a data-s="steuer">🎛 Steuerpult</a><a data-s="keys">Zugaenge</a><a data-s="cockpit">Cockpit</a><a data-s="wall">🖥 Wallpaper</a><a data-s="checkliste">Checkliste</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a><a data-s="evolution">Evolution</a><a data-s="log">Protokoll</a>
+      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="charakter">🎭 Charakter</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="playbooks">Playbooks</a><a data-s="models">⚙ Modelle</a><a data-s="bench">🏁 Benchmark</a><a data-s="steuer">🎛 Steuerpult</a><a data-s="keys">Zugaenge</a><a data-s="cockpit">Cockpit</a><a data-s="wall">🖥 Wallpaper</a><a data-s="checkliste">Checkliste</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a><a data-s="evolution">Evolution</a><a data-s="log">Protokoll</a>
     </div>
 
     <div class="subview" id="v-keys">
@@ -637,6 +637,16 @@ VIEWS = r"""</head><body>
     </div>
     <div id="evlog"></div>
     <div style="text-align:center;margin-top:12px"><button class="ghost" id="log-more">mehr laden ↓</button></div>
+  </div>
+
+  <div class="subview" id="v-charakter">
+    <div class="card"><h3>🎭 Kiras Charakter</h3>
+      <div class="muted">Hier formst Du <b>wer Kira ist</b> und <b>wie sie klingt</b> — reiner Text, kein
+      Code. Jede Änderung wird gesichert (Backup) und wirkt <b>sofort</b>. Das ist die
+      <b>Charakter-Ebene</b>, nicht die Technik: was hier steht, prägt Ton, Haltung und Selbstbild.
+      (Die Verfassung/Gesetze liegen bewusst getrennt unter „Seele &amp; Dateien".)</div>
+    </div>
+    <div id="charakter-list"><div class="muted" style="padding:10px">…</div></div>
   </div>
 
   <div class="subview" id="v-bench">
