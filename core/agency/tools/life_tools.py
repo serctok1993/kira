@@ -113,6 +113,30 @@ def objective_add(title: str, kind: str = "weekly", domain: str = "leben",
             + (f" bis {td}" if td else ""))
 
 
+@tool("objective_list",
+      "Zeigt Missionen/Ziele mit Fortschritt, Faelligkeit und id. domain optional filtern "
+      "(leben | business); nur_aktiv=true blendet erledigte/pausierte aus.",
+      {"domain": "optional: leben | business (leer = alle)",
+       "nur_aktiv": "true|false (Standard false = auch erledigte zeigen)"})
+def objective_list(domain: str = "", nur_aktiv: str = "") -> str:
+    from core.agency.missions import objectives
+
+    objectives.init_objectives()
+    aktiv = str(nur_aktiv).strip().lower() in ("true", "1", "ja", "yes")
+    dom = (domain or "").strip().lower() or None
+    ziele = (objectives.list_active(domain=dom) if aktiv
+             else [o for o in objectives.list_all() if not dom or o.get("domain") == dom])
+    if not ziele:
+        return "(keine Ziele)" + (f" in domain '{dom}'" if dom else "")
+    lines = []
+    for o in ziele:
+        frist = f", faellig {o['target_date']}" if o.get("target_date") else ""
+        aufgaben = f", {o['tasks_done']}/{o['tasks_total']} Tasks" if o.get("tasks_total") else ""
+        lines.append(f"- [{o['domain']}/{o['kind']}] {o['title'][:80]} — {o['progress']}% "
+                     f"({o['status']}{frist}{aufgaben}) (id {o['id'][:8]})")
+    return "\n".join(lines)
+
+
 @tool("metric_log",
       "Loggt einen Messwert fuer Sergens Lebens-Metriken (Gewicht, Training, Schlaf ...). "
       "Beispiel: metric_log('gewicht', '91.4').",

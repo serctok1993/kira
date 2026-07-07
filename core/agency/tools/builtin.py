@@ -347,6 +347,22 @@ def cron_list() -> str:
     return "\n".join(f"- {j['label']} ({j['schedule_text']}) {'an' if j['enabled'] else 'aus'} (id={j['id']})" for j in js)
 
 
+@tool("cron_remove",
+      "Loescht eine geplante (Cron-)Aufgabe dauerhaft. Die id kommt aus cron_list "
+      "(auch 8-Zeichen-Kurzform reicht).",
+      {"job_id": "die id der zu loeschenden Aufgabe (aus cron_list)"})
+def cron_remove(job_id: str) -> str:
+    from core.agency.missions import cron
+
+    jid = (job_id or "").strip()
+    js = cron.list_jobs()
+    match = next((j for j in js if j["id"] == jid or j["id"].startswith(jid)), None) if jid else None
+    if not match:
+        return f"Keine geplante Aufgabe mit id '{jid}' gefunden. cron_list zeigt die aktuellen ids."
+    cron.remove_job(match["id"])
+    return f"Geplante Aufgabe geloescht: {match['label']} (id={match['id']})"
+
+
 @tool("plan_and_execute",
       "Fuer GROSSE, mehrstufige Aufgaben: zerlege sie selbst in einen Plan und arbeite ihn Schritt "
       "fuer Schritt mit Werkzeugen ab (inkl. self_edit zum Coden). Nutze das, wenn eine Aufgabe "
