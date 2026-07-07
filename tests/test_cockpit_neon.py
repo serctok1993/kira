@@ -12,6 +12,12 @@ from core.api.ui.script import SCRIPT
 
 # ---- Hygiene: keine undefinierten Loader (loadNeeds war toter Code -> ReferenceError) ----
 
+def test_live_transkription_lokal():
+    # Sprache wird waehrend der Aufnahme live (chunk-weise) lokal transkribiert -> waechst ins Feld
+    assert "function startLive(" in SCRIPT and "function stopLive(" in SCRIPT
+    assert "mediaRec.start(1200)" in SCRIPT and "/api/transcribe" in SCRIPT and "growCin()" in SCRIPT
+
+
 def test_keine_undefinierten_load_funktionen():
     import re
 
