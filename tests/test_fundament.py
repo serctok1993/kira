@@ -136,6 +136,23 @@ def test_index_regenerierung_erhaelt_nummerierten_kopf(tmp_path, monkeypatch):
     assert out.count("<!-- AUTO:START -->") == 1
 
 
+def test_identitaet_schlank_mit_platz_fuer_sergen():
+    """SOUL/GOAL/USER sind entschlackt (werden bei JEDEM Turn injiziert) und lassen
+    Sergen je einen eigenen, von Kira unangetasteten Platz."""
+    from core.config import ROOT
+    soul = (ROOT / "core" / "mind" / "SOUL.md").read_text(encoding="utf-8")
+    goal = (ROOT / "core" / "mind" / "GOAL.md").read_text(encoding="utf-8")
+    user = (ROOT / "core" / "mind" / "USER.md").read_text(encoding="utf-8")
+    # Owner-Platz in allen dreien
+    assert "Von Sergen" in soul and "Von Sergen" in user
+    assert "Sergens Platz" in goal or "Meilenstein 1" in goal
+    # schlank geblieben (Effizienz: injiziert pro Turn)
+    assert len(soul) < 3200 and len(goal) < 3600
+    # Kern-Substanz bleibt erhalten
+    assert "Counterweight" in soul and "docs/CODING.md" in soul
+    assert "Sergen dienen" in goal and "Nordstern" in goal
+
+
 def test_coding_disziplin_dokument():
     """Coding-Regeln sind fest dokumentiert (fuer Kira UND Nachfolger)."""
     from core.config import ROOT
