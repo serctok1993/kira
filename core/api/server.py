@@ -1365,9 +1365,14 @@ async def api_desktop_shortcut(body: dict) -> dict:
                 cwd=str(ROOT), capture_output=True, text=True, timeout=90,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
             out = ((p.stdout or "") + (p.stderr or "")).strip()
-            return {"ok": p.returncode == 0, "output": out[-800:]}
+            ok = p.returncode == 0
+            # bei Fehler die echte PowerShell-Ausgabe zurueckgeben (statt eines nichtssagenden "?")
+            err = "" if ok else (out[-500:] or f"PowerShell-Exitcode {p.returncode}")
+            return {"ok": ok, "output": out[-800:], "error": err}
+        except FileNotFoundError:
+            return {"ok": False, "error": "PowerShell nicht gefunden"}
         except Exception as e:  # noqa: BLE001
-            return {"ok": False, "error": str(e)}
+            return {"ok": False, "error": str(e)[:400]}
 
     return await anyio.to_thread.run_sync(_run)
 
