@@ -1577,7 +1577,7 @@ $("#set-logo-clear")&&($("#set-logo-clear").onclick=async()=>{await fetch("/api/
 $("#make-shortcut")&&($("#make-shortcut").onclick=async()=>{
  $("#make-shortcut-hint").textContent="… lege an";
  try{const r=await (await fetch("/api/desktop/shortcut",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();
-  $("#make-shortcut-hint").textContent=r.ok?"✓ Desktop-Icon angelegt — jetzt das Fenster per Rechtsklick an die Taskleiste anheften":("Fehler: "+(r.error||"?"));}
+  $("#make-shortcut-hint").textContent=r.ok?"✓ Desktop-Icon angelegt — jetzt das Fenster per Rechtsklick an die Taskleiste anheften":("Fehler: "+(r.error||r.output||"?"));}
  catch(e){$("#make-shortcut-hint").textContent="Fehler beim Anlegen";}});
 
 refreshStatus();loadCommand();

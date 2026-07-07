@@ -42,32 +42,42 @@ if ($png) {
   $ico = $null
 }
 
-$sh = New-Object -ComObject WScript.Shell
+try {
+  $sh = New-Object -ComObject WScript.Shell
 
-# --- 2) Schoene Desktop-Verknuepfung (Doppelklick startet die App) -------------------------
-$desktop = [Environment]::GetFolderPath("Desktop")
-$dlnk = Join-Path $desktop "Kira.lnk"
-$s = $sh.CreateShortcut($dlnk)
-$s.TargetPath = $bat
-$s.WorkingDirectory = $root
-$s.WindowStyle = 7                       # minimiert starten (kein Konsolenfenster im Weg)
-$s.Description = "Kira - Cockpit (Desktop-App)"
-if ($ico) { $s.IconLocation = "$ico,0" }
-$s.Save()
-Write-Host "OK: Desktop-Verknuepfung -> $dlnk"
+  # --- 2) Schoene Desktop-Verknuepfung (Doppelklick startet die App) -----------------------
+  # GetFolderPath kann in manchen Prozess-Kontexten leer sein -> Fallback ueber %USERPROFILE%.
+  $desktop = [Environment]::GetFolderPath("Desktop")
+  if ([string]::IsNullOrEmpty($desktop)) { $desktop = Join-Path $env:USERPROFILE "Desktop" }
+  if (-not (Test-Path $desktop)) { New-Item -ItemType Directory -Path $desktop -Force | Out-Null }
+  $dlnk = Join-Path $desktop "Kira.lnk"
+  $s = $sh.CreateShortcut($dlnk)
+  $s.TargetPath = $bat
+  $s.WorkingDirectory = $root
+  $s.WindowStyle = 7                       # minimiert starten (kein Konsolenfenster im Weg)
+  $s.Description = "Kira - Cockpit (Desktop-App)"
+  if ($ico) { $s.IconLocation = "$ico,0" }
+  $s.Save()
+  Write-Host "OK: Desktop-Verknuepfung -> $dlnk"
 
-# --- 3) Autostart der Desktop-App (eigener Eintrag; bringt Tray + Cockpit beim Anmelden) ----
-$startup = [Environment]::GetFolderPath("Startup")
-$slnk = Join-Path $startup "Kira Desktop.lnk"
-$s2 = $sh.CreateShortcut($slnk)
-$s2.TargetPath = $bat
-$s2.WorkingDirectory = $root
-$s2.WindowStyle = 7
-$s2.Description = "Kira Desktop-App (Autostart)"
-if ($ico) { $s2.IconLocation = "$ico,0" }
-$s2.Save()
-Write-Host "OK: Autostart-Eintrag -> $slnk"
+  # --- 3) Autostart der Desktop-App (eigener Eintrag; Tray + Cockpit beim Anmelden) --------
+  $startup = [Environment]::GetFolderPath("Startup")
+  if ([string]::IsNullOrEmpty($startup)) { $startup = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs\Startup" }
+  if (-not (Test-Path $startup)) { New-Item -ItemType Directory -Path $startup -Force | Out-Null }
+  $slnk = Join-Path $startup "Kira Desktop.lnk"
+  $s2 = $sh.CreateShortcut($slnk)
+  $s2.TargetPath = $bat
+  $s2.WorkingDirectory = $root
+  $s2.WindowStyle = 7
+  $s2.Description = "Kira Desktop-App (Autostart)"
+  if ($ico) { $s2.IconLocation = "$ico,0" }
+  $s2.Save()
+  Write-Host "OK: Autostart-Eintrag -> $slnk"
 
-Write-Host ""
-Write-Host "Fertig. Kira startet ab jetzt beim Anmelden (Tray-Symbol) und liegt als Icon auf dem Desktop."
-Write-Host "Autostart wieder entfernen:  .\uninstall-autostart.ps1   (Desktop-Icon einfach loeschen)"
+  Write-Host ""
+  Write-Host "Fertig. Kira liegt als Icon auf dem Desktop und startet beim Anmelden (Tray-Symbol)."
+  exit 0
+} catch {
+  Write-Host "FEHLER beim Anlegen der Verknuepfung: $($_.Exception.Message)"
+  exit 1
+}
