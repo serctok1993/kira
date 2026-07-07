@@ -1291,6 +1291,34 @@ def api_costs() -> dict:
             "budget": treasury.status()}
 
 
+def _token_stats() -> dict:
+    """Token-Verbrauch heute je Rolle (Fable-Review: bei Gratis-Modellen ist die $-Bremse blind —
+    Sichtbarkeit in Tokens/Calls statt harter Limits, Sergens Entscheidung). Reines SQL-Aggregat
+    ueber llm_call-Events, fail-soft."""
+    import datetime as _dt
+    import sqlite3 as _sq
+
+    from core import config as _c  # Call-time-Read -> Sandbox/Test-Umlenkung greift
+
+    try:
+        start = _dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+        with _sq.connect(_c.DB_PATH) as c:
+            c.execute("PRAGMA busy_timeout=5000")
+            rows = c.execute(
+                "SELECT COALESCE(json_extract(payload,'$.task_type'),'?') tt, COUNT(*) calls,"
+                " SUM(COALESCE(json_extract(payload,'$.tokens.prompt'),0)"
+                "   + COALESCE(json_extract(payload,'$.tokens.completion'),0)) tok,"
+                " SUM(COALESCE(json_extract(payload,'$.cost_usd'),0)) cost"
+                " FROM events WHERE type='llm_call' AND ts>=? GROUP BY tt ORDER BY tok DESC",
+                (start,)).fetchall()
+        by_role = [{"role": r[0], "calls": r[1], "tokens": int(r[2] or 0),
+                    "cost_usd": round(r[3] or 0.0, 4)} for r in rows]
+        return {"total_tokens": sum(x["tokens"] for x in by_role),
+                "total_calls": sum(x["calls"] for x in by_role), "by_role": by_role}
+    except Exception:  # noqa: BLE001
+        return {"total_tokens": 0, "total_calls": 0, "by_role": []}
+
+
 @app.get("/api/insights")
 def api_insights(days: int = 14) -> dict:
     """Lern-Statistik (S6.6c): Outcome-Muster aus insights.py, rein lesend fuers Cockpit."""
@@ -1303,6 +1331,7 @@ def api_insights(days: int = 14) -> dict:
         "patterns": insights.fail_patterns(days),
         "strategies": insights.strategy_stats(days),
         "brief": insights.render_brief(days),
+        "tokens_heute": _token_stats(),
     }
 
 

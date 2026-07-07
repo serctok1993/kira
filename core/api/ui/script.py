@@ -157,6 +157,9 @@ function kiraGroup(gk){const grp=KIRA_GROUPS.find(x=>x.key===gk);if(!grp)return;
  if(grp.subs.includes(SUBTABS.kira.cur))syncKiraGroup(SUBTABS.kira.cur);  /* schon in der Gruppe -> nur filtern */
  else subnav("kira",grp.subs[0]);}                                        /* sonst zum ersten Sub-Tab */
 $$("#kira-groups a").forEach(a=>a.onclick=()=>kiraGroup(a.dataset.g));
+/* ⚙ Einstellungen-Shortcut in der Topbar: springt direkt in die Einstellungs-Gruppe (Modelle/
+   Steuerpult/Zugaenge/Cockpit/Wallpaper) — nur echte Settings, Kira-Inhalte bleiben bei Kira. */
+$("#gear")&&($("#gear").onclick=()=>{nav("kira");kiraGroup("technik");});
 syncKiraGroup(SUBTABS.kira.cur||"files");  /* Startzustand: Gruppe 'geist' aktiv */
 /* Icons pro Tab anpassbar (localStorage kira_icons: {"home":"◈",...}) — Pflege in Kira->Cockpit */
 function applyIcons(){try{const ic=JSON.parse(localStorage.getItem("kira_icons")||"{}");
@@ -240,6 +243,12 @@ async function loadStats(){try{
     +kinds.map(g=>row([esc(g.key),g.attempts,pct(g.pass_rate),g.avg_score==null?"—":g.avg_score,
       g.cost_per_success==null?"—":("$"+g.cost_per_success)])).join("")
   : '<span class="muted">(keine Daten)</span>';
+ const tk=d.tokens_heute||{};const fmt=n=>n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?(n/1e3).toFixed(1)+"k":""+n;
+ $("#st-tokens")&&($("#st-tokens").innerHTML=(tk.total_calls
+  ? row(["Rolle","Calls","Tokens","$"],true)
+    +(tk.by_role||[]).map(g=>row([esc(g.role),g.calls,fmt(g.tokens),g.cost_usd?("$"+g.cost_usd):"0"])).join("")
+    +row(["<b>Gesamt</b>",tk.total_calls,"<b>"+fmt(tk.total_tokens)+"</b>",""],false)
+  : '<span class="muted">Heute noch keine LLM-Calls.</span>'));
  const objs=(pat.by_objective||[]).filter(g=>g.attempts>=2).slice(0,5);
  $("#st-objs").innerHTML=objs.length
   ? objs.map(g=>row([esc((""+(g.title||g.key)).slice(0,70)),g.attempts+" Versuche",pct(g.pass_rate)])).join("")
