@@ -655,17 +655,30 @@ VIEWS = r"""</head><body>
 
   <div class="subview" id="v-bench">
     <div class="card"><h3>🏁 Coding-Benchmark</h3>
-      <div class="muted">Lässt Kira die Aufgaben aus <code>tests/bench/suite.json</code> lösen — jede
-      in einem <b>isolierten Wegwerf-Arbeitsbaum</b> (kein echtes Repo, keine Live-DB, keine Mails).
-      Du siehst <b>live</b>, wie das aktuelle Modell denkt, wo es hakt, und den Punktestand. So
-      vergleichst Du Modelle: welches löst mehr, welches ist zuverlässiger.</div>
+      <div class="muted"><b>HumanEval</b> = der internationale Standard (164 genormte Python-Aufgaben,
+      pass@1 — direkt vergleichbar mit publizierten Scores: Frontier-Modelle ~90 %+, starke offene
+      Modelle grob 70–90 %). Misst das <b>Modell</b> auf der gewählten Rolle. <b>Harness-Smoke</b> =
+      Pipeline-Test (Kira löst Aufgaben im isolierten Wegwerf-Arbeitsbaum — beweist die Kette, misst
+      keine Leistung). Alles live, nichts berührt Repo oder Gedächtnis.</div>
       <div class="row" style="margin-top:10px;align-items:center;gap:12px;flex-wrap:wrap">
         <button id="bench-start">▶ Benchmark starten</button>
         <button id="bench-stop" class="ghost" style="display:none">■ Stopp</button>
+        <select id="bench-suite" title="Welcher Test">
+          <option value="humaneval" selected>HumanEval (international)</option>
+          <option value="harness">Harness-Smoke (Pipeline)</option>
+        </select>
+        <select id="bench-role" title="Welche Modell-Rolle wird gemessen">
+          <option value="reason" selected>Denker (reason)</option>
+          <option value="bulk">Massen (bulk)</option>
+          <option value="chat">Chat</option>
+          <option value="classify">Lokal (classify)</option>
+        </select>
+        <label class="muted" style="font-size:12px">Aufgaben <input id="bench-limit" type="number" value="20" min="1" max="164" style="width:64px"></label>
         <label class="muted" style="font-size:12px;display:inline-flex;align-items:center;gap:6px">
           <input type="checkbox" id="bench-allow-llm" checked> echtes Modell (statt lokal)</label>
         <span class="muted" id="bench-model" style="font-size:12px"></span>
       </div>
+      <div class="muted" style="margin-top:6px;font-size:11.5px">Tipp: 20 Aufgaben ≈ schneller Eindruck (±10 %), alle 164 ≈ belastbare Zahl. Rolle wechseln → Modelle direkt vergleichen. Cloud-Rollen kosten pro Aufgabe wenige Cent oder weniger.</div>
       <div id="bench-score" style="margin-top:12px;font-size:20px;font-weight:600"></div>
     </div>
     <div class="card"><h3>Live-Verlauf</h3>
