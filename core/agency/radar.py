@@ -33,6 +33,7 @@ STATUSES = ("new", "shortlist", "rejected", "converted")
 def _conn() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")  # Nebenlaeufigkeit: bis 5s warten statt sofort locken
     return conn
 
 
