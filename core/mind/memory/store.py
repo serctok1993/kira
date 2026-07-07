@@ -16,6 +16,17 @@ from core.kernel import events
 
 _HAS_FTS: bool | None = None
 
+# Ephemere Sessions (Test-/Benchmark-Chats): sie werden normal gespeichert (der Test-Chat
+# erinnert sich also an SICH SELBST), lecken aber NIE in das Cross-Session-Gedaechtnis anderer
+# Sessions (recall). So kann Sergen gefahrlos testen, ohne den echten Erinnerungsstrang zu
+# verfaelschen. reset_episodic raeumt sie ohnehin mit weg. 'desktop-' ist bewusst NICHT dabei —
+# die PC-Chats sind echte Gespraeche und sollen erinnert werden.
+_EPHEMERAL_PREFIXES = ("test-", "bench-")
+
+
+def _is_ephemeral(session_id: str | None) -> bool:
+    return bool(session_id) and str(session_id).startswith(_EPHEMERAL_PREFIXES)
+
 
 def _conn() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
@@ -111,6 +122,8 @@ def recall(query: str, limit: int = 6, exclude_session: str | None = None) -> li
             for ts, role, text, sid, emb, kind in rows:
                 if exclude_session and sid == exclude_session:
                     continue
+                if _is_ephemeral(sid):  # Test-/Benchmark-Chatter nie in andere Sessions einschleppen
+                    continue
                 try:
                     v = json.loads(emb)
                 except Exception:
@@ -135,6 +148,8 @@ def recall(query: str, limit: int = 6, exclude_session: str | None = None) -> li
                 "SELECT m.ts, m.role, m.text, m.session_id "
                 "FROM memory_fts f JOIN memory m ON m.id = f.mem_id "
                 "WHERE memory_fts MATCH ? "
+                "AND (m.session_id IS NULL OR (m.session_id NOT LIKE 'test-%' "
+                "AND m.session_id NOT LIKE 'bench-%')) "  # ephemere Test-Chats ausschliessen
             )
             params: list = [terms]
             if exclude_session:
@@ -147,10 +162,12 @@ def recall(query: str, limit: int = 6, exclude_session: str | None = None) -> li
             except sqlite3.OperationalError:
                 results = []
         if not results:
-            sql = "SELECT ts, role, text, session_id FROM memory "
+            sql = ("SELECT ts, role, text, session_id FROM memory "
+                   "WHERE (session_id IS NULL OR (session_id NOT LIKE 'test-%' "
+                   "AND session_id NOT LIKE 'bench-%')) ")  # ephemere Test-Chats ausschliessen
             params = []
             if exclude_session:
-                sql += "WHERE session_id IS NOT ? "
+                sql += "AND session_id IS NOT ? "
                 params.append(exclude_session)
             sql += "ORDER BY ts DESC LIMIT ?"
             params.append(limit)

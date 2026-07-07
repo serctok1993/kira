@@ -723,6 +723,9 @@ async function openSession(sid){curSid=sid;log.innerHTML="";curBot=null;curThink
  syncChatProject(sid);markActiveSession();reconnect();}
 function newSession(){curSid="cockpit-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;const cp=$("#chat-project");if(cp)cp.value="";markActiveSession();reconnect();}
 $("#sess-new")&&($("#sess-new").onclick=()=>newSession());
+/* Test-Chat: sid mit 'test-'-Praefix -> gefahrloses Ausprobieren, leckt NICHT ins Langzeit-Gedaechtnis */
+function newTestSession(){curSid="test-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;const cp=$("#chat-project");if(cp)cp.value="";markActiveSession();reconnect();try{toast("🧪 Test-Chat — dieser Verlauf bleibt aussen vor (kein Langzeit-Gedaechtnis)");}catch(e){}}
+$("#sess-test")&&($("#sess-test").onclick=()=>newTestSession());
 /* Projekt-Chats (#15): je Projekt eine eigene Session (sid 'venture-<id>') — Kira bekommt das
    Briefing als Kontext (serverseitig in build_system_prompt). Wahl schaltet die Session um. */
 async function loadChatProjects(){const sel=$("#chat-project");if(!sel)return;

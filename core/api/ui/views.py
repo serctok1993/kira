@@ -128,7 +128,7 @@ VIEWS = r"""</head><body>
     <div id="chat-wrap">
       <div id="sess-panel">
         <div class="sp-h"><span class="muted" style="font-size:11px;letter-spacing:1px">GESPRAECHE</span>
-          <span style="flex:1"></span><button type="button" class="ghost" id="sess-new" title="Neue Unterhaltung (getrennt von der Tages-Session)" style="padding:4px 9px">＋</button></div>
+          <span style="flex:1"></span><button type="button" class="ghost" id="sess-test" title="Test-Chat: zum gefahrlosen Ausprobieren — dieser Verlauf leckt NICHT in Kiras Langzeit-Gedaechtnis (andere Chats sehen ihn nie)" style="padding:4px 9px">🧪</button><button type="button" class="ghost" id="sess-new" title="Neue Unterhaltung (getrennt von der Tages-Session)" style="padding:4px 9px">＋</button></div>
         <div id="sess-items"><div class="muted" style="padding:10px">…</div></div>
         <div class="sp-f"><a id="sess-archtoggle" class="muted" style="cursor:pointer;font-size:11px">Archiv anzeigen</a></div>
       </div>
