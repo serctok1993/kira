@@ -30,17 +30,20 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
       linear-gradient(160deg,var(--bg),#0e0a18 55%,#080a14);}
   /* wechselbares Hintergrundbild (aus dem Cockpit gesetzt, /api/bg) — LED-Rand liegt drueber */
   #bg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.9}
-  #graph{position:fixed;inset:0;width:100%;height:100%;z-index:1;opacity:.55;
+  #graph{position:fixed;inset:0;width:100%;height:100%;z-index:1;opacity:.62;
     -webkit-mask:radial-gradient(66% 50% at 50% 45%,#000 34%,transparent 86%);
     mask:radial-gradient(66% 50% at 50% 45%,#000 34%,transparent 86%)}
   /* LED-Bildschirmrand, faerbt mit dem Modus */
   .edge{position:fixed;inset:0;z-index:40;pointer-events:none;
     box-shadow:inset 0 0 2px var(--accent),inset 0 0 26px color-mix(in srgb,var(--accent) 42%,transparent),
       inset 0 0 70px color-mix(in srgb,var(--accent) 20%,transparent);transition:box-shadow .5s ease}
-  .edge::before{content:"";position:absolute;inset:0;padding:2.5px;
+  /* rotierender LED-Sweep NUR wenn Bewegung an ist (data-anim=on). Standard: aus -> kein
+     pausenloses Neu-Rendern des Wallpapers (spart Lively viel GPU/CPU), nur der ruhige Glow bleibt. */
+  .edge::before{content:"";position:absolute;inset:0;padding:2.5px;opacity:0;
     background:conic-gradient(from var(--ang),transparent 0 8%,var(--accent) 20%,transparent 34% 58%,var(--accent) 72%,transparent 86% 100%);
     -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
-    -webkit-mask-composite:xor;mask-composite:exclude;animation:spin 7s linear infinite}
+    -webkit-mask-composite:xor;mask-composite:exclude}
+  body[data-anim="on"] .edge::before{opacity:1;animation:spin 7s linear infinite}
   body[data-mode="coding"] .edge::before{background:conic-gradient(from var(--ang),#ff004d,#ff8a00,#ffe600,#39ff14,#00e5ff,#b026ff,#ff004d);
     -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
   @keyframes spin{to{--ang:360deg}}
@@ -208,7 +211,7 @@ let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia
 const MODE_RGB={chat:"176,38,255",work:"57,255,20",coding:"0,229,255"};
 const POSX={links:0.32,mitte:0.5,rechts:0.68},SIZ={klein:0.72,mittel:1,gross:2.6,riesig:3.6};
 let curG=null;   // zuletzt geladener Graph (fuer Re-Layout bei Groesse/Position)
-let WALL={labels:true,motion:true,color:"vault",pos:"mitte",size:"mittel"};   // Bewegung AN = sanftes Schweben (guenstig), abschaltbar = Standbild
+let WALL={labels:true,motion:false,color:"vault",pos:"mitte",size:"gross"};   // Standard: Standbild (0% Last, smoother Desktop) + grosser Graph; Bewegung ueber das Zahnrad zuschaltbar
 function loadWall(){try{Object.assign(WALL,JSON.parse(localStorage.getItem("kira_wall")||"{}"));}catch(e){}}
 async function loadWallServer(){try{const s=await (await fetch("/api/wall/settings")).json();if(s&&typeof s==="object")Object.assign(WALL,s);}catch(e){}}
 function saveWall(){try{localStorage.setItem("kira_wall",JSON.stringify(WALL));}catch(e){}
@@ -348,10 +351,11 @@ $("#model").addEventListener('click',async ()=>{
 document.addEventListener('click',e=>{if(!e.target.closest('#model')&&!e.target.closest('#mpop')){const p=$("#mpop");if(p)p.classList.remove('on');}});
 
 /* ---- Zahnrad: Graph-Einstellungen (Worte/Bewegung/Farbe), live ueber localStorage ---- */
-function syncWallUI(){$("#w-labels").checked=WALL.labels;$("#w-motion").checked=WALL.motion;$("#w-color").value=WALL.color;$("#w-pos").value=WALL.pos;$("#w-size").value=WALL.size;}
+function applyAnim(){document.body.dataset.anim=WALL.motion?"on":"off";}   // LED-Sweep nur bei Bewegung -> Standard spart Last
+function syncWallUI(){$("#w-labels").checked=WALL.labels;$("#w-motion").checked=WALL.motion;$("#w-color").value=WALL.color;$("#w-pos").value=WALL.pos;$("#w-size").value=WALL.size;applyAnim();}
 $("#gear").addEventListener('click',()=>{const p=$("#wpop");p.classList.toggle('on');if(p.classList.contains('on'))syncWallUI();});
 $("#w-labels").addEventListener('change',e=>{WALL.labels=e.target.checked;saveWall();kick();});
-$("#w-motion").addEventListener('change',e=>{WALL.motion=e.target.checked;saveWall();kick();});
+$("#w-motion").addEventListener('change',e=>{WALL.motion=e.target.checked;saveWall();applyAnim();kick();});
 $("#w-color").addEventListener('change',e=>{WALL.color=e.target.value;saveWall();kick();});
 $("#w-pos").addEventListener('change',e=>{WALL.pos=e.target.value;saveWall();relayout();});
 $("#w-size").addEventListener('change',e=>{WALL.size=e.target.value;saveWall();relayout();});
@@ -359,7 +363,7 @@ window.addEventListener('storage',e=>{if(e.key==="kira_wall"){loadWall();syncWal
 document.addEventListener('click',e=>{if(!e.target.closest('#gear')&&!e.target.closest('#wpop')){const p=$("#wpop");if(p)p.classList.remove('on');}});
 
 /* ---- Boot ---- */
-(async function(){loadWall();await loadWallServer();cv=$("#graph");ctx=cv.getContext("2d");sz();setupDrag();
+(async function(){loadWall();await loadWallServer();applyAnim();cv=$("#graph");ctx=cv.getContext("2d");sz();setupDrag();
   const g=await loadStats();layout(g);kick();
   addEventListener('resize',()=>{sz();relayout();});
   connect();setInterval(loadStats,30000);   // Stats leben (alle 30 s frisch) — Graph bleibt ruhig
