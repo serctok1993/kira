@@ -12,6 +12,7 @@ CLI:  python -m core.testkit.bench --suite tests/bench/suite.json
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import subprocess
 import sys
@@ -66,6 +67,64 @@ def run_suite(suite, repo_root=None, exec_fn=None) -> dict:
     results = [run_task(t, repo_root=repo_root, exec_fn=exec_fn) for t in tasks]
     passed = sum(1 for r in results if r["passed"])
     return {"total": len(results), "passed": passed, "results": results}
+
+
+def _load_tasks(suite) -> list[dict]:
+    if isinstance(suite, (str, Path)):
+        suite = json.loads(Path(suite).read_text(encoding="utf-8"))
+    return suite.get("tasks", []) if isinstance(suite, dict) else list(suite)
+
+
+def _stream_attempt(worktree: Path, env: dict, task: dict):
+    """Startet attempt.py und yieldet dessen Denk-/Werkzeug-Ereignisse (@EV) live."""
+    proc = subprocess.Popen([sys.executable, "-m", "core.testkit.attempt"],
+                            cwd=str(worktree), env=env,
+                            stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                            stderr=subprocess.DEVNULL, text=True, bufsize=1)
+    try:
+        proc.stdin.write(json.dumps(task))
+        proc.stdin.close()
+        for line in proc.stdout:
+            line = line.rstrip("\n")
+            if line.startswith("@EV "):
+                try:
+                    yield json.loads(line[4:])
+                except Exception:  # noqa: BLE001
+                    pass
+            # @RESULT wird nicht gestreamt — die Bewertung macht verify_cmd
+    finally:
+        with contextlib.suppress(Exception):
+            proc.wait(timeout=5)
+
+
+def stream_suite(suite, repo_root=None, allow_llm: bool = True, attempt_fn=None):
+    """Generator fuer die LIVE-Ansicht im Cockpit: yieldet Ereignis-Dicts —
+      {kind:'suite_start', total}
+      {kind:'task_start', id, prompt}
+      {kind:'act', id, ev}              (Denk-/Werkzeug-Strom von Kira)
+      {kind:'task_done', id, passed, rc, out}
+      {kind:'summary', passed, total}
+    allow_llm=True (Default hier): mit dem ECHTEN Modell testen (Modell-Vergleich), Mail/Telegram
+    bleiben geblockt."""
+    attempt_fn = attempt_fn or _stream_attempt
+    tasks = _load_tasks(suite)
+    yield {"kind": "suite_start", "total": len(tasks)}
+    passed = 0
+    for t in tasks:
+        tid = str(t.get("id", "task"))
+        yield {"kind": "task_start", "id": tid, "prompt": (t.get("prompt") or "")[:300]}
+        rid = f"{tid}-{uuid.uuid4().hex[:6]}"
+        try:
+            with make_worktree(repo_root=repo_root, run_id=rid, allow_llm=allow_llm) as (wt, env):
+                for ev in attempt_fn(wt, env, t):
+                    yield {"kind": "act", "id": tid, "ev": ev}
+                rc, out = _verify(wt, env, t)
+        except Exception as e:  # noqa: BLE001
+            rc, out = 1, f"[Runner-Fehler] {e}"
+        ok = rc == 0
+        passed += 1 if ok else 0
+        yield {"kind": "task_done", "id": tid, "passed": ok, "rc": rc, "out": out[-800:]}
+    yield {"kind": "summary", "passed": passed, "total": len(tasks)}
 
 
 def main() -> None:
