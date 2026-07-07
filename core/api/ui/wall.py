@@ -30,7 +30,7 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
       linear-gradient(160deg,var(--bg),#0e0a18 55%,#080a14);}
   /* wechselbares Hintergrundbild (aus dem Cockpit gesetzt, /api/bg) — LED-Rand liegt drueber */
   #bg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.9}
-  #graph{position:fixed;inset:0;width:100%;height:100%;z-index:1;opacity:.62;
+  #graph{position:fixed;inset:0;width:100%;height:100%;z-index:1;opacity:.82;
     -webkit-mask:radial-gradient(66% 50% at 50% 45%,#000 34%,transparent 86%);
     mask:radial-gradient(66% 50% at 50% 45%,#000 34%,transparent 86%)}
   /* LED-Bildschirmrand, faerbt mit dem Modus */
@@ -51,11 +51,11 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   /* dezente Mini-Cockpit-Leiste: leichter Tint im Modus-Farbton, kaum Blur, klar lesbar (kein Zoomen noetig) */
   .topbar{position:fixed;top:0;left:0;right:0;z-index:3;display:flex;flex-direction:column;align-items:center;gap:11px;
     padding:11px 0 12px;pointer-events:none;
-    background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 9%,rgba(8,6,12,.40)),rgba(8,6,12,.12) 80%,transparent);
-    -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);
-    border-bottom:1px solid color-mix(in srgb,var(--accent) 20%,transparent)}
+    background:linear-gradient(180deg,color-mix(in srgb,var(--accent) 10%,rgba(6,4,11,.72)),rgba(6,4,11,.34) 82%,transparent);
+    -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+    border-bottom:1px solid color-mix(in srgb,var(--accent) 22%,transparent)}
   .srow{display:flex;justify-content:center;gap:38px;flex-wrap:wrap;padding:0 24px}
-  .stat{display:flex;flex-direction:column;align-items:center;text-align:center;text-shadow:0 1px 3px rgba(0,0,0,.8)}
+  .stat{display:flex;flex-direction:column;align-items:center;text-align:center;text-shadow:0 1px 4px rgba(0,0,0,.95),0 0 2px rgba(0,0,0,.9)}
   .stat .n{font-family:var(--mono);font-size:22px;font-variant-numeric:tabular-nums;line-height:1;color:#fff;
     filter:drop-shadow(0 0 9px color-mix(in srgb,var(--accent) 45%,transparent))}
   .stat .n.g{color:var(--green)} .stat .n.a{color:var(--amber)}
@@ -255,17 +255,30 @@ function sim(){   // force-directed, ruhig getaktet: Repulsion + Federn + Gruppe
     n.vy+=(cy-n.y)*0.011;                // vertikal enger halten -> Querformat statt Kreis
     n.x+=Math.max(-CL,Math.min(CL,n.vx));n.y+=Math.max(-CL,Math.min(CL,n.vy));n.vx*=0.86;n.vy*=0.86;}
 }
-function render(){ctx.clearRect(0,0,W,H);const sc=SCALE();
-  for(const [a,b] of ls){const ca=nodeColor(a),cb=nodeColor(b);const d=Math.hypot(b.x-a.x,b.y-a.y),al=Math.max(.14,1-d/(320*sc));
-    const gr=ctx.createLinearGradient(a.x,a.y,b.x,b.y);gr.addColorStop(0,'rgba('+ca+','+(al*.55)+')');gr.addColorStop(1,'rgba('+cb+','+(al*.55)+')');
-    ctx.strokeStyle=gr;ctx.lineWidth=al*1.0+.3;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
-  for(const n of ns){const c=nodeColor(n);ctx.shadowColor='rgba('+c+',.85)';ctx.shadowBlur=9;
-    ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,7);ctx.fillStyle='rgba('+c+',.92)';ctx.fill();}
+function render(){ctx.clearRect(0,0,W,H);const sc=SCALE();ctx.shadowBlur=0;
+  // Schattierung: weicher dunkler Schleier hinter dem Graphen (folgt den Knoten) -> Punkte/Striche/
+  // Labels bleiben auf JEDEM Hintergrund lesbar. Die Graph-Maske blendet die Raender ohnehin weich aus.
+  if(ns.length){let mnx=1e9,mny=1e9,mxx=-1e9,mxy=-1e9;
+    for(const n of ns){if(n.x<mnx)mnx=n.x;if(n.x>mxx)mxx=n.x;if(n.y<mny)mny=n.y;if(n.y>mxy)mxy=n.y;}
+    const gx=(mnx+mxx)/2,gy=(mny+mxy)/2,rad=Math.hypot(mxx-mnx,mxy-mny)/2+120*Math.sqrt(sc);
+    const sg=ctx.createRadialGradient(gx,gy,0,gx,gy,rad);
+    sg.addColorStop(0,'rgba(5,3,11,.66)');sg.addColorStop(.55,'rgba(5,3,11,.44)');sg.addColorStop(1,'rgba(5,3,11,0)');
+    ctx.fillStyle=sg;ctx.fillRect(0,0,W,H);}
+  // Kanten: dunkle Unterlage + farbige Linie darueber = Kontrast auch auf hellen Stellen
+  for(const [a,b] of ls){const ca=nodeColor(a),cb=nodeColor(b);const d=Math.hypot(b.x-a.x,b.y-a.y),al=Math.max(.42,1-d/(360*sc));
+    ctx.strokeStyle='rgba(0,0,0,'+(al*.55)+')';ctx.lineWidth=2.4;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+    const gr=ctx.createLinearGradient(a.x,a.y,b.x,b.y);gr.addColorStop(0,'rgba('+ca+','+al+')');gr.addColorStop(1,'rgba('+cb+','+al+')');
+    ctx.strokeStyle=gr;ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
+  // Knoten: dunkler Ring (Absetzung) + heller Kern + farbiger Glow
+  for(const n of ns){const c=nodeColor(n);
+    ctx.shadowBlur=0;ctx.beginPath();ctx.arc(n.x,n.y,n.r+1.7,0,7);ctx.fillStyle='rgba(3,2,9,.72)';ctx.fill();
+    ctx.shadowColor='rgba('+c+',.9)';ctx.shadowBlur=11;
+    ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,7);ctx.fillStyle='rgba('+c+',1)';ctx.fill();}
   ctx.shadowBlur=0;
-  if(WALL.labels){ctx.font=(10*Math.sqrt(sc)|0)+'px "Segoe UI",system-ui,sans-serif';ctx.textAlign='center';
-    ctx.shadowColor='rgba(0,0,0,.9)';ctx.shadowBlur=3;ctx.fillStyle='rgba(233,228,244,.8)';
-    for(const n of ns){if(n.deg>=2)ctx.fillText(n.id.slice(0,24),n.x,n.y-n.r-4);}
-    ctx.shadowBlur=0;}
+  // Labels: dunkle Kontur (strokeText) unter hellem Text -> scharf auf jedem Hintergrund
+  if(WALL.labels){ctx.font='600 '+(11*Math.sqrt(sc)|0)+'px "Segoe UI",system-ui,sans-serif';ctx.textAlign='center';
+    ctx.lineJoin='round';ctx.lineWidth=3.4;ctx.strokeStyle='rgba(0,0,0,.94)';ctx.fillStyle='rgba(246,242,254,.98)';
+    for(const n of ns){if(n.deg>=2){const t=n.id.slice(0,24),y=n.y-n.r-5;ctx.strokeText(t,n.x,y);ctx.fillText(t,n.x,y);}}}
 }
 /* Loop stoppt, sobald der Graph gesetzt ist und "Bewegung" aus ist -> 0% CPU im Ruhezustand
    (genau das, was Lively sonst dauernd rendern liess). Aenderungen wecken ihn per kick(). */
