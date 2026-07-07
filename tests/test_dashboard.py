@@ -174,12 +174,13 @@ def test_ui_v3_robustness_markers():
 
 def test_single_poll_scheduler_no_naked_intervals():
     """Der alte 5s-setInterval-Hammer ist raus — Polling laeuft ueber pollTick (Backoff+Pause).
-    Erlaubt bleibt nur der UI-lokale thinkTimer im Chat."""
+    Erlaubt bleiben nur die UI-lokalen Timer im Chat: thinkTimer (Denk-Phrasen) und
+    liveTimer (Live-Transkription, laeuft nur waehrend einer Aufnahme)."""
     html = _page()
     js = html[html.find("<script>"):html.rfind("</script>")]
     assert "setInterval(()=>{refreshStatus" not in js
     assert "setInterval(updatePulse" not in js
-    assert js.count("setInterval(") <= 1  # nur thinkTimer
+    assert js.count("setInterval(") <= 2  # nur thinkTimer + liveTimer
 
 
 def test_chat_v3_markers():
