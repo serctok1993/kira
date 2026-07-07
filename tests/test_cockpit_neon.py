@@ -502,7 +502,8 @@ def test_kira_wordmark_cyberpunk():
     assert "@font-face{font-family:'Audiowide'" in CSS
     assert "data:font/woff2;base64," in CSS
     # Titel nutzt Audiowide, ist groesser + Verlauf-im-Text (background-clip) + drop-shadow-Glow
-    assert "#side h1{font-family:'Audiowide'" in CSS
+    # (der Schriftzug ist der Fallback .txt, wenn kein App-Logo /api/icon geladen wird)
+    assert "#side h1 .txt{display:block;font-family:'Audiowide'" in CSS
     assert "font-size:33px" in CSS and "background-clip:text" in CSS
     assert "-webkit-text-fill-color:transparent" in CSS and "drop-shadow(" in CSS
     assert "@keyframes kiraflow{" in CSS       # Verlauf fliesst (Regenbogen in Lila)

@@ -1,4 +1,8 @@
-# Entfernt den Kira-Autostart wieder.
-$lnk = Join-Path ([Environment]::GetFolderPath("Startup")) "Kira.lnk"
-if (Test-Path $lnk) { Remove-Item $lnk; Write-Host "Autostart-Verknuepfung entfernt." }
-else { Write-Host "Keine Autostart-Verknuepfung gefunden." }
+# Entfernt den Kira-Autostart wieder (Supervisor UND Desktop-App).
+$startup = [Environment]::GetFolderPath("Startup")
+$found = $false
+foreach ($name in @("Kira.lnk", "Kira Desktop.lnk")) {
+  $lnk = Join-Path $startup $name
+  if (Test-Path $lnk) { Remove-Item $lnk; Write-Host "Autostart entfernt: $name"; $found = $true }
+}
+if (-not $found) { Write-Host "Keine Autostart-Verknuepfung gefunden." }
