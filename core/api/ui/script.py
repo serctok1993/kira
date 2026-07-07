@@ -836,7 +836,22 @@ $("#cin")&&$("#cin").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shift
  if(streaming){stopStream();return;} if(sendText($("#cin").value)){$("#cin").value="";growCin();}}});
 
 /* ---- Sprachmemo (Aufnahme -> Whisper) + Assistenz-Modus (freihaendige Schleife) ---- */
-let mediaRec=null,chunks=[],recAutoSend=false,vadSpoke=false;
+let mediaRec=null,chunks=[],recAutoSend=false,vadSpoke=false,liveTimer=null,liveBusy=false;
+/* Live-Transkription (lokal): waehrend der Aufnahme alle ~2s die bisherige Aufnahme durch Whisper
+   jagen und den wachsenden Text ins Feld schreiben. Nur EINE Transkription gleichzeitig (kein Stau);
+   am Aufnahme-Ende laeuft die finale (genauere) Transkription und ersetzt die Vorschau. */
+function startLive(){stopLive();liveBusy=false;
+ liveTimer=setInterval(async()=>{
+  if(liveBusy||!mediaRec||mediaRec.state!=="recording"||!chunks.length)return;
+  liveBusy=true;
+  try{const blob=new Blob(chunks,{type:"audio/webm"});
+   const url=await new Promise(res=>{const r=new FileReader();r.onload=()=>res(r.result);r.readAsDataURL(blob);});
+   const r=await (await fetch("/api/transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audio:url})})).json();
+   if(r&&r.ok&&r.text&&mediaRec&&mediaRec.state==="recording"){$("#cin").value=r.text;growCin();}
+  }catch(e){}
+  liveBusy=false;
+ },2000);}
+function stopLive(){if(liveTimer){clearInterval(liveTimer);liveTimer=null;}}
 let ttsOn=localStorage.getItem("kira_tts")==="1";      /* 🔊 Antworten vorlesen */
 let handsFree=false;                                    /* 🎙️ Assistenz: Kira hoert freihaendig zu */
 let curAudio=null;
@@ -879,7 +894,7 @@ function attachVAD(stream,rec){
 async function startRec(autoSend){recAutoSend=!!autoSend;
  try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});chunks=[];mediaRec=new MediaRecorder(stream);
   mediaRec.ondataavailable=ev=>chunks.push(ev.data);
-  mediaRec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());$("#micbtn")&&($("#micbtn").textContent="🎤");
+  mediaRec.onstop=async()=>{stopLive();stream.getTracks().forEach(t=>t.stop());$("#micbtn")&&($("#micbtn").textContent="🎤");
    if(recAutoSend&&!vadSpoke){if(handsFree)armListen();return;}  /* nur Stille -> nicht transkribieren */
    const blob=new Blob(chunks,{type:"audio/webm"});const rd=new FileReader();
    rd.onload=async()=>{if(!recAutoSend)$("#cin").value="… transkribiere …";
@@ -893,9 +908,11 @@ async function startRec(autoSend){recAutoSend=!!autoSend;
       if(instr)sendText(instr,{voice:true});           /* Weckwort abgestreift -> Auftrag */
       else{add("🎙️ Ja? Ich hoere.","sys");armListen();} /* nur "Kira" -> weiterlauschen */
      }else if(handsFree)armListen();                   /* nicht angesprochen -> still weiterlauschen */
-    }else if(ok){$("#cin").value=txt;$("#cin").focus();}};
+    }else if(ok){$("#cin").value=txt;growCin();$("#cin").focus();}};
    rd.readAsDataURL(blob);};
-  mediaRec.start();$("#micbtn")&&($("#micbtn").textContent="⏹");
+  /* manuelles Mikro (kein Weckwort-Lauschen) -> Aufnahme in Haeppchen + Live-Transkription */
+  if(recAutoSend){mediaRec.start();}else{$("#cin").value="";growCin();mediaRec.start(1200);startLive();}
+  $("#micbtn")&&($("#micbtn").textContent="⏹");
   if(autoSend)attachVAD(stream,mediaRec);              /* freihaendig -> Pause stoppt automatisch */
  }catch(err){add("Mikrofon nicht verfuegbar: "+err,"sys");handsFree=false;paintAssist();}}
 $("#micbtn")&&($("#micbtn").onclick=()=>{if(mediaRec&&mediaRec.state==="recording"){mediaRec.stop();return;}startRec(false);});
