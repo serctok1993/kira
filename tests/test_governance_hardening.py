@@ -158,16 +158,23 @@ def test_api_decide_proposal_consumed_then_409(monkeypatch, tmp_path):
     assert applied == ["GOAL.md"]
 
 
-def test_api_file_constitution_not_writable():
+def test_api_file_constitution_editable_by_owner(tmp_path, monkeypatch):
+    # Politik-Wechsel (auf Sergens Wunsch): der OWNER darf die Verfassung ueber das Cockpit
+    # (/api/file) aendern — bewusst, mit Backup + Audit-Event. Kira SELBST kann das weiterhin
+    # NICHT (kein arbiträres POST-Tool; write_file/self_edit/evolution bleiben geblockt, s.u.).
     from core.api import server
 
+    con = tmp_path / "constitution.md"
+    con.write_text("ORIGINAL", encoding="utf-8")
+    monkeypatch.setitem(server.FILES["constitution.md"], "path", con)
+    monkeypatch.setattr(server, "MIND_DIR", tmp_path)        # Backup-Ziel (history/) -> tmp
     client = TestClient(server.app)
-    r = client.get("/api/file", params={"name": "constitution.md"})
-    assert r.status_code == 200 and r.json()["editable"] is False
-    before = (MIND_DIR / "constitution.md").read_text(encoding="utf-8")
-    w = client.post("/api/file", json={"name": "constitution.md", "content": "HACK"})
-    assert w.json()["ok"] is False
-    assert (MIND_DIR / "constitution.md").read_text(encoding="utf-8") == before
+    assert client.get("/api/file", params={"name": "constitution.md"}).json()["editable"] is True
+    w = client.post("/api/file", json={"name": "constitution.md", "content": "NEUE REGELN"})
+    assert w.json()["ok"] is True
+    assert con.read_text(encoding="utf-8") == "NEUE REGELN"
+    baks = list((tmp_path / "history").glob("constitution.md.*.bak"))   # alte Fassung gesichert
+    assert baks and baks[0].read_text(encoding="utf-8") == "ORIGINAL"
 
 
 # --- Datei-Werkzeuge + self_edit blocken die Verfassung ------------------------
