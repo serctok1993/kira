@@ -37,6 +37,14 @@ def suppress_repo_writes() -> bool:
     return test_mode() and not sandbox_active()
 
 
+def outbound_blocked() -> bool:
+    """True, wenn Aussen-Wirkungen (Mail, Telegram, Cloud-LLM-Spend, externe Dienste) unterdrueckt
+    werden sollen — gesetzt via KIRA_NO_OUTBOUND, z.B. vom Benchmark-Runner in seiner Sandbox.
+    Standard: AUS. Im Normalbetrieb UND in der normalen Testsuite also null Verhaltensaenderung —
+    nur ein Lauf, der die Firewall bewusst anschaltet, wird stillgelegt."""
+    return bool(os.getenv("KIRA_NO_OUTBOUND"))
+
+
 # .env laden (still, falls nicht vorhanden)
 load_dotenv(ROOT / ".env")
 

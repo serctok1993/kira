@@ -27,6 +27,9 @@ def _cfg() -> dict:
 
 
 def enabled() -> bool:
+    from core import config as _c
+    if _c.outbound_blocked():  # Firewall (Benchmark/Sandbox): Mail komplett still
+        return False
     return bool(_cfg().get("enabled"))
 
 
