@@ -29,6 +29,21 @@ def test_taskleiste_dauerhaft_verstecken_helfer():
     assert "taskbar-hide.ps1" in doc
 
 
+def test_alle_ps1_sind_ascii():
+    # Windows PowerShell 5.1 liest .ps1 standardmaessig als ANSI -> Nicht-ASCII (Gedankenstrich —,
+    # Umlaute, „Smart Quotes") zerschiesst das Parsen ("MissingEndCurlyBrace"). Deshalb muessen alle
+    # Helfer-Skripte rein ASCII sein (Umlaute im Text ae/oe/ue schreiben).
+    import glob
+
+    bad = {}
+    for f in sorted(glob.glob(str(ROOT / "*.ps1"))):
+        txt = open(f, encoding="utf-8").read()
+        nz = [i + 1 for i, line in enumerate(txt.splitlines()) if any(ord(c) > 127 for c in line)]
+        if nz:
+            bad[f.rsplit("/", 1)[-1]] = nz
+    assert not bad, f"Nicht-ASCII in .ps1 (bricht Windows PowerShell): {bad}"
+
+
 def test_desktop_setup_helfer_vorhanden():
     # Ein-Klick-Einrichtung: PNG->ICO, Desktop-Verknuepfung, Autostart der Desktop-App
     ps1 = (ROOT / "desktop-setup.ps1").read_text(encoding="utf-8")
