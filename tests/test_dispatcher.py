@@ -99,6 +99,69 @@ def test_dispatcher_ohne_eskalation(monkeypatch, tmp_path):
     assert calls == [False]  # Auto-Plan eskaliert auch Denker-Schritte nicht
 
 
+# ---- Coding-Schutz: Code-Schritte MUESSEN aufs starke Modell ---------------------------
+
+def test_is_code_step_erkennt_code():
+    from core.agency import act
+    # echte Code-Signale
+    for s in ["Behebe den Bug in core/agency/act.py", "Refactor die Klasse Runner",
+              "Aendere die Funktion resolve_model", "self_edit an css.py",
+              "Passe den Endpoint /api/x an", "Schreibe die Regex neu"]:
+        assert act._is_code_step(s), s
+    # KEIN Code: Text/Daten/Mails bleiben billig
+    for s in ["Lies leads.csv", "Schreibe die Mail nach ~/Desktop/mail1.md",
+              "Sortiere die Liste", "Fasse den Bericht zusammen", "Recherchiere 5 Firmen"]:
+        assert not act._is_code_step(s), s
+
+
+def test_coding_schutz_hebt_arbeiter_auf_reason(monkeypatch, tmp_path):
+    from core.agency import act
+    from core.kernel import llm_router
+    events = _tmp_dbs(monkeypatch, tmp_path)
+    _no_reflection(monkeypatch)
+    monkeypatch.setattr(act, "_CLAIM_CHECK", False)
+    # Planer labelt einen Code-Schritt fahrlaessig als 'arbeiter' (billiges Modell)
+    monkeypatch.setattr(act, "_make_plan", lambda task, sid, escalate=True: [
+        {"schritt": "Behebe den Bug in core/agency/act.py", "rang": "arbeiter"},
+        {"schritt": "Schreibe die Mail nach ~/Desktop/mail1.md", "rang": "arbeiter"},
+    ])
+    monkeypatch.setattr(llm_router, "complete", _fake_complete("Zusammenfassung."))
+    calls: list = []
+
+    def fake_act(task, session_id=None, max_steps=None, escalate=False, task_type="reason"):
+        calls.append({"task_type": task_type, "escalate": escalate})
+        return {"text": "ok", "steps": 1}
+
+    monkeypatch.setattr(act, "act", fake_act)
+    act.plan_and_execute("gemischte Aufgabe", session_id="cg1", escalate=True)
+
+    # Code-Schritt -> reason (GLM) trotz Plan-Rang 'arbeiter'; Mail-Schritt bleibt worker
+    assert calls[0]["task_type"] == "reason"
+    assert calls[0]["escalate"] is True
+    assert calls[1]["task_type"] == "worker"
+    assert "plan_step_code_guard" in [e["type"] for e in events.recent(30)]
+
+
+def test_code_run_local_only_warnung(monkeypatch, tmp_path):
+    from core.agency import act
+    from core.kernel import llm_router
+    events = _tmp_dbs(monkeypatch, tmp_path)
+    _no_reflection(monkeypatch)
+    monkeypatch.setattr(act, "_CLAIM_CHECK", False)
+    monkeypatch.setattr(act, "_make_plan", lambda task, sid, escalate=True: [
+        {"schritt": "lesen", "rang": "reflex"}])
+    monkeypatch.setattr(llm_router, "complete", _fake_complete("fertig"))
+    monkeypatch.setattr(act, "act", lambda *a, **k: {"text": "ok", "steps": 1})
+    # Starkes Modell nicht verfuegbar -> resolve_model meldet Fallback
+    monkeypatch.setattr(llm_router, "resolve_model",
+                        lambda task_type="default", escalate=False: ("ollama_chat/qwen3.5:9b", True))
+    obs: list = []
+    act.plan_and_execute("code: irgendwas", session_id="cl1", escalate=True,
+                         code_review=True, on_event=lambda ev: obs.append(ev))
+    assert "code_run_local_only" in [e["type"] for e in events.recent(30)]
+    assert any("LOKAL" in str(o.get("text", "")) for o in obs)
+
+
 # ---- Liefernachweis pro Schritt --------------------------------------------------------
 
 def test_liefernachweis_retry_und_erfolg(monkeypatch, tmp_path):
