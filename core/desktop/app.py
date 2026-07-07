@@ -68,6 +68,16 @@ def request_restart() -> None:
     RESTART_FLAG.write_text("all", encoding="utf-8")
 
 
+def _icon_path():
+    """Pfad zum App-Logo als Datei (fuer das Fenster-/Taskleisten-Symbol). .ico bevorzugt
+    (Windows-Taskleiste mag das Format am liebsten), sonst PNG etc. None, wenn keins liegt."""
+    for ext in ("ico", "png", "jpg", "jpeg", "webp"):
+        p = ROOT / "data" / f"kira-icon.{ext}"
+        if p.exists():
+            return str(p)
+    return None
+
+
 def _load_icon():
     """Tray-Icon: das App-Logo aus data/kira-icon.png (wenn vorhanden), sonst ein schlichtes
     Kira-Lila 'K'. Nutzt Pillow; fehlt es, None (pystray-Default) — die App laeuft immer."""
@@ -130,11 +140,24 @@ def run() -> None:
     except Exception as e:  # noqa: BLE001
         print("pywebview fehlt. Installiere die Desktop-Extras:  uv pip install -r requirements-desktop.txt")
         raise SystemExit(1) from e
+    # Windows: eigene App-Identitaet -> die Taskleiste gruppiert Kira unter dem eigenen Symbol
+    # (statt unter dem generischen Python-Icon) und uebernimmt unser Logo.
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Kira.Desktop")
+    except Exception:  # noqa: BLE001 — nur Windows; anderswo egal
+        pass
     ensure_cockpit()
     window = webview.create_window("Kira · Cockpit", cockpit_url(),
                                    width=1280, height=860, min_size=(900, 600))
     _start_tray(window)
-    webview.start()
+    # Fenster-/Taskleisten-Symbol = unser Logo (data/kira-icon.*). Aeltere pywebview-Versionen
+    # kennen den icon-Parameter nicht -> dann ohne starten (App laeuft trotzdem).
+    icon = _icon_path()
+    try:
+        webview.start(icon=icon) if icon else webview.start()
+    except TypeError:
+        webview.start()
 
 
 if __name__ == "__main__":
