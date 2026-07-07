@@ -78,18 +78,21 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   .tline{font-size:13.5px;line-height:1.5;text-shadow:0 1px 5px #000;text-align:center;max-width:100%}
   .tline.me{color:#fff} .tline.k{color:var(--muted)}
   .think{display:flex;align-items:center;gap:8px;font-size:12.5px;min-height:18px}
-  .sh{color:var(--accent);animation:sp 3.4s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
+  .sh{width:12px;height:12px;flex:none;display:inline-block;box-sizing:border-box;border-radius:50%;
+    border:2px solid color-mix(in srgb,var(--accent) 26%,transparent);border-top-color:var(--accent);animation:sp .8s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
   .tx{font-weight:600;background:linear-gradient(90deg,#b026ff,#ff2d95,#ff8a00,#39ff14,#00e5ff,#b026ff);
     background-size:300% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:flow 3.2s linear infinite}
   @keyframes flow{to{background-position:-300% 0}}
-  .bar{display:flex;align-items:center;gap:8px;width:100%;padding:8px 8px 8px 12px;border-radius:16px;
+  .bar{display:flex;align-items:flex-end;gap:8px;width:100%;padding:8px 8px 8px 12px;border-radius:16px;
     background:color-mix(in srgb,var(--bg) 62%,transparent);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);
     backdrop-filter:blur(12px);box-shadow:0 10px 40px rgba(0,0,0,.5),0 0 22px color-mix(in srgb,var(--accent) 22%,transparent);transition:border-color .4s,box-shadow .4s}
   .seg{display:flex;gap:2px;background:rgba(255,255,255,.05);border-radius:10px;padding:3px}
   .seg button{border:0;background:none;color:var(--muted);font:600 12px var(--sans);letter-spacing:.3px;padding:6px 11px;border-radius:8px;cursor:pointer;transition:.2s}
   .seg button.on{color:#0a0712;background:var(--accent);box-shadow:0 0 14px color-mix(in srgb,var(--accent) 60%,transparent)}
   .ic{width:34px;height:34px;flex:none;border:0;border-radius:10px;cursor:pointer;font-size:17px;background:rgba(255,255,255,.06);color:var(--accent);display:grid;place-items:center}
-  #cin{flex:1;background:none;border:0;outline:none;color:var(--ink);font-size:14px;padding:0 4px;font-family:var(--sans)}
+  #cin{flex:1;background:none;border:0;outline:none;color:var(--ink);font-size:14px;padding:6px 4px;font-family:var(--sans);
+    line-height:1.4;resize:none;overflow-y:auto;max-height:120px;white-space:pre-wrap;overflow-wrap:break-word}
   #cin::placeholder{color:var(--muted)}
   .model{font:600 11px var(--mono);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);border-radius:20px;padding:5px 11px;white-space:nowrap;cursor:pointer}
   .model:hover{background:color-mix(in srgb,var(--accent) 14%,transparent)}
@@ -134,7 +137,7 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
         <button type="button" data-m="coding">Coding</button>
       </div>
       <label class="ic" title="Bild einfügen">+<input id="imgfile" type="file" accept="image/*" style="display:none"/></label>
-      <input id="cin" placeholder="Schreib mir …"/>
+      <textarea id="cin" rows="1" placeholder="Schreib mir …"></textarea>
       <span style="position:relative">
         <span class="model" id="model" title="Modell wechseln (Klick)">—</span>
         <div class="mpop" id="mpop"></div>
@@ -323,7 +326,7 @@ document.querySelectorAll('#seg button').forEach(b=>b.addEventListener('click',(
 let ws,thinkTimer=null,running=false,reasonBuf="";
 function stopPhrase(){if(thinkTimer){clearInterval(thinkTimer);thinkTimer=null;}}
 function setThink(on){const el=$("#t-think");stopPhrase();
-  if(on){const put=()=>el.innerHTML='<span class="sh">✦</span><span class="tx">'+esc(rndPhrase())+' …</span>';put();thinkTimer=setInterval(put,2600);}
+  if(on){const put=()=>el.innerHTML='<span class="sh"></span><span class="tx">'+esc(rndPhrase())+' …</span>';put();thinkTimer=setInterval(put,2600);}
   else el.innerHTML="";}
 function connect(){const proto=location.protocol==="https:"?"wss":"ws";
   const sid="desktop-"+Math.random().toString(16).slice(2,10);   // ephemer: neu je Seitenaufruf
@@ -331,9 +334,9 @@ function connect(){const proto=location.protocol==="https:"?"wss":"ws";
   ws.onmessage=ev=>{const m=JSON.parse(ev.data);
     if(m.done){setThink(false);running=false;return;}
     if(m.kind==="think"){stopPhrase();reasonBuf=(reasonBuf+" "+(m.text||"")).slice(-260);   // echtes Reasoning
-      $("#t-think").innerHTML='<span class="sh">✦</span><span class="tx">'+esc(reasonBuf.trim())+'</span>';return;}
+      $("#t-think").innerHTML='<span class="sh"></span><span class="tx">'+esc(reasonBuf.trim())+'</span>';return;}
     if(m.kind==="tool"){stopPhrase();
-      $("#t-think").innerHTML='<span class="sh">✦</span><span class="tx">▷ '+esc(m.name||"werkzeug")+' …</span>';return;}
+      $("#t-think").innerHTML='<span class="sh"></span><span class="tx">▷ '+esc(m.name||"werkzeug")+' …</span>';return;}
     if(m.kind==="final"||m.kind==="answer"){setThink(false);reasonBuf="";$("#t-k").textContent=(m.text||"").slice(0,340);}
   };
   ws.onclose=()=>{setTimeout(connect,1500);};
@@ -341,8 +344,12 @@ function connect(){const proto=location.protocol==="https:"?"wss":"ws";
 $("#bar").addEventListener('submit',e=>{e.preventDefault();const raw=$("#cin").value.trim();if(!raw||running)return;
   if(!ws||ws.readyState!==1)return;
   const t=mode==="work"?("work: "+raw):mode==="coding"?("code: "+raw):raw;
-  $("#t-me").textContent=raw;$("#t-k").textContent="";$("#cin").value="";reasonBuf="";running=true;setThink(true);ws.send(t);
+  $("#t-me").textContent=raw;$("#t-k").textContent="";$("#cin").value="";growCin();reasonBuf="";running=true;setThink(true);ws.send(t);
 });
+/* Eingabefeld waechst mit dem Text; Enter sendet, Shift+Enter = neue Zeile */
+function growCin(){const c=$("#cin");if(!c)return;c.style.height="auto";c.style.height=Math.min(c.scrollHeight,120)+"px";}
+$("#cin").addEventListener('input',growCin);
+$("#cin").addEventListener('keydown',e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();$("#bar").dispatchEvent(new Event('submit',{cancelable:true}));}});
 $("#imgfile").addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;
   const fd=new FormData();fd.append("file",f);
   try{const r=await (await fetch("/api/chat/attach",{method:"POST",body:fd})).json();

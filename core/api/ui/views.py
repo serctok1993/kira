@@ -176,7 +176,7 @@ VIEWS = r"""</head><body>
         </div>
         <form id="cform">
           <label id="plusbtn" class="plus" title="Bild oder Datei (PDF, txt, md, csv) hochladen">+<input id="imgfile" type="file" accept="image/*,.pdf,.txt,.md,.markdown,.csv,.log,.json,.yaml,.yml,.html,.htm" style="display:none"/></label>
-          <input id="cin" placeholder="Schreib mir…" autocomplete="off" autofocus/>
+          <textarea id="cin" rows="1" placeholder="Schreib mir…  (Enter sendet · Shift+Enter = neue Zeile)" autocomplete="off" autofocus></textarea>
           <button id="sendbtn">Senden</button>
         </form>
       </div>
