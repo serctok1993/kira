@@ -680,8 +680,9 @@ VIEWS = r"""</head><body>
   <div class="subview" id="v-cockpit">
     <div class="card"><h3>App-Logo</h3>
       <div class="muted">Dein Kira-Logo — erscheint <b>oben links im Cockpit</b>, als <b>Browser-Tab-Symbol</b>
-      von /wall und (nach Neustart) als <b>Tray-/Taskleisten-Symbol</b> der Desktop-App. Einfach hier
-      hochladen — kein Datei-Geschiebe noetig.</div>
+      von /wall und (nach einem App-Neustart) als <b>Fenster-Symbol</b> (Titelleiste oben links) und
+      <b>Taskleisten-Symbol</b> der Desktop-App. Einfach hier hochladen — es wird automatisch auch ins
+      Windows-Icon-Format (.ico) umgewandelt, kein Datei-Geschiebe nötig.</div>
       <div class="row" style="margin-top:8px;align-items:center;gap:12px">
         <img id="logo-prev" src="/api/icon" alt="" onerror="this.style.visibility='hidden'"
           style="width:46px;height:46px;border-radius:10px;object-fit:cover;border:1px solid var(--line)"/>

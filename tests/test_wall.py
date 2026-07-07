@@ -67,6 +67,9 @@ def test_api_icon_upload_roundtrip(tmp_path, monkeypatch):
     r = c.post("/api/icon/upload", json={"dataurl": png}).json()
     assert r["ok"] is True and r["ext"] == "png"
     assert (tmp_path / "data" / "kira-icon.png").exists()
+    assert "ico" in r                                  # .ico-Erzeugung (True wenn Pillow da; Fenster-/Taskleisten-Symbol)
+    if r["ico"]:                                        # Pillow vorhanden -> ICO liegt fuer die Desktop-App bereit
+        assert (tmp_path / "data" / "kira-icon.ico").exists()
     assert c.get("/api/icon").status_code == 200
     # unsinniges Format wird abgelehnt (kein Crash)
     assert c.post("/api/icon/upload", json={"dataurl": "nope"}).json()["ok"] is False
