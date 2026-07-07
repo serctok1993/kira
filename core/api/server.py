@@ -1651,6 +1651,16 @@ async def api_chat_delete(body: dict) -> dict:
     return {"ok": True, "deleted": memory.clear_session(body.get("sid", ""))}
 
 
+@app.post("/api/memory/reset-episodic")
+async def api_memory_reset_episodic(body: dict) -> dict:
+    """Setzt den gesamten Chat-/Gespraechsstrang auf null (mit Backup) — Fakten bleiben.
+    Bewusst confirm-gesichert, damit nichts aus Versehen passiert."""
+    if not body.get("confirm"):
+        return {"ok": False, "error": "confirm fehlt — nichts geloescht"}
+    res = memory.reset_episodic(backup=True)
+    return {"ok": True, **res}
+
+
 # ---------- Chat (Live-Thinking) ----------
 @app.websocket("/ws/chat")
 async def ws_chat(ws: WebSocket) -> None:
