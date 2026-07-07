@@ -36,6 +36,18 @@ def test_request_restart_schreibt_flag(tmp_path, monkeypatch):
     assert flag.read_text(encoding="utf-8") == "all"   # wie kira-update.bat -> Supervisor bounced sauber
 
 
+def test_window_icon_nur_ico(tmp_path, monkeypatch):
+    # Regressionsschutz: das Fenster-Icon ist NUR .ico (ein .jpg/.png liess die App beim Start crashen)
+    data = tmp_path / "data"
+    data.mkdir()
+    monkeypatch.setattr(app, "ROOT", tmp_path)
+    assert app._window_icon() is None                       # nichts da -> None (App startet ohne Icon)
+    (data / "kira-icon.jpeg").write_bytes(b"x")             # nur ein JPEG -> trotzdem KEIN Fenster-Icon
+    assert app._window_icon() is None
+    (data / "kira-icon.ico").write_bytes(b"x")              # erst mit .ico kommt ein Fenster-Icon
+    assert app._window_icon() == str(data / "kira-icon.ico")
+
+
 def test_ensure_cockpit_startet_nicht_wenn_schon_oben(monkeypatch):
     calls = {"n": 0}
     monkeypatch.setattr(app, "is_cockpit_up", lambda timeout=1.0: True)

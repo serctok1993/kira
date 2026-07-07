@@ -74,11 +74,16 @@ den Icons). Sag Bescheid; Windows-only, Abnahme auf deinem PC.
 
 ## App-Logo
 
-Leg dein Logo als **`data/kira-icon.png`** ab (im Kira-Ordner). Es wird dann überall genutzt:
-**Kopf im Cockpit** (oben links statt „KIRA"-Schriftzug), **Tray-Symbol** der Desktop-App,
-**Browser-Tab-Favicon** von `/wall`. `data/` ist gitignored → dein Bild bleibt lokal.
+**Am einfachsten (empfohlen):** im Cockpit unter **Kira → Technik → Cockpit → „App-Logo → 🖼 Logo wählen"**
+dein Bild hochladen. Es wird sofort **oben links im Cockpit**, als **/wall-Favicon** und (nach dem nächsten
+Start der Desktop-App) als **Tray-/Taskleisten-Symbol** genutzt. Kein Datei-Geschiebe nötig.
 
-> Fehlt die Datei, fällt der Cockpit-Kopf automatisch auf den Neon-„KIRA"-Schriftzug zurück.
+Alternativ von Hand: das Bild als **`data/kira-icon.png`** (oder `.jpg`/`.webp`) in den Kira-Ordner legen.
+`data/` ist gitignored → dein Bild bleibt lokal.
+
+> Fehlt ein Logo, zeigt der Cockpit-Kopf den Neon-„KIRA"-Schriftzug — nichts bricht.
+> Die Desktop-App startet **immer**, auch ohne Logo (das Fenster-/Taskleisten-Symbol nutzt nur ein
+> `.ico`, das `kira-einrichten.bat` erzeugt; fehlt es, läuft die App einfach ohne eigenes Fenstersymbol).
 
 ## Ein-Klick-Einrichtung (Icon + Desktop-Verknüpfung + Autostart)
 
