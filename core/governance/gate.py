@@ -35,6 +35,17 @@ def guarded(kind: str, title: str, detail: str, execute: Callable[[], Any],
     from core.agency import approvals
     from core.governance import audit, autonomy
 
+    # Firewall (Benchmark/Sandbox): jede Aussen-Aktion wird still zum Trockenlauf — protokolliert,
+    # aber NICHT ausgefuehrt. Standard aus -> Live + normale Suite unveraendert.
+    from core import config as _cfg
+    if _cfg.outbound_blocked():
+        try:
+            audit.record(action or kind, target=target or title,
+                         details={"detail": "[TESTMODUS] dry-run"}, reversible=True)
+        except Exception:  # noqa: BLE001
+            pass
+        return f"[TESTMODUS] '{title}' NICHT ausgefuehrt (Firewall aktiv)."
+
     try:
         if autonomy.needs_approval(kind):
             detail_full = (detail or "")[:4000]

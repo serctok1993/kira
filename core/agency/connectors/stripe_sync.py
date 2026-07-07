@@ -40,6 +40,9 @@ def _fallback_venture() -> str:
 
 def sync(limit: int = 50) -> dict:
     """Neue erfolgreiche Zahlungen ins Ledger buchen. Idempotent (ref-Dedupe)."""
+    from core import config as _cfg
+    if _cfg.outbound_blocked():  # Firewall (Benchmark/Sandbox): kein externer Stripe-Abruf
+        return {"note": "[TESTMODUS] Stripe-Sync uebersprungen", "booked": 0, "total_eur": 0.0}
     if not os.getenv("STRIPE_SECRET_KEY"):
         return {"note": "STRIPE_SECRET_KEY fehlt — request_secret('STRIPE_SECRET_KEY', ...) anfragen.",
                 "booked": 0, "total_eur": 0.0}
