@@ -69,3 +69,22 @@
 - **Motor liest eigene Lektionen:** recall_lessons/skills jetzt auch in act._identity(). ✔
 - **Priorität der Modell-Wahl: maximale Qualität** innerhalb der Kostenrealität; Anker = GLM-Klasse
   (offen, self-hostbar), Ziel in 6–24 Monaten GLM lokal.
+
+---
+
+## Referenz-Modell für Harness-Benchmarks (fest)
+Damit „Harness vorher/nachher" vergleichbar bleibt, ist **GLM 5.2 auf der Rolle `reason`** das
+**eingefrorene Referenz-Modell**: dieselbe Rolle, mit der Kira ihre schweren Denk-/Coding-Schritte
+fährt. Vor und nach einem Umbau denselben Benchmark (HumanEval, Cockpit-Knopf) auf `reason` laufen
+lassen → die pass@1-Differenz misst den Harness, nicht ein gewechseltes Modell. Freie Modelle
+(DeepSeek V4 Flash: 94,5 % über 164) laufen als billiger Dauer-Check; GLM 5.2 ist der Maßstab.
+Der teure Referenz-Lauf bleibt **Sergens Knopf** — nichts benchmarkt automatisch Geld weg.
+
+## Motor-Startfreigabe (Härtung vor dem Heartbeat) — umgesetzt
+1. **write_file-Loch geschlossen:** eine bestehende Code-Datei im Repo lässt sich nicht mehr blind
+   komplett überschreiben (umginge Verify+Gate) → Verweis auf edit_datei/self_edit. Neue Dateien,
+   Nicht-Code und alles außerhalb des Repos bleiben frei. ✔
+2. **Supervisor-Absturzbremse:** exponentieller Backoff (2→60 s) statt Sekunden-Neustart-Schleife;
+   ab 5 Abstürzen in 5 Min Krisen-Cooldown + einmalige Telegram-Warnung (respektiert die Firewall). ✔
+3. **Selbstmessung als Zeitreihe:** wöchentlicher 0-Token-Messpunkt (pass_rate/Score/Kosten aus dem
+   Outcome-Ledger) in data/selfmetrics.jsonl → Drift über Wochen sichtbar, im /api/insights. ✔

@@ -540,6 +540,12 @@ def run_forever(interval: int | None = None) -> None:
                     lessons = _ins.weekly_lessons()  # Outcome-Muster -> Lektionen (S6.2)
                     if lessons:
                         events.emit("insights_lessons", {"count": len(lessons)})
+                if maintenance.maybe_run("selfmetric_snapshot", interval_s=7 * 86400):
+                    # Selbstmessung (0 Token): Wochen-Messpunkt in die Zeitreihe -> Drift sichtbar.
+                    from core.agency import selfmetrics as _sm
+
+                    pt = _sm.snapshot()
+                    events.emit("selfmetric_snapshot", pt)
                 if maintenance.maybe_run("stall_check", interval_s=86400):
                     # S6.3: festgefahrene Ziele erkennen -> Freigabe-Eintrag statt stilles Grinden.
                     from core.agency import insights as _ins2
