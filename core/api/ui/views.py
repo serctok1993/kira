@@ -134,6 +134,11 @@ VIEWS = r"""</head><body>
       </div>
       <div id="chat-main">
         <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:0 0 8px;flex-wrap:wrap">
+          <label class="muted" style="font-size:12px;display:inline-flex;align-items:center;gap:6px">Projekt
+            <select id="chat-project" title="Eigener Chat je Projekt — Kira bekommt das Projekt-Briefing als Kontext" style="background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:7px;font-size:12px;padding:4px 7px;max-width:180px">
+              <option value="">— keins (allgemein) —</option>
+            </select>
+          </label>
           <span style="flex:1"></span>
           <button type="button" class="ghost" id="sess-toggle" title="Drueberfahren = Gespraeche auf · Klick = angepinnt (bleibt offen)" style="padding:5px 12px;font-size:12px">Chats</button>
         </div>

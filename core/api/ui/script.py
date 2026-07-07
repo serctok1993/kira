@@ -30,7 +30,7 @@ function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle(
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");};
  if(document.startViewTransition&&!matchMedia("(prefers-reduced-motion: reduce)").matches){document.startViewTransition(go);}else{go();}
  if(v==="home")loadCommand();
- if(v==="chat"){loadChatModels();loadChatSessions();}
+ if(v==="chat"){loadChatModels();loadChatSessions();loadChatProjects();}
  if(v==="me")loadMe();
  if(v==="projekte")loadProjekte();  /* S9.3: eine Uebersicht statt Subtabs */
  if(SUBTABS[v])subnav(v,SUBTABS[v].cur);}
@@ -720,9 +720,20 @@ async function loadChatSessions(){const box=$("#sess-items");if(!box)return;
 async function openSession(sid){curSid=sid;log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;
  try{const h=await (await fetch("/api/chat/history?sid="+encodeURIComponent(sid))).json();
   (h.messages||[]).forEach(m=>msgEl(m.text||"",m.role==="user"?"me":"bot",m.ts));}catch(e){}
- markActiveSession();reconnect();}
-function newSession(){curSid="cockpit-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;markActiveSession();reconnect();}
+ syncChatProject(sid);markActiveSession();reconnect();}
+function newSession(){curSid="cockpit-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;const cp=$("#chat-project");if(cp)cp.value="";markActiveSession();reconnect();}
 $("#sess-new")&&($("#sess-new").onclick=()=>newSession());
+/* Projekt-Chats (#15): je Projekt eine eigene Session (sid 'venture-<id>') — Kira bekommt das
+   Briefing als Kontext (serverseitig in build_system_prompt). Wahl schaltet die Session um. */
+async function loadChatProjects(){const sel=$("#chat-project");if(!sel)return;
+ try{const d=await (await fetch("/api/ventures")).json();const vs=d.ventures||[];
+  const keep=sel.value;
+  sel.innerHTML='<option value="">— keins (allgemein) —</option>'+vs.map(v=>'<option value="'+esc(v.id)+'">'+esc(v.name||v.id)+'</option>').join("");
+  sel.value=keep;}catch(e){}}
+function syncChatProject(sid){const sel=$("#chat-project");if(!sel)return;
+ sel.value=(sid&&sid.indexOf("venture-")===0)?sid.slice(8):"";}
+$("#chat-project")&&($("#chat-project").onchange=e=>{const id=e.target.value;
+ openSession(id?("venture-"+id):dailySid());});
 /* Gespraeche: Hover-Intent — Drueberfahren oeffnet, Klick PINNT (bleibt offen bis zum
    naechsten Klick). Bleibt offen solange die Maus ueber Button ODER Panel ist; schliesst
    erst 400ms nach Verlassen beider -> keine Zuschnapp-Macke beim diagonalen Rueberziehen.
