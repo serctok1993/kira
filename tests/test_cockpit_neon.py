@@ -10,6 +10,18 @@ from core.api.ui.views import VIEWS
 from core.api.ui.script import SCRIPT
 
 
+# ---- Hygiene: keine undefinierten Loader (loadNeeds war toter Code -> ReferenceError) ----
+
+def test_keine_undefinierten_load_funktionen():
+    import re
+
+    defined = set(re.findall(r"function (load[A-Za-z0-9_]+)\s*\(", SCRIPT))
+    defined |= set(re.findall(r"(load[A-Za-z0-9_]+)\s*=\s*(?:async\s*)?\(", SCRIPT))
+    called = set(re.findall(r"\b(load[A-Za-z0-9_]+)\s*\(", SCRIPT))
+    assert not (called - defined), f"loadX() aufgerufen aber nicht definiert: {sorted(called - defined)}"
+    assert "loadNeeds(" not in SCRIPT   # der konkrete Altlast-AUFRUF ist raus (Kommentar-Erwaehnung ok)
+
+
 # ---- Einfarbiger Hintergrund: Fläche = --bg, Kästen = --panel ---------------------------
 
 def test_flaechen_einfarbig():
