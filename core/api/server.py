@@ -1728,6 +1728,48 @@ async def ws_chat(ws: WebSocket) -> None:
         pass
 
 
+def _bench_record(meta: dict, ev: dict) -> None:
+    """Benchmark-Endstand dauerhaft ablegen (Leaderboard) — data/bench/results.jsonl."""
+    import json as _j
+    import time as _t
+    from pathlib import Path as _P
+
+    from core import config as _c
+
+    try:
+        row = {"ts": _t.time(), "suite": ev.get("suite") or meta.get("suite") or "harness",
+               "role": ev.get("role") or meta.get("role") or "",
+               "model": ev.get("model") or meta.get("model") or "",
+               "total": ev.get("total"), "passed": ev.get("passed"),
+               "pass_at_1": ev.get("pass_at_1")}
+        d = _P(_c.DATA_DIR) / "bench"
+        d.mkdir(parents=True, exist_ok=True)
+        with open(d / "results.jsonl", "a", encoding="utf-8") as f:
+            f.write(_j.dumps(row, ensure_ascii=False) + "\n")
+    except Exception:  # noqa: BLE001 — Leaderboard-Schreiben darf den Lauf nie stoeren
+        pass
+
+
+@app.get("/api/bench/results")
+def api_bench_results(limit: int = 50) -> dict:
+    """Alle bisherigen Benchmark-Laeufe (neueste zuerst) — fuers Leaderboard im Cockpit."""
+    import json as _j
+    from pathlib import Path as _P
+
+    from core import config as _c
+
+    p = _P(_c.DATA_DIR) / "bench" / "results.jsonl"
+    rows: list[dict] = []
+    if p.exists():
+        for line in p.read_text(encoding="utf-8").splitlines():
+            if line.strip():
+                try:
+                    rows.append(_j.loads(line))
+                except Exception:  # noqa: BLE001
+                    pass
+    return {"results": rows[-max(1, min(int(limit or 50), 200)):][::-1]}
+
+
 @app.websocket("/ws/bench")
 async def ws_bench(ws: WebSocket) -> None:
     """Coding-Benchmark live: startet die Suite in einem isolierten Worktree und streamt
@@ -1761,10 +1803,13 @@ async def ws_bench(ws: WebSocket) -> None:
             except StopIteration:
                 return None
 
+        meta = {"suite": (cfg.get("suite") or "harness"), "role": cfg.get("role") or ""}
         while True:
             ev = await anyio.to_thread.run_sync(_next)
             if ev is None:
                 break
+            if ev.get("kind") == "summary":
+                _bench_record(meta, ev)  # Endstand fuers Leaderboard sichern
             await ws.send_json(ev)
         await ws.send_json({"kind": "done"})
     except WebSocketDisconnect:

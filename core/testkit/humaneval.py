@@ -122,7 +122,14 @@ def stream_humaneval(limit: int = 20, role: str = "reason"):
     except Exception as e:  # noqa: BLE001
         yield {"kind": "error", "text": f"HumanEval-Datensatz nicht ladbar: {str(e)[:200]}"}
         return
-    yield {"kind": "suite_start", "total": len(probs), "suite": "humaneval", "role": role}
+    try:  # welches Modell liegt gerade auf der Rolle? -> fuers Leaderboard
+        from core.kernel import llm_router
+
+        model, _fb = llm_router.resolve_model(role)
+    except Exception:  # noqa: BLE001
+        model = "?"
+    yield {"kind": "suite_start", "total": len(probs), "suite": "humaneval",
+           "role": role, "model": model}
     passed = 0
     for pr in probs:
         tid = pr.get("task_id", "?")
@@ -133,5 +140,6 @@ def stream_humaneval(limit: int = 20, role: str = "reason"):
         passed += 1 if ok else 0
         yield {"kind": "task_done", "id": tid, "passed": ok, "rc": 0 if ok else 1,
                "out": info[:200]}
-    yield {"kind": "summary", "passed": passed, "total": len(probs),
+    yield {"kind": "summary", "passed": passed, "total": len(probs), "role": role,
+           "model": model, "suite": "humaneval",
            "pass_at_1": round(100 * passed / len(probs), 1) if probs else 0.0}
