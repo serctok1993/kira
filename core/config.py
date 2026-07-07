@@ -8,11 +8,34 @@ from pathlib import Path
 import yaml
 from dotenv import load_dotenv
 
-ROOT = Path(__file__).resolve().parent.parent      # kira/
-DATA_DIR = ROOT / "data"
+# Datenwurzel: normal aus __file__ abgeleitet (Live byte-identisch). Eine Sandbox kann sie
+# ueber KIRA_ROOT/KIRA_DATA_DIR umlenken (Testumgebung / Coding-Benchmark im git-Worktree) —
+# ohne gesetzte Env aendert sich NICHTS.
+ROOT = Path(os.getenv("KIRA_ROOT") or Path(__file__).resolve().parent.parent).resolve()  # kira/
+DATA_DIR = Path(os.getenv("KIRA_DATA_DIR") or (ROOT / "data")).resolve()
 MIND_DIR = ROOT / "core" / "mind"
 DB_PATH = DATA_DIR / "state.db"
 CONFIG_PATH = ROOT / "config.yaml"
+
+
+def test_mode() -> bool:
+    """True im Testmodus: explizit via KIRA_TEST_MODE oder automatisch unter pytest. Guards, die
+    Aussen-Wirkungen (Mail/Telegram/Cloud-Budget) verhindern, haengen hieran. Ohne Flag: False."""
+    return bool(os.getenv("KIRA_TEST_MODE") or os.getenv("PYTEST_CURRENT_TEST"))
+
+
+def sandbox_active() -> bool:
+    """True, wenn ein eigener Sandbox-Datenpfad gesetzt ist (KIRA_ROOT/KIRA_DATA_DIR) — dann
+    laeuft ein echter, isolierter Lauf (z.B. Coding-Benchmark im git-Worktree)."""
+    return bool(os.getenv("KIRA_ROOT") or os.getenv("KIRA_DATA_DIR"))
+
+
+def suppress_repo_writes() -> bool:
+    """True nur im blanken Testmodus OHNE Sandbox: dann sind Git-/Verify-Schreibpfade No-Ops
+    (pytest fasst das Live-Repo nie an). In einer aktiven Sandbox laufen sie voll real — nur
+    eingesperrt im Worktree."""
+    return test_mode() and not sandbox_active()
+
 
 # .env laden (still, falls nicht vorhanden)
 load_dotenv(ROOT / ".env")
