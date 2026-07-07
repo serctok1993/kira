@@ -255,6 +255,9 @@ def api_events(limit: int = 60, before: float | None = None) -> list[dict]:
     evs = events.recent(limit, before=before)
     for e in evs:
         e["sev"] = events.severity(e["type"])
+        # Klartext fuer Live-Ops + Desktop-Ticker: WAS laeuft (Werkzeug/Datei/Label/Score),
+        # nicht nur DASS etwas laeuft — eine Uebersetzung fuer beide Ansichten.
+        e.update(events.describe(e["type"], e.get("payload")))
     return evs
 
 
@@ -1927,8 +1930,9 @@ def api_system() -> dict:
 
 _WALL_FILE = ROOT / "data" / "wall_settings.json"
 # labels/motion/color/pos/size = Graph; stats = Liste sichtbarer Stat-Schluessel (Reihenfolge);
-# colors = Modus-Akzente {chat,work,coding} (Hex). Alles ueber den Desktop-Editor (Kira->Wallpaper) setzbar.
-_WALL_KEYS = ("labels", "motion", "color", "pos", "size", "stats", "colors")
+# colors = Modus-Akzente {chat,work,coding} (Hex); ticker = Aktivitaets-Stream unten links.
+# Alles ueber den Desktop-Editor (Kira->Wallpaper) setzbar.
+_WALL_KEYS = ("labels", "motion", "color", "pos", "size", "stats", "colors", "ticker")
 
 
 @app.get("/api/wall/settings")

@@ -77,6 +77,7 @@ async function loadWallEditor(){if(!$("#wp-stats"))return;
  $("#wp-stats").innerHTML=WP_STATS.map(([k,l])=>'<label class="muted" style="cursor:pointer"><input type="checkbox" data-st="'+k+'"'+(sel.indexOf(k)>=0?' checked':'')+'/> '+esc(l)+'</label>').join("");
  $("#wp-labels").checked=s.labels!==false;
  $("#wp-motion").checked=!!s.motion;
+ if($("#wp-ticker"))$("#wp-ticker").checked=s.ticker!==false;
  $("#wp-color").value=s.color||"vault";
  $("#wp-pos").value=s.pos||"mitte";
  $("#wp-size").value=s.size||"gross";
@@ -86,13 +87,14 @@ function wpGather(){
  const stats=$$("#wp-stats input[data-st]").filter(x=>x.checked).map(x=>x.dataset.st);
  return {labels:$("#wp-labels").checked,motion:$("#wp-motion").checked,color:$("#wp-color").value,
   pos:$("#wp-pos").value,size:$("#wp-size").value,stats:stats,
+  ticker:!$("#wp-ticker")||$("#wp-ticker").checked,
   colors:{chat:$("#wp-c-chat").value,work:$("#wp-c-work").value,coding:$("#wp-c-coding").value}};}
 async function wpSave(body){
  try{await fetch("/api/wall/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||wpGather())});}catch(e){}
  const f=$("#wp-prev");if(f)f.contentWindow.location.reload();   // Vorschau sofort aktualisieren
  if($("#wp-status")){$("#wp-status").textContent="gespeichert ✓";setTimeout(()=>{if($("#wp-status"))$("#wp-status").textContent="";},1600);}}
 $("#wp-save")&&($("#wp-save").onclick=()=>wpSave());
-$("#wp-reset")&&($("#wp-reset").onclick=async()=>{await wpSave({labels:true,motion:false,color:"vault",pos:"mitte",size:"gross",stats:null,colors:null});loadWallEditor();});
+$("#wp-reset")&&($("#wp-reset").onclick=async()=>{await wpSave({labels:true,motion:false,color:"vault",pos:"mitte",size:"gross",stats:null,colors:null,ticker:true});loadWallEditor();});
 $("#wp-open")&&($("#wp-open").onclick=()=>window.open("/wall","_blank"));
 
 /* ---- Playbooks (S11): feste Ablaeufe mit Reifegrad + Lernschleife ---- */
@@ -428,8 +430,19 @@ function _opsCounts(){const c={all:_opsCache.length,action:0,info:0,chat:0,error
  _opsCache.forEach(e=>{const s=e.sev||"info";if(c[s]!==undefined)c[s]++;});return c;}
 function renderOps(){const el=$("#ops-feed");if(!el)return;
  const keep=_opsCache.filter(e=>opsFilter==="all"||(e.sev||"info")===opsFilter);
- el.innerHTML=keep.length?keep.map(e=>{const t=new Date(e.ts*1000).toLocaleTimeString();
-  return '<div class="op '+(e.sev||"info")+'"><span class="od"></span><span class="opt">'+t+'</span><span class="opx">'+pulsePhrase(e).replace(/</g,"&lt;")+'</span></div>';}).join(""):'<span class="muted" style="padding:10px 13px;display:block">(ruhig — keine Aktivitaet)</span>';
+ /* Jede Zeile zeigt jetzt WAS laeuft: Klartext + technisches Detail (Werkzeug/Datei/Label)
+    + Typ-Badge + Session. Klick auf die Zeile klappt die volle Payload auf (Audit). */
+ el.innerHTML=keep.length?keep.map((e,i)=>{const t=new Date(e.ts*1000).toLocaleTimeString();
+  const txt=e.text||pulsePhrase(e),det=e.detail||"",sid=e.session_id||"";
+  return '<div class="op '+(e.sev||"info")+'" data-i="'+i+'" title="Klick: volle Payload"><span class="od"></span><span class="opt">'+t+'</span>'
+   +'<span class="opx">'+esc(txt)+(det?' <span class="opd">'+esc(det)+'</span>':'')
+   +'<span class="opk">'+esc(e.type||"")+(sid?' · '+esc(sid.slice(0,20)):'')+'</span></span></div>';
+  }).join(""):'<span class="muted" style="padding:10px 13px;display:block">(ruhig — keine Aktivitaet)</span>';
+ el.querySelectorAll(".op[data-i]").forEach(r=>r.onclick=()=>{
+  const e=keep[+r.dataset.i];if(!e)return;
+  const open=r.nextElementSibling&&r.nextElementSibling.classList.contains("oppay");
+  el.querySelectorAll(".oppay").forEach(x=>x.remove());
+  if(!open)r.insertAdjacentHTML("afterend",'<pre class="oppay">'+esc(JSON.stringify(e.payload||{},null,1))+'</pre>');});
  const c=_opsCounts();$$("#ops-filter a").forEach(a=>{const b=a.querySelector(".ofc");if(b)b.textContent=c[a.dataset.of]||"";});}
 async function loadOps(){const el=$("#ops-feed");if(!el)return;  // holt+cached; Filter rendert clientseitig (kein Refetch)
  try{_opsCache=await (await fetch("/api/events?limit=70")).json();renderOps();}catch(e){}}
@@ -1301,7 +1314,7 @@ function pulsePhrase(e){const p=e.payload||{},t=e.type,tool=p.tool||"";
 async function updatePulse(){try{const es=await (await fetch("/api/events?limit=6")).json();const el=$("#pulse");if(!el)return;
   if(!es.length){el.textContent="Leerlauf";return;}
   const fresh=(Date.now()/1000 - es[0].ts) < 50;
-  el.textContent=fresh?pulsePhrase(es[0]):"Leerlauf — bereit";}catch(e){}}
+  const e0=es[0];el.textContent=fresh?((e0.text||pulsePhrase(e0))+(e0.detail?" — "+e0.detail.slice(0,60):"")):"Leerlauf — bereit";}catch(e){}}
 updatePulse();
 
 /* ---- Direktive (Startseite) ---- */
