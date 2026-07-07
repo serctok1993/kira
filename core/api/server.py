@@ -1710,8 +1710,22 @@ async def api_icon_upload(body: dict) -> dict:
         if old.exists():
             old.unlink()
     (data_dir / f"kira-icon.{ext}").write_bytes(raw)
-    events.emit("app_icon_set", {"ext": ext, "bytes": len(raw)})
-    return {"ok": True, "ext": ext, "bytes": len(raw)}
+    # Zusaetzlich ein .ico erzeugen -> Windows nutzt es als FENSTER- und TASKLEISTEN-Symbol der
+    # Desktop-App (dafuer reicht .png/.jpg nicht). Pillow ist optional; fehlt es, laeuft alles weiter,
+    # nur das Fenstersymbol bleibt generisch (dann greift ersatzweise kira-einrichten.bat).
+    ico_made = False
+    try:
+        import io
+
+        from PIL import Image
+        img = Image.open(io.BytesIO(raw)).convert("RGBA")
+        img.save(str(data_dir / "kira-icon.ico"), format="ICO",
+                 sizes=[(16, 16), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
+        ico_made = True
+    except Exception:  # noqa: BLE001 — Pillow optional / kaputtes Bild
+        pass
+    events.emit("app_icon_set", {"ext": ext, "bytes": len(raw), "ico": ico_made})
+    return {"ok": True, "ext": ext, "bytes": len(raw), "ico": ico_made}
 
 
 @app.post("/api/icon/clear")
