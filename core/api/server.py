@@ -1322,7 +1322,7 @@ def _token_stats() -> dict:
 @app.get("/api/insights")
 def api_insights(days: int = 14) -> dict:
     """Lern-Statistik (S6.6c): Outcome-Muster aus insights.py, rein lesend fuers Cockpit."""
-    from core.agency import insights, outcomes
+    from core.agency import insights, outcomes, selfmetrics
 
     days = max(1, min(int(days or 14), 90))
     return {
@@ -1332,6 +1332,8 @@ def api_insights(days: int = 14) -> dict:
         "strategies": insights.strategy_stats(days),
         "brief": insights.render_brief(days),
         "tokens_heute": _token_stats(),
+        "selbstmessung": {"verlauf": selfmetrics.history(limit=26),
+                          "trend": selfmetrics.trend()},
     }
 
 
