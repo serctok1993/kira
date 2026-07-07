@@ -144,10 +144,10 @@ Object.keys(SUBTABS).forEach(t=>$$(SUBTABS[t].bar+" a").forEach(a=>a.onclick=()=
 /* Kira-Tab: 2 Ebenen — 5 Gruppen filtern die Sub-Tabs. Views/Loader bleiben unveraendert;
    nur sichtbar ist immer NUR die aktive Gruppe -> 16 flache Reiter werden zu 5 klaren Gruppen. */
 const KIRA_GROUPS=[
- {key:"geist",   subs:["files","mem","wissen"]},
+ {key:"geist",   subs:["files","charakter","mem","wissen"]},
  {key:"gewissen",subs:["gov"]},
  {key:"automatik",subs:["cron","monitor","playbooks"]},
- {key:"technik", subs:["models","steuer","keys","cockpit","wall"]},
+ {key:"technik", subs:["models","bench","steuer","keys","cockpit","wall"]},
  {key:"zustand", subs:["checkliste","anatomie","stats","evolution","log"]}];
 function _kiraGroupOf(s){const g=KIRA_GROUPS.find(x=>x.subs.includes(s));return g?g.key:"geist";}
 function syncKiraGroup(s){const gk=_kiraGroupOf(s);const grp=KIRA_GROUPS.find(x=>x.key===gk);
