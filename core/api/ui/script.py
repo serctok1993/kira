@@ -942,6 +942,8 @@ async function openFile(name,el){$$(".flist .f").forEach(x=>x.classList.remove("
  $("#ftitle").textContent=f.label;$("#ftitle").className="";$("#farea").value=f.content;
  $("#farea").readOnly=!f.editable;$("#fsave").style.display=f.editable?"block":"none";}
 $("#fsave").onclick=async()=>{if(!fcur)return;
+ // Verfassung ist Kiras Kern -> Sicherheits-Rueckfrage (andere Dateien speichern direkt)
+ if(fcur.name==="constitution.md"&&!confirm("Kiras Verfassung ändern?\n\nGilt sofort für alle Antworten. Ein Backup wird automatisch angelegt (core/mind/history) — rückgängig machbar."))return;
  const r=await (await fetch("/api/file",{method:"POST",headers:{"Content-Type":"application/json"},
   body:JSON.stringify({name:fcur.name,content:$("#farea").value})})).json();
  $("#ftitle").textContent=fcur.label+(r.ok?" — gespeichert ✓":" — Fehler");};
