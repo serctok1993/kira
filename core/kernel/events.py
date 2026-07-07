@@ -116,3 +116,112 @@ def severity(etype: str) -> str:
     if etype in _ACTION_TYPES:
         return "action"
     return "info"
+
+
+# ---- Klartext fuer Live-Ops & Desktop-Ticker (deterministisch, 0 Token) --------------
+# Sergen will im Feed SEHEN, was laeuft — nicht nur "aktiv". describe() liefert pro Event
+# einen Menschen-Satz (text) plus den technischen Auszug (detail: Werkzeug, Datei, Label,
+# Score, Fehler). Serverseitig, damit Cockpit UND /wall dieselbe Uebersetzung nutzen.
+
+_TOOL_TEXT = {
+    "read_file": "liest Datei", "write_file": "schreibt Datei", "append_file": "ergaenzt Datei",
+    "edit_datei": "aendert Code", "self_edit": "baut an sich selbst", "code_suche": "sucht im Code",
+    "datei_finden": "sucht Dateien", "run_command": "fuehrt Befehl aus", "run_shell": "fuehrt Befehl aus",
+    "web_fetch": "liest Webseite", "web_search": "recherchiert", "browse": "surft",
+    "screenshot_url": "macht Screenshot", "read_logs": "prueft Logs", "health": "prueft Zustand",
+    "learn_skill": "lernt Faehigkeit", "jetzt": "schaut auf die Uhr", "send_mail": "sendet E-Mail",
+    "delegiere": "delegiert an die Armee", "venture_add": "legt Projekt an",
+}
+
+_ARG_KEYS = ("path", "pfad", "file", "rel_path", "url", "command", "query", "muster", "label", "name", "to")
+
+
+def _first_arg(args: dict) -> str:
+    for k in _ARG_KEYS:
+        v = args.get(k)
+        if v:
+            return str(v).replace("https://", "").replace("http://", "")[:70]
+    return ""
+
+
+def _kv_fallback(payload: dict, skip: tuple = ()) -> str:
+    """Kompakter k=v-Auszug der ersten Payload-Felder — nichts bleibt mehr unsichtbar."""
+    parts = []
+    for k, v in payload.items():
+        if k in skip or v in (None, "", [], {}):
+            continue
+        s = json.dumps(v, ensure_ascii=False) if isinstance(v, (dict, list)) else str(v)
+        parts.append(f"{k}={s[:60]}")
+        if len(parts) >= 3:
+            break
+    return " · ".join(parts)
+
+
+def describe(etype: str, payload: dict | None) -> dict:
+    """(text, detail) fuer die Live-Ansichten. Raist NIE — kaputte Payload = Fallback."""
+    try:
+        p = payload if isinstance(payload, dict) else {}
+        t = etype or "?"
+        if t in ("tool_call", "act_step"):
+            tool = str(p.get("tool") or "")
+            args = p.get("args") if isinstance(p.get("args"), dict) else {}
+            verb = (_TOOL_TEXT.get(tool) or f"nutzt {tool}") if tool else "arbeitet"
+            text = "⚙ Kira " + verb
+            detail = " · ".join(x for x in (tool, _first_arg(args),
+                                            str(p.get("error") or "")[:80]) if x)
+            return {"text": text, "detail": detail}
+        if t == "act_start":
+            return {"text": "▶ Auftrag gestartet", "detail": str(p.get("task") or "")[:110]}
+        if t == "act_done":
+            steps = p.get("steps")
+            return {"text": "✓ Auftrag fertig", "detail": f"{steps} Schritte" if steps else ""}
+        if t in ("plan_made", "plan_start"):
+            steps = p.get("steps") or []
+            n = len(steps) if isinstance(steps, list) else steps
+            first = str(steps[0])[:70] if isinstance(steps, list) and steps else ""
+            return {"text": "🗺 Plan erstellt", "detail": f"{n} Schritte" + (f" · 1. {first}" if first else "")}
+        if t == "plan_step":
+            return {"text": f"🗺 Plan-Schritt {p.get('n', '?')}",
+                    "detail": " · ".join(x for x in (str(p.get('rang') or ''),
+                                                     str(p.get('step') or '')[:90]) if x)}
+        if t == "mission_task_start":
+            return {"text": "🎯 Arbeitet an Task", "detail": str(p.get("desc") or "")[:110]}
+        if t == "mission_task_done":
+            return {"text": "✅ Task fertig", "detail": str(p.get("summary") or "")[:110]}
+        if t == "task_scored":
+            return {"text": "⚖ Richter hat benotet",
+                    "detail": f"Score {p.get('score', '?')} · Versuch {p.get('attempt', '?')}"}
+        if t == "cron_run":
+            ok = "ok" if p.get("ok") else "Problem"
+            return {"text": f"⏰ Cron gelaufen ({ok})",
+                    "detail": " · ".join(x for x in (str(p.get('label') or ''),
+                                                     str(p.get('summary') or '')[:80]) if x)}
+        if t in ("selfdev_applied", "file_edited"):
+            return {"text": "🔧 Code geaendert",
+                    "detail": " · ".join(x for x in (str(p.get('file') or ''),
+                                                     str(p.get('reason') or '')[:60]) if x)}
+        if t == "write_blocked":
+            return {"text": "🛡 Schreibzugriff geblockt",
+                    "detail": " · ".join(x for x in (str(p.get('tool') or ''),
+                                                     str(p.get('path') or '')[:80]) if x)}
+        if t == "service_crash":
+            return {"text": "⚠ Dienst abgestuerzt",
+                    "detail": f"{p.get('service', '?')} · code {p.get('exit_code', '?')}"}
+        if t == "partner_message":
+            return {"text": "💬 Kira hat geantwortet", "detail": str(p.get("preview") or p.get("text") or "")[:90]}
+        if t in ("user_message", "telegram_in"):
+            return {"text": "👂 Nachricht von Sergen", "detail": str(p.get("preview") or p.get("text") or "")[:90]}
+        if t == "reflection":
+            return {"text": "🪞 Denkt ueber sich nach", "detail": ""}
+        if t == "self_tick":
+            return {"text": "🔧 Selbst-Optimierungs-Tick", "detail": _kv_fallback(p)}
+        if t == "budget_block":
+            return {"text": "💰 Budget-Bremse hat gegriffen", "detail": _kv_fallback(p)}
+        if t == "heartbeat_toggle":
+            return {"text": "🫀 Heartbeat " + ("AN" if p.get("on") else "aus"), "detail": ""}
+        if severity(t) == "error":
+            return {"text": "⚠ " + t, "detail": str(p.get("error") or "")[:100] or _kv_fallback(p, skip=("tail",))}
+        # Fallback: Typ + kompakte Payload — nichts erscheint mehr als nur "aktiv"
+        return {"text": "· " + t, "detail": _kv_fallback(p, skip=("tail",))}
+    except Exception:  # noqa: BLE001 — die Live-Ansicht darf nie am Beschreiben scheitern
+        return {"text": "· " + (etype or "?"), "detail": ""}

@@ -102,6 +102,14 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   .mpop.on{display:block}
   .mrow{padding:7px 10px;border-radius:8px;font-size:12px;cursor:pointer;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono)}
   .mrow:hover{background:color-mix(in srgb,var(--accent) 18%,transparent)}
+  /* Live-Ticker: unaufdringlicher Aktivitaets-Stream unten links — zeigt WAS Kira gerade tut.
+     pointer-events:none -> liegt "unsichtbar" im Hintergrund, stoert nie. Kein Animations-Loop,
+     nur ein Poll alle 10 s -> passt zur 0%-Last-Philosophie des Wallpapers. */
+  #ticker{position:fixed;left:18px;bottom:14px;z-index:4;pointer-events:none;display:flex;flex-direction:column;gap:3px;
+    max-width:min(460px,44vw);font-family:var(--mono);font-size:10.5px;line-height:1.4;text-shadow:0 1px 4px #000,0 0 2px #000}
+  #ticker .tk{color:#ded7ec;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .6s}
+  #ticker .tk .tt{color:var(--accent);opacity:.95;margin-right:7px}
+  #ticker .tk.error{color:var(--amber)}
   .tag{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:9;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:flex;gap:8px;align-items:center}
   .tag .d{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:bl 2s infinite}
   @keyframes bl{50%{opacity:.4}}
@@ -119,7 +127,10 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
     <label>Farbe <select id="w-color"><option value="vault">Vault</option><option value="modus">Modus</option><option value="mono">Mono</option></select></label>
     <label>Position <select id="w-pos"><option value="links">Links</option><option value="mitte">Mitte</option><option value="rechts">Rechts</option></select></label>
     <label>Größe <select id="w-size"><option value="klein">Klein</option><option value="mittel">Mittel</option><option value="gross">Groß</option><option value="riesig">Riesig</option></select></label>
+    <div class="wt" style="padding-top:8px">Aktivität</div>
+    <label><input type="checkbox" id="w-ticker"/> Live-Ticker (unten links)</label>
   </div>
+  <div id="ticker"></div>
 
   <div class="topbar">
     <div class="srow" id="srow"></div>
@@ -211,6 +222,17 @@ async function loadStats(){
 }
 function esc(s){return (s==null?"":""+s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
 
+/* ---- Live-Ticker: die letzten Aktionen als leiser Stream (Text kommt fertig vom Server) ---- */
+async function loadTicker(){const el=$("#ticker");if(!el)return;
+  if(!WALL.ticker){el.innerHTML="";return;}
+  try{const es=await (await fetch("/api/events?limit=5")).json();
+    el.innerHTML=(es||[]).map((e,i)=>{
+      const t=new Date(e.ts*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+      const s=((e.text||e.type||"")+(e.detail?" — "+e.detail:"")).slice(0,110);
+      return '<div class="tk'+(e.sev==="error"?" error":"")+'" style="opacity:'+(0.95-i*0.17).toFixed(2)+'"><span class="tt">'+t+'</span>'+esc(s)+'</div>';
+    }).join("");
+  }catch(e){}}
+
 /* ---- Live-Vault-Graph ---- */
 let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches,settle=0,drag=null,graphVault=null,dragStart=null,dragMoved=false,GX={},lastFloat=0;
 /* Wallpaper-Einstellungen (Zahnrad) — leben im localStorage, das offene Wallpaper hoert per
@@ -218,7 +240,7 @@ let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia
 const MODE_RGB={chat:"176,38,255",work:"57,255,20",coding:"0,229,255"};
 const POSX={links:0.32,mitte:0.5,rechts:0.68},SIZ={klein:0.72,mittel:1,gross:2.6,riesig:3.6};
 let curG=null;   // zuletzt geladener Graph (fuer Re-Layout bei Groesse/Position)
-let WALL={labels:true,motion:false,color:"vault",pos:"mitte",size:"gross",stats:null,colors:null};   // Standbild default (0% Last) + grosser Graph; stats=null -> alle; colors=null -> Standard-Modusfarben
+let WALL={labels:true,motion:false,color:"vault",pos:"mitte",size:"gross",stats:null,colors:null,ticker:true};   // Standbild default (0% Last) + grosser Graph; stats=null -> alle; colors=null -> Standard-Modusfarben; ticker = Aktivitaets-Stream unten links
 function loadWall(){try{Object.assign(WALL,JSON.parse(localStorage.getItem("kira_wall")||"{}"));}catch(e){}}
 async function loadWallServer(){try{const s=await (await fetch("/api/wall/settings")).json();if(s&&typeof s==="object")Object.assign(WALL,s);}catch(e){}}
 function saveWall(){try{localStorage.setItem("kira_wall",JSON.stringify(WALL));}catch(e){}
@@ -226,7 +248,7 @@ function saveWall(){try{localStorage.setItem("kira_wall",JSON.stringify(WALL));}
 let _wallSig="";
 async function pollWall(){try{const raw=await (await fetch("/api/wall/settings")).text();if(raw===_wallSig)return;_wallSig=raw;
   const s=JSON.parse(raw||"{}");const op=WALL.pos,os=WALL.size;Object.assign(WALL,s);
-  try{syncWallUI();}catch(e){}try{applyColors();}catch(e){}try{loadStats();}catch(e){}   // Farben + Stats-Auswahl live nachziehen (Editor)
+  try{syncWallUI();}catch(e){}try{applyColors();}catch(e){}try{loadStats();}catch(e){}try{loadTicker();}catch(e){}   // Farben + Stats-Auswahl + Ticker live nachziehen (Editor)
   if(WALL.pos!==op||WALL.size!==os)relayout();else kick();}catch(e){}}
 function nodeColor(n){return WALL.color==="modus"?(MODE_RGB[mode]||"176,38,255"):WALL.color==="mono"?"233,228,244":n.g0;}
 function sz(){W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
@@ -379,13 +401,14 @@ function applyAnim(){document.body.dataset.anim=WALL.motion?"on":"off";}   // LE
 function applyColors(){const c=WALL.colors||{},d=document.documentElement;   // Modus-Akzente aus dem Desktop-Editor
   if(c.chat)d.style.setProperty('--chat',c.chat);if(c.work)d.style.setProperty('--work',c.work);if(c.coding)d.style.setProperty('--coding',c.coding);
   d.style.setProperty('--accent',COL[mode]||'var(--chat)');}
-function syncWallUI(){$("#w-labels").checked=WALL.labels;$("#w-motion").checked=WALL.motion;$("#w-color").value=WALL.color;$("#w-pos").value=WALL.pos;$("#w-size").value=WALL.size;applyAnim();}
+function syncWallUI(){$("#w-labels").checked=WALL.labels;$("#w-motion").checked=WALL.motion;$("#w-color").value=WALL.color;$("#w-pos").value=WALL.pos;$("#w-size").value=WALL.size;$("#w-ticker").checked=WALL.ticker!==false;applyAnim();}
 $("#gear").addEventListener('click',()=>{const p=$("#wpop");p.classList.toggle('on');if(p.classList.contains('on'))syncWallUI();});
 $("#w-labels").addEventListener('change',e=>{WALL.labels=e.target.checked;saveWall();kick();});
 $("#w-motion").addEventListener('change',e=>{WALL.motion=e.target.checked;saveWall();applyAnim();kick();});
 $("#w-color").addEventListener('change',e=>{WALL.color=e.target.value;saveWall();kick();});
 $("#w-pos").addEventListener('change',e=>{WALL.pos=e.target.value;saveWall();relayout();});
 $("#w-size").addEventListener('change',e=>{WALL.size=e.target.value;saveWall();relayout();});
+$("#w-ticker").addEventListener('change',e=>{WALL.ticker=e.target.checked;saveWall();loadTicker();});
 window.addEventListener('storage',e=>{if(e.key==="kira_wall"){loadWall();syncWallUI();relayout();}});   // aus einem Browser-Tab geaendert -> Wallpaper zieht live nach
 document.addEventListener('click',e=>{if(!e.target.closest('#gear')&&!e.target.closest('#wpop')){const p=$("#wpop");if(p)p.classList.remove('on');}});
 
@@ -395,6 +418,7 @@ document.addEventListener('click',e=>{if(!e.target.closest('#gear')&&!e.target.c
   addEventListener('resize',()=>{sz();relayout();});
   connect();setInterval(loadStats,30000);   // Stats leben (alle 30 s frisch) — Graph bleibt ruhig
   setInterval(pollWall,3000);                // Einstellungen serverseitig -> Lively-Wallpaper zieht nach
+  loadTicker();setInterval(loadTicker,10000); // Aktivitaets-Ticker: 1 leichter Poll alle 10 s, keine Animation
 })();
 </script>
 </body></html>"""
