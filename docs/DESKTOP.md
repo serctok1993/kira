@@ -55,12 +55,19 @@ komplett, poppt **nicht** bei Mausberührung auf. Deine Desktop-Icons bleiben si
 
 ---
 
-## 3 · Interaktion (Chat) — kommt in Phase 4
+## 3 · Interaktion (Chat) — das kleine Schwebe-Fenster (Phase 4)
 
-Hinter den Icons ist die Ebene **ambient** — Windows lässt dort keine Klicks/Eingaben zu.
-Der Chat-Balken ist also zunächst nur **sichtbar**, nicht bedienbar. Die Bedienung kommt in
-**Phase 4**: ein globaler Hotkey (`Alt/⌥ + Space`) holt das echte Chatfenster nach vorne.
-Bis dahin chattest du über die **Desktop-App** (`kira-desktop.bat`) oder das Cockpit.
+Hinter den Icons ist die Wallpaper-Ebene **ambient** — Windows leitet dorthin **keine Tastatur**
+und keinen echten Fokus. Der Chat-Balken am Wallpaper ist deshalb nur **sichtbar**, nicht tippbar.
+
+Die Bedienung übernimmt ein **kleines Schwebe-Fenster** (läuft in der Desktop-App,
+`kira-desktop.bat`): ein globaler **Hotkey** (Standard **`Alt + Leertaste`**) holt es nach vorne —
+es liegt über allem, hat **echten Fokus**, also **tippen, einfügen, kopieren** ganz normal. Nochmal
+Hotkey → weg. Der **„Kira öffnen"**-Knopf darin holt das volle Cockpit (dein Workspace).
+
+- **Hotkey ändern:** in `config.yaml` unter `desktop.chat_hotkey`, z. B. `"ctrl+space"`, `"win+k"`.
+  Kombinationen mit `+`: `alt` / `ctrl` / `shift` / `win` + Taste.
+- Läuft nur in der **Desktop-App** (nicht im Browser-Tab) — dort registriert Windows den Hotkey.
 
 ---
 

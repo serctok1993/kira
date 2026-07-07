@@ -1672,6 +1672,13 @@ def wall() -> str:
     return WALL_HTML.replace("/*__PHRASES__*/", inner)
 
 
+@app.get("/chat-mini", response_class=HTMLResponse)
+def chat_mini() -> str:
+    # Mini-Chat (Phase 4): kleines Schwebe-Fenster mit echtem Fokus, per Desktop-Hotkey geholt.
+    inner = json.dumps(THINKING_PHRASES, ensure_ascii=False)[1:-1]
+    return MINI_HTML.replace("/*__PHRASES__*/", inner)
+
+
 @app.get("/api/vault/graph")
 def api_vault_graph() -> dict:
     # Live-Obsidian-Vault als Graph (rein lesend): Notizen + [[Verlinkungen]] -> Knoten + Faeden.
@@ -1741,4 +1748,5 @@ async def api_wall_settings_set(body: dict) -> dict:
 # identisch: DASHBOARD_HTML ist weiterhin ueber core.api.server importierbar.
 from core.api.ui import DASHBOARD_HTML  # noqa: E402
 from core.api.ui.wall import WALL_HTML  # noqa: E402
+from core.api.ui.mini import MINI_HTML  # noqa: E402
 from core.kernel.fs import atomic_write

@@ -49,6 +49,9 @@ desktop:
   # ganzer Graph erscheint. Windows-Pfad in Anfuehrungszeichen, mit / statt \:
   vault_paths:
     - "C:/Users/serge/Desktop/Kira-Brain"      # Sergens Obsidian-Vault -> voller Graph im Wallpaper
+  # Globaler Hotkey, der das kleine Schwebe-Chat-Fenster holt/versteckt (Phase 4, nur Desktop-App).
+  # Kombinationen mit +: alt / ctrl / shift / win + Taste. Beispiele: "alt+space", "ctrl+shift+k", "win+k".
+  chat_hotkey: "alt+space"
 
 # Agentische Ausdauer — wie lang Kira an EINEM Task dranbleibt (Claude-Code-artig).
 # Die Handlungs-Schleife endet automatisch frueh, sobald Kira fertig ist; diese Werte
