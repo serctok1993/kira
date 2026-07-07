@@ -107,10 +107,25 @@ def test_api_wall_settings_roundtrip(tmp_path, monkeypatch):
     monkeypatch.setattr(srv, "_WALL_FILE", tmp_path / "wall.json")
     c = TestClient(app)
     assert c.get("/api/wall/settings").json() == {}            # frisch: leer
-    r = c.post("/api/wall/settings", json={"pos": "rechts", "size": "gross", "foo": "x"})
+    r = c.post("/api/wall/settings", json={"pos": "rechts", "size": "gross", "foo": "x",
+                                           "stats": ["motor", "news"], "colors": {"chat": "#ff00aa"}})
     assert r.json()["ok"] is True
     got = c.get("/api/wall/settings").json()
     assert got["pos"] == "rechts" and got["size"] == "gross" and "foo" not in got   # nur erlaubte Keys
+    assert got["stats"] == ["motor", "news"] and got["colors"]["chat"] == "#ff00aa"  # Editor-Keys (Phase 2)
+
+
+def test_wall_editor_im_cockpit():
+    # Desktop Phase 2: Wallpaper-Editor als Subtab unter Kira (Technik) mit Live-Vorschau + Reglern
+    c = TestClient(app)
+    body = c.get("/").text
+    assert 'data-s="wall"' in body and 'id="v-wall"' in body        # Nav + Subview
+    assert 'id="wp-prev" src="/wall"' in body                        # Live-Vorschau-iframe
+    assert 'id="wp-stats"' in body and 'id="wp-c-chat"' in body      # Stats-Auswahl + Modus-Farbe
+    assert "function loadWallEditor(" in body and "WP_STATS" in body and "function wpGather(" in body
+    # /wall honoriert die Editor-Keys: konfigurierbare Stats-Liste + Modus-Farben
+    wall = c.get("/wall").text
+    assert "const STATS=[" in wall and "WALL.stats" in wall and "function applyColors(" in wall
 
 
 def test_api_system_null_safe():
