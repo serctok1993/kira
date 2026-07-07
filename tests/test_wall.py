@@ -78,7 +78,7 @@ def test_wall_seite_wird_ausgeliefert():
     assert "/api/life/board" in body and "/api/mails/unread" in body
     assert '"To-Dos"' in body and '"Mails"' in body
     # Wall v4: dezente Leiste (leichter Blur), Einstell-Zahnrad (Worte/Bewegung/Farbe), System-Stats
-    assert "backdrop-filter:blur(2px)" in body                 # Blur entschaerft
+    assert "backdrop-filter:blur(3px)" in body                 # dezenter Blur (Lesbarkeit der Stats)
     assert 'id="gear"' in body and "kira_wall" in body and "function nodeColor(" in body
     assert '/api/system' in body and '"CPU"' in body and '"GPU"' in body and '"Temp"' in body
     # Wall v5: Loop stoppt im Ruhezustand (CPU-Fix), Groesse+Position regelbar
