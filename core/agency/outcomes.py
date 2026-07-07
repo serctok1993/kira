@@ -103,15 +103,16 @@ def stats(days: int = 7) -> dict:
     cutoff = time.time() - days * 86400
     with _conn() as c:
         rows = c.execute(
-            "SELECT verdict, score FROM outcomes WHERE ts >= ?", (cutoff,)
+            "SELECT verdict, score, cost_usd FROM outcomes WHERE ts >= ?", (cutoff,)
         ).fetchall()
     total = len(rows)
-    passed = sum(1 for v, _ in rows if v == "pass")
-    scores = [s for _, s in rows if s is not None]
+    passed = sum(1 for v, _, _ in rows if v == "pass")
+    scores = [s for _, s, _ in rows if s is not None]
     return {
         "days": days,
         "attempts": total,
         "passed": passed,
         "pass_rate": round(passed / total, 3) if total else None,
         "avg_score": round(sum(scores) / len(scores), 1) if scores else None,
+        "cost_usd": round(sum(c or 0.0 for _, _, c in rows), 4),
     }

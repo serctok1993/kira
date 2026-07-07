@@ -13,7 +13,7 @@ from pathlib import Path
 import httpx
 
 from core.agency.tools.registry import tool
-from core.config import MIND_DIR
+from core.config import MIND_DIR, ROOT
 from core.kernel import events
 
 _UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -23,6 +23,14 @@ _UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.
 # (write_file hatte frueher keinerlei Pfadschutz — so entstanden Root-Strays
 # und die Verfassung war de facto beschreibbar.)
 _PROTECTED = {(MIND_DIR / "constitution.md").resolve()}
+
+# Quelltext-Endungen: eine BESTEHENDE Datei dieser Art IM Repo darf write_file NICHT
+# komplett ueberschreiben — das umginge self_edit/edit_datei (Verify + Gate + Diff).
+# Neue Dateien, Nicht-Code (.md/.json/.txt/.yaml …) und alles AUSSERHALB des Repos
+# bleiben frei — Flexibilitaet bleibt oberste Regel.
+_CODE_EXT = {".py", ".js", ".ts", ".jsx", ".tsx", ".mjs", ".cjs", ".css", ".scss",
+             ".html", ".vue", ".svelte", ".go", ".rs", ".java", ".kt", ".c", ".cc",
+             ".cpp", ".h", ".hpp", ".rb", ".php", ".sh", ".ps1", ".sql"}
 
 
 def _write_guard(p: Path, tool_name: str) -> str | None:
@@ -38,6 +46,25 @@ def _write_guard(p: Path, tool_name: str) -> str | None:
             pass
         return ("BLOCKIERT: constitution.md ist unantastbar (Verfassung). "
                 "Aenderungen daran macht nur Sergen selbst via Git.")
+    # Loch geschlossen: bestehende Code-Datei im Repo nicht blind komplett ueberschreiben.
+    if rp.suffix.lower() in _CODE_EXT and rp.exists():
+        try:
+            in_repo = rp.is_relative_to(ROOT.resolve())
+        except Exception:  # noqa: BLE001
+            in_repo = False
+        if in_repo:
+            try:
+                rel = rp.relative_to(ROOT.resolve()).as_posix()
+            except Exception:  # noqa: BLE001
+                rel = str(rp)
+            try:
+                events.emit("write_blocked",
+                            {"path": str(rp), "tool": tool_name, "grund": "code_overwrite"})
+            except Exception:  # noqa: BLE001
+                pass
+            return (f"BLOCKIERT: bestehende Code-Datei ({rel}) nicht mit {tool_name} komplett "
+                    "ueberschreiben — das umgeht Verify + Gate. Nutze edit_datei fuer gezielte "
+                    "Aenderungen (exakter Suchtext) oder self_edit fuer groessere Umbauten.")
     return None
 
 
