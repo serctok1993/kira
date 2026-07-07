@@ -39,3 +39,14 @@ def test_attach_truncates_large():
     d = _c().post("/api/chat/attach", files={"file": ("gross.txt", big, "text/plain")}).json()
     assert d["ok"] is True and d["truncated"] is True
     assert len(d["text"]) == 12000 and d["chars"] == 20000
+
+
+def test_bild_fliesst_in_den_chat():
+    # #19: ein Bild wird nicht mehr nur einmal beschrieben, sondern die Vision-Beschreibung
+    # fliesst in den laufenden Chat -> Kira kann darauf aufbauen (nachfragen, Mail schreiben).
+    from core.api.ui.script import SCRIPT
+    # Image-Zweig ruft /api/vision, speist die Beschreibung dann per ws.send in den Chat ein
+    assert "Kiras Bildbeschreibung: " in SCRIPT       # Vision-Text wandert in die Chat-Nachricht
+    assert 'startThinking();ws.send(full)' in SCRIPT   # -> agentischer Chat statt Einmal-Beschreibung
+    # der Image-Zweig (vor attachFile) nutzt /api/vision
+    assert SCRIPT.find("/api/vision") < SCRIPT.find("Kiras Bildbeschreibung")
