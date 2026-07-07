@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import os
 import sys
+import threading
 import time
 
 from core.agency import outcomes, verifier
@@ -398,6 +399,59 @@ def run_once(escalate: bool = False) -> dict:
         return {"task": task["description"], "error": str(e)}
 
 
+def _tick_timeout() -> int:
+    """Wall-Clock-Deckel fuer EINEN Missions-Tick (act kann extern haengen). Aus config,
+    Default 1200s. 0/negativ schaltet den Watchdog ab (Alt-Verhalten: blockierend warten)."""
+    try:
+        return int(CONFIG.get("heartbeat", {}).get("tick_timeout_seconds", 1200))
+    except Exception:  # noqa: BLE001
+        return 1200
+
+
+# Ein laufender Tick wird in einem Daemon-Thread ausgefuehrt und mit Deadline beobachtet.
+# Haengt er (act blockiert extern), laeuft der Haupt-Loop weiter — Cron/Monitor/Trigger
+# frieren NICHT mit ein. Der verwaiste Tick-Thread darf im Hintergrund auslaufen (Python
+# kann Threads nicht sicher toeten); ein neuer Tick startet erst, wenn der alte fertig ist.
+_tick_thread: threading.Thread | None = None
+_tick_result: dict = {}
+
+
+def _run_tick_timeboxed() -> dict | None:
+    """Startet run_once in einem Daemon-Thread und wartet bis zur Deadline.
+
+    Rueckgabe: das Tick-Ergebnis, oder None wenn (a) ein frueherer Tick noch haengt oder
+    (b) dieser Tick die Deadline riss (dann laeuft er im Hintergrund weiter). In beiden
+    Faellen bleibt der Loop lebendig und macht Cron/Monitor/Pflege weiter."""
+    global _tick_thread, _tick_result
+    if _tick_thread is not None and _tick_thread.is_alive():
+        events.emit("heartbeat_tick_still_running", {})  # Vor-Tick haengt -> Loop trotzdem weiter
+        return None
+
+    timeout = _tick_timeout()
+    if timeout <= 0:  # Watchdog aus: blockierend wie frueher
+        return run_once()
+
+    _tick_result = {}
+
+    def _worker() -> None:
+        global _tick_result
+        try:
+            _tick_result = run_once() or {}
+        except Exception as e:  # noqa: BLE001 — Tick-Absturz darf den Loop nie reissen
+            _tick_result = {"error": str(e)}
+            events.emit("heartbeat_error", {"error": str(e)[:200]})
+
+    _tick_thread = threading.Thread(target=_worker, name="mission-tick", daemon=True)
+    _tick_thread.start()
+    _tick_thread.join(timeout)
+    if _tick_thread.is_alive():
+        events.emit("heartbeat_tick_timeout", {"timeout_s": timeout})
+        _notify(f"⏱ Ein Missions-Tick haengt seit >{timeout}s — der Loop laeuft weiter "
+                "(Cron/Monitor aktiv), der Tick werkelt im Hintergrund.")
+        return None
+    return _tick_result
+
+
 def run_forever(interval: int | None = None) -> None:
     interval = interval or CONFIG.get("heartbeat", {}).get("interval_seconds", 1800)
     events.init_db()
@@ -544,8 +598,9 @@ def run_forever(interval: int | None = None) -> None:
                 events.emit("radar_error", {"error": str(e)})
 
             if heartbeat_on():
-                out = run_once()
-                print("tick:", {k: (str(v)[:80]) for k, v in out.items()})
+                out = _run_tick_timeboxed()
+                if out is not None:  # None = Vor-Tick haengt noch oder Deadline gerissen
+                    print("tick:", {k: (str(v)[:80]) for k, v in out.items()})
                 # Unterbrechbarer Schlaf: reagiert binnen ~15s auf Abschalten (Dashboard-
                 # Toggle) oder Kill-Switch, statt stur bis zu 'interval' Sek. weiterzulaufen.
                 slept = 0

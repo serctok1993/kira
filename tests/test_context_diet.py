@@ -26,9 +26,12 @@ def _fake_complete(text: str):
 # --- Persona: Budget + alle Verhaltensregeln erhalten -------------------------
 
 def test_persona_size_budget():
-    # Diaet-Ziel: unter 3800 Zeichen (vorher 5378) — geht bei JEDEM LLM-Call mit,
-    # in Chat UND Mission (_identity).
-    assert len(PERSONA_DIRECTIVE) < 3800
+    # Diaet-Ziel (vorher 5378, dann 3800). Bewusst auf 4200 angehoben fuer zwei
+    # hochwertige, taeglich wirkende Bloecke: "WO DU NACHSCHAUST" (effizienter
+    # Karte->Adresse-Nachschau statt Vault-Scan) und "WIE DU MITDENKST" (1 Mitdenk-
+    # Schritt). Bestehende Bloecke wurden dafuer gestrafft; geht bei JEDEM LLM-Call
+    # mit, in Chat UND Mission (_identity).
+    assert len(PERSONA_DIRECTIVE) < 4200
 
 
 def test_persona_keeps_all_rules():

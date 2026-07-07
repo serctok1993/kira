@@ -17,6 +17,9 @@ from core.config import DB_PATH
 def _conn() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA journal_mode=WAL")
+    # Heartbeat + Chat schreiben gleichzeitig Events -> statt sofort "database is locked"
+    # bis zu 5s auf den Schreib-Lock warten. Macht die 24/7-Nebenlaeufigkeit robust.
+    conn.execute("PRAGMA busy_timeout=5000")
     return conn
 
 
