@@ -39,6 +39,15 @@ def check(test_call: bool = False) -> dict:
         rep["routing"] = routing
         if all(v["fallback"] for v in routing.values()):
             prob("Alle Routen auf Lokal-Fallback — kein Cloud-Key aktiv?")
+        # Fable-Review-Regel (flexibel, nichts festgenagelt): die SPITZE (escalation_model) hat
+        # im Router Vorrang vor reason. Steht sie auf dem Massen-Modell (chat/bulk) oder lokal,
+        # laufen code:/plan:/Richter aufs schwaechste Glied — laut warnen, Sergen entscheidet.
+        esc = models.get("escalation_model") or ""
+        mass = {routing.get("chat", {}).get("model"), routing.get("bulk", {}).get("model")}
+        reason_m = routing.get("reason", {}).get("model")
+        if esc and esc != reason_m and (esc in mass or esc.startswith("ollama")):
+            prob(f"Eskalation ({esc}) ist das Massen-/Lokal-Modell — code:/plan:/Richter laufen "
+                 f"damit NICHT auf dem Denker ({reason_m}). Im Cockpit pruefen (Modelle -> Eskalation).")
     except Exception as e:  # noqa: BLE001
         prob(f"Modell-Routing nicht pruefbar: {e}")
 

@@ -40,12 +40,12 @@ function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle(
    Kein Spezialcode pro Tab mehr (vorher: syst() + kirat() doppelt). */
 const SUBTABS={
  kira:    {bar:"#kira-tabs", cur:"files",
-           loaders:{files:()=>loadFiles(),mem:()=>loadMem(),wissen:()=>loadWissen(),
+           loaders:{files:()=>loadFiles(),charakter:()=>loadCharakter(),mem:()=>loadMem(),wissen:()=>loadWissen(),
                     playbooks:()=>loadPlaybooks(),
                     anatomie:()=>loadAgenten(),evolution:()=>loadEvolution(),stats:()=>loadStats(),
                     keys:()=>loadKeys(),checkliste:()=>loadCheckliste(),
                     /* Config aufgeloest: Technik lebt jetzt unter Kira */
-                    models:()=>loadModels(),steuer:()=>loadSteuer(),gov:()=>loadGov(),
+                    models:()=>loadModels(),bench:()=>loadBench(),steuer:()=>loadSteuer(),gov:()=>loadGov(),
                     cron:()=>loadCron(),monitor:()=>loadMonitor(),log:()=>loadEvents(),cockpit:()=>loadDesktop(),
                     wall:()=>loadWallEditor()}},
  me:      {bar:"#me-tabs", cur:"todos",
@@ -144,10 +144,10 @@ Object.keys(SUBTABS).forEach(t=>$$(SUBTABS[t].bar+" a").forEach(a=>a.onclick=()=
 /* Kira-Tab: 2 Ebenen — 5 Gruppen filtern die Sub-Tabs. Views/Loader bleiben unveraendert;
    nur sichtbar ist immer NUR die aktive Gruppe -> 16 flache Reiter werden zu 5 klaren Gruppen. */
 const KIRA_GROUPS=[
- {key:"geist",   subs:["files","mem","wissen"]},
+ {key:"geist",   subs:["files","charakter","mem","wissen"]},
  {key:"gewissen",subs:["gov"]},
  {key:"automatik",subs:["cron","monitor","playbooks"]},
- {key:"technik", subs:["models","steuer","keys","cockpit","wall"]},
+ {key:"technik", subs:["models","bench","steuer","keys","cockpit","wall"]},
  {key:"zustand", subs:["checkliste","anatomie","stats","evolution","log"]}];
 function _kiraGroupOf(s){const g=KIRA_GROUPS.find(x=>x.subs.includes(s));return g?g.key:"geist";}
 function syncKiraGroup(s){const gk=_kiraGroupOf(s);const grp=KIRA_GROUPS.find(x=>x.key===gk);
@@ -157,6 +157,9 @@ function kiraGroup(gk){const grp=KIRA_GROUPS.find(x=>x.key===gk);if(!grp)return;
  if(grp.subs.includes(SUBTABS.kira.cur))syncKiraGroup(SUBTABS.kira.cur);  /* schon in der Gruppe -> nur filtern */
  else subnav("kira",grp.subs[0]);}                                        /* sonst zum ersten Sub-Tab */
 $$("#kira-groups a").forEach(a=>a.onclick=()=>kiraGroup(a.dataset.g));
+/* ⚙ Einstellungen-Shortcut in der Topbar: springt direkt in die Einstellungs-Gruppe (Modelle/
+   Steuerpult/Zugaenge/Cockpit/Wallpaper) — nur echte Settings, Kira-Inhalte bleiben bei Kira. */
+$("#gear")&&($("#gear").onclick=()=>{nav("kira");kiraGroup("technik");});
 syncKiraGroup(SUBTABS.kira.cur||"files");  /* Startzustand: Gruppe 'geist' aktiv */
 /* Icons pro Tab anpassbar (localStorage kira_icons: {"home":"◈",...}) — Pflege in Kira->Cockpit */
 function applyIcons(){try{const ic=JSON.parse(localStorage.getItem("kira_icons")||"{}");
@@ -240,6 +243,12 @@ async function loadStats(){try{
     +kinds.map(g=>row([esc(g.key),g.attempts,pct(g.pass_rate),g.avg_score==null?"—":g.avg_score,
       g.cost_per_success==null?"—":("$"+g.cost_per_success)])).join("")
   : '<span class="muted">(keine Daten)</span>';
+ const tk=d.tokens_heute||{};const fmt=n=>n>=1e6?(n/1e6).toFixed(1)+"M":n>=1e3?(n/1e3).toFixed(1)+"k":""+n;
+ $("#st-tokens")&&($("#st-tokens").innerHTML=(tk.total_calls
+  ? row(["Rolle","Calls","Tokens","$"],true)
+    +(tk.by_role||[]).map(g=>row([esc(g.role),g.calls,fmt(g.tokens),g.cost_usd?("$"+g.cost_usd):"0"])).join("")
+    +row(["<b>Gesamt</b>",tk.total_calls,"<b>"+fmt(tk.total_tokens)+"</b>",""],false)
+  : '<span class="muted">Heute noch keine LLM-Calls.</span>'));
  const objs=(pat.by_objective||[]).filter(g=>g.attempts>=2).slice(0,5);
  $("#st-objs").innerHTML=objs.length
   ? objs.map(g=>row([esc((""+(g.title||g.key)).slice(0,70)),g.attempts+" Versuche",pct(g.pass_rate)])).join("")
@@ -1635,6 +1644,50 @@ $("#reset-episodic")&&($("#reset-episodic").onclick=async()=>{
  try{const r=await (await fetch("/api/memory/reset-episodic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({confirm:true})})).json();
   $("#reset-episodic-hint").textContent=r.ok?("✓ "+r.deleted+" Nachrichten geloescht ("+r.kept+" Fakten/Skills behalten) — Backup gesichert"):("Fehler: "+(r.error||"?"));}
  catch(e){$("#reset-episodic-hint").textContent="Fehler beim Zuruecksetzen";}});
+
+/* ---- Charakter-Editor: charakter-praegende Prompts als Text (Erklaerung + Feld + Speichern) ---- */
+const CHARAKTER=[
+ {name:"SOUL.md",t:"Seele — wer sie ist",h:"Kiras Identität, Haltung, Rolle als Counterweight."},
+ {name:"GOAL.md",t:"Ziel — wofür sie da ist",h:"Zweck, Nordstern, Antriebe. Die Meilensteine (§6) gehören Dir."},
+ {name:"USER.md",t:"Über Dich (Sergen)",h:"Wer Du bist — Kira baut ihr Bild von Dir daraus."},
+ {name:"PERSONA.md",t:"Verhalten & Ton",h:"Wie sie spricht, mitdenkt, nachschaut — der Verhaltens-Kern (schlank halten, ~4200 Zeichen)."}];
+async function loadCharakter(){const w=$("#charakter-list");if(!w)return;w.innerHTML='<div class="muted" style="padding:10px">lädt …</div>';
+ let html="";
+ for(const it of CHARAKTER){let c="";try{const r=await (await fetch("/api/file?name="+encodeURIComponent(it.name))).json();c=r.content||"";}catch(e){}
+  html+='<div class="card"><h3>'+esc(it.t)+' <span class="muted" style="font-size:11px;font-weight:400">('+esc(it.name)+')</span></h3>'
+   +'<div class="muted" style="margin-bottom:6px">'+esc(it.h)+'</div>'
+   +'<textarea class="char-ta" data-name="'+esc(it.name)+'" spellcheck="false" style="width:100%;min-height:160px;font-family:monospace;font-size:12px;line-height:1.45">'+esc(c)+'</textarea>'
+   +'<div class="row" style="margin-top:6px;align-items:center;gap:10px"><button class="char-save" data-name="'+esc(it.name)+'">Speichern</button><span class="muted char-hint" data-h="'+esc(it.name)+'" style="font-size:12px"></span></div></div>';}
+ w.innerHTML=html;
+ $$(".char-save").forEach(b=>b.onclick=async()=>{const n=b.dataset.name;const ta=w.querySelector('.char-ta[data-name="'+n+'"]');const hint=w.querySelector('.char-hint[data-h="'+n+'"]');hint.textContent="… speichere";
+  try{const r=await (await fetch("/api/file",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:n,content:ta.value})})).json();hint.textContent=r.ok?"✓ gespeichert — Backup angelegt, wirkt sofort":("Fehler: "+(r.error||"?"));}
+  catch(e){hint.textContent="Fehler beim Speichern";}});}
+
+/* ---- Coding-Benchmark: Live-Lauf ueber /ws/bench (isolierter Worktree, Live-Gedankenstrom) ---- */
+let benchWs=null,benchPassed=0,benchTotal=0;
+function benchLog(html){const l=$("#bench-log");if(!l)return;const d=document.createElement("div");d.style.padding="3px 0";d.innerHTML=html;l.appendChild(d);l.scrollTop=l.scrollHeight;}
+function updateBenchScore(){const s=$("#bench-score");if(!s)return;const pct=benchTotal?Math.round(100*benchPassed/benchTotal):0;const col=pct>=70?"ok":pct>=40?"warn":"danger";s.innerHTML='Score: <span style="color:var(--'+col+')">'+benchPassed+'/'+benchTotal+'</span> ('+pct+'%)';}
+function loadBench(){const b=$("#bench-start");if(!b)return;
+ fetch("/api/status").then(r=>r.json()).then(s=>{const m=$("#bench-model");if(m&&s&&s.model)m.textContent="Aktuelles Modell: "+s.model;}).catch(()=>{});
+ b.onclick=()=>startBench();const st=$("#bench-stop");if(st)st.onclick=()=>stopBench();}
+function startBench(){if(benchWs){try{benchWs.close();}catch(e){}}
+ $("#bench-log").innerHTML="";$("#bench-score").textContent="";benchPassed=0;benchTotal=0;
+ $("#bench-start").style.display="none";$("#bench-stop").style.display="";
+ const allow=$("#bench-allow-llm")?$("#bench-allow-llm").checked:true;
+ const proto=location.protocol==="https:"?"wss":"ws";
+ benchWs=new WebSocket(proto+"://"+location.host+"/ws/bench");
+ benchWs.onopen=()=>{benchWs.send(JSON.stringify({allow_llm:!!allow}));benchLog('<span class="muted">Sandbox wird vorbereitet … (jeder Lauf ist isoliert)</span>');};
+ benchWs.onmessage=e=>{let ev;try{ev=JSON.parse(e.data);}catch(x){return;}renderBenchEvent(ev);};
+ benchWs.onclose=()=>{$("#bench-start").style.display="";$("#bench-stop").style.display="none";benchWs=null;};
+ benchWs.onerror=()=>{benchLog('<span style="color:var(--danger)">Verbindungsfehler</span>');};}
+function stopBench(){if(benchWs){try{benchWs.close();}catch(e){}}benchWs=null;$("#bench-start").style.display="";$("#bench-stop").style.display="none";benchLog('<span class="muted">Abgebrochen.</span>');}
+function renderBenchEvent(ev){const k=ev.kind,a=ev.ev||{};
+ if(k==="suite_start"){benchTotal=ev.total;benchPassed=0;updateBenchScore();benchLog('<b>Benchmark: '+ev.total+' Aufgabe(n)</b>');}
+ else if(k==="task_start")benchLog('<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:6px"><b>▶ '+esc(ev.id)+'</b> <span class="muted">'+esc(ev.prompt||"")+'</span></div>');
+ else if(k==="act"){let s="";if(a.kind==="think")s='<span class="muted">💭 '+esc((a.text||"").slice(0,300))+'</span>';else if(a.kind==="tool")s='🔧 '+esc(a.name||"")+' <span class="muted">'+esc(JSON.stringify(a.args||{}).slice(0,120))+'</span>';else if(a.kind==="obs")s='<span class="muted">↳ '+esc(((a.name||"")+" "+(a.text||"")).slice(0,300))+'</span>';else if(a.kind==="final")s='<span class="muted">'+esc((a.text||"").slice(0,200))+'</span>';if(s)benchLog(s);}
+ else if(k==="task_done"){if(ev.passed)benchPassed++;updateBenchScore();benchLog((ev.passed?'<span style="color:var(--ok)">✓ bestanden</span>':'<span style="color:var(--danger)">✗ nicht bestanden (rc='+ev.rc+')</span>')+' — '+esc(ev.id));}
+ else if(k==="summary"){benchPassed=ev.passed;benchTotal=ev.total;updateBenchScore();benchLog('<div style="margin-top:8px"><b>Fertig: '+ev.passed+'/'+ev.total+' bestanden</b></div>');}
+ else if(k==="error")benchLog('<span style="color:var(--danger)">Fehler: '+esc(ev.text||"")+'</span>');}
 
 refreshStatus();loadCommand();
 /* ---- S6.4: EIN Poll-Scheduler statt zweier nackter setInterval ----

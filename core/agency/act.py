@@ -16,7 +16,7 @@ import re
 from core.kernel import events, executor, llm_router
 from core.agency.tools import builtin  # noqa: F401  -> registriert die eingebauten Tools
 from core.agency.tools import registry, synthesize
-from core.mind.agent import _read, PERSONA_DIRECTIVE, build_system_prompt
+from core.mind.agent import _read, persona_text, build_system_prompt
 from core.mind.memory import store as memory
 from core.config import CONFIG
 
@@ -96,13 +96,29 @@ def _identity() -> str:
     except Exception:  # noqa: BLE001
         koerper = ""
         pb = ""
+    # Fable-Review-Fund: der autonome Pfad (Missionen/Crons/Selbst-Tick) schrieb Lektionen und
+    # Skills, LAS sie aber nie — nur der Chat-Prompt tat das. Jetzt fliessen sie auch hier ein,
+    # damit der Motor aus eigenen Fehlern wirklich lernt. Fail-soft: fehlendes Memory = leer.
+    lernen = ""
+    try:
+        from core.mind.memory import store as _mem
+
+        lessons = _mem.recall_lessons(limit=5)
+        skills = _mem.recall_skills(limit=6)
+        if lessons:
+            lernen += "# DEINE GELERNTEN LEKTIONEN\n" + "\n".join(f"- {l}" for l in lessons) + "\n\n"
+        if skills:
+            lernen += "# DEINE SKILLS (nutze sie, wenn passend)\n" + "\n".join(f"- {s}" for s in skills) + "\n\n"
+    except Exception:  # noqa: BLE001
+        lernen = ""
     return (
         f"# DEINE VERFASSUNG\n{_read('constitution.md')}\n\n"
         f"# DEINE SEELE\n{_read('SOUL.md')}\n\n"
         f"# DEIN ZIEL\n{_read('GOAL.md')}\n\n"
         + (f"# DEIN KOERPER (Details: read_file(\"core/mind/BODY.md\"))\n{koerper}\n\n" if koerper else "")
         + (f"{pb}\n\n" if pb else "")
-        + f"{PERSONA_DIRECTIVE}"
+        + lernen
+        + f"{persona_text()}"
     )
 
 
@@ -865,6 +881,21 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
             emit({"kind": "obs", "name": "⚠ Modell", "text":
                   f"Starkes Modell nicht verfuegbar — Coding laeuft LOKAL auf {_mdl}. "
                   "Ergebnis kann schwaecher sein."})
+    # Dirty-Check (Fable-Review, Sergens Regel: Freiheit ja — aber nie SEINE Arbeit fressen):
+    # eine rote Endabnahme rollt per reset --hard auf head0 zurueck und wuerde ungesicherte
+    # Aenderungen von Sergen mit verwerfen. Deshalb startet ein code:-Lauf am LIVE-System nur
+    # auf sauberem Arbeitsbaum. In Sandbox/Tests (test_mode) entfaellt der Check — dort ist der
+    # Worktree ohnehin Wegwerf-Material.
+    if code_review:
+        from core import config as _cfgmod
+        if not _cfgmod.test_mode():
+            dirty = _git_out("status", "--porcelain").strip()
+            if dirty:
+                events.emit("plan_dirty_refused", {"files": dirty[:300]}, session_id=session_id)
+                return ("⚠ Coding-Lauf NICHT gestartet: dein Arbeitsbaum hat ungesicherte "
+                        "Aenderungen (" + ", ".join(dirty.splitlines()[:3]) + " …). Eine rote "
+                        "Endabnahme wuerde per Rollback auch DEINE Arbeit verwerfen. Bitte erst "
+                        "committen oder stashen — dann starte ich sofort.")
     head0 = _git_out("rev-parse", "HEAD") if code_review else ""
     # Fast-Verify-Lauf (nur code:-Laeufe): pro Edit nur Syntax, volle Suite am Ende.
     # Defensiver Reset zuerst (falls ein frueher abgestuerzter Lauf den Flag True liess),
