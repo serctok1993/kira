@@ -1929,10 +1929,10 @@ def api_system() -> dict:
 
 
 _WALL_FILE = ROOT / "data" / "wall_settings.json"
-# labels/motion/color/pos/size = Graph; stats = Liste sichtbarer Stat-Schluessel (Reihenfolge);
-# colors = Modus-Akzente {chat,work,coding} (Hex); ticker = Aktivitaets-Stream unten links.
-# Alles ueber den Desktop-Editor (Kira->Wallpaper) setzbar.
-_WALL_KEYS = ("labels", "motion", "color", "pos", "size", "stats", "colors", "ticker")
+# labels/motion/color/pos/posy/size = Graph (posy = Hoehe oben/mitte/unten); stats = Liste
+# sichtbarer Stat-Schluessel (Reihenfolge); colors = Modus-Akzente {chat,work,coding} (Hex);
+# ticker = Live-Feed-Panel oben links. Alles ueber den Desktop-Editor (Kira->Wallpaper) setzbar.
+_WALL_KEYS = ("labels", "motion", "color", "pos", "posy", "size", "stats", "colors", "ticker")
 
 
 @app.get("/api/wall/settings")

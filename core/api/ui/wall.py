@@ -30,9 +30,11 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
       linear-gradient(160deg,var(--bg),#0e0a18 55%,#080a14);}
   /* wechselbares Hintergrundbild (aus dem Cockpit gesetzt, /api/bg) — LED-Rand liegt drueber */
   #bg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.9}
+  /* Maske folgt der Graph-Position (--gx/--gy aus JS) — sonst schneidet sie den Graph ab,
+     sobald er nicht mittig steht (z.B. oben rechts). */
   #graph{position:fixed;inset:0;width:100%;height:100%;z-index:1;opacity:.82;
-    -webkit-mask:radial-gradient(66% 50% at 50% 45%,#000 34%,transparent 86%);
-    mask:radial-gradient(66% 50% at 50% 45%,#000 34%,transparent 86%)}
+    -webkit-mask:radial-gradient(66% 55% at var(--gx,50%) var(--gy,45%),#000 34%,transparent 86%);
+    mask:radial-gradient(66% 55% at var(--gx,50%) var(--gy,45%),#000 34%,transparent 86%)}
   /* LED-Bildschirmrand, faerbt mit dem Modus */
   .edge{position:fixed;inset:0;z-index:40;pointer-events:none;
     box-shadow:inset 0 0 2px var(--accent),inset 0 0 26px color-mix(in srgb,var(--accent) 42%,transparent),
@@ -102,13 +104,20 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   .mpop.on{display:block}
   .mrow{padding:7px 10px;border-radius:8px;font-size:12px;cursor:pointer;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--mono)}
   .mrow:hover{background:color-mix(in srgb,var(--accent) 18%,transparent)}
-  /* Live-Ticker: unaufdringlicher Aktivitaets-Stream unten links — zeigt WAS Kira gerade tut.
-     pointer-events:none -> liegt "unsichtbar" im Hintergrund, stoert nie. Kein Animations-Loop,
+  /* Live-Feed: Aktivitaets-Stream als lesbares Panel oben links (neben dem Vault-Graph) —
+     zeigt WAS Kira gerade tut. pointer-events:none -> stoert nie, kein Animations-Loop,
      nur ein Poll alle 10 s -> passt zur 0%-Last-Philosophie des Wallpapers. */
-  #ticker{position:fixed;left:18px;bottom:14px;z-index:4;pointer-events:none;display:flex;flex-direction:column;gap:3px;
-    max-width:min(460px,44vw);font-family:var(--mono);font-size:10.5px;line-height:1.4;text-shadow:0 1px 4px #000,0 0 2px #000}
-  #ticker .tk{color:#ded7ec;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .6s}
-  #ticker .tk .tt{color:var(--accent);opacity:.95;margin-right:7px}
+  #ticker{position:fixed;left:16vw;top:13vh;z-index:2;pointer-events:none;display:flex;flex-direction:column;gap:6px;
+    max-width:min(540px,33vw);padding:13px 17px 14px;border-radius:14px;
+    background:linear-gradient(180deg,rgba(6,4,11,.55),rgba(6,4,11,.26));
+    border:1px solid color-mix(in srgb,var(--accent) 20%,transparent);
+    -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+    font-family:var(--mono);font-size:12.5px;line-height:1.55;text-shadow:0 1px 4px #000}
+  #ticker:empty{display:none}
+  #ticker .tkh{font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);opacity:.95;margin-bottom:3px}
+  #ticker .tk{color:#e8e1f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .6s}
+  #ticker .tk .tt{color:var(--accent);opacity:.95;margin-right:8px}
+  #ticker .tk .td{color:var(--muted)}
   #ticker .tk.error{color:var(--amber)}
   .tag{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:9;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:flex;gap:8px;align-items:center}
   .tag .d{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:bl 2s infinite}
@@ -126,6 +135,7 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
     <label><input type="checkbox" id="w-motion"/> Bewegung</label>
     <label>Farbe <select id="w-color"><option value="vault">Vault</option><option value="modus">Modus</option><option value="mono">Mono</option></select></label>
     <label>Position <select id="w-pos"><option value="links">Links</option><option value="mitte">Mitte</option><option value="rechts">Rechts</option></select></label>
+    <label>Höhe <select id="w-posy"><option value="oben">Oben</option><option value="mitte">Mitte</option><option value="unten">Unten</option></select></label>
     <label>Größe <select id="w-size"><option value="klein">Klein</option><option value="mittel">Mittel</option><option value="gross">Groß</option><option value="riesig">Riesig</option></select></label>
     <div class="wt" style="padding-top:8px">Aktivität</div>
     <label><input type="checkbox" id="w-ticker"/> Live-Ticker (unten links)</label>
@@ -225,11 +235,13 @@ function esc(s){return (s==null?"":""+s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"
 /* ---- Live-Ticker: die letzten Aktionen als leiser Stream (Text kommt fertig vom Server) ---- */
 async function loadTicker(){const el=$("#ticker");if(!el)return;
   if(!WALL.ticker){el.innerHTML="";return;}
-  try{const es=await (await fetch("/api/events?limit=5")).json();
-    el.innerHTML=(es||[]).map((e,i)=>{
+  try{const es=await (await fetch("/api/events?limit=8")).json();
+    el.innerHTML=(es&&es.length?'<div class="tkh">◈ Live · was Kira gerade tut</div>':"")
+     +(es||[]).map((e,i)=>{
       const t=new Date(e.ts*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
-      const s=((e.text||e.type||"")+(e.detail?" — "+e.detail:"")).slice(0,110);
-      return '<div class="tk'+(e.sev==="error"?" error":"")+'" style="opacity:'+(0.95-i*0.17).toFixed(2)+'"><span class="tt">'+t+'</span>'+esc(s)+'</div>';
+      const txt=esc((e.text||e.type||"").slice(0,64));
+      const det=e.detail?' <span class="td">'+esc((""+e.detail).slice(0,64))+'</span>':"";
+      return '<div class="tk'+(e.sev==="error"?" error":"")+'" style="opacity:'+(1-i*0.09).toFixed(2)+'"><span class="tt">'+t+'</span>'+txt+det+'</div>';
     }).join("");
   }catch(e){}}
 
@@ -238,21 +250,23 @@ let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia
 /* Wallpaper-Einstellungen (Zahnrad) — leben im localStorage, das offene Wallpaper hoert per
    'storage'-Event mit -> aendere sie in einem Browser-Tab, der Desktop uebernimmt live. */
 const MODE_RGB={chat:"176,38,255",work:"57,255,20",coding:"0,229,255"};
-const POSX={links:0.32,mitte:0.5,rechts:0.68},SIZ={klein:0.72,mittel:1,gross:2.6,riesig:3.6};
+const POSX={links:0.32,mitte:0.5,rechts:0.68},POSY={oben:0.32,mitte:0.46,unten:0.6},SIZ={klein:0.72,mittel:1,gross:2.6,riesig:3.6};
 let curG=null;   // zuletzt geladener Graph (fuer Re-Layout bei Groesse/Position)
-let WALL={labels:true,motion:false,color:"vault",pos:"mitte",size:"gross",stats:null,colors:null,ticker:true};   // Standbild default (0% Last) + grosser Graph; stats=null -> alle; colors=null -> Standard-Modusfarben; ticker = Aktivitaets-Stream unten links
+// Standard-Layout nach Sergens Desktop-Plan: Graph oben RECHTS, Live-Feed oben links,
+// Mitte bleibt frei fuers Artwork. Standbild default (0% Last); stats=null -> alle.
+let WALL={labels:true,motion:false,color:"vault",pos:"rechts",posy:"oben",size:"gross",stats:null,colors:null,ticker:true};
 function loadWall(){try{Object.assign(WALL,JSON.parse(localStorage.getItem("kira_wall")||"{}"));}catch(e){}}
 async function loadWallServer(){try{const s=await (await fetch("/api/wall/settings")).json();if(s&&typeof s==="object")Object.assign(WALL,s);}catch(e){}}
 function saveWall(){try{localStorage.setItem("kira_wall",JSON.stringify(WALL));}catch(e){}
   try{fetch("/api/wall/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(WALL)});}catch(e){}}
 let _wallSig="";
 async function pollWall(){try{const raw=await (await fetch("/api/wall/settings")).text();if(raw===_wallSig)return;_wallSig=raw;
-  const s=JSON.parse(raw||"{}");const op=WALL.pos,os=WALL.size;Object.assign(WALL,s);
+  const s=JSON.parse(raw||"{}");const op=WALL.pos,oy=WALL.posy,os=WALL.size;Object.assign(WALL,s);
   try{syncWallUI();}catch(e){}try{applyColors();}catch(e){}try{loadStats();}catch(e){}try{loadTicker();}catch(e){}   // Farben + Stats-Auswahl + Ticker live nachziehen (Editor)
-  if(WALL.pos!==op||WALL.size!==os)relayout();else kick();}catch(e){}}
+  if(WALL.pos!==op||WALL.posy!==oy||WALL.size!==os)relayout();else kick();}catch(e){}}
 function nodeColor(n){return WALL.color==="modus"?(MODE_RGB[mode]||"176,38,255"):WALL.color==="mono"?"233,228,244":n.g0;}
 function sz(){W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
-const CX=()=>W*(POSX[WALL.pos]||0.5), CY=()=>H*0.46, SCALE=()=>SIZ[WALL.size]||1;
+const CX=()=>W*(POSX[WALL.pos]||0.5), CY=()=>H*(POSY[WALL.posy]||0.46), SCALE=()=>SIZ[WALL.size]||1;
 function setHomes(){for(const n of ns){n.hx=n.x;n.hy=n.y;if(n.ph==null){n.ph=Math.random()*6.283;n.sp=0.5+Math.random()*0.7;}}}
 function layout(g){
   curG=g;const by={},sc=SCALE();settle=0;
@@ -293,21 +307,33 @@ function render(){ctx.clearRect(0,0,W,H);const sc=SCALE();ctx.shadowBlur=0;
     const sg=ctx.createRadialGradient(gx,gy,0,gx,gy,rad);
     sg.addColorStop(0,'rgba(5,3,11,.66)');sg.addColorStop(.55,'rgba(5,3,11,.44)');sg.addColorStop(1,'rgba(5,3,11,0)');
     ctx.fillStyle=sg;ctx.fillRect(0,0,W,H);}
-  // Kanten: dunkle Unterlage + farbige Linie darueber = Kontrast auch auf hellen Stellen
-  for(const [a,b] of ls){const ca=nodeColor(a),cb=nodeColor(b);const d=Math.hypot(b.x-a.x,b.y-a.y),al=Math.max(.42,1-d/(360*sc));
-    ctx.strokeStyle='rgba(0,0,0,'+(al*.55)+')';ctx.lineWidth=2.4;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  // Kanten: sanft GEBOGEN (Obsidian-Feeling) — dunkle Unterlage + Farbverlauf darueber
+  // = Kontrast auf jedem Hintergrund, wirkt organisch statt technisch-gerade.
+  for(const [a,b] of ls){const ca=nodeColor(a),cb=nodeColor(b);
+    const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,al=Math.max(.4,1-d/(360*sc));
+    const qx=(a.x+b.x)/2-dy*0.09,qy=(a.y+b.y)/2+dx*0.09;   // Kontrollpunkt leicht seitlich -> Bogen
+    ctx.strokeStyle='rgba(0,0,0,'+(al*.5)+')';ctx.lineWidth=2.3;
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(qx,qy,b.x,b.y);ctx.stroke();
     const gr=ctx.createLinearGradient(a.x,a.y,b.x,b.y);gr.addColorStop(0,'rgba('+ca+','+al+')');gr.addColorStop(1,'rgba('+cb+','+al+')');
-    ctx.strokeStyle=gr;ctx.lineWidth=1.3;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
-  // Knoten: dunkler Ring (Absetzung) + heller Kern + farbiger Glow
+    ctx.strokeStyle=gr;ctx.lineWidth=1.15;
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(qx,qy,b.x,b.y);ctx.stroke();}
+  // Knoten: dunkler Absetz-Ring + farbiger Glow + heisser heller Kern (Neon-Look)
   for(const n of ns){const c=nodeColor(n);
     ctx.shadowBlur=0;ctx.beginPath();ctx.arc(n.x,n.y,n.r+1.7,0,7);ctx.fillStyle='rgba(3,2,9,.72)';ctx.fill();
-    ctx.shadowColor='rgba('+c+',.9)';ctx.shadowBlur=11;
-    ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,7);ctx.fillStyle='rgba('+c+',1)';ctx.fill();}
+    ctx.shadowColor='rgba('+c+',.9)';ctx.shadowBlur=13;
+    ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,7);ctx.fillStyle='rgba('+c+',.96)';ctx.fill();
+    ctx.shadowBlur=0;ctx.beginPath();ctx.arc(n.x,n.y,Math.max(1,n.r*0.42),0,7);ctx.fillStyle='rgba(255,255,255,.9)';ctx.fill();}
   ctx.shadowBlur=0;
-  // Labels: dunkle Kontur (strokeText) unter hellem Text -> scharf auf jedem Hintergrund
-  if(WALL.labels){ctx.font='600 '+(11*Math.sqrt(sc)|0)+'px "Segoe UI",system-ui,sans-serif';ctx.textAlign='center';
-    ctx.lineJoin='round';ctx.lineWidth=3.4;ctx.strokeStyle='rgba(0,0,0,.94)';ctx.fillStyle='rgba(246,242,254,.98)';
-    for(const n of ns){if(n.deg>=2){const t=n.id.slice(0,24),y=n.y-n.r-5;ctx.strokeText(t,n.x,y);ctx.fillText(t,n.x,y);}}}
+  // Labels: Groesse + Deckkraft wachsen mit den Verbindungen (Hubs stechen hervor),
+  // dunkle Kontur unter hellem Text -> scharf & professionell auf jedem Hintergrund.
+  if(WALL.labels){ctx.textAlign='center';ctx.lineJoin='round';
+    for(const n of ns){if(n.deg<2)continue;
+      const fs=Math.round((9.5+Math.min(4.5,n.deg*0.55))*Math.sqrt(sc)),al=Math.min(1,.62+n.deg*0.09);
+      ctx.font='600 '+fs+'px "Segoe UI",system-ui,sans-serif';
+      const t=n.id.slice(0,26),y=n.y-n.r-6;
+      ctx.lineWidth=3.5;ctx.strokeStyle='rgba(0,0,0,'+(al*.95).toFixed(2)+')';
+      ctx.fillStyle='rgba(248,244,255,'+al.toFixed(2)+')';
+      ctx.strokeText(t,n.x,y);ctx.fillText(t,n.x,y);}}
 }
 /* Loop stoppt, sobald der Graph gesetzt ist und "Bewegung" aus ist -> 0% CPU im Ruhezustand
    (genau das, was Lively sonst dauernd rendern liess). Aenderungen wecken ihn per kick(). */
@@ -321,7 +347,10 @@ function frame(ts){ts=ts||0;
   for(const n of ns){if(n.fx)continue;n.x=n.hx+Math.sin(ts*0.0005*n.sp+n.ph)*A;n.y=n.hy+Math.cos(ts*0.00042*n.sp+n.ph)*A*0.75;}
   render();raf=requestAnimationFrame(frame);}
 function kick(){if(!raf)raf=requestAnimationFrame(frame);}
-function relayout(){if(curG){layout(curG);kick();}}
+function applyMask(){const d=document.documentElement;   // Sichtfenster folgt dem Graph
+  d.style.setProperty('--gx',Math.round((POSX[WALL.pos]||0.5)*100)+'%');
+  d.style.setProperty('--gy',Math.round((POSY[WALL.posy]||0.46)*100)+'%');}
+function relayout(){applyMask();if(curG){layout(curG);kick();}}
 /* Node anfassen & ziehen — der Rest folgt ueber die Federn (Obsidian-Gefuehl). Greift, wenn /wall
    in einem Fenster/Tab offen ist; die Wallpaper-Ebene hinter den Icons nimmt keine Maus an. */
 function nodeAt(mx,my){let best=null,bd=1e9;for(const n of ns){const d=Math.hypot(n.x-mx,n.y-my),hit=Math.max(14,n.r+10);if(d<hit&&d<bd){bd=d;best=n;}}return best;}
@@ -401,19 +430,20 @@ function applyAnim(){document.body.dataset.anim=WALL.motion?"on":"off";}   // LE
 function applyColors(){const c=WALL.colors||{},d=document.documentElement;   // Modus-Akzente aus dem Desktop-Editor
   if(c.chat)d.style.setProperty('--chat',c.chat);if(c.work)d.style.setProperty('--work',c.work);if(c.coding)d.style.setProperty('--coding',c.coding);
   d.style.setProperty('--accent',COL[mode]||'var(--chat)');}
-function syncWallUI(){$("#w-labels").checked=WALL.labels;$("#w-motion").checked=WALL.motion;$("#w-color").value=WALL.color;$("#w-pos").value=WALL.pos;$("#w-size").value=WALL.size;$("#w-ticker").checked=WALL.ticker!==false;applyAnim();}
+function syncWallUI(){$("#w-labels").checked=WALL.labels;$("#w-motion").checked=WALL.motion;$("#w-color").value=WALL.color;$("#w-pos").value=WALL.pos;$("#w-posy").value=WALL.posy||"oben";$("#w-size").value=WALL.size;$("#w-ticker").checked=WALL.ticker!==false;applyAnim();}
 $("#gear").addEventListener('click',()=>{const p=$("#wpop");p.classList.toggle('on');if(p.classList.contains('on'))syncWallUI();});
 $("#w-labels").addEventListener('change',e=>{WALL.labels=e.target.checked;saveWall();kick();});
 $("#w-motion").addEventListener('change',e=>{WALL.motion=e.target.checked;saveWall();applyAnim();kick();});
 $("#w-color").addEventListener('change',e=>{WALL.color=e.target.value;saveWall();kick();});
 $("#w-pos").addEventListener('change',e=>{WALL.pos=e.target.value;saveWall();relayout();});
+$("#w-posy").addEventListener('change',e=>{WALL.posy=e.target.value;saveWall();relayout();});
 $("#w-size").addEventListener('change',e=>{WALL.size=e.target.value;saveWall();relayout();});
 $("#w-ticker").addEventListener('change',e=>{WALL.ticker=e.target.checked;saveWall();loadTicker();});
 window.addEventListener('storage',e=>{if(e.key==="kira_wall"){loadWall();syncWallUI();relayout();}});   // aus einem Browser-Tab geaendert -> Wallpaper zieht live nach
 document.addEventListener('click',e=>{if(!e.target.closest('#gear')&&!e.target.closest('#wpop')){const p=$("#wpop");if(p)p.classList.remove('on');}});
 
 /* ---- Boot ---- */
-(async function(){loadWall();await loadWallServer();applyAnim();applyColors();cv=$("#graph");ctx=cv.getContext("2d");sz();setupDrag();
+(async function(){loadWall();await loadWallServer();applyAnim();applyColors();applyMask();cv=$("#graph");ctx=cv.getContext("2d");sz();setupDrag();
   const g=await loadStats();layout(g);kick();
   addEventListener('resize',()=>{sz();relayout();});
   connect();setInterval(loadStats,30000);   // Stats leben (alle 30 s frisch) — Graph bleibt ruhig
