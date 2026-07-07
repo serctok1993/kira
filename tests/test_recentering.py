@@ -18,6 +18,21 @@ def test_persona_has_purpose_hierarchy_and_reporting_rules():
     assert "project_note" in p  # Projekt-Daueranweisungen
 
 
+def test_persona_hat_mitdenken_und_nachschau_blocks():
+    """Prompt-Touch: Proaktivitaet (1 Mitdenk-Schritt, ausser Voice) + effizienter
+    Nachschau-Weg (Karte -> Adresse -> nur diese Datei, nie den Vault scannen)."""
+    p = agent.PERSONA_DIRECTIVE
+    # Mitdenken: genau EIN vorausschauender Schritt, Voice ist die Ausnahme
+    assert "WIE DU MITDENKST" in p
+    assert "GENAU EIN" in p
+    assert "sprich:" in p  # Voice-Modus bleibt knapp
+    assert "ok, mach ich" in p  # das explizit NICHT als ganze Antwort
+    # Nachschau: adressiert statt scannen
+    assert "WO DU NACHSCHAUST" in p
+    assert "INDEX.md" in p and "stammbaum" in p and "playbooks" in p
+    assert "nie alles durchwuehlen" in p or "nicht den ganzen Ordner" in p
+
+
 def test_mission_goal_reordered():
     from core.config import CONFIG
 

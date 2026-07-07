@@ -627,6 +627,21 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
 # via config models.routing). 'richter' vergibt der Planer NICHT (Eskalation nur explizit).
 _PLAN_RANG = {"reflex": "classify", "arbeiter": "worker", "denker": "reason"}
 
+# Coding-Schutz: Schritte, die echten Code anfassen, MUESSEN aufs starke Modell — egal welchen
+# Rang der Planer vergab. Ein billiges Modell (Flash/qwen 9b), das per edit_datei/self_edit
+# Produktionscode schreibt, zerschiesst das System. Signale: Code-Werkzeuge, Code-Dateiendungen,
+# oder klare Code-Verben. Bewusst NICHT .md/.txt/.csv (Text/Daten -> billig ist ok).
+_CODE_STEP = re.compile(
+    r"\b(edit_datei|self_edit|write_file|py_compile|pytest|refactor|refaktor)\b"
+    r"|\.(py|js|ts|tsx|jsx|css|html|sh|ps1|sql|yaml|yml)\b"
+    r"|\b(funktion|funktionen|klasse|methode|modul|bug|patch|endpoint|regex|import)\b",
+    re.IGNORECASE)
+
+
+def _is_code_step(step: str) -> bool:
+    """True, wenn der Schritt echten Code anfasst -> Zwangs-Route aufs starke Modell (reason/GLM)."""
+    return bool(_CODE_STEP.search(step or ""))
+
 
 def _make_plan(task: str, session_id: str | None, escalate: bool = True) -> list[dict]:
     """Zerlegt eine Aufgabe in 3-7 Schritte MIT Rang-Etikett: [{"schritt":..., "rang":...}].
@@ -840,6 +855,16 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
                 pass
 
     events.emit("plan_start", {"task": task}, session_id=session_id)
+    # Sichtbarkeits-Check: laeuft das starke Modell (reason/GLM) gerade gar nicht (kein Key /
+    # Budget-Bremse), wuerde Coding STILL auf lokalem qwen 9b landen. Einmal pro Lauf laut sagen —
+    # so weiss Sergen, dass gerade schwaches Modell schreibt, statt es hinterher zu merken.
+    if code_review:
+        _mdl, _fb = llm_router.resolve_model("reason", escalate=escalate)
+        if _fb:
+            events.emit("code_run_local_only", {"model": _mdl}, session_id=session_id)
+            emit({"kind": "obs", "name": "⚠ Modell", "text":
+                  f"Starkes Modell nicht verfuegbar — Coding laeuft LOKAL auf {_mdl}. "
+                  "Ergebnis kann schwaecher sein."})
     head0 = _git_out("rev-parse", "HEAD") if code_review else ""
     # Fast-Verify-Lauf (nur code:-Laeufe): pro Edit nur Syntax, volle Suite am Ende.
     # Defensiver Reset zuerst (falls ein frueher abgestuerzter Lauf den Flag True liess),
@@ -868,6 +893,15 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
         # und nur, wenn der Aufrufer sie wollte — Arbeiter-/Reflex-Schritte bleiben billig.
         task_type = _PLAN_RANG.get(rang, "reason")
         step_escalate = escalate and rang == "denker"
+        # Coding-Schutz: fasst der Schritt echten Code an, hebt ihn AUFS starke Modell (reason/GLM)
+        # an — egal welchen Rang der Planer vergab. So schreibt nie ein billiges Modell Code, der das
+        # System zerschiesst. Sichtbar im Stream, damit der Wechsel nie still passiert.
+        if _is_code_step(step) and task_type != "reason":
+            events.emit("plan_step_code_guard", {"n": i, "rang_geplant": rang}, session_id=session_id)
+            emit({"kind": "obs", "name": f"Schritt {i} 🛡", "text":
+                  f"Coding erkannt (Plan-Rang '{rang}') -> starkes Modell (GLM)"})
+            task_type = "reason"
+            step_escalate = escalate
         emit({"kind": "tool", "name": f"Schritt {i}/{len(steps)} [{rang}]", "args": {"ziel": step[:80]}})
         ctx = ("Bisher erledigt:\n" + "\n".join(f"- {d}" for d in done) + "\n\n") if done else ""
         step_task = f"{ctx}Gesamtziel: {task_g}\n\nFuehre jetzt NUR diesen Schritt aus: {step}"

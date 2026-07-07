@@ -109,3 +109,42 @@ def test_vault_und_playbooks_vorhanden():
     # akquise-email traegt jetzt Fakten-Treue
     akq = (ROOT / "playbooks" / "akquise-email.md").read_text(encoding="utf-8")
     assert "Fakten-Treue" in akq and "NIE" in akq
+
+
+def test_index_ist_tief_nummerierte_karte():
+    """Schritt 3: INDEX.md ist die punktgenaue Karte (Malen nach Zahlen) und behaelt
+    genau EINEN Auto-Block (der Regenerator darf den nummerierten Kopf nicht zerstoeren)."""
+    from core.config import ROOT
+    idx = (ROOT / "INDEX.md").read_text(encoding="utf-8")
+    assert idx.count("<!-- AUTO:START -->") == 1 and idx.count("<!-- AUTO:END -->") == 1
+    assert "Malen nach Zahlen" in idx
+    for adr in ("**1a**", "**4c**", "**5.1a**", "**5.1d**", "**5.2a**"):
+        assert adr in idx, adr
+    assert "docs/CODING" in idx  # die Coding-Disziplin ist adressiert (4c)
+
+
+def test_index_regenerierung_erhaelt_nummerierten_kopf(tmp_path, monkeypatch):
+    """refresh_index() schreibt NUR den Auto-Block neu — der nummerierte Kopf bleibt."""
+    from core.config import ROOT
+    from core.mind import playbooks
+    idx = tmp_path / "INDEX.md"
+    idx.write_text((ROOT / "INDEX.md").read_text(encoding="utf-8"), encoding="utf-8")
+    monkeypatch.setattr(playbooks, "INDEX_PATH", idx)
+    playbooks.refresh_index()
+    out = idx.read_text(encoding="utf-8")
+    assert "Malen nach Zahlen" in out and "**5.1a**" in out  # Kopf ueberlebt
+    assert out.count("<!-- AUTO:START -->") == 1
+
+
+def test_coding_disziplin_dokument():
+    """Coding-Regeln sind fest dokumentiert (fuer Kira UND Nachfolger)."""
+    from core.config import ROOT
+    doc = (ROOT / "docs" / "CODING.md").read_text(encoding="utf-8")
+    for marker in ("_is_code_step", "self_edit", "GLM", "py_compile", "Verfassung", "Not-Aus"):
+        assert marker in doc, marker
+    # SOUL traegt die Disziplin als Selbstwissen + Verweis
+    soul = (ROOT / "core" / "mind" / "SOUL.md").read_text(encoding="utf-8")
+    assert "docs/CODING.md" in soul
+    # Uebergabe-Dossier verweist den Nachfolger auf die Regeln
+    ist = (ROOT / "docs" / "KIRA-IST.md").read_text(encoding="utf-8")
+    assert "CODING.md" in ist and "_is_code_step" in ist
