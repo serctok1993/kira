@@ -1,0 +1,11 @@
+{
+  "name": "Kira Coding-Benchmark (Starter)",
+  "tasks": [
+    {
+      "id": "smoke-echo",
+      "prompt": "Lege im aktuellen Ordner eine Datei bench_ok.txt mit dem Inhalt 'ok' an.",
+      "verify_cmd": "python -c \"import os,sys; sys.exit(0 if os.path.exists('bench_ok.txt') else 1)\"",
+      "timeout": 900
+    }
+  ]
+}
