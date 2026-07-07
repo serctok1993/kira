@@ -78,9 +78,11 @@ def _slug(name: str) -> str:
 def ensure_vault_leaf(name: str, vid: str = "") -> dict:
     """Legt fuer ein Business automatisch das Stammbaum-Blatt aus _VORLAGE.md an.
 
-    So bekommt JEDES neue Projekt sofort seine Obsidian-Struktur mit ???-Feldern — die die
-    taegliche Logbuch-Frage (_stammbaum_question) dann Stueck fuer Stueck fuellt. Idempotent
-    (ueberschreibt nie ein bestehendes Blatt) und fail-soft (darf die Venture-Anlage nie brechen)."""
+    Wird von den ABSICHTLICHEN Anlege-Pfaden gerufen (Chat-Tool venture_add + Cockpit-API),
+    NICHT vom rohen ventures.add() — so bekommt jedes echte Projekt seine Obsidian-Struktur mit
+    ???-Feldern (die die taegliche Logbuch-Frage fuellt), waehrend spekulative Radar-/Stripe-
+    Ventures keinen Ast erzeugen. Idempotent (ueberschreibt nie ein bestehendes Blatt) und
+    fail-soft (darf die Anlage nie brechen)."""
     try:
         from core.config import ROOT
         from core.kernel.fs import atomic_write
@@ -117,7 +119,6 @@ def add(name: str, hypothesis: str = "", milestone_eur: float | None = None,
             (vid, now, name.strip(), status, hypothesis, milestone_eur, notes, now),
         )
     events.emit("venture_created", {"id": vid, "name": name.strip(), "status": status})
-    ensure_vault_leaf(name, vid)  # neues Business -> Stammbaum-Ast automatisch anlegen
     return vid
 
 

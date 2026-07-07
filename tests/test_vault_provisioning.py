@@ -43,15 +43,26 @@ def test_ensure_vault_leaf_idempotent(monkeypatch, tmp_path):
     assert "v1" in leaf.read_text(encoding="utf-8")
 
 
-def test_venture_add_provisioniert_automatisch(monkeypatch, tmp_path):
+def test_venture_add_tool_provisioniert_automatisch(monkeypatch, tmp_path):
+    # Der ABSICHTLICHE Anlege-Pfad (Chat-Tool) provisioniert; rohes ventures.add() bleibt rein.
     ventures, root = _tmp(monkeypatch, tmp_path)
     ventures.init_ventures()
-    vid = ventures.add("Solaranlagen Koblenz")
+    from core.agency.tools import venture_tools
+    out = venture_tools.venture_add("Solaranlagen Koblenz")
     leaf = root / "gedaechtnis" / "stammbaum" / "business" / "solaranlagen-koblenz.md"
     assert leaf.exists()
+    assert "Stammbaum-Ast angelegt" in out
     from core.kernel import events
     assert "stammbaum_leaf_created" in [e["type"] for e in events.recent(20)]
-    assert vid  # Venture-Anlage liefert weiterhin die id
+
+
+def test_roher_add_provisioniert_NICHT(monkeypatch, tmp_path):
+    # Datenschicht bleibt rein -> keine Test-Verschmutzung, keine Aeste fuer Radar/Stripe.
+    ventures, root = _tmp(monkeypatch, tmp_path)
+    ventures.init_ventures()
+    ventures.add("Spekulative Radar-Chance")
+    leaf = root / "gedaechtnis" / "stammbaum" / "business" / "spekulative-radar-chance.md"
+    assert not leaf.exists()
 
 
 def test_user_md_traegt_selbststaendigkeit():
