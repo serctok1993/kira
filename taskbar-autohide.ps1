@@ -1,4 +1,4 @@
-# Windows-Taskleiste automatisch ausblenden (an|aus) — reversibel.
+# Windows-Taskleiste automatisch ausblenden (an|aus) - reversibel.
 # Nutzung:  powershell -ExecutionPolicy Bypass -File taskbar-autohide.ps1 on
 #           powershell -ExecutionPolicy Bypass -File taskbar-autohide.ps1 off
 param([ValidateSet("on","off")][string]$mode = "on")

@@ -34,11 +34,11 @@ if ($png) {
     $icon.Dispose(); $bmp.Dispose()
     Write-Host "OK: Icon erzeugt -> $ico"
   } catch {
-    Write-Host "Hinweis: Konnte kein .ico erzeugen ($($_.Exception.Message)) — nutze das Standard-Symbol."
+    Write-Host "Hinweis: Konnte kein .ico erzeugen ($($_.Exception.Message)) - nutze das Standard-Symbol."
     $ico = $null
   }
 } else {
-  Write-Host "Hinweis: kein data\kira-icon.(png|jpg|jpeg|webp) gefunden — lege dein Logo dort ab und starte erneut, dann bekommt die Verknuepfung dein Bild."
+  Write-Host "Hinweis: kein data\kira-icon.(png|jpg|jpeg|webp) gefunden - lege dein Logo dort ab und starte erneut, dann bekommt die Verknuepfung dein Bild."
   $ico = $null
 }
 
