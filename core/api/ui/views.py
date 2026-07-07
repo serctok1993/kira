@@ -705,6 +705,15 @@ VIEWS = r"""</head><body>
         <span class="muted" id="make-shortcut-hint" style="font-size:12px;align-self:center"></span>
       </div>
     </div>
+    <div class="card"><h3>Sauberer Neustart</h3>
+      <div class="muted">Setzt den <b>gesamten Chat-Verlauf auf null</b> (alle Sessions) — für einen
+      frischen Anfang, wenn alte Gespräche die Antworten verwässern. Deine <b>Fakten &amp; Skills
+      bleiben</b>, und alles Gelöschte wird vorher gesichert (<code>data/backups/</code>).</div>
+      <div class="row" style="margin-top:8px;align-items:center;gap:10px">
+        <button id="reset-episodic" style="border-color:var(--danger);color:var(--danger)">🧹 Chat-Verlauf zurücksetzen</button>
+        <span class="muted" id="reset-episodic-hint" style="font-size:12px;align-self:center"></span>
+      </div>
+    </div>
     <div class="card"><h3>Kira-Avatar</h3>
       <div class="muted">Ihr Gesicht im Cockpit: gross in der Zentrale, klein an ihren Chat-Antworten.
       Erzeuge Bilder z.B. in <b>Higgsfield</b> und lade sie hier hoch (quadratisch wirkt am besten).</div>

@@ -1625,6 +1625,14 @@ $("#make-shortcut")&&($("#make-shortcut").onclick=async()=>{
   $("#make-shortcut-hint").textContent=r.ok?"✓ Desktop-Icon angelegt — jetzt das Fenster per Rechtsklick an die Taskleiste anheften":("Fehler: "+(r.error||r.output||"?"));}
  catch(e){$("#make-shortcut-hint").textContent="Fehler beim Anlegen";}});
 
+/* Sauberer Neustart: gesamten Chat-Verlauf (episodisch) auf null — Fakten/Skills bleiben, Backup vorher */
+$("#reset-episodic")&&($("#reset-episodic").onclick=async()=>{
+ if(!confirm("Gesamten Chat-Verlauf auf null setzen?\n\nAlle Unterhaltungen (alle Sessions) werden geloescht — fuer einen frischen Start. Deine FAKTEN und SKILLS bleiben. Alles Geloeschte wird vorher in data/backups gesichert."))return;
+ $("#reset-episodic-hint").textContent="… setze zurueck";
+ try{const r=await (await fetch("/api/memory/reset-episodic",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({confirm:true})})).json();
+  $("#reset-episodic-hint").textContent=r.ok?("✓ "+r.deleted+" Nachrichten geloescht ("+r.kept+" Fakten/Skills behalten) — Backup gesichert"):("Fehler: "+(r.error||"?"));}
+ catch(e){$("#reset-episodic-hint").textContent="Fehler beim Zuruecksetzen";}});
+
 refreshStatus();loadCommand();
 /* ---- S6.4: EIN Poll-Scheduler statt zweier nackter setInterval ----
    - pausiert bei document.hidden (kein Polling im Hintergrund-Tab)
