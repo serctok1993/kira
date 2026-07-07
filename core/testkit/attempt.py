@@ -11,6 +11,12 @@ import sys
 
 def main() -> None:
     task = json.loads(sys.stdin.read() or "{}")
+    # Sandbox-DB frisch anlegen (leere state.db im Worktree -> Tabellen erst erzeugen), sonst
+    # scheitert der erste events.emit an "no such table: events".
+    from core.kernel import events
+    from core.mind.memory import store
+    events.init_db()
+    store.init_memory()
     from core.agency.act import plan_and_execute
     try:
         out = plan_and_execute(task.get("prompt", ""),
