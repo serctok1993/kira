@@ -180,19 +180,23 @@ async function loadStats(){
   const spend=(st.spend_usd_today!=null)?st.spend_usd_today:0;
   const cap=(st.budget&&(st.budget.day_limit||st.budget.limit||st.budget.cap))||null;
   const errs=(st.errors_recent!=null)?st.errors_recent:0;
-  $("#srow").innerHTML=
-     stat(hb?"● an":"● aus","Motor",hb?"g":"")
-    +stat(open+(tasks.length?'<span style="font-size:14px;color:var(--muted)">/'+tasks.length+'</span>':""),"Aufgaben")
-    +stat(spend.toFixed(2).replace(".",",")+"€"+(cap?'<span style="font-size:14px;color:var(--muted)"> /'+cap+'€</span>':""),"Ausgaben heute","a")
-    +stat(errs,"Fehler · 7 Tg",errs?"":"g")
-    +stat(g.counts.notes,"Vault-Notizen")
-    +stat(g.counts.links,"Verbindungen")
-    +stat(todosN,"To-Dos")
-    +stat(mailsN==null?"—":mailsN,"Mails",mailsN?"a":"")
-    +stat(newsN,"News")
-    +stat(pc(sys.cpu)+(sys.cpu!=null?"%":""),"CPU")
-    +stat(pc(sys.gpu)+(sys.gpu!=null?"%":""),"GPU")
-    +stat(pc(temp)+(temp!=null?"°":""),"Temp",temp!=null&&temp>=75?"a":"");
+  // feste Reihenfolge + stabile Schluessel -> der Desktop-Editor (Kira->Wallpaper) waehlt, welche sichtbar sind
+  const STATS=[
+    {k:"motor",l:"Motor",v:hb?"● an":"● aus",c:hb?"g":""},
+    {k:"aufgaben",l:"Aufgaben",v:open+(tasks.length?'<span style="font-size:14px;color:var(--muted)">/'+tasks.length+'</span>':"")},
+    {k:"ausgaben",l:"Ausgaben heute",v:spend.toFixed(2).replace(".",",")+"€"+(cap?'<span style="font-size:14px;color:var(--muted)"> /'+cap+'€</span>':""),c:"a"},
+    {k:"fehler",l:"Fehler · 7 Tg",v:errs,c:errs?"":"g"},
+    {k:"notizen",l:"Vault-Notizen",v:g.counts.notes},
+    {k:"verbindungen",l:"Verbindungen",v:g.counts.links},
+    {k:"todos",l:"To-Dos",v:todosN},
+    {k:"mails",l:"Mails",v:mailsN==null?"—":mailsN,c:mailsN?"a":""},
+    {k:"news",l:"News",v:newsN},
+    {k:"cpu",l:"CPU",v:pc(sys.cpu)+(sys.cpu!=null?"%":"")},
+    {k:"gpu",l:"GPU",v:pc(sys.gpu)+(sys.gpu!=null?"%":"")},
+    {k:"temp",l:"Temp",v:pc(temp)+(temp!=null?"°":""),c:temp!=null&&temp>=75?"a":""}
+  ];
+  const sel=(Array.isArray(WALL.stats)&&WALL.stats.length)?WALL.stats:STATS.map(s=>s.k);
+  $("#srow").innerHTML=STATS.filter(s=>sel.indexOf(s.k)>=0).map(s=>stat(s.v,s.l,s.c||"")).join("");
   const model=st.resolved_model||st.model||"—";
   const last=(ov.last_mission&&ov.last_mission.summary)?ov.last_mission.summary.slice(0,42):"—";
   $("#sub").innerHTML=
@@ -211,7 +215,7 @@ let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia
 const MODE_RGB={chat:"176,38,255",work:"57,255,20",coding:"0,229,255"};
 const POSX={links:0.32,mitte:0.5,rechts:0.68},SIZ={klein:0.72,mittel:1,gross:2.6,riesig:3.6};
 let curG=null;   // zuletzt geladener Graph (fuer Re-Layout bei Groesse/Position)
-let WALL={labels:true,motion:false,color:"vault",pos:"mitte",size:"gross"};   // Standard: Standbild (0% Last, smoother Desktop) + grosser Graph; Bewegung ueber das Zahnrad zuschaltbar
+let WALL={labels:true,motion:false,color:"vault",pos:"mitte",size:"gross",stats:null,colors:null};   // Standbild default (0% Last) + grosser Graph; stats=null -> alle; colors=null -> Standard-Modusfarben
 function loadWall(){try{Object.assign(WALL,JSON.parse(localStorage.getItem("kira_wall")||"{}"));}catch(e){}}
 async function loadWallServer(){try{const s=await (await fetch("/api/wall/settings")).json();if(s&&typeof s==="object")Object.assign(WALL,s);}catch(e){}}
 function saveWall(){try{localStorage.setItem("kira_wall",JSON.stringify(WALL));}catch(e){}
@@ -219,7 +223,7 @@ function saveWall(){try{localStorage.setItem("kira_wall",JSON.stringify(WALL));}
 let _wallSig="";
 async function pollWall(){try{const raw=await (await fetch("/api/wall/settings")).text();if(raw===_wallSig)return;_wallSig=raw;
   const s=JSON.parse(raw||"{}");const op=WALL.pos,os=WALL.size;Object.assign(WALL,s);
-  try{syncWallUI();}catch(e){}
+  try{syncWallUI();}catch(e){}try{applyColors();}catch(e){}try{loadStats();}catch(e){}   // Farben + Stats-Auswahl live nachziehen (Editor)
   if(WALL.pos!==op||WALL.size!==os)relayout();else kick();}catch(e){}}
 function nodeColor(n){return WALL.color==="modus"?(MODE_RGB[mode]||"176,38,255"):WALL.color==="mono"?"233,228,244":n.g0;}
 function sz(){W=cv.clientWidth;H=cv.clientHeight;cv.width=W*DPR;cv.height=H*DPR;ctx.setTransform(DPR,0,0,DPR,0,0);}
@@ -365,6 +369,9 @@ document.addEventListener('click',e=>{if(!e.target.closest('#model')&&!e.target.
 
 /* ---- Zahnrad: Graph-Einstellungen (Worte/Bewegung/Farbe), live ueber localStorage ---- */
 function applyAnim(){document.body.dataset.anim=WALL.motion?"on":"off";}   // LED-Sweep nur bei Bewegung -> Standard spart Last
+function applyColors(){const c=WALL.colors||{},d=document.documentElement;   // Modus-Akzente aus dem Desktop-Editor
+  if(c.chat)d.style.setProperty('--chat',c.chat);if(c.work)d.style.setProperty('--work',c.work);if(c.coding)d.style.setProperty('--coding',c.coding);
+  d.style.setProperty('--accent',COL[mode]||'var(--chat)');}
 function syncWallUI(){$("#w-labels").checked=WALL.labels;$("#w-motion").checked=WALL.motion;$("#w-color").value=WALL.color;$("#w-pos").value=WALL.pos;$("#w-size").value=WALL.size;applyAnim();}
 $("#gear").addEventListener('click',()=>{const p=$("#wpop");p.classList.toggle('on');if(p.classList.contains('on'))syncWallUI();});
 $("#w-labels").addEventListener('change',e=>{WALL.labels=e.target.checked;saveWall();kick();});
@@ -376,7 +383,7 @@ window.addEventListener('storage',e=>{if(e.key==="kira_wall"){loadWall();syncWal
 document.addEventListener('click',e=>{if(!e.target.closest('#gear')&&!e.target.closest('#wpop')){const p=$("#wpop");if(p)p.classList.remove('on');}});
 
 /* ---- Boot ---- */
-(async function(){loadWall();await loadWallServer();applyAnim();cv=$("#graph");ctx=cv.getContext("2d");sz();setupDrag();
+(async function(){loadWall();await loadWallServer();applyAnim();applyColors();cv=$("#graph");ctx=cv.getContext("2d");sz();setupDrag();
   const g=await loadStats();layout(g);kick();
   addEventListener('resize',()=>{sz();relayout();});
   connect();setInterval(loadStats,30000);   // Stats leben (alle 30 s frisch) — Graph bleibt ruhig

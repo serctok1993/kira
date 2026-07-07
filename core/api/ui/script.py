@@ -46,7 +46,8 @@ const SUBTABS={
                     keys:()=>loadKeys(),checkliste:()=>loadCheckliste(),
                     /* Config aufgeloest: Technik lebt jetzt unter Kira */
                     models:()=>loadModels(),steuer:()=>loadSteuer(),gov:()=>loadGov(),
-                    cron:()=>loadCron(),monitor:()=>loadMonitor(),log:()=>loadEvents(),cockpit:()=>loadDesktop()}},
+                    cron:()=>loadCron(),monitor:()=>loadMonitor(),log:()=>loadEvents(),cockpit:()=>loadDesktop(),
+                    wall:()=>loadWallEditor()}},
  me:      {bar:"#me-tabs", cur:"todos",
            loaders:{todos:()=>loadLeben(),freigaben:()=>{loadInbox();loadTodoSecrets();},
                     routinen:()=>loadMeCrons(),post:()=>{},metriken:()=>loadZiele()}}};
@@ -66,6 +67,34 @@ $("#dw-save")&&($("#dw-save").onclick=async()=>{
 $("#dw-scan")&&($("#dw-scan").onclick=async()=>{$("#dw-status").textContent="… scanne";
  const r=await (await fetch("/api/desktop/scan",{method:"POST"})).json();
  $("#dw-status").textContent=r.suggestions?("✓ "+r.suggestions+" Dateien — Vorschlag liegt bei Me unter Von Kira"):(r.skipped?"erst aktivieren":"nichts zu sortieren");});
+/* ---- Wallpaper-Editor (Desktop Phase 2): /wall live einstellen, serverseitig gespeichert ---- */
+const WP_STATS=[["motor","Motor"],["aufgaben","Aufgaben"],["ausgaben","Ausgaben"],["fehler","Fehler"],
+ ["notizen","Vault-Notizen"],["verbindungen","Verbindungen"],["todos","To-Dos"],["mails","Mails"],
+ ["news","News"],["cpu","CPU"],["gpu","GPU"],["temp","Temp"]];
+async function loadWallEditor(){if(!$("#wp-stats"))return;
+ let s={};try{s=await (await fetch("/api/wall/settings")).json();}catch(e){}
+ const sel=(Array.isArray(s.stats)&&s.stats.length)?s.stats:WP_STATS.map(x=>x[0]);
+ $("#wp-stats").innerHTML=WP_STATS.map(([k,l])=>'<label class="muted" style="cursor:pointer"><input type="checkbox" data-st="'+k+'"'+(sel.indexOf(k)>=0?' checked':'')+'/> '+esc(l)+'</label>').join("");
+ $("#wp-labels").checked=s.labels!==false;
+ $("#wp-motion").checked=!!s.motion;
+ $("#wp-color").value=s.color||"vault";
+ $("#wp-pos").value=s.pos||"mitte";
+ $("#wp-size").value=s.size||"gross";
+ const c=s.colors||{};
+ $("#wp-c-chat").value=c.chat||"#b026ff";$("#wp-c-work").value=c.work||"#39ff14";$("#wp-c-coding").value=c.coding||"#00e5ff";}
+function wpGather(){
+ const stats=$$("#wp-stats input[data-st]").filter(x=>x.checked).map(x=>x.dataset.st);
+ return {labels:$("#wp-labels").checked,motion:$("#wp-motion").checked,color:$("#wp-color").value,
+  pos:$("#wp-pos").value,size:$("#wp-size").value,stats:stats,
+  colors:{chat:$("#wp-c-chat").value,work:$("#wp-c-work").value,coding:$("#wp-c-coding").value}};}
+async function wpSave(body){
+ try{await fetch("/api/wall/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||wpGather())});}catch(e){}
+ const f=$("#wp-prev");if(f)f.contentWindow.location.reload();   // Vorschau sofort aktualisieren
+ if($("#wp-status")){$("#wp-status").textContent="gespeichert ✓";setTimeout(()=>{if($("#wp-status"))$("#wp-status").textContent="";},1600);}}
+$("#wp-save")&&($("#wp-save").onclick=()=>wpSave());
+$("#wp-reset")&&($("#wp-reset").onclick=async()=>{await wpSave({labels:true,motion:false,color:"vault",pos:"mitte",size:"gross",stats:null,colors:null});loadWallEditor();});
+$("#wp-open")&&($("#wp-open").onclick=()=>window.open("/wall","_blank"));
+
 /* ---- Playbooks (S11): feste Ablaeufe mit Reifegrad + Lernschleife ---- */
 async function loadPlaybooks(){const el=$("#pb-list");if(!el)return;try{
  const d=await (await fetch("/api/playbooks")).json();const pbs=d.playbooks||[];
@@ -118,7 +147,7 @@ const KIRA_GROUPS=[
  {key:"geist",   subs:["files","mem","wissen"]},
  {key:"gewissen",subs:["gov"]},
  {key:"automatik",subs:["cron","monitor","playbooks"]},
- {key:"technik", subs:["models","steuer","keys","cockpit"]},
+ {key:"technik", subs:["models","steuer","keys","cockpit","wall"]},
  {key:"zustand", subs:["checkliste","anatomie","stats","evolution","log"]}];
 function _kiraGroupOf(s){const g=KIRA_GROUPS.find(x=>x.subs.includes(s));return g?g.key:"geist";}
 function syncKiraGroup(s){const gk=_kiraGroupOf(s);const grp=KIRA_GROUPS.find(x=>x.key===gk);
