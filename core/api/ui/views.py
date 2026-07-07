@@ -681,6 +681,13 @@ VIEWS = r"""</head><body>
       <div class="muted" style="margin-top:6px;font-size:11.5px">Tipp: 20 Aufgaben ≈ schneller Eindruck (±10 %), alle 164 ≈ belastbare Zahl. Rolle wechseln → Modelle direkt vergleichen. Cloud-Rollen kosten pro Aufgabe wenige Cent oder weniger.</div>
       <div id="bench-score" style="margin-top:12px;font-size:20px;font-weight:600"></div>
     </div>
+    <div class="card"><h3>🏆 Leaderboard — deine Läufe</h3>
+      <div class="row" style="align-items:center;gap:10px;margin-bottom:8px">
+        <button id="bench-copy" class="ghost">📋 Als Tabelle kopieren</button>
+        <span class="muted" id="bench-copy-hint" style="font-size:12px"></span>
+      </div>
+      <div id="bench-results" class="muted" style="overflow-x:auto">…</div>
+    </div>
     <div class="card"><h3>Live-Verlauf</h3>
       <div id="bench-log" style="font-size:13px;max-height:60vh;overflow:auto"><div class="muted">Noch kein Lauf. Drück „Benchmark starten".</div></div>
     </div>

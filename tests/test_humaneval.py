@@ -65,6 +65,43 @@ def test_stream_humaneval_llm_fehler_faellt_durch(monkeypatch):
     assert summ["passed"] == 0  # Fehler = nicht bestanden, Lauf reisst nicht ab
 
 
+def test_summary_traegt_modell(monkeypatch):
+    from core.testkit import humaneval as he
+    from core.kernel import llm_router
+    monkeypatch.setattr(he, "load_problems", lambda limit=None: [PROBLEM])
+    monkeypatch.setattr(llm_router, "resolve_model",
+                        lambda role="default", escalate=False: ("openrouter/z-ai/glm-5.2", False))
+    monkeypatch.setattr(llm_router, "complete", lambda msgs, **k: {
+        "text": "```python\ndef add(a, b):\n    return a + b\n```", "model": "x", "cost_usd": 0,
+        "fell_back": False, "latency_s": 0, "escalated": False, "tool_calls": []})
+    evs = list(he.stream_humaneval(limit=1, role="reason"))
+    assert evs[0]["model"] == "openrouter/z-ai/glm-5.2"       # suite_start
+    assert evs[-1]["model"] == "openrouter/z-ai/glm-5.2"      # summary -> Leaderboard
+
+
+def test_leaderboard_persistenz_und_endpoint(monkeypatch, tmp_path):
+    import core.config as cfg
+    import core.api.server as s
+    from starlette.testclient import TestClient
+    monkeypatch.setattr(cfg, "DATA_DIR", tmp_path)
+    s._bench_record({"suite": "humaneval", "role": "reason"},
+                    {"kind": "summary", "suite": "humaneval", "role": "reason",
+                     "model": "glm-5.2", "total": 164, "passed": 140, "pass_at_1": 85.4})
+    s._bench_record({}, {"kind": "summary", "total": 1, "passed": 1})  # Smoke ohne Modell
+    d = TestClient(s.app).get("/api/bench/results").json()
+    rs = d["results"]
+    assert len(rs) == 2 and rs[0]["total"] == 1               # neueste zuerst
+    assert rs[1]["model"] == "glm-5.2" and rs[1]["pass_at_1"] == 85.4
+
+
+def test_cockpit_hat_leaderboard():
+    from fastapi.testclient import TestClient
+    import core.api.server as s
+    html = TestClient(s.app).get("/").text
+    assert 'id="bench-results"' in html and 'id="bench-copy"' in html
+    assert "Leaderboard" in html and "copyBenchResults" in html
+
+
 def test_cockpit_hat_humaneval_auswahl():
     from fastapi.testclient import TestClient
     import core.api.server as s

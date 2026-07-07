@@ -1667,8 +1667,34 @@ async function loadCharakter(){const w=$("#charakter-list");if(!w)return;w.inner
 let benchWs=null,benchPassed=0,benchTotal=0;
 function benchLog(html){const l=$("#bench-log");if(!l)return;const d=document.createElement("div");d.style.padding="3px 0";d.innerHTML=html;l.appendChild(d);l.scrollTop=l.scrollHeight;}
 function updateBenchScore(){const s=$("#bench-score");if(!s)return;const pct=benchTotal?Math.round(100*benchPassed/benchTotal):0;const col=pct>=70?"ok":pct>=40?"warn":"danger";s.innerHTML='Score: <span style="color:var(--'+col+')">'+benchPassed+'/'+benchTotal+'</span> ('+pct+'%)';}
+let _benchRows=[];
+async function loadBenchResults(){const w=$("#bench-results");if(!w)return;
+ try{const d=await (await fetch("/api/bench/results")).json();const rs=d.results||[];
+  _benchRows=[...rs].sort((a,b)=>((b.pass_at_1==null?-1:b.pass_at_1)-(a.pass_at_1==null?-1:a.pass_at_1)));
+  if(!rs.length){w.innerHTML='<span class="muted">Noch keine Läufe — der Endstand jedes Laufs landet automatisch hier.</span>';return;}
+  const dt=t=>{const d2=new Date(t*1000);return d2.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})+" "+d2.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});};
+  const cell=(c,w2)=>'<span style="'+(w2?('min-width:'+w2+'px;'):'flex:1;')+'padding:0 6px;white-space:nowrap">'+c+'</span>';
+  const line=(cs,head)=>'<div style="display:flex;padding:5px 0;border-bottom:1px solid var(--line);font-size:12.5px'+(head?';color:var(--muted)':'')+'">'+cs+'</div>';
+  w.innerHTML=line(cell("Modell")+cell("Test",84)+cell("Rolle",70)+cell("Aufgaben",64)+cell("Score",64)+cell("Datum",92),true)
+   +_benchRows.map(r=>line(cell(esc((r.model||"?").replace("openrouter/","")))
+    +cell(r.suite==="humaneval"?"HumanEval":"Smoke",84)+cell(esc(r.role||"—"),70)
+    +cell((r.passed!=null?r.passed:"?")+"/"+(r.total!=null?r.total:"?"),64)
+    +cell(r.pass_at_1!=null?("<b>"+r.pass_at_1+"%</b>"):"—",64)+cell(dt(r.ts),92))).join("");
+ }catch(e){w.innerHTML='<span class="muted">Leaderboard nicht ladbar.</span>';}}
+function copyBenchResults(){const rows=_benchRows;if(!rows.length){$("#bench-copy-hint").textContent="nichts zu kopieren";return;}
+ const md="| Modell | Test | Rolle | Aufgaben | pass@1 | Datum |\n|---|---|---|---|---|---|\n"
+  +rows.map(r=>"| "+(r.model||"?")+" | "+(r.suite==="humaneval"?"HumanEval":"Smoke")+" | "+(r.role||"—")+" | "
+   +(r.passed!=null?r.passed:"?")+"/"+(r.total!=null?r.total:"?")+" | "+(r.pass_at_1!=null?(r.pass_at_1+"%"):"—")+" | "
+   +new Date(r.ts*1000).toLocaleString("de-DE")+" |").join("\n");
+ const done=()=>{$("#bench-copy-hint").textContent="✓ kopiert (Markdown-Tabelle)";};
+ if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(md).then(done).catch(()=>fallbackCopy(md,done));}
+ else fallbackCopy(md,done);}
+function fallbackCopy(text,done){const ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();
+ try{document.execCommand("copy");done();}catch(e){$("#bench-copy-hint").textContent="Kopieren fehlgeschlagen";}ta.remove();}
 function loadBench(){const b=$("#bench-start");if(!b)return;
  fetch("/api/status").then(r=>r.json()).then(s=>{const m=$("#bench-model");if(m&&s&&s.model)m.textContent="Aktuelles Modell: "+s.model;}).catch(()=>{});
+ loadBenchResults();
+ const cp=$("#bench-copy");if(cp)cp.onclick=()=>copyBenchResults();
  b.onclick=()=>startBench();const st=$("#bench-stop");if(st)st.onclick=()=>stopBench();}
 function startBench(){if(benchWs){try{benchWs.close();}catch(e){}}
  $("#bench-log").innerHTML="";$("#bench-score").textContent="";benchPassed=0;benchTotal=0;
@@ -1692,7 +1718,8 @@ function renderBenchEvent(ev){const k=ev.kind,a=ev.ev||{};
  else if(k==="task_done"){if(ev.passed)benchPassed++;updateBenchScore();benchLog((ev.passed?'<span style="color:var(--ok)">✓ bestanden</span>':'<span style="color:var(--danger)">✗ nicht bestanden (rc='+ev.rc+')</span>')+' — '+esc(ev.id));}
  else if(k==="summary"){benchPassed=ev.passed;benchTotal=ev.total;updateBenchScore();
   benchLog('<div style="margin-top:8px"><b>Fertig: '+ev.passed+'/'+ev.total+' bestanden</b>'
-   +(ev.pass_at_1!=null?(' — <b>pass@1 = '+ev.pass_at_1+'%</b> <span class="muted">(Referenz: Frontier ~90%+, starke offene Modelle ~70–90%)</span>'):'')+'</div>');}
+   +(ev.pass_at_1!=null?(' — <b>pass@1 = '+ev.pass_at_1+'%</b> <span class="muted">(Referenz: Frontier ~90%+, starke offene Modelle ~70–90%)</span>'):'')+'</div>');
+  loadBenchResults();}
  else if(k==="error")benchLog('<span style="color:var(--danger)">Fehler: '+esc(ev.text||"")+'</span>');}
 
 refreshStatus();loadCommand();
