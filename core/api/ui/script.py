@@ -79,14 +79,15 @@ async function loadWallEditor(){if(!$("#wp-stats"))return;
  $("#wp-motion").checked=!!s.motion;
  if($("#wp-ticker"))$("#wp-ticker").checked=s.ticker!==false;
  $("#wp-color").value=s.color||"vault";
- $("#wp-pos").value=s.pos||"mitte";
+ $("#wp-pos").value=s.pos||"rechts";
+ if($("#wp-posy"))$("#wp-posy").value=s.posy||"oben";
  $("#wp-size").value=s.size||"gross";
  const c=s.colors||{};
  $("#wp-c-chat").value=c.chat||"#b026ff";$("#wp-c-work").value=c.work||"#39ff14";$("#wp-c-coding").value=c.coding||"#00e5ff";}
 function wpGather(){
  const stats=$$("#wp-stats input[data-st]").filter(x=>x.checked).map(x=>x.dataset.st);
  return {labels:$("#wp-labels").checked,motion:$("#wp-motion").checked,color:$("#wp-color").value,
-  pos:$("#wp-pos").value,size:$("#wp-size").value,stats:stats,
+  pos:$("#wp-pos").value,posy:$("#wp-posy")?$("#wp-posy").value:"oben",size:$("#wp-size").value,stats:stats,
   ticker:!$("#wp-ticker")||$("#wp-ticker").checked,
   colors:{chat:$("#wp-c-chat").value,work:$("#wp-c-work").value,coding:$("#wp-c-coding").value}};}
 async function wpSave(body){
@@ -94,7 +95,7 @@ async function wpSave(body){
  const f=$("#wp-prev");if(f)f.contentWindow.location.reload();   // Vorschau sofort aktualisieren
  if($("#wp-status")){$("#wp-status").textContent="gespeichert ✓";setTimeout(()=>{if($("#wp-status"))$("#wp-status").textContent="";},1600);}}
 $("#wp-save")&&($("#wp-save").onclick=()=>wpSave());
-$("#wp-reset")&&($("#wp-reset").onclick=async()=>{await wpSave({labels:true,motion:false,color:"vault",pos:"mitte",size:"gross",stats:null,colors:null,ticker:true});loadWallEditor();});
+$("#wp-reset")&&($("#wp-reset").onclick=async()=>{await wpSave({labels:true,motion:false,color:"vault",pos:"rechts",posy:"oben",size:"gross",stats:null,colors:null,ticker:true});loadWallEditor();});
 $("#wp-open")&&($("#wp-open").onclick=()=>window.open("/wall","_blank"));
 
 /* ---- Playbooks (S11): feste Ablaeufe mit Reifegrad + Lernschleife ---- */
