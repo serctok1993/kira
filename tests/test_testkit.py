@@ -50,3 +50,39 @@ def test_suite_json_wohlgeformt():
     import json
     data = json.loads((ROOT / "tests" / "bench" / "suite.json").read_text(encoding="utf-8"))
     assert data["tasks"] and all("id" in t and "verify_cmd" in t for t in data["tasks"])
+
+
+def test_stream_suite_streamt_ereignisse():
+    """Der Live-Generator liefert Start/Denk-Strom/Ergebnis/Endstand — ohne echtes Modell
+    (attempt_fn injiziert)."""
+    from core.testkit import bench
+    fake_attempt = lambda wt, env, t: iter(  # noqa: E731
+        [{"kind": "think", "text": "ich denke nach"}, {"kind": "tool", "name": "edit_datei"}])
+    suite = {"tasks": [
+        {"id": "a", "prompt": "mach was", "verify_cmd": "python -c \"import sys;sys.exit(0)\""},
+        {"id": "b", "prompt": "und das", "verify_cmd": "python -c \"import sys;sys.exit(1)\""},
+    ]}
+    evs = list(bench.stream_suite(suite, attempt_fn=fake_attempt))
+    kinds = [e["kind"] for e in evs]
+    assert kinds[0] == "suite_start" and kinds[-1] == "summary"
+    assert "task_start" in kinds and "act" in kinds and "task_done" in kinds
+    # der Denk-Strom kommt durch
+    assert any(e["kind"] == "act" and e["ev"].get("text") == "ich denke nach" for e in evs)
+    summ = evs[-1]
+    assert summ["total"] == 2 and summ["passed"] == 1  # a besteht, b faellt
+
+
+def test_sandbox_allow_llm_setzt_env():
+    from core.testkit import sandbox
+    e_off = sandbox.sandbox_env("/tmp/x", allow_llm=False)
+    e_on = sandbox.sandbox_env("/tmp/x", allow_llm=True)
+    assert "KIRA_ALLOW_LLM" not in e_off
+    assert e_on["KIRA_ALLOW_LLM"] == "1" and e_on["KIRA_NO_OUTBOUND"] == "1"
+
+
+def test_cockpit_hat_benchmark_tab():
+    from fastapi.testclient import TestClient
+    import core.api.server as s
+    html = TestClient(s.app).get("/").text
+    assert 'id="v-bench"' in html and 'id="bench-start"' in html
+    assert "loadBench" in html and "/ws/bench" in html

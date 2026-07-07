@@ -51,6 +51,7 @@ FILES: dict[str, dict] = {
     "SOUL.md": {"path": MIND_DIR / "SOUL.md", "editable": True, "label": "Seele (SOUL)"},
     "GOAL.md": {"path": MIND_DIR / "GOAL.md", "editable": True, "label": "Ziel (GOAL)"},
     "USER.md": {"path": MIND_DIR / "USER.md", "editable": True, "label": "Nutzer-Profil (Sergen)"},
+    "PERSONA.md": {"path": MIND_DIR / "PERSONA.md", "editable": True, "label": "Verhalten & Ton (PERSONA)"},
     "config.yaml": {"path": ROOT / "config.yaml", "editable": True, "label": "Konfiguration (Vorsicht: YAML)"},
     # Gedaechtnis + Handbuch (frei editierbar — nie im Prompt, siehe HANDBUCH §7)
     "HANDBUCH.md": {"path": ROOT / "docs" / "HANDBUCH.md", "editable": True, "label": "HANDBUCH (Bedienbuch fuer Sergen)"},
@@ -1290,6 +1291,34 @@ def api_costs() -> dict:
             "budget": treasury.status()}
 
 
+def _token_stats() -> dict:
+    """Token-Verbrauch heute je Rolle (Fable-Review: bei Gratis-Modellen ist die $-Bremse blind —
+    Sichtbarkeit in Tokens/Calls statt harter Limits, Sergens Entscheidung). Reines SQL-Aggregat
+    ueber llm_call-Events, fail-soft."""
+    import datetime as _dt
+    import sqlite3 as _sq
+
+    from core import config as _c  # Call-time-Read -> Sandbox/Test-Umlenkung greift
+
+    try:
+        start = _dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+        with _sq.connect(_c.DB_PATH) as c:
+            c.execute("PRAGMA busy_timeout=5000")
+            rows = c.execute(
+                "SELECT COALESCE(json_extract(payload,'$.task_type'),'?') tt, COUNT(*) calls,"
+                " SUM(COALESCE(json_extract(payload,'$.tokens.prompt'),0)"
+                "   + COALESCE(json_extract(payload,'$.tokens.completion'),0)) tok,"
+                " SUM(COALESCE(json_extract(payload,'$.cost_usd'),0)) cost"
+                " FROM events WHERE type='llm_call' AND ts>=? GROUP BY tt ORDER BY tok DESC",
+                (start,)).fetchall()
+        by_role = [{"role": r[0], "calls": r[1], "tokens": int(r[2] or 0),
+                    "cost_usd": round(r[3] or 0.0, 4)} for r in rows]
+        return {"total_tokens": sum(x["tokens"] for x in by_role),
+                "total_calls": sum(x["calls"] for x in by_role), "by_role": by_role}
+    except Exception:  # noqa: BLE001
+        return {"total_tokens": 0, "total_calls": 0, "by_role": []}
+
+
 @app.get("/api/insights")
 def api_insights(days: int = 14) -> dict:
     """Lern-Statistik (S6.6c): Outcome-Muster aus insights.py, rein lesend fuers Cockpit."""
@@ -1302,6 +1331,7 @@ def api_insights(days: int = 14) -> dict:
         "patterns": insights.fail_patterns(days),
         "strategies": insights.strategy_stats(days),
         "brief": insights.render_brief(days),
+        "tokens_heute": _token_stats(),
     }
 
 
@@ -1696,6 +1726,45 @@ async def ws_chat(ws: WebSocket) -> None:
                 runstate.exit_turn()  # idle -> ein aufgeschobener Neustart wird jetzt ausgeloest (nach der Antwort)
     except WebSocketDisconnect:
         pass
+
+
+@app.websocket("/ws/bench")
+async def ws_bench(ws: WebSocket) -> None:
+    """Coding-Benchmark live: startet die Suite in einem isolierten Worktree und streamt
+    Kiras Denk-/Werkzeug-Strom + je Aufgabe das Ergebnis + den Endstand ans Cockpit."""
+    from core.config import ROOT
+    from core.testkit import bench
+
+    await ws.accept()
+    try:
+        try:
+            msg = await ws.receive_text()
+            cfg = json.loads(msg) if (msg or "").strip().startswith("{") else {}
+        except Exception:  # noqa: BLE001
+            cfg = {}
+        suite = str(ROOT / (cfg.get("suite") or "tests/bench/suite.json"))
+        allow = bool(cfg.get("allow_llm", True))  # echtes Modell testen (Modell-Vergleich)
+        gen = bench.stream_suite(suite, allow_llm=allow)
+
+        def _next():
+            try:
+                return next(gen)
+            except StopIteration:
+                return None
+
+        while True:
+            ev = await anyio.to_thread.run_sync(_next)
+            if ev is None:
+                break
+            await ws.send_json(ev)
+        await ws.send_json({"kind": "done"})
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:  # noqa: BLE001
+        try:
+            await ws.send_json({"kind": "error", "text": str(e)[:300]})
+        except Exception:  # noqa: BLE001
+            pass
 
 
 @app.get("/", response_class=HTMLResponse)

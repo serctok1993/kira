@@ -125,7 +125,9 @@ outcomes:
   enabled: true
   pass_score: 70              # ab diesem Judge-Score (0-100) gilt ein Task als bestanden
   max_quality_retries: 2      # Qualitaets-Retries, GETRENNT von Absturz-Retries (reset_stuck)
-  verifier_task_type: bulk    # Route des Pruefers (bulk=flash; nicht classify/8B — muss striktes JSON koennen)
+  verifier_task_type: reason  # Route des Pruefers: DENKER (Fable-Review) — der Judge darf nicht dasselbe
+                              # Massen-Modell sein, das die Ergebnisse produziert, sonst lernt der ganze
+                              # Outcome-Kreis aus verzerrten Selbst-Noten. Wenige Calls/Tag, striktes JSON.
 
 # Heartbeat / autonomer Takt
 # WICHTIG (Sicherheits-Eigenschaft): der Laufzeit-Flag data/heartbeat.flag hat VORRANG
