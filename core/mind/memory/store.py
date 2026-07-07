@@ -185,6 +185,40 @@ def clear_session(session_id: str) -> int:
     return int(n)
 
 
+def reset_episodic(backup: bool = True) -> dict:
+    """Setzt den EPISODISCHEN Gespraechsstrang (ALLE Chat-Sessions) auf null — fuer einen
+    sauberen Neustart, wenn alte, wirre Verlaeufe (z.B. halb-gefixte Bugs) die Antworten
+    verwaschen wuerden. Semantische Fakten (remember_fact) und prozedurale Skills bleiben
+    technisch garantiert UNBERUEHRT (nur kind='episodic' faellt).
+
+    Sichert vorher alles Geloeschte zeilenweise in eine Backup-Datei (data/backups/) —
+    nichts ist unwiederbringlich weg. Gibt {deleted, backup, kept} zurueck."""
+    import json
+    from pathlib import Path
+
+    from core.config import DATA_DIR
+    with _conn() as c:
+        rows = c.execute(
+            "SELECT id, ts, session_id, role, kind, text FROM memory WHERE kind='episodic'"
+        ).fetchall()
+        kept = c.execute("SELECT COUNT(*) FROM memory WHERE kind!='episodic'").fetchone()[0]
+        backup_path = ""
+        if backup and rows:
+            bdir = Path(DATA_DIR) / "backups"
+            bdir.mkdir(parents=True, exist_ok=True)
+            backup_path = str(bdir / f"episodic-{int(time.time())}.jsonl")
+            cols = ["id", "ts", "session_id", "role", "kind", "text"]
+            with open(backup_path, "w", encoding="utf-8") as f:
+                for r in rows:
+                    f.write(json.dumps(dict(zip(cols, r)), ensure_ascii=False) + "\n")
+        c.execute("DELETE FROM memory WHERE kind='episodic'")
+        if _HAS_FTS:
+            for r in rows:  # verwaiste FTS-Eintraege aufraeumen (mem_id zeigt ins Leere)
+                c.execute("DELETE FROM memory_fts WHERE mem_id=?", (r[0],))
+    events.emit("episodic_reset", {"deleted": len(rows), "backup": backup_path, "kept": int(kept)})
+    return {"deleted": len(rows), "backup": backup_path, "kept": int(kept)}
+
+
 def sessions(limit: int = 25) -> list[dict]:
     """Konversationen (Cockpit + Telegram) fuer die Chat-Session-Liste, neueste zuerst."""
     with _conn() as c:
