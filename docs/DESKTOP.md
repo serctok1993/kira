@@ -74,9 +74,24 @@ den Icons). Sag Bescheid; Windows-only, Abnahme auf deinem PC.
 
 ## App-Logo
 
-Leg dein Logo als **`data/kira-icon.png`** ab (im Kira-Ordner). Es wird dann als **Tray-Symbol**
-der Desktop-App und als **Browser-Tab-Favicon** von `/wall` genutzt. `data/` ist gitignored →
-dein Bild bleibt lokal.
+Leg dein Logo als **`data/kira-icon.png`** ab (im Kira-Ordner). Es wird dann überall genutzt:
+**Kopf im Cockpit** (oben links statt „KIRA"-Schriftzug), **Tray-Symbol** der Desktop-App,
+**Browser-Tab-Favicon** von `/wall`. `data/` ist gitignored → dein Bild bleibt lokal.
+
+> Fehlt die Datei, fällt der Cockpit-Kopf automatisch auf den Neon-„KIRA"-Schriftzug zurück.
+
+## Ein-Klick-Einrichtung (Icon + Desktop-Verknüpfung + Autostart)
+
+Wenn `data/kira-icon.png` liegt: **Doppelklick auf `kira-einrichten.bat`** (oder
+`powershell -ExecutionPolicy Bypass -File desktop-setup.ps1`). Das macht in einem Rutsch:
+
+1. **PNG → `.ico`** (`data/kira-icon.ico`) — Windows-Verknüpfungen brauchen ein Icon-Format.
+2. Eine **schöne Verknüpfung `Kira` auf dem Desktop** mit deinem Logo — Doppelklick startet die App.
+3. **Autostart der Desktop-App** (eigener Eintrag „Kira Desktop") → beim Anmelden kommen
+   Tray-Symbol + Cockpit von selbst hoch (der Supervisor wird dabei mitgestartet).
+
+Rückgängig: **`uninstall-autostart.ps1`** (entfernt beide Autostart-Einträge); das Desktop-Icon
+einfach löschen.
 
 ## Node-Klick → Notiz in Obsidian
 
