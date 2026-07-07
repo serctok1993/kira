@@ -1679,6 +1679,16 @@ def api_vault_graph() -> dict:
     return vault_graph.build_graph()
 
 
+@app.get("/api/icon")
+def api_icon():
+    # App-Logo (data/kira-icon.png) fuer Favicon + Desktop-App-Tray. 404 -> Default.
+    for ext in ("png", "jpg", "jpeg", "webp", "ico"):
+        p = ROOT / "data" / f"kira-icon.{ext}"
+        if p.exists():
+            return FileResponse(str(p), headers={"Cache-Control": "no-store"})
+    return Response(status_code=404)
+
+
 @app.get("/api/mails/unread")
 def api_mails_unread() -> dict:
     # Ungelesene Mails fuer die Desktop-Leiste (gecacht). None -> Postfach nicht eingerichtet.
