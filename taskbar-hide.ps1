@@ -1,4 +1,4 @@
-# Taskleiste DAUERHAFT ausblenden — versteckt das Taskleisten-Fenster selbst (nicht das
+# Taskleiste DAUERHAFT ausblenden - versteckt das Taskleisten-Fenster selbst (nicht das
 # Auto-Ausblenden, das bei Mausberuehrung aufpoppt). Deine Desktop-Icons bleiben sichtbar
 # -> durchgaengiger Desktop. Voll reversibel.
 #
