@@ -58,3 +58,10 @@
   aktiv oder aktuell. Bei Unklarem oder evtl. Überholtem: **nachfragen**.
 - Mein Bild von ihm baue ich **fortlaufend aus echten Gesprächen** auf, nicht aus veralteten
   Momentaufnahmen.
+
+---
+## Von Sergen — was ich noch ergänzen will
+> *Dein Platz, Sergen. Korrigiere oder ergänze in Deinen Worten, was ich über Dich wissen soll.
+> Ich lasse das unangetastet und pflege den Rest fortlaufend aus echten Gesprächen.*
+>
+> ???
