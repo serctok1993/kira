@@ -17,7 +17,7 @@ import time
 import httpx
 import litellm
 
-from core.config import CONFIG
+from core.config import CONFIG, outbound_blocked
 from core.kernel import events
 
 # Modellspezifisch nicht unterstuetzte Parameter still ignorieren (z.B. bei Ollama).
@@ -291,6 +291,11 @@ def complete(
             escalate = False  # zurueck auf lokal -> 0 EUR
 
     model, fell_back = resolve_model(task_type, escalate=escalate)
+    # Firewall (Benchmark/Sandbox): kein Cloud-Spend. Erzwinge das lokale 0-EUR-Modell (liefert
+    # trotzdem Output), ausser KIRA_ALLOW_LLM ist bewusst gesetzt. Standard aus -> Live unveraendert.
+    if outbound_blocked() and not os.getenv("KIRA_ALLOW_LLM") and not model.startswith("ollama"):
+        model = CONFIG["models"]["local_fallback"]
+        fell_back = True
     real, api_base, key_env = _provider_config(model)
 
     # Budget-Bremse fuer ALLE Cloud-Calls (nicht nur eskalierte) -> 24/7 kann nie ueberziehen.

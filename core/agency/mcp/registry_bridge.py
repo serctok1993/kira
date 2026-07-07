@@ -464,6 +464,9 @@ def init_background() -> None:
     in der Registry auf, sobald sie bereit sind (Manifest wird pro Call gelesen,
     spaete Registrierung ist unproblematisch)."""
     global _init_started
+    from core import config as _cfg
+    if _cfg.outbound_blocked():  # Firewall (Benchmark/Sandbox): keinen npx-MCP-Prozess spawnen
+        return
     if _init_started:
         return
     _init_started = True
