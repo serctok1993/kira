@@ -1,6 +1,6 @@
 # Linux-Feeling am Desktop: gibt deinen Desktop-Ordnern ein flaches Linux-Style-Ordner-Icon.
 #
-# Erzeugt EINMALIG ein Ordner-Icon (data\linux-folder.ico, flach/Papirus-artig, selbst gezeichnet —
+# Erzeugt EINMALIG ein Ordner-Icon (data\linux-folder.ico, flach/Papirus-artig, selbst gezeichnet -
 # kein Download noetig) und setzt es per desktop.ini auf jeden Ordner, der direkt auf dem Desktop liegt.
 # Sicher & reversibel (kein System-Patch): jeder Ordner bekommt nur seine eigene desktop.ini.
 #
