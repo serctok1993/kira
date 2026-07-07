@@ -47,7 +47,7 @@ except Exception:  # noqa: BLE001
 # macht Sergen bewusst via Git/Editor. Grund: am 02.07. wurde sie ueber genau diesen
 # Endpoint abgeschwaecht, ohne dass es jemandem auffiel.
 FILES: dict[str, dict] = {
-    "constitution.md": {"path": MIND_DIR / "constitution.md", "editable": False, "label": "Verfassung (nur lesend — Aenderung nur via Git durch Sergen)"},
+    "constitution.md": {"path": MIND_DIR / "constitution.md", "editable": True, "label": "⚠ Verfassung — Kiras Kern-Regeln. Aenderung greift sofort; Backup vor jedem Speichern (core/mind/history)"},
     "SOUL.md": {"path": MIND_DIR / "SOUL.md", "editable": True, "label": "Seele (SOUL)"},
     "GOAL.md": {"path": MIND_DIR / "GOAL.md", "editable": True, "label": "Ziel (GOAL)"},
     "USER.md": {"path": MIND_DIR / "USER.md", "editable": True, "label": "Nutzer-Profil (Sergen)"},
