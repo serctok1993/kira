@@ -40,6 +40,25 @@ def test_cockpit_hat_charakter_reiter():
     assert "loadCharakter" in html and "PERSONA.md" in html
 
 
+def test_neue_subtabs_sind_in_kira_gruppen_sichtbar():
+    """Regressionsschutz (Fable-Review-Fund): syncKiraGroup blendet jeden Subtab aus, der in
+    KEINER KIRA_GROUPS-Gruppe steht — neue Reiter muessen dort eingetragen sein, sonst sind
+    sie im Cockpit unsichtbar, obwohl HTML/Loader existieren."""
+    import re
+    from core.api.ui import script
+    m = re.search(r"const KIRA_GROUPS=\[(.*?)\];", script.SCRIPT, re.DOTALL)
+    assert m, "KIRA_GROUPS nicht gefunden"
+    gruppen = m.group(1)
+    # JEDER data-s-Subtab der Kira-Leiste muss in einer Gruppe auftauchen
+    from core.api.ui import views
+    bar = re.search(r'id="kira-tabs".*?</div>', views.VIEWS if hasattr(views, "VIEWS") else "", re.DOTALL)
+    subs = re.findall(r'data-s="([a-z]+)"', bar.group(0)) if bar else []
+    if not subs:  # Fallback: bekannte Pflicht-Subtabs pruefen
+        subs = ["charakter", "bench"]
+    fehlend = [s2 for s2 in subs if f'"{s2}"' not in gruppen]
+    assert not fehlend, f"Subtabs ohne Gruppe (unsichtbar!): {fehlend}"
+
+
 def test_fable_review_notiz_vorhanden():
     from core.config import ROOT
     t = (ROOT / "docs" / "FABLE-REVIEW.md").read_text(encoding="utf-8")
