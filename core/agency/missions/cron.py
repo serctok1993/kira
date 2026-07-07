@@ -154,6 +154,9 @@ def update_job(jid: str, label: str | None = None, prompt: str | None = None, sc
 
 
 def _notify(text: str) -> None:
+    from core import config as _cfg
+    if _cfg.outbound_blocked():  # Firewall (Benchmark/Sandbox): kein Telegram
+        return
     try:
         token = os.getenv("TELEGRAM_BOT_TOKEN")
         chat = CONFIG.get("channels", {}).get("telegram", {}).get("allowed_chat_id")

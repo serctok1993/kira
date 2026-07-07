@@ -58,6 +58,9 @@ def _context(limit: int = 12) -> str:
 
 
 def _notify(text: str) -> None:
+    from core import config as _cfg
+    if _cfg.outbound_blocked():  # Firewall (Benchmark/Sandbox): kein Telegram
+        return
     if not _mission().get("notify_telegram"):
         return
     try:

@@ -59,6 +59,9 @@ def _resolve_voice(c: dict, key: str) -> str:
 
 def enabled() -> bool:
     """True, wenn Sprachausgabe konfiguriert ist (Schalter an UND Anbieter gesetzt)."""
+    from core import config as _c
+    if _c.outbound_blocked():  # Firewall (Benchmark/Sandbox): keine (evtl. kostende) Sprachausgabe
+        return False
     c = _cfg()
     return bool(c.get("enabled")) and (c.get("provider") or "").lower() not in ("", "off")
 
