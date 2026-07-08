@@ -137,4 +137,15 @@ def test_wall_chat_verlauf_in_der_mitte():
     html = TestClient(s.app).get("/wall").text
     assert 'id="convo"' in html and "pushTurn" in html   # Gespraechsverlauf (rote Zone)
     assert 'id="t-me"' not in html                       # alte Einzelzeilen ersetzt
-    assert 'maxSpan' in html                             # Graph seitlich: kompakte Baender
+
+
+def test_wall_graph_konstellation_und_hud():
+    """Sci-Fi-Aufraeumrunde: Cluster-Anker (Konstellation), gebuendelte Kanten,
+    HUD-Ringe, Orbit-Ring fuer Hubs — alles im ausgelieferten Wall-JS."""
+    from fastapi.testclient import TestClient
+    import core.api.server as s
+    html = TestClient(s.app).get("/wall").text
+    assert "KONSTELLATIONS-Layout" in html      # Gruppen als getrennte Sternbilder
+    assert "quadraticCurveTo" in html           # gebuendelte, gebogene Kanten
+    assert "Tick-Marken" in html                # HUD-Ringe hinter dem Graph
+    assert "ORBIT-RING" in html                 # Hubs: Ring statt fetter Blob

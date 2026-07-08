@@ -251,7 +251,7 @@ async function loadTicker(){const el=$("#ticker");if(!el)return;
   }catch(e){}}
 
 /* ---- Live-Vault-Graph ---- */
-let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches,settle=0,drag=null,graphVault=null,dragStart=null,dragMoved=false,GX={},lastFloat=0;
+let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches,settle=0,drag=null,graphVault=null,dragStart=null,dragMoved=false,GX={},GMAIN="·",lastFloat=0;
 /* Wallpaper-Einstellungen (Zahnrad) — leben im localStorage, das offene Wallpaper hoert per
    'storage'-Event mit -> aendere sie in einem Browser-Tab, der Desktop uebernimmt live. */
 const MODE_RGB={chat:"176,38,255",work:"57,255,20",coding:"0,229,255"};
@@ -278,34 +278,42 @@ function setHomes(){for(const n of ns){n.hx=n.x;n.hy=n.y;if(n.ph==null){n.ph=Mat
 function layout(g){
   curG=g;const by={},sc=SCALE();settle=0;
   const raw=(g.nodes||[]).slice(0,120);
-  // Gruppen (Ordner/Bereich) auf Baender ueber die Breite verteilen -> sichtbare Ordnung + Querformat.
-  // Position verschiebt das ganze Feld (links/mitte/rechts), Groesse spreizt die Baender.
-  const groups=[...new Set(raw.map(n=>n.group||"·"))],gN=groups.length||1,base=POSX[WALL.pos]||0.5;
-  // Seitlich platziert (links/rechts) bleiben die Gruppen-Baender KOMPAKT beim Anker,
-  // statt sich ueber 70% der Breite zu spreizen und in die Bildmitte zu wuchern.
-  const maxSpan=WALL.pos==="mitte"?0.7:0.34;
-  const span=Math.min(maxSpan,0.16+0.12*gN);GX={};
-  groups.forEach((gp,k)=>{GX[gp]=base+((gN===1)?0:((k/(gN-1))-0.5)*span);});
-  ns=raw.map((n,i)=>{const a=i*2.399,rr=(30+Math.random()*Math.min(W,H)*0.18)*sc,gx=GX[n.group||"·"]||base;
-    const o={id:n.id,g0:n.color||"176,38,255",grp:(n.group||"·"),gx:gx,
-      x:W*gx+Math.cos(a)*rr,y:CY()+Math.sin(a)*rr*0.7,vx:0,vy:0,deg:0};by[n.id]=o;return o;});
+  // KONSTELLATIONS-Layout (aufgeraeumt statt Wildwuchs): jede Gruppe (Ordner/Bereich)
+  // bekommt einen festen Cluster-Anker auf einem Ring um die Graph-Position — klar
+  // getrennte Sternbilder wie in der Obsidian-'Constellations'-Optik. Groesste Gruppe
+  // sitzt in der Mitte, der Rest kreist darum.
+  const groups=[...new Set(raw.map(n=>n.group||"·"))],gN=groups.length||1;
+  const bx=POSX[WALL.pos]||0.5,byy=POSY[WALL.posy]||0.46;
+  const cnt={};raw.forEach(n=>{const gp=n.group||"·";cnt[gp]=(cnt[gp]||0)+1;});
+  groups.sort((a,b)=>(cnt[b]||0)-(cnt[a]||0));
+  const rx=(WALL.pos==="mitte"?0.20:0.115)*Math.sqrt(sc/2.6),ry=0.115*Math.sqrt(sc/2.6);
+  GX={};GMAIN=groups[0]||"·";
+  groups.forEach((gp,k)=>{
+    if(k===0){GX[gp]={fx:bx,fy:byy};return;}                    // Hauptgruppe = Zentrum
+    const a=((k-1)/Math.max(1,gN-1))*Math.PI*2-Math.PI/2;       // Rest auf dem Ring
+    GX[gp]={fx:bx+Math.cos(a)*rx,fy:byy+Math.sin(a)*ry};});
+  ns=raw.map((n,i)=>{const a=i*2.399,rr=(16+Math.random()*Math.min(W,H)*0.06)*sc,g=GX[n.group||"·"]||{fx:bx,fy:byy};
+    const o={id:n.id,g0:n.color||"176,38,255",grp:(n.group||"·"),cx:g.fx,cy2:g.fy,
+      x:W*g.fx+Math.cos(a)*rr,y:H*g.fy+Math.sin(a)*rr*0.8,vx:0,vy:0,deg:0};by[n.id]=o;return o;});
   ls=(g.links||[]).map(l=>[by[l.source],by[l.target]]).filter(p=>p[0]&&p[1]);
   ls.forEach(([a,b])=>{a.deg++;b.deg++;});
-  ns.forEach(n=>{n.r=(2.3+Math.min(6.5,n.deg*0.8))*Math.sqrt(sc);});   // groesserer Knoten = mehr Verbindungen
+  // Knoten bewusst KLEIN halten (Sergens Feedback: Kreise zu gross) — Hubs heben sich
+  // ueber Orbit-Ring + Label ab, nicht ueber fette Blobs.
+  ns.forEach(n=>{n.r=(1.7+Math.min(4.2,n.deg*0.55))*Math.sqrt(sc);});
   // vorab fertig rechnen -> der Graph erscheint direkt gesetzt & sauber verteilt (kein Zappeln)
   if(!reduce){for(let k=0;k<350;k++)sim();}
   setHomes();settle=999;   // Ruhelage merken; gilt als gesetzt (Loop schwebt sanft oder friert ein)
 }
-function sim(){   // force-directed, ruhig getaktet: Repulsion + Federn + Gruppen-Baender, starke Daempfung
-  const cy=CY(),sc=SCALE(),REP=560*sc,LEN=64*sc,K=0.011,CL=2.4;
+function sim(){   // force-directed, ruhig getaktet: Repulsion + Federn + Cluster-Anker, starke Daempfung
+  const sc=SCALE(),REP=430*sc,LEN=52*sc,K=0.011,CL=2.4;
   for(let i=0;i<ns.length;i++){const a=ns[i];
     for(let j=i+1;j<ns.length;j++){const b=ns[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy||1;
       if(d2<50000){const d=Math.sqrt(d2),f=REP/d2;dx/=d;dy/=d;a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}}}
   for(const [a,b] of ls){let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,f=(d-LEN)*K;dx/=d;dy/=d;
     a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}
   for(const n of ns){if(n.fx)continue;   // angefasster Knoten haengt an der Maus -> nicht integrieren
-    n.vx+=(W*n.gx-n.x)*0.006;            // horizontal ans Gruppen-Band -> ordnet + zieht in die Breite
-    n.vy+=(cy-n.y)*0.011;                // vertikal enger halten -> Querformat statt Kreis
+    n.vx+=(W*n.cx-n.x)*0.009;            // Zug zum eigenen Cluster-Anker (x UND y)
+    n.vy+=(H*n.cy2-n.y)*0.011;           // -> geordnete Konstellationen statt einem Knaeuel
     n.x+=Math.max(-CL,Math.min(CL,n.vx));n.y+=Math.max(-CL,Math.min(CL,n.vy));n.vx*=0.86;n.vy*=0.86;}
 }
 function render(){ctx.clearRect(0,0,W,H);const sc=SCALE();ctx.shadowBlur=0;
@@ -317,33 +325,54 @@ function render(){ctx.clearRect(0,0,W,H);const sc=SCALE();ctx.shadowBlur=0;
     const sg=ctx.createRadialGradient(gx,gy,0,gx,gy,rad);
     sg.addColorStop(0,'rgba(5,3,11,.66)');sg.addColorStop(.55,'rgba(5,3,11,.44)');sg.addColorStop(1,'rgba(5,3,11,0)');
     ctx.fillStyle=sg;ctx.fillRect(0,0,W,H);}
-  // Kanten: sanft GEBOGEN (Obsidian-Feeling) — dunkle Unterlage + Farbverlauf darueber
-  // = Kontrast auf jedem Hintergrund, wirkt organisch statt technisch-gerade.
+  // Sci-Fi-HUD hinter dem Graph: duenne konzentrische Ringe + Tick-Marken um den Anker.
+  // Rein statisch (kein Animations-Loop) -> 0% Last, gibt dem Feld einen aufgeraeumten,
+  // futuristischen Rahmen statt frei schwebendem Wildwuchs.
+  {const hx=CX(),hy=CY(),acc=MODE_RGB[mode]||"176,38,255",rs=Math.sqrt(sc);
+   ctx.lineWidth=1;
+   for(const r of [96,158,224]){ctx.strokeStyle='rgba('+acc+',.10)';
+     ctx.beginPath();ctx.arc(hx,hy,r*rs,0,7);ctx.stroke();}
+   ctx.strokeStyle='rgba('+acc+',.26)';
+   for(let k=0;k<36;k++){const a=k*Math.PI/18,rr=224*rs;
+     ctx.beginPath();ctx.moveTo(hx+Math.cos(a)*(rr-3),hy+Math.sin(a)*(rr-3));
+     ctx.lineTo(hx+Math.cos(a)*(rr+3),hy+Math.sin(a)*(rr+3));ctx.stroke();}}
+  // Kanten: DUENN + GEBUENDELT (Edge-Bundling-Idee): der Bogen zieht Richtung der
+  // Cluster-Anker beider Enden -> Verbindungen laufen in ruhigen Straengen statt
+  // kreuz und quer. Eine Linie pro Kante (keine dicke Unterlage mehr) = weniger Laerm.
   for(const [a,b] of ls){const ca=nodeColor(a),cb=nodeColor(b);
-    const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,al=Math.max(.4,1-d/(360*sc));
-    const qx=(a.x+b.x)/2-dy*0.09,qy=(a.y+b.y)/2+dx*0.09;   // Kontrollpunkt leicht seitlich -> Bogen
-    ctx.strokeStyle='rgba(0,0,0,'+(al*.5)+')';ctx.lineWidth=2.3;
-    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(qx,qy,b.x,b.y);ctx.stroke();
+    const d=Math.hypot(b.x-a.x,b.y-a.y)||1,al=Math.max(.28,.85-d/(420*sc));
+    const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+    const qx=(mx+ (W*(a.cx+b.cx)/2))/2,qy=(my+(H*(a.cy2+b.cy2)/2))/2;   // Zug zum Cluster -> Buendel
     const gr=ctx.createLinearGradient(a.x,a.y,b.x,b.y);gr.addColorStop(0,'rgba('+ca+','+al+')');gr.addColorStop(1,'rgba('+cb+','+al+')');
-    ctx.strokeStyle=gr;ctx.lineWidth=1.15;
+    ctx.strokeStyle=gr;ctx.lineWidth=0.9;
     ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(qx,qy,b.x,b.y);ctx.stroke();}
-  // Knoten: dunkler Absetz-Ring + farbiger Glow + heisser heller Kern (Neon-Look)
+  // Knoten: klein & praezise — feiner Neon-Punkt mit hellem Kern. Hubs (viele Links)
+  // tragen einen duennen ORBIT-RING statt eines fetten Blobs -> Sci-Fi, nicht Bubble.
   for(const n of ns){const c=nodeColor(n);
-    ctx.shadowBlur=0;ctx.beginPath();ctx.arc(n.x,n.y,n.r+1.7,0,7);ctx.fillStyle='rgba(3,2,9,.72)';ctx.fill();
-    ctx.shadowColor='rgba('+c+',.9)';ctx.shadowBlur=13;
-    ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,7);ctx.fillStyle='rgba('+c+',.96)';ctx.fill();
-    ctx.shadowBlur=0;ctx.beginPath();ctx.arc(n.x,n.y,Math.max(1,n.r*0.42),0,7);ctx.fillStyle='rgba(255,255,255,.9)';ctx.fill();}
+    ctx.shadowBlur=0;ctx.beginPath();ctx.arc(n.x,n.y,n.r+1.1,0,7);ctx.fillStyle='rgba(3,2,9,.7)';ctx.fill();
+    ctx.shadowColor='rgba('+c+',.8)';ctx.shadowBlur=8;
+    ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,7);ctx.fillStyle='rgba('+c+',.95)';ctx.fill();
+    ctx.shadowBlur=0;ctx.beginPath();ctx.arc(n.x,n.y,Math.max(.8,n.r*0.4),0,7);ctx.fillStyle='rgba(255,255,255,.88)';ctx.fill();
+    if(n.deg>=5){ctx.strokeStyle='rgba('+c+',.55)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.arc(n.x,n.y,n.r+3.5*Math.sqrt(sc),0,7);ctx.stroke();}}
   ctx.shadowBlur=0;
-  // Labels: Groesse + Deckkraft wachsen mit den Verbindungen (Hubs stechen hervor),
-  // dunkle Kontur unter hellem Text -> scharf & professionell auf jedem Hintergrund.
+  // Labels sparsam (aufgeraeumt): erst ab 3 Verbindungen, Groesse/Deckkraft nach Rang.
   if(WALL.labels){ctx.textAlign='center';ctx.lineJoin='round';
-    for(const n of ns){if(n.deg<2)continue;
-      const fs=Math.round((9.5+Math.min(4.5,n.deg*0.55))*Math.sqrt(sc)),al=Math.min(1,.62+n.deg*0.09);
+    for(const n of ns){if(n.deg<3)continue;
+      const fs=Math.round((9+Math.min(3.5,n.deg*0.45))*Math.sqrt(sc)),al=Math.min(1,.6+n.deg*0.08);
       ctx.font='600 '+fs+'px "Segoe UI",system-ui,sans-serif';
       const t=n.id.slice(0,26),y=n.y-n.r-6;
-      ctx.lineWidth=3.5;ctx.strokeStyle='rgba(0,0,0,'+(al*.95).toFixed(2)+')';
+      ctx.lineWidth=3.2;ctx.strokeStyle='rgba(0,0,0,'+(al*.95).toFixed(2)+')';
       ctx.fillStyle='rgba(248,244,255,'+al.toFixed(2)+')';
-      ctx.strokeText(t,n.x,y);ctx.fillText(t,n.x,y);}}
+      ctx.strokeText(t,n.x,y);ctx.fillText(t,n.x,y);}
+    // Cluster-Beschriftung: Gruppenname klein in GROSSBUCHSTABEN ueber jedem Sternbild.
+    // Die ZENTRAL-Gruppe bleibt unbeschriftet — ihr Hub-Label (z.B. SERGEN) reicht,
+    // sonst kollidieren beide Schriften uebereinander.
+    ctx.font='600 '+Math.round(9.5*Math.sqrt(sc))+'px "Segoe UI",system-ui,sans-serif';
+    for(const gp in GX){if(gp==="·"||gp===GMAIN)continue;const g=GX[gp];
+      const t=gp.toUpperCase().slice(0,20),xx=W*g.fx,yy=H*g.fy-64*Math.sqrt(sc);
+      ctx.lineWidth=3;ctx.strokeStyle='rgba(0,0,0,.85)';ctx.fillStyle='rgba('+(MODE_RGB[mode]||"176,38,255")+',.75)';
+      ctx.strokeText(t,xx,yy);ctx.fillText(t,xx,yy);}}
 }
 /* Loop stoppt, sobald der Graph gesetzt ist und "Bewegung" aus ist -> 0% CPU im Ruhezustand
    (genau das, was Lively sonst dauernd rendern liess). Aenderungen wecken ihn per kick(). */
