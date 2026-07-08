@@ -229,10 +229,15 @@ async function loadEvolution(){try{
   :'<div class="emptybox">Noch keine Selbst-Verbesserungen aufgezeichnet.<br>Fuellt sich, sobald der Heartbeat laeuft (jeder 3. Tick).</div>';
  const sk=d.skills||[];
  const scnt=$("#ev-skillcount");if(scnt)scnt.textContent=sk.length?(sk.length+" Skills"):"";
- $("#ev-skills").innerHTML=sk.length?sk.map(s=>'<div class="memrow"><div style="font-size:12.5px">'+esc((""+(s.text||s)).slice(0,180))+'</div></div>').join("")
+ const mdel=(id)=>id?' <a data-mdel="'+esc(id)+'" style="cursor:pointer;color:var(--muted)" title="loeschen">&#10005;</a>':'';
+ $("#ev-skills").innerHTML=sk.length?sk.map(s=>'<div class="memrow"><div style="font-size:12.5px">'+esc((""+(s.text||s)).slice(0,180))+mdel(s.id)+'</div></div>').join("")
   :'<span class="muted">(noch keine Skills gelernt)</span>';
  $("#ev-lessons").innerHTML=(d.lessons||[]).length?'<ul style="margin:0;padding-left:18px;font-size:12.5px">'
-  +d.lessons.map(l=>'<li>'+esc((""+l).slice(0,160))+'</li>').join("")+'</ul>':'<span class="muted">(noch keine)</span>';
+  +d.lessons.map(l=>'<li>'+esc((""+(l.text||l)).slice(0,160))+mdel(l.id)+'</li>').join("")+'</ul>':'<span class="muted">(noch keine)</span>';
+ $$('#v-evolution [data-mdel]').forEach(a=>a.onclick=async()=>{
+  if(!confirm("Diesen Eintrag aus dem Gedaechtnis loeschen?"))return;
+  await fetch("/api/memory/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.mdel})});
+  loadEvolution();});
 }catch(e){}}
 
 /* ---- Statistik (S6.6c): Lern-Kurve aus dem Outcome-Ledger ---- */
@@ -1461,7 +1466,8 @@ function zieleCard(d){
  return '<div class="memrow" data-zn="'+esc(d.name)+'"><div class="mh"><b>'+em+esc(d.name)+'</b>'
   +'<span style="flex:1"></span>'+sparkVals(d.series)
   +'<span style="min-width:92px;text-align:right"><b>'+d.value+'</b>'+unit+delta+'</span>'
-  +' <a data-zpin="'+esc(d.name)+'" data-zon="'+(d.pinned?1:0)+'" title="in die Zentrale heften/loesen" style="cursor:pointer;margin-left:6px">'+pin+'</a></div>'
+  +' <a data-zpin="'+esc(d.name)+'" data-zon="'+(d.pinned?1:0)+'" title="in die Zentrale heften/loesen" style="cursor:pointer;margin-left:6px">'+pin+'</a>'
+  +' <a data-zdel="'+esc(d.name)+'" title="Kennzahl komplett loeschen" style="cursor:pointer;margin-left:4px;color:var(--muted)">&#10005;</a></div>'
   +bar+'</div>';
 }
 async function loadZiele(){const el=$("#life-metrics");if(!el)return;
@@ -1471,6 +1477,11 @@ async function loadZiele(){const el=$("#life-metrics");if(!el)return;
   $$('#life-metrics [data-zpin]').forEach(a=>a.onclick=async()=>{
    await fetch("/api/metrics/meta",{method:"POST",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({name:a.dataset.zpin,pinned:a.dataset.zon!=="1"})});
+   loadZiele();loadZielePinned();});
+  $$('#life-metrics [data-zdel]').forEach(a=>a.onclick=async()=>{
+   if(!confirm('Kennzahl "'+a.dataset.zdel+'" mit ALLEN Werten loeschen?'))return;
+   await fetch("/api/metrics/delete",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({name:a.dataset.zdel})});
    loadZiele();loadZielePinned();});
  }catch(e){}}
 $("#zm-add")&&($("#zm-add").onclick=async()=>{
@@ -1550,7 +1561,7 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
   (o.tasks||[]).slice(0,6).forEach(t=>{goals+='<div class="muted" style="font-size:12px;margin-left:12px">'+(t.status==="done"?"&#10003;":"&middot;")+' '+esc((t.description||"").slice(0,110))+(t.score!=null?(' <span style="color:var(--hud)">['+t.score+']</span>'):'')+'</div>';});
   if(o.workingset)act+='<div style="margin-top:6px"><b style="font-size:12px">'+esc(o.title||"")+'</b><div class="muted" style="font-size:11px;white-space:pre-wrap;border-left:2px solid var(--line);padding-left:8px;margin-top:3px">'+esc(o.workingset.slice(-700))+'</div></div>';});
  if(!act)act='<div class="muted">Noch kein Arbeitsstand aufgezeichnet.</div>';
- const files=(d.files||[]).map(f=>'<div class="muted" style="font-size:12px">📎 '+esc(f.name)+' <span style="opacity:.6">('+Math.round(f.bytes/1024)+' KB)</span></div>').join("")||'<div class="muted" style="font-size:12px">(keine Dateien)</div>';
+ const files=(d.files||[]).map(f=>'<div class="muted" style="font-size:12px">📎 '+esc(f.name)+' <span style="opacity:.6">('+Math.round(f.bytes/1024)+' KB)</span> <a data-fdel="'+esc(f.name)+'" style="cursor:pointer;color:var(--muted)" title="Datei loeschen">&#10005;</a></div>').join("")||'<div class="muted" style="font-size:12px">(keine Dateien)</div>';
  /* Auf-einen-Blick: was fuer dieses Projekt schon getan wurde */
  const allTasks=(d.objectives||[]).reduce((a,o)=>a.concat(o.tasks||[]),[]);
  const doneTasks=allTasks.filter(t=>t.status==="done");
@@ -1582,7 +1593,8 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
  }catch(e2){}
  el.innerHTML='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><b>'+esc(v.name||"")+'</b>'
   +'<span class="seg" id="akte-tabs"><a data-at="ueb" class="on">Uebersicht</a><a data-at="ziele">Ziele &amp; Tasks</a><a data-at="akt">Aktivitaet</a><a data-at="fin">Finanzen</a><a data-at="rout">Routinen</a></span>'
-  +'<span style="flex:1"></span><a id="vent-close" style="cursor:pointer;color:var(--muted)">&#10005;</a></div>'
+  +'<span style="flex:1"></span><a id="ak-archive" style="cursor:pointer;color:var(--muted);font-size:12px;margin-right:12px" title="Projekt archivieren (verschwindet aus den Listen; Spuren bleiben)">🗄 archivieren</a>'
+  +'<a id="vent-close" style="cursor:pointer;color:var(--muted)">&#10005;</a></div>'
   +'<div class="at" id="at-ueb">'+ueb+'</div><div class="at" id="at-ziele" style="display:none">'+goals+'</div>'
   +'<div class="at" id="at-akt" style="display:none">'+act+'</div><div class="at" id="at-fin" style="display:none">'+fin+'</div>'
   +'<div class="at" id="at-rout" style="display:none">'+rout+'</div>';
@@ -1601,6 +1613,16 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
   const fd=new FormData();fd.append("id",v.id);fd.append("file",f);
   const r=await (await fetch("/api/ventures/upload",{method:"POST",body:fd})).json();
   $("#ak-hint").textContent=r.ok?"✓ "+f.name:"Fehler: "+(r.error||"?");if(r.ok)loadVentureTrace(v.id);};
+ $$("#vent-detail [data-fdel]").forEach(a=>a.onclick=async()=>{
+  if(!confirm('Datei "'+a.dataset.fdel+'" loeschen?'))return;
+  await fetch("/api/ventures/file-delete",{method:"POST",headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({id:v.id,name:a.dataset.fdel})});
+  loadVentureTrace(v.id);});
+ const arch=$("#ak-archive");if(arch)arch.onclick=async()=>{
+  if(!confirm('Projekt "'+(v.name||"?")+'" archivieren?\n\nEs verschwindet aus allen Listen (Ledger/Briefing/Dateien bleiben als Spur). Kein Hard-Delete.'))return;
+  const r=await (await fetch("/api/ventures/archive",{method:"POST",headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({id:v.id})})).json();
+  if(r.ok){toast("Projekt archiviert","ok");closeVent();loadVentures();}else toast("Archivieren fehlgeschlagen","warn");};
  const cl=$("#vent-close");if(cl)cl.onclick=()=>closeVent();
 }catch(e){}}
 
@@ -1647,6 +1669,7 @@ async function loadRadar(){try{const d=await (await fetch("/api/opportunities"))
   if(o.status==="new"||o.status==="shortlist")act=' <a data-oconv="'+o.id+'" style="cursor:pointer;color:var(--ok)" title="als Projekt uebernehmen">&rarr; Projekt</a>'
    +(o.status==="new"?' <a data-oshort="'+o.id+'" style="cursor:pointer;color:var(--hud)" title="merken">&#9733;</a>':'')
    +' <a data-orej="'+o.id+'" style="cursor:pointer;color:var(--muted)" title="verwerfen">&#10005;</a>';
+  act+=' <a data-odel="'+o.id+'" style="cursor:pointer;color:var(--danger)" title="endgueltig loeschen">🗑</a>';
   return '<div class="memrow"><div class="mh"><span class="badge kind" style="color:'+(OPP_BADGE[o.status]||"var(--muted)")+'">'+o.status+'</span><b>['+o.score+']</b> <b>'+(o.title||"").replace(/</g,"&lt;").slice(0,90)+'</b><span style="flex:1"></span>'+act+'</div>'
    +(o.hypothesis?('<div class="muted" style="font-size:12px;margin-top:3px">'+(o.hypothesis||"").replace(/</g,"&lt;").slice(0,200)+'</div>'):'')+'</div>';}).join("")
   :'<div class="emptybox">Pipeline leer<br>&bdquo;jetzt scannen&ldquo; klicken oder auf den Wochen-Scan warten.</div>';
@@ -1654,7 +1677,12 @@ async function loadRadar(){try{const d=await (await fetch("/api/opportunities"))
  wire('#rd-list [data-oconv]',a=>async()=>{await fetch("/api/opportunities/convert",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.oconv})});loadRadar();});
  wire('#rd-list [data-oshort]',a=>async()=>{await fetch("/api/opportunities/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.oshort,status:"shortlist"})});loadRadar();});
  wire('#rd-list [data-orej]',a=>async()=>{await fetch("/api/opportunities/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.orej,status:"rejected"})});loadRadar();});
+ wire('#rd-list [data-odel]',a=>async()=>{if(!confirm("Idee endgueltig loeschen?"))return;
+  await fetch("/api/opportunities/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.odel})});loadRadar();});
 }catch(e){}}
+$("#rd-purge")&&($("#rd-purge").onclick=async()=>{
+ const r=await (await fetch("/api/opportunities/purge",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({days:30})})).json();
+ toast((r.purged||0)+" aussortierte Idee(n) aufgeraeumt","ok");loadRadar();});
 $("#rd-scan")&&($("#rd-scan").onclick=async()=>{$("#rd-hint").textContent="… scanne (kann ~1 min dauern) …";
  const r=await (await fetch("/api/radar/scan",{method:"POST"})).json();
  $("#rd-hint").textContent=r.error?("Fehler: "+r.error):("Scan fertig — "+(r.found||0)+" neue Chance(n).");loadRadar();});
@@ -1751,11 +1779,16 @@ async function loadBenchResults(){const w=$("#bench-results");if(!w)return;
   const cell=(c,w2)=>'<span style="'+(w2?('min-width:'+w2+'px;'):'flex:1;')+'padding:0 6px;white-space:nowrap">'+c+'</span>';
   const suiteName=s2=>s2==="humaneval"?"HumanEval":s2==="swebench"?"SWE-bench*":"Smoke";  /* * = Prognose, kein amtlicher Score */
   const line=(cs,head)=>'<div style="display:flex;padding:5px 0;border-bottom:1px solid var(--line);font-size:12.5px'+(head?';color:var(--muted)':'')+'">'+cs+'</div>';
-  w.innerHTML=line(cell("Modell")+cell("Test",84)+cell("Rolle",70)+cell("Aufgaben",64)+cell("Score",64)+cell("Datum",92),true)
+  w.innerHTML=line(cell("Modell")+cell("Test",84)+cell("Rolle",70)+cell("Aufgaben",64)+cell("Score",64)+cell("Datum",92)+cell("",24),true)
    +_benchRows.map(r=>line(cell(esc((r.model||"?").replace("openrouter/","")))
     +cell(suiteName(r.suite),84)+cell(esc(r.role||"—"),70)
     +cell((r.passed!=null?r.passed:"?")+"/"+(r.total!=null?r.total:"?"),64)
-    +cell(r.pass_at_1!=null?("<b>"+r.pass_at_1+"%</b>"):"—",64)+cell(dt(r.ts),92))).join("");
+    +cell(r.pass_at_1!=null?("<b>"+r.pass_at_1+"%</b>"):"—",64)+cell(dt(r.ts),92)
+    +cell('<a data-bdel="'+r.ts+'" style="cursor:pointer;color:var(--muted)" title="Eintrag loeschen">&#10005;</a>',24))).join("");
+  $$('#bench-results [data-bdel]').forEach(a=>a.onclick=async()=>{
+   if(!confirm("Diesen Benchmark-Eintrag loeschen?"))return;
+   await fetch("/api/bench/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({ts:parseFloat(a.dataset.bdel)})});
+   loadBenchResults();});
  }catch(e){w.innerHTML='<span class="muted">Leaderboard nicht ladbar.</span>';}}
 function copyBenchResults(){const rows=_benchRows;if(!rows.length){$("#bench-copy-hint").textContent="nichts zu kopieren";return;}
  const md="| Modell | Test | Rolle | Aufgaben | pass@1 | Datum |\n|---|---|---|---|---|---|\n"
