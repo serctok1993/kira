@@ -47,6 +47,19 @@ starke Modell an.** Das ist mechanisch erzwungen, nicht bloß erbeten.
 - **`data/`, `.env`, Secrets** sind tabu und gitignored — nie committen, nie lesen-und-ausplaudern.
 - **Budget + Not-Aus** stehen über allem. Kill-Switch-Datei da → sofort anhalten.
 
+## 4b · Benchmarks (was misst was)
+
+- **HumanEval** (Cockpit → Benchmark): misst das **Modell** (pass@1, international vergleichbar).
+- **SWE-bench Lite** (Cockpit → Benchmark): misst **Agent+Modell zusammen** — echte GitHub-Issues,
+  Kira löst sie mit ihrem kompletten Coding-Kreis auf dem am `base_commit` ausgecheckten Fremd-Repo.
+  „Bestanden" im Cockpit ist eine **Prognose** (Patch erzeugt + Gold-Datei getroffen), KEIN amtlicher
+  Score. Der Lauf schreibt `data/bench/swebench-predictions.jsonl` im offiziellen Format — den
+  amtlichen Score rechnet die offizielle Auswertung: `pip install sb-cli`, dann
+  `sb-cli submit swe-bench_lite test --predictions_path data/bench/swebench-predictions.jsonl`
+  (Cloud-Auswertung, kein Docker lokal nötig). Referenz-Läufe immer mit **GLM 5.2 auf reason**
+  (eingefrorenes Referenz-Modell), Dauer: MINUTEN pro Aufgabe — mit 3–5 Aufgaben anfangen.
+- Repos werden als Bare-Spiegel in `data/bench/repos/` gecacht — der zweite Lauf lädt fast nichts.
+
 ## 5 · Für den Nachfolger (grob, was abgeht)
 
 Kira ist ein selbst-verbessernder Harness: sie plant mit einem klugen Modell, lässt billige Hände
