@@ -132,6 +132,52 @@ def _start_tray(window) -> None:
     threading.Thread(target=icon.run, daemon=True).start()
 
 
+def _hotkey_cfg() -> tuple[str, str]:
+    """Tastenkuerzel aus config.yaml (desktop.hotkey / desktop.ptt_key) mit Defaults."""
+    try:
+        from core.config import CONFIG
+        d = CONFIG.get("desktop", {}) or {}
+    except Exception:  # noqa: BLE001
+        d = {}
+    return (str(d.get("hotkey") or "alt+space"), str(d.get("ptt_key") or "f9"))
+
+
+def _start_hotkeys(window) -> None:
+    """Globale Tasten (Phase 4): Hotkey holt das Chatfenster aus JEDER App nach vorn,
+    PTT-Taste HALTEN = aufnehmen, LOSLASSEN = transkribieren + senden (window.kiraPTT
+    im Cockpit-JS). Fehlt das keyboard-Paket, laeuft die App einfach ohne Hotkeys."""
+    try:
+        import keyboard  # type: ignore
+    except Exception:  # noqa: BLE001 — optional (requirements-desktop.txt)
+        return
+    show_key, ptt_key = _hotkey_cfg()
+
+    def _show(*_a):
+        try:
+            window.restore()
+        except Exception:  # noqa: BLE001 — aeltere pywebview ohne restore()
+            pass
+        try:
+            window.show()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _ptt(down: bool):
+        if down:
+            _show()
+        try:  # kiraPTT ist idempotent gegen Tasten-Autorepeat
+            window.evaluate_js(f"window.kiraPTT&&window.kiraPTT({str(down).lower()})")
+        except Exception:  # noqa: BLE001
+            pass
+
+    try:
+        keyboard.add_hotkey(show_key, _show)
+        keyboard.on_press_key(ptt_key, lambda e: _ptt(True))
+        keyboard.on_release_key(ptt_key, lambda e: _ptt(False))
+    except Exception:  # noqa: BLE001 — kaputte Taste/fehlende Rechte: App laeuft weiter
+        pass
+
+
 def run() -> None:
     """Desktop-App starten: Cockpit sicherstellen, Tray-Symbol + natives Fenster oeffnen."""
     try:
@@ -150,6 +196,7 @@ def run() -> None:
     window = webview.create_window("Kira · Cockpit", cockpit_url(),
                                    width=1280, height=860, min_size=(900, 600))
     _start_tray(window)
+    _start_hotkeys(window)
     # Fenster-/Taskleisten-Symbol = data/kira-icon.ico (nur ICO, s. _window_icon). Fehlt es oder
     # mag die pywebview-Version den icon-Parameter nicht -> IMMER ohne Icon weiterstarten, damit die
     # App auf keinen Fall am Symbol scheitert.
