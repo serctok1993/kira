@@ -6,6 +6,9 @@ HEAD_AND_CSS = r"""<!doctype html>
 <html lang="de"><head>
 <meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>Kira Cockpit</title>
+<link rel="manifest" href="/manifest.webmanifest"/>
+<meta name="theme-color" content="#0a0a0d"/>
+<link rel="apple-touch-icon" href="/api/icon"/>
 <style>
 :root{--bg:#0a0a0d;--panel:#0e0e13;--panel2:var(--panel);--line:#26203a;--ink:#eceef4;
  --muted:#9b97b0;--accent:#b026ff;--accent2:#7c3aed;--hud:#c084fc;--glow:#b026ff;
