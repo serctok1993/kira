@@ -1797,6 +1797,14 @@ async def ws_bench(ws: WebSocket) -> None:
             gen = humaneval.stream_humaneval(
                 limit=max(1, min(int(cfg.get("limit") or 20), 164)),
                 role=str(cfg.get("role") or "reason"))
+        elif (cfg.get("suite") or "") == "swebench":
+            # SWE-bench Lite: misst AGENT+MODELL zusammen (echte GitHub-Issues).
+            # 'passed' = Prognose (Datei-Treffer); amtlicher Score via predictions.jsonl.
+            from core.testkit import swebench
+
+            gen = swebench.stream_swebench(
+                limit=max(1, min(int(cfg.get("limit") or 3), 300)),
+                allow_llm=bool(cfg.get("allow_llm", True)))
         else:
             suite = str(ROOT / (cfg.get("suite") or "tests/bench/suite.json"))
             allow = bool(cfg.get("allow_llm", True))  # echtes Modell testen (Modell-Vergleich)

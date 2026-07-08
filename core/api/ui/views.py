@@ -657,7 +657,10 @@ VIEWS = r"""</head><body>
     <div class="card"><h3>🏁 Coding-Benchmark</h3>
       <div class="muted"><b>HumanEval</b> = der internationale Standard (164 genormte Python-Aufgaben,
       pass@1 — direkt vergleichbar mit publizierten Scores: Frontier-Modelle ~90 %+, starke offene
-      Modelle grob 70–90 %). Misst das <b>Modell</b> auf der gewählten Rolle. <b>Harness-Smoke</b> =
+      Modelle grob 70–90 %). Misst das <b>Modell</b> auf der gewählten Rolle. <b>SWE-bench Lite</b> =
+      der internationale <b>Harness</b>-Test (echte GitHub-Issues, Kira löst sie mit ihrem kompletten
+      Coding-Kreis; „bestanden" = Prognose per Datei-Treffer, der amtliche Score kommt aus der
+      erzeugten predictions.jsonl — dauert Minuten pro Aufgabe, klein anfangen!). <b>Harness-Smoke</b> =
       Pipeline-Test (Kira löst Aufgaben im isolierten Wegwerf-Arbeitsbaum — beweist die Kette, misst
       keine Leistung). Alles live, nichts berührt Repo oder Gedächtnis.</div>
       <div class="row" style="margin-top:10px;align-items:center;gap:12px;flex-wrap:wrap">
@@ -665,6 +668,7 @@ VIEWS = r"""</head><body>
         <button id="bench-stop" class="ghost" style="display:none">■ Stopp</button>
         <select id="bench-suite" title="Welcher Test">
           <option value="humaneval" selected>HumanEval (international)</option>
+          <option value="swebench">SWE-bench Lite (Harness, Prognose)</option>
           <option value="harness">Harness-Smoke (Pipeline)</option>
         </select>
         <select id="bench-role" title="Welche Modell-Rolle wird gemessen">
