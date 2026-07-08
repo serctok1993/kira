@@ -274,6 +274,29 @@ def decide(oid: str, status: str, note: str = "") -> bool:
     return True
 
 
+def delete(oid: str) -> bool:
+    """Idee endgueltig loeschen (das ✕ im Cockpit). Kurz-Ids erlaubt (_resolve)."""
+    o = _resolve(oid)
+    if not o:
+        return False
+    with _conn() as c:
+        c.execute("DELETE FROM opportunities WHERE id=?", (o["id"],))
+    events.emit("opportunity_deleted", {"id": o["id"], "title": o["title"]})
+    return True
+
+
+def purge_rejected(days: int = 30) -> int:
+    """Abgelehnte Ideen aelter N Tage aufraeumen — die Pipeline soll kein Friedhof werden."""
+    init_radar()
+    cutoff = time.time() - max(1, int(days)) * 86400
+    with _conn() as c:
+        cur = c.execute("DELETE FROM opportunities WHERE status='rejected' AND ts<?", (cutoff,))
+        n = cur.rowcount
+    if n:
+        events.emit("opportunities_purged", {"count": n, "days": days})
+    return n
+
+
 def convert(oid: str) -> dict:
     """Chance -> Venture (Status idea) + Validierungs-Ziel. Ab hier arbeitet der Heartbeat."""
     o = _resolve(oid)

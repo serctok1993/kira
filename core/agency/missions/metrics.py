@@ -45,6 +45,22 @@ def log(name: str, value: float, note: str | None = None) -> str:
     return mid
 
 
+def delete(name: str) -> bool:
+    """Metrik komplett entfernen: alle Werte + Ziel-Meta (das ✕ im Cockpit)."""
+    init_metrics()
+    n = (name or "").strip().lower()
+    if not n:
+        return False
+    with _conn() as c:
+        cur = c.execute("DELETE FROM metrics WHERE name=?", (n,))
+        deleted = cur.rowcount
+        try:
+            c.execute("DELETE FROM metric_meta WHERE name=?", (n,))
+        except sqlite3.OperationalError:  # Meta-Tabelle existiert evtl. noch nicht
+            pass
+    return deleted > 0
+
+
 def series(name: str, days: int = 90) -> list[dict]:
     """Zeitreihe einer Metrik, chronologisch (alt -> neu)."""
     init_metrics()
