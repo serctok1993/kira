@@ -693,35 +693,19 @@ async def api_config_set(body: dict) -> dict:
     return {"ok": True, "path": path, "value": value, "live": live}
 
 
-def _focus_path():
-    return ROOT / "data" / "focus.json"
-
-
 @app.get("/api/direktive")
 def api_direktive() -> dict:
-    import json as _j
+    from core.agency import fokus
 
-    try:
-        d = _j.loads(_focus_path().read_text(encoding="utf-8"))
-    except Exception:  # noqa: BLE001
-        d = {}
-    return {"focus": d.get("focus", ""), "ts": d.get("ts", 0)}
+    return fokus.get()
 
 
 @app.post("/api/direktive")
 async def api_direktive_set(body: dict) -> dict:
-    import json as _j
+    # Logik lebt in core/agency/fokus.py — Telegram (/fokus) nutzt denselben Hebel.
+    from core.agency import fokus
 
-    from core.agency.missions import queue as mqueue
-
-    focus = (body.get("focus") or "").strip()
-    _focus_path().write_text(_j.dumps({"focus": focus, "ts": time.time()}, ensure_ascii=False), encoding="utf-8")
-    try:  # offene Queue leeren -> naechster Tick plant um den neuen Fokus herum
-        mqueue.init_queue()
-        mqueue.clear(CONFIG.get("mission", {}).get("name", "default"))
-    except Exception:  # noqa: BLE001
-        pass
-    events.emit("focus_set", {"focus": focus[:200], "via": "dashboard"})
+    focus = fokus.set_focus(body.get("focus") or "", via="dashboard")
     return {"ok": True, "focus": focus}
 
 
