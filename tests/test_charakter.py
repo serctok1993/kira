@@ -92,3 +92,14 @@ def test_update_script_schuetzt_charakter_dateien():
     from pathlib import Path
     bat = Path("kira-update.bat").read_text(encoding="utf-8", errors="replace")
     assert "core/mind/SOUL.md" in bat and "core/mind/PERSONA.md" in bat
+
+
+def test_onboarding_playbooks_parsen_und_router_zeigt_sie():
+    """Sergens Onboarding-Wunsch: 'neues Projekt' und 'Hallo/Tagesstart' fuehren durch
+    Playbooks. Frontmatter muss parsen, Router-Zeile (wann) vorhanden, Grad entwurf."""
+    from core.mind import playbooks
+    alle = {p["name"]: p for p in playbooks.list_playbooks()}
+    for name in ("projekt-onboarding", "tages-einstieg"):
+        assert name in alle, name
+        assert alle[name]["reifegrad"] == "entwurf"
+        assert alle[name]["wann"]
