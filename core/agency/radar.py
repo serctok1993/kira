@@ -62,6 +62,43 @@ def _cfg_init() -> None:
     with _conn() as c:
         c.execute("CREATE TABLE IF NOT EXISTS radar_config "
                   "(id INTEGER PRIMARY KEY CHECK(id=1), themes TEXT, updated REAL)")
+        for ddl in ("ALTER TABLE radar_config ADD COLUMN intervall_tage INTEGER",
+                    "ALTER TABLE radar_config ADD COLUMN max_ideen INTEGER"):
+            try:
+                c.execute(ddl)
+            except sqlite3.OperationalError:
+                pass
+
+
+# Sergens Takt (08.07.): Ideen als WOCHENAUFGABE — Standard 1 Bericht alle 7 Tage
+# mit 2 Ideen, statt taeglicher Streuung. Im Cockpit (Projekte -> Ideen) einstellbar.
+def get_takt() -> dict:
+    _cfg_init()
+    with _conn() as c:
+        r = c.execute("SELECT intervall_tage, max_ideen FROM radar_config WHERE id=1").fetchone()
+    tage = int(r[0]) if r and r[0] else 7
+    ideen = int(r[1]) if r and r[1] else 2
+    return {"intervall_tage": max(1, min(30, tage)), "max_ideen": max(1, min(6, ideen))}
+
+
+def set_takt(intervall_tage=None, max_ideen=None) -> dict:
+    _cfg_init()
+    cur = get_takt()
+    try:
+        tage = max(1, min(30, int(intervall_tage))) if intervall_tage is not None else cur["intervall_tage"]
+    except (TypeError, ValueError):
+        tage = cur["intervall_tage"]
+    try:
+        ideen = max(1, min(6, int(max_ideen))) if max_ideen is not None else cur["max_ideen"]
+    except (TypeError, ValueError):
+        ideen = cur["max_ideen"]
+    with _conn() as c:
+        c.execute("INSERT INTO radar_config (id, intervall_tage, max_ideen, updated) VALUES (1,?,?,?) "
+                  "ON CONFLICT(id) DO UPDATE SET intervall_tage=excluded.intervall_tage, "
+                  "max_ideen=excluded.max_ideen, updated=excluded.updated",
+                  (tage, ideen, time.time()))
+    events.emit("radar_takt_set", {"intervall_tage": tage, "max_ideen": ideen})
+    return {"intervall_tage": tage, "max_ideen": ideen}
 
 
 def get_focus() -> list[str]:
@@ -138,8 +175,9 @@ def scan(themes: list[str] | None = None, notify: bool = True) -> dict:
         "ist aber nicht der einzige Massstab). Die Verfassung bleibt bindend: nichts, was taeuscht, "
         "ausbeutet oder schadet. Kein Selbstzweck-Geld. "
         'Antworte AUSSCHLIESSLICH mit einem JSON-Array: [{"title": "...", '
-        '"hypothesis": "worum geht es, warum interessant/jetzt (1 Satz)", "source_url": "...", '
-        '"score": 0-100}] — hoechstens 6 Eintraege, keine Luftschloesser.'
+        '"hypothesis": "worum geht es, warum interessant/jetzt (1 Satz)", '
+        '"first_step": "konkreter erster Umsetzungs-Schritt fuer Sergen (1 Satz)", '
+        '"source_url": "...", "score": 0-100}] — hoechstens 6 Eintraege, keine Luftschloesser.'
     )
     try:
         res = llm_router.complete([{"role": "user", "content": raw[:9000]}],
@@ -165,11 +203,15 @@ def scan(themes: list[str] | None = None, notify: bool = True) -> dict:
             except (TypeError, ValueError):
                 score = 0
             oid = uuid.uuid4().hex
-            c.execute("INSERT INTO opportunities (id, ts, title, hypothesis, source_url, score, status, hash, updated_ts) "
-                      "VALUES (?,?,?,?,?,?, 'new', ?, ?)",
+            first_step = str(it.get("first_step") or "").strip()[:300]
+            c.execute("INSERT INTO opportunities (id, ts, title, hypothesis, source_url, score, status, notes, hash, updated_ts) "
+                      "VALUES (?,?,?,?,?,?, 'new', ?, ?, ?)",
                       (oid, now, title, str(it.get("hypothesis") or "")[:400],
-                       str(it.get("source_url") or "")[:300], score, h, now))
-            found.append({"id": oid, "title": title, "score": score})
+                       str(it.get("source_url") or "")[:300], score,
+                       (f"Erster Schritt: {first_step}" if first_step else None), h, now))
+            found.append({"id": oid, "title": title, "score": score,
+                          "hypothesis": str(it.get("hypothesis") or "")[:200],
+                          "first_step": first_step})
 
     # Events ERST nach dem Transaktions-Block: emit() oeffnet eine eigene Verbindung
     # auf dieselbe DB — innerhalb der offenen Schreib-Transaktion gaebe das einen Lock.
@@ -180,10 +222,18 @@ def scan(themes: list[str] | None = None, notify: bool = True) -> dict:
         try:
             from core.agency.missions.cron import _notify
 
-            top = sorted(found, key=lambda x: -x["score"])[:3]
-            _notify("📡 Radar — neue Business-Chancen:\n"
-                    + "\n".join(f"- [{o['score']}] {o['title']}" for o in top)
-                    + "\nDetails im Cockpit unter Radar.")
+            takt = get_takt()
+            top = sorted(found, key=lambda x: -x["score"])[:takt["max_ideen"]]
+            lines = [f"💡 Ideen-Bericht (dein Takt: {takt['max_ideen']} Idee(n) "
+                     f"alle {takt['intervall_tage']} Tage):"]
+            for o in top:
+                lines.append(f"\n[{o['score']}] {o['title']}")
+                if o.get("hypothesis"):
+                    lines.append(f"Worum es geht: {o['hypothesis']}")
+                if o.get("first_step"):
+                    lines.append(f"→ Erster Schritt: {o['first_step']}")
+            lines.append("\nUmsetzen/Verwerfen im Cockpit → Projekte → Ideen.")
+            _notify("\n".join(lines))
         except Exception:  # noqa: BLE001
             pass
     return {"found": len(found), "checked": len(items)}

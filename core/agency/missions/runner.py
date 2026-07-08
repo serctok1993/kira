@@ -743,12 +743,14 @@ def run_forever(interval: int | None = None) -> None:
             except Exception as e:  # noqa: BLE001
                 events.emit("stripe_sync_error", {"error": str(e)})
             try:
-                # Business-Radar (S5): woechentlich nach Einkommens-Chancen scannen.
+                # Ideen-Radar: Takt kommt aus Sergens Einstellung (Cockpit -> Ideen;
+                # Standard 1 Bericht mit 2 Ideen alle 7 Tage — Wochenaufgabe statt Flut).
                 from core.agency.missions import maintenance
 
-                if maintenance.maybe_run("radar_scan", interval_s=7 * 86400):
-                    from core.agency import radar
+                from core.agency import radar
 
+                if maintenance.maybe_run("radar_scan",
+                                         interval_s=radar.get_takt()["intervall_tage"] * 86400):
                     res = radar.scan(notify=True)
                     events.emit("radar_scan_done", res)
             except Exception as e:  # noqa: BLE001
