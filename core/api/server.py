@@ -61,10 +61,10 @@ except Exception:  # noqa: BLE001
 # Endpoint abgeschwaecht, ohne dass es jemandem auffiel.
 FILES: dict[str, dict] = {
     "constitution.md": {"path": MIND_DIR / "constitution.md", "editable": True, "label": "⚠ Verfassung — Kiras Kern-Regeln. Aenderung greift sofort; Backup vor jedem Speichern (core/mind/history)"},
-    "SOUL.md": {"path": MIND_DIR / "SOUL.md", "editable": True, "label": "Seele (SOUL)"},
-    "GOAL.md": {"path": MIND_DIR / "GOAL.md", "editable": True, "label": "Ziel (GOAL)"},
-    "USER.md": {"path": MIND_DIR / "USER.md", "editable": True, "label": "Nutzer-Profil (Sergen)"},
-    "PERSONA.md": {"path": MIND_DIR / "PERSONA.md", "editable": True, "label": "Verhalten & Ton (PERSONA)"},
+    "SOUL.md": {"path": MIND_DIR / "SOUL.md", "editable": True, "label": "Seele — wer Kira ist (Identitaet, Haltung; Aenderung wirkt sofort, Backup automatisch)"},
+    "GOAL.md": {"path": MIND_DIR / "GOAL.md", "editable": True, "label": "Ziel — wofuer sie da ist (Nordstern; die Meilensteine gehoeren Dir)"},
+    "USER.md": {"path": MIND_DIR / "USER.md", "editable": True, "label": "Ueber Dich (Sergen) — Kira baut ihr Bild von Dir daraus; kurz halten"},
+    "PERSONA.md": {"path": MIND_DIR / "PERSONA.md", "editable": True, "label": "Verhalten & Ton — der Verhaltens-Kern (schlank halten, ~4200 Zeichen; wirkt sofort)"},
     "config.yaml": {"path": ROOT / "config.yaml", "editable": True, "label": "Konfiguration (Vorsicht: YAML)"},
     # Gedaechtnis + Handbuch (frei editierbar — nie im Prompt, siehe HANDBUCH §7)
     "HANDBUCH.md": {"path": ROOT / "docs" / "HANDBUCH.md", "editable": True, "label": "HANDBUCH (Bedienbuch fuer Sergen)"},
@@ -171,16 +171,9 @@ async def api_autonomy_set(body: dict) -> dict:
     return {"ok": True, **d}
 
 
-# SOUL/GOAL/USER/PERSONA haben im Charakter-Tab eigene Editoren — in der Dateien-Liste
-# waren sie DOPPELT (Sergens Fund). Sie bleiben in FILES (der Charakter-Tab liest/schreibt
-# ueber /api/file), verschwinden aber aus der Listen-Ansicht. Verfassung bleibt bei Dateien.
-_CHARAKTER_FILES = {"SOUL.md", "GOAL.md", "USER.md", "PERSONA.md"}
-
-
 @app.get("/api/files")
 def api_files() -> list[dict]:
-    return [{"name": n, "label": f["label"], "editable": f["editable"]}
-            for n, f in FILES.items() if n not in _CHARAKTER_FILES]
+    return [{"name": n, "label": f["label"], "editable": f["editable"]} for n, f in FILES.items()]
 
 
 @app.get("/api/file")
