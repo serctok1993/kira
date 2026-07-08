@@ -77,8 +77,14 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   .sub b{color:#efeaf6;font-weight:600} .sub .live{color:var(--accent)}
 
   .talk{position:fixed;left:50%;bottom:94px;transform:translateX(-50%);z-index:5;width:min(680px,88vw);display:flex;flex-direction:column;gap:10px;align-items:center}
-  .tline{font-size:13.5px;line-height:1.5;text-shadow:0 1px 5px #000;text-align:center;max-width:100%}
-  .tline.me{color:#fff} .tline.k{color:var(--muted)}
+  /* Gespraech in der Bildmitte (Sergens rote Zone): Verlauf waechst nach oben,
+     aeltere Zeilen blenden aus — Text bricht um statt abgeschnitten zu werden. */
+  #convo{display:flex;flex-direction:column;justify-content:flex-end;gap:9px;width:100%;
+    max-height:44vh;overflow:hidden;-webkit-mask:linear-gradient(180deg,transparent,#000 18%);
+    mask:linear-gradient(180deg,transparent,#000 18%)}
+  .tline{font-size:13.5px;line-height:1.55;text-shadow:0 1px 5px #000;text-align:center;max-width:100%;
+    white-space:pre-wrap;overflow-wrap:break-word}
+  .tline.me{color:#fff;font-weight:600} .tline.k{color:#d6cde8}
   .think{display:flex;align-items:center;gap:8px;font-size:12.5px;min-height:18px}
   .sh{width:12px;height:12px;flex:none;display:inline-block;box-sizing:border-box;border-radius:50%;
     border:2px solid color-mix(in srgb,var(--accent) 26%,transparent);border-top-color:var(--accent);animation:sp .8s linear infinite}
@@ -148,8 +154,7 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   </div>
 
   <div class="talk">
-    <div class="tline me" id="t-me"></div>
-    <div class="tline k" id="t-k"></div>
+    <div id="convo"></div>
     <div class="think" id="t-think"></div>
     <form class="bar" id="bar" autocomplete="off">
       <div class="seg" id="seg">
@@ -255,7 +260,9 @@ let curG=null;   // zuletzt geladener Graph (fuer Re-Layout bei Groesse/Position
 // Standard-Layout nach Sergens Desktop-Plan: Graph oben RECHTS, Live-Feed oben links,
 // Mitte bleibt frei fuers Artwork. Standbild default (0% Last); stats=null -> alle.
 let WALL={labels:true,motion:false,color:"vault",pos:"rechts",posy:"oben",size:"gross",stats:null,colors:null,ticker:true};
-function loadWall(){try{Object.assign(WALL,JSON.parse(localStorage.getItem("kira_wall")||"{}"));}catch(e){}}
+function loadWall(){try{const s=JSON.parse(localStorage.getItem("kira_wall")||"{}");
+  if(!("posy" in s)&&s.pos==="mitte")delete s.pos;   // Migration 3-Zonen-Layout: altes Default faellt, bewusste Wahl bleibt
+  Object.assign(WALL,s);}catch(e){}}
 async function loadWallServer(){try{const s=await (await fetch("/api/wall/settings")).json();if(s&&typeof s==="object")Object.assign(WALL,s);}catch(e){}}
 function saveWall(){try{localStorage.setItem("kira_wall",JSON.stringify(WALL));}catch(e){}
   try{fetch("/api/wall/settings",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(WALL)});}catch(e){}}
@@ -274,7 +281,10 @@ function layout(g){
   // Gruppen (Ordner/Bereich) auf Baender ueber die Breite verteilen -> sichtbare Ordnung + Querformat.
   // Position verschiebt das ganze Feld (links/mitte/rechts), Groesse spreizt die Baender.
   const groups=[...new Set(raw.map(n=>n.group||"·"))],gN=groups.length||1,base=POSX[WALL.pos]||0.5;
-  const span=Math.min(0.7,0.16+0.12*gN);GX={};
+  // Seitlich platziert (links/rechts) bleiben die Gruppen-Baender KOMPAKT beim Anker,
+  // statt sich ueber 70% der Breite zu spreizen und in die Bildmitte zu wuchern.
+  const maxSpan=WALL.pos==="mitte"?0.7:0.34;
+  const span=Math.min(maxSpan,0.16+0.12*gN);GX={};
   groups.forEach((gp,k)=>{GX[gp]=base+((gN===1)?0:((k/(gN-1))-0.5)*span);});
   ns=raw.map((n,i)=>{const a=i*2.399,rr=(30+Math.random()*Math.min(W,H)*0.18)*sc,gx=GX[n.group||"·"]||base;
     const o={id:n.id,g0:n.color||"176,38,255",grp:(n.group||"·"),gx:gx,
@@ -388,15 +398,20 @@ function connect(){const proto=location.protocol==="https:"?"wss":"ws";
       $("#t-think").innerHTML='<span class="sh"></span><span class="tx">'+esc(reasonBuf.trim())+'</span>';return;}
     if(m.kind==="tool"){stopPhrase();
       $("#t-think").innerHTML='<span class="sh"></span><span class="tx">▷ '+esc(m.name||"werkzeug")+' …</span>';return;}
-    if(m.kind==="final"||m.kind==="answer"){setThink(false);reasonBuf="";$("#t-k").textContent=(m.text||"").slice(0,340);}
+    if(m.kind==="final"||m.kind==="answer"){setThink(false);reasonBuf="";pushTurn("k",(m.text||"").slice(0,600));}
   };
   ws.onclose=()=>{setTimeout(connect,1500);};
 }
 $("#bar").addEventListener('submit',e=>{e.preventDefault();const raw=$("#cin").value.trim();if(!raw||running)return;
   if(!ws||ws.readyState!==1)return;
   const t=mode==="work"?("work: "+raw):mode==="coding"?("code: "+raw):raw;
-  $("#t-me").textContent=raw;$("#t-k").textContent="";$("#cin").value="";growCin();reasonBuf="";running=true;setThink(true);ws.send(t);
+  pushTurn("me",raw);$("#cin").value="";growCin();reasonBuf="";running=true;setThink(true);ws.send(t);
 });
+/* Gespraechsverlauf in der Mitte: die letzten Runden, aeltere gedimmt */
+let convo=[];
+function pushTurn(who,text){convo.push({who:who,text:text});convo=convo.slice(-6);
+  $("#convo").innerHTML=convo.map((m,i)=>'<div class="tline '+m.who+'" style="opacity:'
+   +(0.5+0.5*(i+1)/convo.length).toFixed(2)+'">'+esc(m.text)+'</div>').join("");}
 /* Eingabefeld waechst mit dem Text; Enter sendet, Shift+Enter = neue Zeile */
 function growCin(){const c=$("#cin");if(!c)return;c.style.height="auto";c.style.height=Math.min(c.scrollHeight,120)+"px";}
 $("#cin").addEventListener('input',growCin);
