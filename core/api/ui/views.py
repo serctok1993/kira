@@ -231,8 +231,18 @@ VIEWS = r"""</head><body>
           <textarea id="rd-focus" class="k" style="min-height:56px;font-size:12px" placeholder="z.B. KI-Tools fuer Handwerker; Social-Media-Automatisierung fuer lokale Laeden"></textarea>
           <div class="row" style="margin-top:5px"><button class="ghost" id="rd-focus-save" style="font-size:12px">Fokus speichern</button>
             <span class="muted" id="rd-focus-hint" style="font-size:11px;align-self:center"></span></div>
+          <div class="muted" style="font-size:10px;letter-spacing:1px;margin:10px 0 4px">TAKT — WIE OFT UND WIE VIELE IDEEN</div>
+          <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
+            <span class="muted" style="font-size:12px">Bericht alle</span>
+            <input id="rd-takt-tage" type="number" min="1" max="30" style="width:56px;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)"/>
+            <span class="muted" style="font-size:12px">Tage mit</span>
+            <input id="rd-takt-ideen" type="number" min="1" max="6" style="width:56px;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)"/>
+            <span class="muted" style="font-size:12px">Idee(n)</span>
+            <button class="ghost" id="rd-takt-save" style="font-size:12px">Takt speichern</button>
+            <span class="muted" id="rd-takt-hint" style="font-size:11px"></span>
+          </div>
         </div>
-        <div id="rd-list" class="panel-b"><span class="muted" id="rd-hint">Woechentlicher Ideen-Scan. „→ Projekt“ macht aus einer Idee ein Projekt.</span></div>
+        <div id="rd-list" class="panel-b"><span class="muted" id="rd-hint">Ideen kommen im eingestellten Takt (🔧 Fokus). „→ Projekt“ macht aus einer Idee ein Projekt.</span></div>
       </div>
     </div>
   </div>
