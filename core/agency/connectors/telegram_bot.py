@@ -811,7 +811,7 @@ _chat_lock = threading.Lock()
 def _worker(client: httpx.Client, chat_id: int, update: dict) -> None:
     from core.kernel import runstate
 
-    runstate.enter_turn()  # aktiver Zug -> ein Neustart (restart_self/self_edit) wartet bis danach
+    runstate.enter_turn(f"telegram-{chat_id}")  # aktiver Zug -> Neustart wartet; Watchdog misst DIESE Session
     try:
         cur = update
         while cur is not None:
@@ -825,7 +825,7 @@ def _worker(client: httpx.Client, chat_id: int, update: dict) -> None:
                 if cur is None:
                     _chat_busy[chat_id] = False
     finally:
-        runstate.exit_turn()  # idle -> ein aufgeschobener Neustart wird jetzt ausgeloest
+        runstate.exit_turn(f"telegram-{chat_id}")  # idle -> ein aufgeschobener Neustart wird jetzt ausgeloest
 
 
 # --- Inline-Buttons: Freigaben per Knopfdruck (✅/❌) direkt in der Nachricht ---

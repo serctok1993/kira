@@ -21,5 +21,6 @@ if (-not (Test-Path $py)) { $py = "python" }
 $logs = Join-Path $PSScriptRoot "data\logs"
 New-Item -ItemType Directory -Force -Path $logs | Out-Null
 # stderr/stdout des Supervisors mitschreiben -> ein Crash beim Start (z.B. kaputte config) ist sichtbar
-Start-Process -WindowStyle Minimized -FilePath $py -ArgumentList "-m","core.kernel.supervisor" -WorkingDirectory $PSScriptRoot -RedirectStandardError (Join-Path $logs "supervisor.err.log") -RedirectStandardOutput (Join-Path $logs "supervisor.out.log")
+# Hidden statt Minimized: KEIN Konsolen-Fenster mehr in der Taskleiste - Diagnose laeuft ueber die Logs
+Start-Process -WindowStyle Hidden -FilePath $py -ArgumentList "-m","core.kernel.supervisor" -WorkingDirectory $PSScriptRoot -RedirectStandardError (Join-Path $logs "supervisor.err.log") -RedirectStandardOutput (Join-Path $logs "supervisor.out.log")
 Write-Host "Kira (Supervisor) gestartet -> Cockpit: http://127.0.0.1:8000"

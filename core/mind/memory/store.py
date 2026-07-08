@@ -21,7 +21,10 @@ _HAS_FTS: bool | None = None
 # Sessions (recall). So kann Sergen gefahrlos testen, ohne den echten Erinnerungsstrang zu
 # verfaelschen. reset_episodic raeumt sie ohnehin mit weg. 'desktop-' ist bewusst NICHT dabei —
 # die PC-Chats sind echte Gespraeche und sollen erinnert werden.
-_EPHEMERAL_PREFIXES = ("test-", "bench-")
+# desktop- = Wallpaper-Chat: die UI erzeugt je Seitenaufruf eine frische Zufalls-Session
+# und nennt sie "ephemer" — das Gedaechtnis behandelte sie aber als dauerhaft (Audit-Fund:
+# Wallpaper-Geplauder tauchte im Cross-Session-Recall auf). Jetzt konsistent ephemer.
+_EPHEMERAL_PREFIXES = ("test-", "bench-", "desktop-")
 
 
 def _is_ephemeral(session_id: str | None) -> bool:

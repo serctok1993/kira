@@ -33,7 +33,7 @@ def check(test_call: bool = False) -> dict:
         rep["default_model"] = models.get("default")
         rep["local_fallback"] = models.get("local_fallback")
         routing = {}
-        for tt in ("chat", "reason", "bulk", "classify"):
+        for tt in ("chat", "reason", "bulk", "classify", "worker"):
             m, fb = llm_router.resolve_model(tt)
             routing[tt] = {"model": m, "fallback": bool(fb)}
         rep["routing"] = routing
