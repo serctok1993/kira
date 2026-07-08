@@ -18,7 +18,7 @@ from core.kernel.fs import atomic_write
 _PATH = DATA_DIR / "autonomy.json"
 _DEFAULT = {
     "chains_off": True,                          # eigenstaendig; Inbox nur beratend
-    "hard_gate": ["money", "email_stranger"],    # DIESE Arten brauchen Freigabe
+    "hard_gate": ["money", "email_stranger", "publish"],    # DIESE Arten brauchen Freigabe
 }
 
 
