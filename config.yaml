@@ -146,6 +146,8 @@ heartbeat:
 mission:
   name: "Assistenz & Evolution"
   self_every: 3                   # S8.1: jeder 3. Tick ist ein Selbst-Optimierungs-Tick
+  steps_per_objective_daily: 3    # Werktakt: max. erledigte Schritte PRO ZIEL und Tag (0 = aus)
+                                  # — dosiert statt 4-6 Fallstudien am Tag; Rest rueckt auf morgen
   goal: >
     Laufe 24/7 und arbeite pro Tick EINEN abgeschlossenen, gemeldeten Schritt. Prioritaet:
     (1) SERGEN DIENEN: seine offenen Auftraege/Todos und sein aktueller Fokus zuerst —

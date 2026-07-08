@@ -193,6 +193,19 @@ def pop_next(mission: str | None = None) -> dict | None:
     return task
 
 
+def done_today(objective_id: str) -> int:
+    """Wie viele Tasks dieses Ziels HEUTE schon erledigt wurden — Werktakt-Bremse
+    (Sergens Regel: nicht 4-6 Fallstudien am Tag, sondern dosierte Schritte)."""
+    import datetime as _dt
+
+    since = _dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    with _conn() as c:
+        r = c.execute(
+            "SELECT COUNT(*) FROM tasks WHERE objective_id=? AND status='done' "
+            "AND COALESCE(updated_ts, ts) >= ?", (objective_id, since)).fetchone()
+    return int(r[0] if r else 0)
+
+
 def complete(task_id: str, result: str, status: str = "done") -> None:
     with _conn() as c:
         c.execute(
