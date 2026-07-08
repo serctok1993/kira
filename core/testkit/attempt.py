@@ -28,9 +28,13 @@ def main() -> None:
     store.init_memory()
     from core.agency.act import plan_and_execute
     try:
+        # code_review=False fuer SWE-bench: dort ist die Endabnahme das OFFIZIELLE Eval —
+        # Kiras eigene Testsuite-Abnahme waere im Fremd-Repo immer rot und wuerde den
+        # fertigen Patch per Rollback wieder loeschen (der 0%-Bug vom ersten Lauf).
         out = plan_and_execute(task.get("prompt", ""),
                                session_id="bench-" + str(task.get("id", "x")),
-                               code_review=True, on_event=_emit)
+                               code_review=bool(task.get("code_review", True)),
+                               on_event=_emit)
         print("@RESULT " + json.dumps({"text": (out or "")[:2000]}), flush=True)
     except Exception as e:  # noqa: BLE001
         print("@RESULT " + json.dumps({"error": str(e)[:500]}), flush=True)
