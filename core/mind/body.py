@@ -63,6 +63,8 @@ def _render_auto() -> str:
 
     try:
         with sqlite3.connect(DB_PATH) as c:
+            c.execute("PRAGMA busy_timeout=5000")  # Nebenlaeufigkeit: nie sofort 'locked'
+
             tables = [r[0] for r in c.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' "
                 "AND name NOT LIKE '%_fts%' ORDER BY name")]

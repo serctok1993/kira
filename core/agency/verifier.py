@@ -53,8 +53,9 @@ def max_quality_retries() -> int:
 
 
 def _verify_route() -> str:
-    # 'bulk' (flash) statt 'classify' (lokales 8B): der Judge muss striktes JSON koennen.
-    return str(_cfg("verifier_task_type", "bulk"))
+    # Judge != Actor: der Denker (reason) benotet — Default haelt die Live-Config nach,
+    # damit ein fehlender Config-Key den Richter nie still aufs Massen-Modell wirft.
+    return str(_cfg("verifier_task_type", "reason"))
 
 
 def generate_criteria(description: str, kind: str) -> list[dict]:
