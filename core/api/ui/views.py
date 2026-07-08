@@ -21,7 +21,8 @@ VIEWS = r"""</head><body>
   <a data-v="chat" title="Mit mir reden"><i class="ti">›</i> Chat</a>
   <a data-v="projekte" title="Projekte, Ziele, Radar-Chancen"><i class="ti">◈</i> Projekte</a>
   <a data-v="me" title="Dein Bereich: Todos, Freigaben, was Kira von dir braucht, deine Routinen"><i class="ti">☰</i> Serc</a>
-  <a data-v="kira" title="Wer ich bin: Seele, Gedaechtnis, Wissen + Technik (Modelle, Gewissen, Crons, Monitor, Protokoll)"><i class="ti">✦</i> Kira</a>
+  <a data-v="kira" title="Wer ich bin: Seele, Gedaechtnis, Wissen, Gewissen, Automatik, Lernen"><i class="ti">✦</i> Kira</a>
+  <a data-v="settings" title="Einstellungen: Modelle, Benchmark, Steuerpult, Zugaenge, Cockpit, Wallpaper"><i class="ti">⚙</i> Einstellungen</a>
   <div class="spacer"></div>
   <div class="kill" id="kill">Not-Aus: aus</div>
 </div>
@@ -332,10 +333,10 @@ VIEWS = r"""</head><body>
   <div class="view" id="v-kira">
     <!-- 2-Ebenen-Navi: 5 Gruppen (oben) filtern die Sub-Tabs (unten). Views/Loader unveraendert. -->
     <div class="seg" id="kira-groups">
-      <a data-g="geist" class="on">Geist</a><a data-g="gewissen">Gewissen</a><a data-g="automatik">Automatik</a><a data-g="technik">⚙ Einstellungen</a><a data-g="zustand">Zustand &amp; Lernen</a>
+      <a data-g="geist" class="on">Geist</a><a data-g="gewissen">Gewissen</a><a data-g="automatik">Automatik</a><a data-g="zustand">Zustand &amp; Lernen</a>
     </div>
     <div class="seg" id="kira-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="playbooks">Playbooks</a><a data-s="models">⚙ Modelle</a><a data-s="bench">🏁 Benchmark</a><a data-s="steuer">🎛 Steuerpult</a><a data-s="keys">Zugaenge</a><a data-s="cockpit">Cockpit</a><a data-s="wall">🖥 Wallpaper</a><a data-s="checkliste">Checkliste</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a><a data-s="evolution">Evolution</a><a data-s="log">Protokoll</a>
+      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="playbooks">Playbooks</a><a data-s="checkliste">Checkliste</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a><a data-s="evolution">Evolution</a><a data-s="log">Protokoll</a>
     </div>
 
     <div class="subview" id="v-keys">
@@ -848,6 +849,15 @@ VIEWS = r"""</head><body>
       </div>
     </div>
   </div>
+  </div>
+
+  <!-- ================= EINSTELLUNGEN (Werkbank PR 3: Technik zieht aus dem Kira-Tab aus).
+       Die 6 Subview-Divs bleiben physisch oben definiert und ziehen beim Boot per DOM-Move
+       hierher um (script.py) — kleinster Eingriff in den Monolith. ================= -->
+  <div class="view" id="v-settings">
+    <div class="seg" id="settings-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
+      <a data-s="models" class="on">⚙ Modelle</a><a data-s="bench">🏁 Benchmark</a><a data-s="steuer">🎛 Steuerpult</a><a data-s="keys">Zugaenge</a><a data-s="cockpit">Cockpit</a><a data-s="wall">🖥 Wallpaper</a>
+    </div>
   </div>
 </div>
 """

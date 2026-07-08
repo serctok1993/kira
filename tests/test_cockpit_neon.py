@@ -403,19 +403,25 @@ def test_subtab_leiste_lila():
 
 
 def test_kira_zwei_ebenen_navi():
-    # Gruppen-Zeile im Markup mit den 5 Gruppen
+    # Gruppen-Zeile im Markup — seit Werkbank PR 3 ohne 'technik' (eigener Einstellungen-Tab)
     assert 'id="kira-groups"' in VIEWS
-    for g in ("geist", "gewissen", "automatik", "technik", "zustand"):
+    for g in ("geist", "gewissen", "automatik", "zustand"):
         assert f'data-g="{g}"' in VIEWS
+    assert 'data-g="technik"' not in VIEWS
     # JS: Gruppen filtern die Sub-Tabs; subnav fuehrt die aktive Gruppe mit
     assert "const KIRA_GROUPS=" in SCRIPT
     assert "function syncKiraGroup(" in SCRIPT and "function kiraGroup(" in SCRIPT
     assert 'tab==="kira"&&typeof syncKiraGroup==="function"' in SCRIPT
-    # ALLE 16 Sub-Tabs sind genau einer Gruppe zugeordnet (nichts verloren)
+    # Alle KIRA-Sub-Tabs sind genau einer Gruppe zugeordnet; die Technik lebt im
+    # Einstellungen-Tab (_SETTINGS_SUBS) weiter — nichts verloren.
     kg = SCRIPT[SCRIPT.index("const KIRA_GROUPS="):SCRIPT.index("function _kiraGroupOf")]
-    for sub in ("files", "mem", "wissen", "gov", "cron", "monitor", "playbooks", "models",
-                "steuer", "keys", "cockpit", "checkliste", "anatomie", "stats", "evolution", "log"):
+    for sub in ("files", "mem", "wissen", "gov", "cron", "monitor", "playbooks",
+                "checkliste", "anatomie", "stats", "evolution", "log"):
         assert f'"{sub}"' in kg, f"Sub-Tab {sub} fehlt in KIRA_GROUPS"
+    st = SCRIPT[SCRIPT.index("const _SETTINGS_SUBS="):]
+    st = st[:st.index("]") + 1]
+    for sub in ("models", "bench", "steuer", "keys", "cockpit", "wall"):
+        assert f'"{sub}"' in st, f"Sub-Tab {sub} fehlt in _SETTINGS_SUBS"
 
 
 def test_bg_kein_cache():
