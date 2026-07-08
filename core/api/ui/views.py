@@ -340,6 +340,18 @@ VIEWS = r"""</head><body>
         </div>
         <div id="voice-testout" class="muted" style="margin-top:6px"></div>
       </div>
+      <div class="card"><h3>📱 Handy-Zugriff (PWA)</h3>
+        <div class="muted">Cockpit als App auf dem Handy — empfohlener Weg: <b>Tailscale Serve</b> auf
+          diesem PC (<code>tailscale serve --bg 8000</code>) → nur deine eigenen Geräte kommen ran, HTTPS
+          inklusive. Das Token hier ist die zweite Schicht: am Handy einmal eingeben, dann
+          „Zum Startbildschirm hinzufügen". Desktop/Wallpaper am PC bleiben unberührt.</div>
+        <div class="row" style="margin-top:8px;flex-wrap:wrap;gap:10px;align-items:center">
+          <button id="remote-toggle">…</button>
+          <code id="remote-token" style="display:none;user-select:all;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:6px 9px;font-size:12px"></code>
+          <button id="remote-copy" class="ghost" style="display:none">📋 Token kopieren</button>
+          <span class="muted" id="remote-hint" style="font-size:12px"></span>
+        </div>
+      </div>
       <div class="card"><h3>Von Kira angefordert</h3><div id="k-pending" class="muted">…</div></div>
       <div class="card"><h3>Zugang eintragen / aktualisieren</h3>
         <div class="muted">Werte sind write-only — werden nie angezeigt oder protokolliert. NIEMALS im Chat eingeben.</div>

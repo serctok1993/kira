@@ -9,7 +9,7 @@ import json
 import time
 
 import anyio
-from fastapi import FastAPI, File, Form, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, File, Form, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 
 from core.agency.tools import builtin as _builtin  # noqa: F401  (registriert eingebaute Tools)
@@ -27,6 +27,19 @@ from core.mind.memory import store as memory
 app = FastAPI(title="Kira Cockpit")
 events.init_db()
 memory.init_memory()
+
+
+@app.middleware("http")
+async def _remote_guard(request, call_next):
+    """Fernzugriff-Schutz (Punkt 4, PWA): ohne aktivierten Fernzugriff ein No-Op.
+    Aktiviert: Loopback bleibt frei (Desktop/Wallpaper), alles andere braucht das Token."""
+    from core.api import security
+
+    if security.http_allowed(request):
+        return await call_next(request)
+    if request.method == "GET" and "text/html" in (request.headers.get("accept") or ""):
+        return HTMLResponse(security.LOGIN_HTML, status_code=401)
+    return JSONResponse({"error": "Token noetig (Fernzugriff aktiv)"}, status_code=401)
 try:  # Workspace-Tabellen (Ziele + Task-Felder + Freigabe-Inbox) sicherstellen
     from core.agency.missions import objectives as _objectives, queue as _queue0
     from core.agency import approvals as _approvals0
@@ -1704,7 +1717,11 @@ async def ws_chat(ws: WebSocket) -> None:
     from core.agency.act import act_chat_stream
 
     from core.kernel import runstate
+    from core.api import security
 
+    if not security.ws_allowed(ws):  # Fernzugriff aktiv -> auch WS braucht das Token
+        await ws.close(code=4401)
+        return
     await ws.accept()
     sid = ws.query_params.get("sid") or ("cockpit-" + uuid.uuid4().hex[:8])
     # Kein "Verbunden. Session …"-Rauschen mehr im Chat — der Verbindungspunkt (ws-dot) reicht.
@@ -1781,7 +1798,11 @@ async def ws_bench(ws: WebSocket) -> None:
     Kiras Denk-/Werkzeug-Strom + je Aufgabe das Ergebnis + den Endstand ans Cockpit."""
     from core.config import ROOT
     from core.testkit import bench
+    from core.api import security
 
+    if not security.ws_allowed(ws):  # Fernzugriff aktiv -> auch WS braucht das Token
+        await ws.close(code=4401)
+        return
     await ws.accept()
     try:
         try:
@@ -1971,6 +1992,82 @@ async def api_wall_settings_set(body: dict) -> dict:
     _WALL_FILE.parent.mkdir(parents=True, exist_ok=True)
     _WALL_FILE.write_text(json.dumps(cur), encoding="utf-8")
     return {"ok": True, "settings": cur}
+
+
+# ---- Fernzugriff (Punkt 4: Handy/PWA) -------------------------------------------------
+def _is_local_request(request) -> bool:
+    """Streng lokal: direkte Loopback-Verbindung OHNE Proxy-Header. Nur solche Anfragen
+    duerfen den Fernzugriff verwalten oder das Token sehen."""
+    from core.api import security
+
+    host = request.client.host if request.client else None
+    fwd = "x-forwarded-for" in request.headers or "x-forwarded-proto" in request.headers
+    return security.is_local(host) and not fwd
+
+
+@app.post("/api/login")
+async def api_login(body: dict) -> Response:
+    """Login von der 401-Seite: richtiges Token -> Cookie (180 Tage), sonst 401."""
+    from core.api import security
+
+    if not security.token_ok(str(body.get("token") or "")):
+        return JSONResponse({"ok": False}, status_code=401)
+    resp = JSONResponse({"ok": True})
+    resp.set_cookie("kira_token", security.get_token() or "", max_age=180 * 86400,
+                    httponly=True, samesite="lax")
+    return resp
+
+
+@app.get("/api/remote/status")
+def api_remote_status(request: Request) -> dict:
+    """Fernzugriff-Status; das Token selbst gibt es NUR fuer streng lokale Anfragen."""
+    from core.api import security
+
+    local = _is_local_request(request)
+    return {"enabled": security.enabled(),
+            "token": (security.get_token() if local else None),
+            "local": local}
+
+
+@app.post("/api/remote/enable")
+def api_remote_enable(request: Request) -> JSONResponse:
+    from core.api import security
+
+    if not _is_local_request(request):
+        return JSONResponse({"error": "nur lokal am PC schaltbar"}, status_code=403)
+    return JSONResponse({"ok": True, "token": security.enable()})
+
+
+@app.post("/api/remote/disable")
+def api_remote_disable(request: Request) -> JSONResponse:
+    from core.api import security
+
+    if not _is_local_request(request):
+        return JSONResponse({"error": "nur lokal am PC schaltbar"}, status_code=403)
+    security.disable()
+    return JSONResponse({"ok": True})
+
+
+# ---- PWA (Cockpit als installierbare Handy-App) ---------------------------------------
+@app.get("/manifest.webmanifest")
+def pwa_manifest() -> JSONResponse:
+    return JSONResponse({
+        "name": "Kira Cockpit", "short_name": "Kira", "start_url": "/",
+        "display": "standalone", "background_color": "#0a0a0d", "theme_color": "#0a0a0d",
+        "icons": [{"src": "/api/icon", "sizes": "any", "type": "image/png",
+                   "purpose": "any"}],
+    }, media_type="application/manifest+json")
+
+
+@app.get("/sw.js")
+def pwa_service_worker() -> Response:
+    # Minimaler Service Worker: macht das Cockpit installierbar. Bewusst network-first
+    # ohne Cache-Magie — ein Live-Cockpit mit veralteten Daten waere schlimmer als keins.
+    js = ("self.addEventListener('install',()=>self.skipWaiting());"
+          "self.addEventListener('activate',e=>e.waitUntil(clients.claim()));"
+          "self.addEventListener('fetch',()=>{});")
+    return Response(content=js, media_type="application/javascript",
+                    headers={"Cache-Control": "no-store"})
 
 
 # Das komplette Cockpit-Frontend lebt seit S5.3a in core/api/ui/ (css.py, views.py,
