@@ -1078,6 +1078,21 @@ async def api_radar_focus_set(body: dict) -> dict:
     return {"ok": True, "themes": radar.set_focus(themes)}
 
 
+@app.get("/api/radar/takt")
+def api_radar_takt_get() -> dict:
+    from core.agency import radar
+
+    return radar.get_takt()
+
+
+@app.post("/api/radar/takt")
+async def api_radar_takt_set(body: dict) -> dict:
+    # Sergens Wochenaufgabe: wie oft und wie viele Ideen der Radar-Bericht bringt.
+    from core.agency import radar
+
+    return {"ok": True, **radar.set_takt(body.get("intervall_tage"), body.get("max_ideen"))}
+
+
 # ---------- Wissens-Archiv (S5.4) ----------
 @app.get("/api/knowledge")
 def api_knowledge() -> dict:
