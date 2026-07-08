@@ -27,7 +27,8 @@ def test_tagewerk_aggregiert_heutige_events(monkeypatch):
         {"ts": gestern, "type": "cron_run", "payload": {"label": "ALT — zaehlt nicht"}},
     ])
     monkeypatch.setattr(approvals, "pending", lambda: [{"id": "1"}])
-    monkeypatch.setattr(s, "today_spend_usd", lambda: 0.42)
+    from core.agency import tagewerk
+    monkeypatch.setattr(tagewerk, "today_spend_usd", lambda: 0.42)
     d = TestClient(s.app).get("/api/tagewerk").json()
     assert d["mails"]["anzahl"] == 2 and "kunde@x.de" in d["mails"]["an"]
     assert d["skills"] == {"anzahl": 1, "namen": ["Impressum-Recherche"]}

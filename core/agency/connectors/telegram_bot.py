@@ -62,12 +62,15 @@ def _agent_for(chat_id: int) -> Agent:
 
 
 def _tg_html(text: str) -> str:
-    """Leichtes Markdown -> Telegram-HTML (fett/Code), Rest wird escaped (handy-tauglich)."""
+    """Leichtes Markdown -> Telegram-HTML (fett/Code), Rest wird escaped (handy-tauglich).
+    Einfache, bewusst gesetzte Tags (b/i/u/s/code) bleiben erhalten — vorher wurden sie
+    mit-escaped und standen woertlich im Chat (<b>…</b> statt fett)."""
     import html as _h
 
     t = _h.escape(text or "", quote=False)
     t = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", t, flags=re.DOTALL)
     t = re.sub(r"(?<![\w`])`([^`\n]+?)`(?![\w`])", r"<code>\1</code>", t)
+    t = re.sub(r"&lt;(/?)(b|i|u|s|code)&gt;", r"<\1\2>", t)  # Whitelist wieder freischalten
     return t
 
 
@@ -579,7 +582,7 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
 
 
 def _status_text() -> str:
-    """Kurzer Status (Heartbeat, Modell, Budget, Not-Aus). Jeder Teil best effort."""
+    """Kurzer Status (Heartbeat, Modell, Budget, Offenes, Not-Aus). Jeder Teil best effort."""
     lines = ["📊 <b>Kira-Status</b>"]
     try:
         from core.kernel.scheduler import heartbeat_on
@@ -599,8 +602,67 @@ def _status_text() -> str:
         lines.append(f"🗓 Monat: {b.get('month_spent', 0)} €" + (f" / {ml} €" if ml is not None else ""))
     except Exception:  # noqa: BLE001
         pass
+    try:
+        from core.agency import approvals
+        n = len(approvals.pending())
+        if n:
+            lines.append(f"🔔 Freigaben offen: {n} (/freigaben)")
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from core.agency.missions import queue
+        n = len(queue.pending(limit=99))
+        if n:
+            lines.append(f"📋 Aufgaben offen: {n}")
+    except Exception:  # noqa: BLE001
+        pass
     lines.append("🛑 Not-Aus: " + ("AKTIV" if kill_switch_active() else "aus"))
     return "\n".join(lines)
+
+
+def _tagewerk_text() -> str:
+    """Tagewerk als Telegram-Nachricht (dieselben Zahlen wie Cockpit-Zentrale)."""
+    try:
+        from core.agency import tagewerk
+        d = tagewerk.heute()
+    except Exception:  # noqa: BLE001
+        return "Tagewerk gerade nicht abrufbar."
+    t = d.get("tasks", {})
+    lines = [f"📅 **Tagewerk — {time.strftime('%d.%m.%Y')}**"]
+    lines.append(f"✅ {t.get('done', 0)} Tasks erledigt"
+                 + (f" (Ø {t['avg_score']})" if t.get("avg_score") is not None else "")
+                 + (f" · ❌ {t['failed']} gescheitert" if t.get("failed") else ""))
+    m = d.get("mails", {})
+    if m.get("anzahl"):
+        lines.append(f"✉️ {m['anzahl']} Mails: " + ", ".join(m.get("an", [])[:3]))
+    s = d.get("skills", {})
+    if s.get("anzahl"):
+        lines.append(f"🧠 {s['anzahl']} Skills: " + ", ".join(s.get("namen", [])[:3]))
+    c = d.get("crons", {})
+    if c.get("anzahl"):
+        lines.append(f"⏰ {c['anzahl']} Cron-Laeufe: " + ", ".join(c.get("labels", [])[:3]))
+    sv = d.get("selbstverbesserung", {})
+    if sv.get("ticks") or sv.get("code_edits"):
+        lines.append(f"🔧 {sv.get('ticks', 0)} Selbst-Ticks"
+                     + (f" · Code: {', '.join(sv['code_edits'][:2])}" if sv.get("code_edits") else ""))
+    if d.get("lektionen"):
+        lines.append(f"💡 {d['lektionen']} Lektionen gelernt")
+    dg = d.get("diagnose")
+    if dg:
+        lines.append("🩺 Diagnose: " + ("ok" if dg.get("ok") else f"{dg.get('probleme', '?')} Problem(e)"))
+    if d.get("freigaben_offen"):
+        lines.append(f"🔔 {d['freigaben_offen']} Freigaben warten (/freigaben)")
+    lines.append(f"💰 {d.get('kosten_heute_usd', 0)} $ heute")
+    return "\n".join(lines)
+
+
+def _kalibrierung_text() -> str:
+    """Selbstkalibrierung (7 Tage) als Telegram-Nachricht — wie im Cockpit (Checkliste)."""
+    try:
+        from core.agency import calibration
+        return "🧭 **Selbstkalibrierung**\n" + calibration.render(7)
+    except Exception:  # noqa: BLE001
+        return "Kalibrierung gerade nicht abrufbar."
 
 
 def _tasks_text() -> str:
@@ -631,7 +693,8 @@ def _panel_markup() -> dict:
           "callback_data": "ctl:hb:" + ("off" if hb else "on")}],
         [{"text": "🔄 Aktualisieren", "callback_data": "ctl:refresh"},
          {"text": "📋 Aufgaben", "callback_data": "ctl:tasks"}],
-        [{"text": "🔔 Freigaben", "callback_data": "ctl:freigaben"}],
+        [{"text": "🔔 Freigaben", "callback_data": "ctl:freigaben"},
+         {"text": "📅 Tagewerk", "callback_data": "ctl:tagewerk"}],
     ]}
 
 
@@ -655,8 +718,10 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
               "Ich bin Kira. Schreib oder sprich mir einfach — oder tippe „/“ fuer das Menue.\n"
               "Befehle:\n"
               "/status – Heartbeat, Budget & Modell auf einen Blick\n"
-              "/steuer – Steuerpult mit Knoepfen (Heartbeat, Aufgaben, Freigaben)\n"
-              "/freigaben – offene Freigaben per ✅/❌-Knopf entscheiden\n"
+              "/tagewerk – was ich HEUTE geschafft habe (Tasks, Mails, Skills, Kosten)\n"
+              "/kalibrierung – wie meine Modelle laufen (Fehler/Kosten/Empfehlungen)\n"
+              "/steuer – Steuerpult mit Knoepfen (Heartbeat, Aufgaben, Freigaben, Tagewerk)\n"
+              "/freigaben – offene Eintraege entscheiden (🔔 Aktion · 💶 Anfrage · 📋 Info)\n"
               "/plan <große aufgabe> – ich erstelle einen Plan und arbeite ihn Schritt fuer Schritt ab\n"
               "/code <coding-auftrag> – Coding-Modus (an Kira selbst schrauben; erbt den Chat davor)\n"
               "/work <auftrag> – voller Werkzeug-Modus fuer laengere Aufgaben\n"
@@ -671,6 +736,12 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
         return
     if cmd == "status":
         _send(client, chat_id, _status_text())
+        return
+    if cmd == "tagewerk":
+        _send(client, chat_id, _tagewerk_text())
+        return
+    if cmd in ("kalibrierung", "kalib"):
+        _send(client, chat_id, _kalibrierung_text())
         return
     if cmd in ("steuer", "panel"):
         _send_panel(chat_id)
@@ -837,20 +908,53 @@ def _answer_cb(cq_id: str, text: str = "") -> None:
         pass
 
 
-def _send_approval_card(client: httpx.Client, chat_id: int, appr: dict) -> None:
-    """Eine Freigabe als Nachricht mit ✅/❌-Knopf (callback_data traegt die Freigabe-ID)."""
-    aid = appr.get("id")
-    if not aid:
-        return
+# Sergens Fund (08.07.): "Freigabe noetig" stand auf ALLEM — auch auf reinen Infos.
+# Jede Karte sagt jetzt ehrlich, was der Knopf WIRKLICH tut. Drei Klassen:
+#   AKTION (🔔): dein GO fuehrt sofort etwas aus (Mail senden, posten, anwenden).
+#   ANFRAGE (💶/🌐): dein GO erlaubt nur — Kira muss die Aktion danach selbst anstossen.
+#   INFO (📋, alles andere/generic): Knopf raeumt nur die Inbox auf, nichts passiert.
+_KIND_CARDS = {
+    "email_stranger": ("🔔 Freigabe noetig", "✅ sendet die E-Mail SOFORT.",
+                       "✅ Senden", "❌ Nicht senden"),
+    "publish": ("🔔 Freigabe noetig", "✅ postet SOFORT (Aussenwirkung).",
+                "✅ Posten", "❌ Nicht posten"),
+    "email": ("🔔 Freigabe noetig", "✅ sendet die E-Mail SOFORT.",
+              "✅ Senden", "❌ Nicht senden"),
+    "evolution": ("🔔 Freigabe noetig", "✅ wendet den Vorschlag an (Backup automatisch).",
+                  "✅ Anwenden", "❌ Verwerfen"),
+    "playbook": ("🔔 Freigabe noetig", "✅ befoerdert das Playbook eine Stufe.",
+                 "✅ Befoerdern", "❌ Ablehnen"),
+    "money": ("💶 Geld-Anfrage", "Nur eine Erlaubnis — durch den Klick fliesst KEIN Geld; "
+              "Kira muss die Aktion danach selbst anstossen.",
+              "✅ Erlauben", "❌ Ablehnen"),
+    "external": ("🌐 Anfrage", "Nur eine Erlaubnis — Kira muss die Aktion danach selbst anstossen.",
+                 "✅ Erlauben", "❌ Ablehnen"),
+}
+_INFO_CARD = ("📋 Zur Kenntnis / Entscheidung", "Info-Eintrag: der Knopf aendert nichts "
+              "automatisch, er raeumt nur die Inbox auf.", "✔ Gelesen", "🗑 Verwerfen")
+
+
+def _approval_card(appr: dict) -> tuple[str, dict]:
+    """Pure Karten-Renderer (testbar): (HTML-Text, Inline-Keyboard) fuer eine Freigabe."""
+    aid = appr.get("id") or ""
+    kind = (appr.get("kind") or "").strip()
+    head, folge, ok_label, no_label = _KIND_CARDS.get(kind, _INFO_CARD)
     title = _tg_html((appr.get("title") or "Freigabe"))
     detail = _tg_html((appr.get("detail") or "").strip()[:600])
-    kind = (appr.get("kind") or "").strip()
-    text = "🔔 <b>Freigabe noetig</b>\n" + title + (("\n" + detail) if detail else "") \
-        + (f"\n<i>Art: {_tg_html(kind)}</i>" if kind else "")
+    text = f"<b>{head}</b>\n{title}" + (("\n" + detail) if detail else "") \
+        + f"\n\n<i>{_tg_html(folge)}</i>"
     kb = {"inline_keyboard": [[
-        {"text": "✅ Freigeben", "callback_data": f"appr:ok:{aid}"},
-        {"text": "❌ Ablehnen", "callback_data": f"appr:no:{aid}"},
+        {"text": ok_label, "callback_data": f"appr:ok:{aid}"},
+        {"text": no_label, "callback_data": f"appr:no:{aid}"},
     ]]}
+    return text, kb
+
+
+def _send_approval_card(client: httpx.Client, chat_id: int, appr: dict) -> None:
+    """Eine Freigabe als Nachricht mit Entscheidungs-Knoepfen (Beschriftung je nach Art)."""
+    if not appr.get("id"):
+        return
+    text, kb = _approval_card(appr)
     try:
         _ctrl().post(f"{API}/sendMessage",
                      json={"chat_id": chat_id, "text": text, "parse_mode": "HTML", "reply_markup": kb})
@@ -911,6 +1015,11 @@ def _handle_ctl(client: httpx.Client, cq: dict, data: str) -> None:
         if chat_id:
             _send(client, chat_id, _tasks_text())
         return
+    elif data == "ctl:tagewerk":
+        _answer_cb(cq_id, "Tagewerk")
+        if chat_id:
+            _send(client, chat_id, _tagewerk_text())
+        return
     elif data == "ctl:freigaben":
         _answer_cb(cq_id, "Freigaben")
         if chat_id:
@@ -955,9 +1064,13 @@ def _handle_callback(client: httpx.Client, cq: dict) -> None:
     mid = msg.get("message_id")
     if chat_id and mid:
         appr = approvals.get(aid) or {}
-        head = "🔔 " + _tg_html(appr.get("title") or "Freigabe")
-        if res.get("ok"):
+        kind = (appr.get("kind") or "").strip()
+        icon = _KIND_CARDS.get(kind, _INFO_CARD)[0].split(" ", 1)[0]
+        head = icon + " " + _tg_html(appr.get("title") or "Freigabe")
+        if res.get("ok") and kind in _KIND_CARDS:
             state = "✅ <b>Freigegeben</b>" if approved else "❌ <b>Abgelehnt</b>"
+        elif res.get("ok"):  # Info-Eintrag: ehrliche Wortwahl statt "Freigegeben"
+            state = "✔ <b>Gelesen</b>" if approved else "🗑 <b>Verworfen</b>"
         else:
             state = "• " + toast
         events.emit("approval_decided_telegram", {"id": aid, "approved": approved, "ok": res.get("ok")})
@@ -1030,8 +1143,10 @@ def _bundle(state: dict, error: str | None) -> dict | None:
 # klickt Sergen ins Leere. Reihenfolge = Anzeige-Reihenfolge im Menue.
 _BOT_COMMANDS = [
     ("status", "Heartbeat, Budget & Modell auf einen Blick"),
+    ("tagewerk", "Was Kira HEUTE geschafft hat (Tasks, Mails, Kosten)"),
     ("steuer", "Steuerpult – Heartbeat, Aufgaben, Freigaben per Knopf"),
-    ("freigaben", "Offene Freigaben – per ✅/❌-Knopf entscheiden"),
+    ("freigaben", "Offene Einträge entscheiden (Aktion/Anfrage/Info)"),
+    ("kalibrierung", "Modell-Report: Fehler, Kosten, Empfehlungen (7 Tage)"),
     ("code", "Coding-Modus: an Kira selbst schrauben"),
     ("plan", "Große Aufgabe planen und Schritt für Schritt abarbeiten"),
     ("work", "Längerer Auftrag mit vollem Werkzeug-Budget"),

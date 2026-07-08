@@ -40,7 +40,8 @@ def test_callback_entscheidet_und_editiert(monkeypatch):
     decided = {}
     monkeypatch.setattr(approvals, "decide",
                         lambda aid, ok, note=None: (decided.update(aid=aid, ok=ok), {"ok": True})[1])
-    monkeypatch.setattr(approvals, "get", lambda aid: {"id": aid, "title": "Mail senden"})
+    monkeypatch.setattr(approvals, "get",
+                        lambda aid: {"id": aid, "title": "Mail senden", "kind": "email_stranger"})
     cap = _Cap()
     monkeypatch.setattr(tb, "_ctrl", lambda: cap)
     cq = {"id": "cq1", "data": "appr:ok:deadbeef", "message": {"chat": {"id": 9}, "message_id": 42}}
@@ -58,13 +59,27 @@ def test_callback_ablehnen(monkeypatch):
     from core.agency import approvals
     got = {}
     monkeypatch.setattr(approvals, "decide", lambda aid, ok, note=None: (got.update(ok=ok), {"ok": True})[1])
-    monkeypatch.setattr(approvals, "get", lambda aid: {"id": aid, "title": "X"})
+    monkeypatch.setattr(approvals, "get", lambda aid: {"id": aid, "title": "X", "kind": "publish"})
     cap = _Cap()
     monkeypatch.setattr(tb, "_ctrl", lambda: cap)
     tb._handle_callback(None, {"id": "c", "data": "appr:no:abcdef", "message": {"chat": {"id": 1}, "message_id": 2}})
     assert got == {"ok": False}                 # 'no' -> approved=False
     edit = [j for u, j in cap.posts if "editMessageText" in u][0]
     assert "Abgelehnt" in edit["text"]
+
+
+def test_callback_info_eintrag_sagt_gelesen(monkeypatch):
+    """Info-Eintraege (generic) werden nach dem Klick als 'Gelesen', nicht 'Freigegeben' markiert."""
+    from core.agency.connectors import telegram_bot as tb
+    from core.agency import approvals
+    monkeypatch.setattr(approvals, "decide", lambda aid, ok, note=None: {"ok": True})
+    monkeypatch.setattr(approvals, "get", lambda aid: {"id": aid, "title": "Report", "kind": "generic"})
+    cap = _Cap()
+    monkeypatch.setattr(tb, "_ctrl", lambda: cap)
+    tb._handle_callback(None, {"id": "c", "data": "appr:ok:beef01", "message": {"chat": {"id": 1}, "message_id": 2}})
+    edit = [j for u, j in cap.posts if "editMessageText" in u][0]
+    assert "Gelesen" in edit["text"] and "Freigegeben" not in edit["text"]
+    assert edit["text"].startswith("📋")
 
 
 def test_callback_ignoriert_fremde_daten(monkeypatch):
