@@ -237,6 +237,15 @@ def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
         queue.update_task(full["id"], score=out["score"])
         events.emit("mission_task_done", {"id": full["id"], "summary": text[:300],
                                           "score": out["score"]}, session_id=sid)
+        try:
+            # Hermes-Lernkreis: aus schweren, abgenommenen Tasks automatisch eine
+            # wiederverwendbare Faehigkeit destillieren (Skeptiker-geprueft, gedrosselt).
+            from core.mind import skillloop
+
+            skillloop.maybe_learn(full["description"], text, attempt,
+                                  time.time() - t0, criteria, out["score"])
+        except Exception as e:  # noqa: BLE001
+            events.emit("skill_loop_error", {"error": str(e)[:200]})
         label = f" (Score {out['score']})" if out["score"] is not None else ""
         _notify(f"🤖 Mission-Schritt erledigt{label}:\n{full['description']}\n\n{text[:1200]}")
         return {"task": full["description"], "result": text, "score": out["score"]}
