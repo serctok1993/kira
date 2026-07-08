@@ -71,9 +71,10 @@ Ebene 4  Destillat                  gedaechtnis/stammbaum/ + Lektionen/Playbooks
 | `/work <auftrag>` | volles Arbeitsbudget (langer Task) |
 | `/code <auftrag>` (Chat & Telegram) | Coding-Modus — **erbt den Chat davor** (erst brainstormen, dann `/code`) |
 | `plan:` / Coding-Modus | erst Plan, dann Schritte (Coding erzwingt zusätzlich Regeln) |
-| `@ziel:<name>` | Arbeit auf ein Ziel buchen |
+| `@ziel:<name>` | Arbeit auf ein Ziel buchen — **wirkt nur zusammen mit `/work`** (`/work @ziel:luvex …`) |
+| `denk:aus` · `niedrig` · `mittel` · `hoch` | Reasoning-Tiefe des Modells regeln (mehr Denken = besser + teurer) |
 | Fokus (Zentrale) | Daueranweisung für den Motor |
-| JETZT-Eimer (`loop/BACKLOG.md`) | Befehl an den Cloud-Loop |
+| JETZT-Eimer (`loop/BACKLOG.md`) | Befehl an den Cloud-Loop — die Datei liegt **im `kira/loop`-Checkout**, nicht in diesem Repo |
 
 ## §6 Prompt-Guide — was funktioniert, was nicht
 
@@ -108,8 +109,12 @@ Ebene 4  Destillat                  gedaechtnis/stammbaum/ + Lektionen/Playbooks
 ## §8 Einmalige Desktop-Einrichtung (wörtlich an Kira im Chat schicken)
 
 1. `Lege einen Cron an: label "Tages-Journal", schedule "21:30", scope "me", prompt: Fuehre das Playbook tages-journal aus: schreibe die heutige Journal-Seite nach gedaechtnis/journal/. Nutze playbook_read fuer die Schritte.`
-2. `Lege einen Cron an: label "Wochen-Verdichtung", schedule "So 20:30" — falls Wochentage nicht gehen, nimm taeglich 20:30 mit Prompt-Zusatz "NUR sonntags ausfuehren, sonst nichts tun": Fuehre das Playbook wochen-verdichtung aus.`
+2. `Lege einen Cron an: label "Wochen-Verdichtung", schedule "20:30", scope "me", prompt: NUR wenn heute Sonntag ist: fuehre das Playbook wochen-verdichtung aus (playbook_read fuer die Schritte), sonst antworte nur "kein Sonntag" und tue nichts.`
+   *(Achtung: KEIN Wochentag im schedule-Feld — "So 20:30" versteht der Planer nicht und macht daraus einen STUNDEN-Takt. Der Sonntags-Filter lebt im Prompt.)*
 3. `Lege einen Cron an: label "Monats-Verdichtung", schedule "21:00", scope "me", prompt: NUR am 1. des Monats: fuehre das Playbook monats-verdichtung aus, sonst nichts tun.`
+
+4. `Lege einen Cron an: label "Morgen-Briefing", schedule "08:00", scope "me", prompt: {{standup}} Fasse mir den Tag zusammen: Termine, offene Tasks, Fehler, 3 wichtigste Punkte.`
+   *(Ohne diesen Briefing-Cron gibt es KEINE Logbuch-Frage — sie reist im `{{standup}}`-Platzhalter mit. Alternativ: Cockpit → Serc → Chip „☀ Morgen-Briefing".)*
 
 Danach: ab morgen enthält dein Briefing automatisch eine **LOGBUCH-FRAGE** (eine pro Tag),
 bis der Stammbaum gefüllt ist.

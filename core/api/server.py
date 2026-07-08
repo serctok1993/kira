@@ -646,11 +646,11 @@ async def api_direktive_now(body: dict) -> dict:
         return {"ok": False, "error": "leer"}
     events.emit("direktive_now", {"prompt": prompt[:200], "via": "dashboard"})
     from core.kernel import runstate
-    runstate.enter_turn()  # aktiver Cockpit-Zug -> Neustart wartet bis danach
+    runstate.enter_turn("direktive")  # aktiver Cockpit-Zug -> Neustart wartet bis danach
     try:
         out = await anyio.to_thread.run_sync(lambda: act(prompt, session_id="direktive", escalate=bool(body.get("escalate"))))
     finally:
-        runstate.exit_turn()
+        runstate.exit_turn("direktive")
     text = (out.get("text") or "").strip()
     try:
         import os as _os
@@ -1728,7 +1728,7 @@ async def ws_chat(ws: WebSocket) -> None:
     try:
         while True:
             user_text = await ws.receive_text()
-            runstate.enter_turn()  # aktiver Cockpit-Zug -> Neustart (self_edit/restart_self) wartet bis danach
+            runstate.enter_turn(sid)  # aktiver Cockpit-Zug -> Neustart (self_edit/restart_self) wartet bis danach
             try:
                 gen = act_chat_stream(user_text, sid)
 
@@ -1745,7 +1745,7 @@ async def ws_chat(ws: WebSocket) -> None:
                     await ws.send_json({"role": "partner", **piece})
                 await ws.send_json({"role": "partner", "done": True})
             finally:
-                runstate.exit_turn()  # idle -> ein aufgeschobener Neustart wird jetzt ausgeloest (nach der Antwort)
+                runstate.exit_turn(sid)  # idle -> ein aufgeschobener Neustart wird jetzt ausgeloest (nach der Antwort)
     except WebSocketDisconnect:
         pass
 
