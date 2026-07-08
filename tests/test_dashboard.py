@@ -14,13 +14,13 @@ def test_page_boots_with_new_ia():
     """5-Tab-Zuschnitt nach Config-Auflösung (Zentrale/Chat/Projekte/Serc/Kira) + modulare Shell."""
     html = _page()
     assert "KIRA" in html
-    for vid in ("v-home", "v-chat", "v-projekte", "v-me", "v-kira"):
+    for vid in ("v-home", "v-chat", "v-projekte", "v-me", "v-kira", "v-settings"):
         assert f'id="{vid}"' in html, f"View fehlt: {vid}"
-    # Config ist aufgelöst — kein eigener Tab/Leiste mehr
-    for gone in ("v-work", "v-todo", "v-settings", "v-config"):
+    # Alt-Views bleiben tot (v-settings ist seit Werkbank PR 3 der NEUE Einstellungen-Tab)
+    for gone in ("v-work", "v-todo", "v-config"):
         assert f'id="{gone}"' not in html, f"Alt-View lebt noch: {gone}"
     assert 'id="sys-tabs"' not in html and 'data-v="config"' not in html
-    # Die Technik-Subviews leben jetzt UNTER Kira (gleiche SUBTABS-Mechanik)
+    # Die Technik-Subviews existieren weiter (ziehen beim Boot per DOM-Move nach v-settings)
     for sub in ("v-models", "v-keys", "v-gov", "v-cron", "v-monitor", "v-log", "v-cockpit",  # ex-Config
                 "v-files", "v-mem", "v-wissen", "v-anatomie", "v-stats"):                     # Kira
         assert f'id="{sub}"' in html, f"Subview fehlt: {sub}"
