@@ -286,7 +286,9 @@ function layout(g){
   const bx=POSX[WALL.pos]||0.5,byy=POSY[WALL.posy]||0.46;
   const cnt={};raw.forEach(n=>{const gp=n.group||"·";cnt[gp]=(cnt[gp]||0)+1;});
   groups.sort((a,b)=>(cnt[b]||0)-(cnt[a]||0));
-  const rx=(WALL.pos==="mitte"?0.20:0.115)*Math.sqrt(sc/2.6),ry=0.115*Math.sqrt(sc/2.6);
+  // BREIT gezogen (Sergens Feedback: alles klebte aneinander): flache, weite Ellipse —
+  // die Cluster bekommen Luft zueinander, das Querformat des Monitors wird genutzt.
+  const rx=(WALL.pos==="mitte"?0.32:0.19)*Math.sqrt(sc/2.6),ry=0.105*Math.sqrt(sc/2.6);
   GX={};GMAIN=groups[0]||"·";
   groups.forEach((gp,k)=>{
     if(k===0){GX[gp]={fx:bx,fy:byy};return;}                    // Hauptgruppe = Zentrum
@@ -298,22 +300,28 @@ function layout(g){
   ls=(g.links||[]).map(l=>[by[l.source],by[l.target]]).filter(p=>p[0]&&p[1]);
   ls.forEach(([a,b])=>{a.deg++;b.deg++;});
   // Knoten bewusst KLEIN halten (Sergens Feedback: Kreise zu gross) — Hubs heben sich
-  // ueber Orbit-Ring + Label ab, nicht ueber fette Blobs.
-  ns.forEach(n=>{n.r=(1.7+Math.min(4.2,n.deg*0.55))*Math.sqrt(sc);});
+  // ueber Orbit-Ring + Label ab, nicht ueber fette Blobs. Groesse waechst nur gedaempft
+  // mit dem Zoom (Wurzel gedeckelt), sonst werden die Punkte bei 'gross' wieder Buttons.
+  const nsc=Math.min(1.25,Math.sqrt(sc));
+  ns.forEach(n=>{n.r=(1.2+Math.min(3,n.deg*0.35))*nsc;});
   // vorab fertig rechnen -> der Graph erscheint direkt gesetzt & sauber verteilt (kein Zappeln)
   if(!reduce){for(let k=0;k<350;k++)sim();}
   setHomes();settle=999;   // Ruhelage merken; gilt als gesetzt (Loop schwebt sanft oder friert ein)
 }
 function sim(){   // force-directed, ruhig getaktet: Repulsion + Federn + Cluster-Anker, starke Daempfung
-  const sc=SCALE(),REP=430*sc,LEN=52*sc,K=0.011,CL=2.4;
+  const sc=SCALE(),REP=520*sc,LEN=58*sc,CL=2.4;
   for(let i=0;i<ns.length;i++){const a=ns[i];
     for(let j=i+1;j<ns.length;j++){const b=ns[j];let dx=a.x-b.x,dy=a.y-b.y,d2=dx*dx+dy*dy||1;
       if(d2<50000){const d=Math.sqrt(d2),f=REP/d2;dx/=d;dy/=d;a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}}}
-  for(const [a,b] of ls){let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,f=(d-LEN)*K;dx/=d;dy/=d;
+  // ENTWIRRUNG: Federn INNERHALB einer Gruppe halten das Sternbild zusammen (K stark),
+  // Federn ZWISCHEN Gruppen sind lang + weich (K schwach) — sonst ziehen die Querlinks
+  // alle Cluster zu einem Knaeuel in die Mitte (genau Sergens 'klebt alles aneinander').
+  for(const [a,b] of ls){const same=a.grp===b.grp,K=same?0.011:0.0022,L=same?LEN:LEN*2.6;
+    let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,f=(d-L)*K;dx/=d;dy/=d;
     a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}
   for(const n of ns){if(n.fx)continue;   // angefasster Knoten haengt an der Maus -> nicht integrieren
-    n.vx+=(W*n.cx-n.x)*0.009;            // Zug zum eigenen Cluster-Anker (x UND y)
-    n.vy+=(H*n.cy2-n.y)*0.011;           // -> geordnete Konstellationen statt einem Knaeuel
+    n.vx+=(W*n.cx-n.x)*0.008;            // Zug zum eigenen Cluster-Anker (x UND y)
+    n.vy+=(H*n.cy2-n.y)*0.010;           // -> Sternbilder sitzen fest an ihren Ring-Plaetzen
     n.x+=Math.max(-CL,Math.min(CL,n.vx));n.y+=Math.max(-CL,Math.min(CL,n.vy));n.vx*=0.86;n.vy*=0.86;}
 }
 function render(){ctx.clearRect(0,0,W,H);const sc=SCALE();ctx.shadowBlur=0;
@@ -339,40 +347,49 @@ function render(){ctx.clearRect(0,0,W,H);const sc=SCALE();ctx.shadowBlur=0;
   // Kanten: DUENN + GEBUENDELT (Edge-Bundling-Idee): der Bogen zieht Richtung der
   // Cluster-Anker beider Enden -> Verbindungen laufen in ruhigen Straengen statt
   // kreuz und quer. Eine Linie pro Kante (keine dicke Unterlage mehr) = weniger Laerm.
-  for(const [a,b] of ls){const ca=nodeColor(a),cb=nodeColor(b);
-    const d=Math.hypot(b.x-a.x,b.y-a.y)||1,al=Math.max(.28,.85-d/(420*sc));
+  // Sichtbarkeits-Hierarchie: Kanten IM Sternbild klar, Kanten ZWISCHEN Sternbildern
+  // stark gedimmt + hauchduenn — die Quervernetzung bleibt ablesbar, dominiert aber
+  // nicht mehr das Bild (das war der 'Gewusel'-Eindruck).
+  for(const [a,b] of ls){const ca=nodeColor(a),cb=nodeColor(b),same=a.grp===b.grp;
+    const d=Math.hypot(b.x-a.x,b.y-a.y)||1;
+    let al=Math.max(.26,.8-d/(420*sc));if(!same)al*=0.38;
     const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
     const qx=(mx+ (W*(a.cx+b.cx)/2))/2,qy=(my+(H*(a.cy2+b.cy2)/2))/2;   // Zug zum Cluster -> Buendel
-    const gr=ctx.createLinearGradient(a.x,a.y,b.x,b.y);gr.addColorStop(0,'rgba('+ca+','+al+')');gr.addColorStop(1,'rgba('+cb+','+al+')');
-    ctx.strokeStyle=gr;ctx.lineWidth=0.9;
+    const gr=ctx.createLinearGradient(a.x,a.y,b.x,b.y);gr.addColorStop(0,'rgba('+ca+','+al.toFixed(2)+')');gr.addColorStop(1,'rgba('+cb+','+al.toFixed(2)+')');
+    ctx.strokeStyle=gr;ctx.lineWidth=same?0.9:0.6;
     ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(qx,qy,b.x,b.y);ctx.stroke();}
   // Knoten: klein & praezise — feiner Neon-Punkt mit hellem Kern. Hubs (viele Links)
   // tragen einen duennen ORBIT-RING statt eines fetten Blobs -> Sci-Fi, nicht Bubble.
   for(const n of ns){const c=nodeColor(n);
     ctx.shadowBlur=0;ctx.beginPath();ctx.arc(n.x,n.y,n.r+1.1,0,7);ctx.fillStyle='rgba(3,2,9,.7)';ctx.fill();
-    ctx.shadowColor='rgba('+c+',.8)';ctx.shadowBlur=8;
+    ctx.shadowColor='rgba('+c+',.75)';ctx.shadowBlur=6;
     ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,7);ctx.fillStyle='rgba('+c+',.95)';ctx.fill();
     ctx.shadowBlur=0;ctx.beginPath();ctx.arc(n.x,n.y,Math.max(.8,n.r*0.4),0,7);ctx.fillStyle='rgba(255,255,255,.88)';ctx.fill();
-    if(n.deg>=5){ctx.strokeStyle='rgba('+c+',.55)';ctx.lineWidth=1;
-      ctx.beginPath();ctx.arc(n.x,n.y,n.r+3.5*Math.sqrt(sc),0,7);ctx.stroke();}}
+    if(n.deg>=6){ctx.strokeStyle='rgba('+c+',.5)';ctx.lineWidth=1;
+      ctx.beginPath();ctx.arc(n.x,n.y,n.r+4,0,7);ctx.stroke();}}
   ctx.shadowBlur=0;
-  // Labels sparsam (aufgeraeumt): erst ab 3 Verbindungen, Groesse/Deckkraft nach Rang.
+  // Labels: KLEIN + FEST (Sergens Feedback: Riesen-Schriften). Feste Pixelgroesse
+  // unabhaengig vom Graph-Zoom (Lesbarkeit statt Mitwachsen), nur echte Hubs (ab 4
+  // Links), kuehle Eis-Cyan-Toene mit Hauch Letter-Spacing = Sci-Fi statt Plakat.
   if(WALL.labels){ctx.textAlign='center';ctx.lineJoin='round';
-    for(const n of ns){if(n.deg<3)continue;
-      const fs=Math.round((9+Math.min(3.5,n.deg*0.45))*Math.sqrt(sc)),al=Math.min(1,.6+n.deg*0.08);
+    try{ctx.letterSpacing='0.06em';}catch(e){}
+    for(const n of ns){if(n.deg<4)continue;
+      const fs=n.deg>=8?12:10,al=Math.min(.95,.5+n.deg*0.06);
       ctx.font='600 '+fs+'px "Segoe UI",system-ui,sans-serif';
-      const t=n.id.slice(0,26),y=n.y-n.r-6;
-      ctx.lineWidth=3.2;ctx.strokeStyle='rgba(0,0,0,'+(al*.95).toFixed(2)+')';
-      ctx.fillStyle='rgba(248,244,255,'+al.toFixed(2)+')';
+      const t=n.id.slice(0,24),y=n.y-n.r-6;
+      ctx.lineWidth=2.8;ctx.strokeStyle='rgba(2,4,12,'+(al*.9).toFixed(2)+')';
+      ctx.fillStyle='rgba(182,222,244,'+al.toFixed(2)+')';   // Eis-Cyan, kuehl + dezent
       ctx.strokeText(t,n.x,y);ctx.fillText(t,n.x,y);}
     // Cluster-Beschriftung: Gruppenname klein in GROSSBUCHSTABEN ueber jedem Sternbild.
     // Die ZENTRAL-Gruppe bleibt unbeschriftet — ihr Hub-Label (z.B. SERGEN) reicht,
     // sonst kollidieren beide Schriften uebereinander.
-    ctx.font='600 '+Math.round(9.5*Math.sqrt(sc))+'px "Segoe UI",system-ui,sans-serif';
+    ctx.font='600 9px "Segoe UI",system-ui,sans-serif';
+    try{ctx.letterSpacing='0.22em';}catch(e){}
     for(const gp in GX){if(gp==="·"||gp===GMAIN)continue;const g=GX[gp];
-      const t=gp.toUpperCase().slice(0,20),xx=W*g.fx,yy=H*g.fy-64*Math.sqrt(sc);
-      ctx.lineWidth=3;ctx.strokeStyle='rgba(0,0,0,.85)';ctx.fillStyle='rgba('+(MODE_RGB[mode]||"176,38,255")+',.75)';
-      ctx.strokeText(t,xx,yy);ctx.fillText(t,xx,yy);}}
+      const t=gp.toUpperCase().slice(0,20),xx=W*g.fx,yy=H*g.fy-56*Math.sqrt(sc);
+      ctx.lineWidth=2.6;ctx.strokeStyle='rgba(2,4,12,.8)';ctx.fillStyle='rgba(148,196,224,.62)';
+      ctx.strokeText(t,xx,yy);ctx.fillText(t,xx,yy);}
+    try{ctx.letterSpacing='0px';}catch(e){}}
 }
 /* Loop stoppt, sobald der Graph gesetzt ist und "Bewegung" aus ist -> 0% CPU im Ruhezustand
    (genau das, was Lively sonst dauernd rendern liess). Aenderungen wecken ihn per kick(). */
