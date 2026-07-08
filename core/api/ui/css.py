@@ -559,6 +559,12 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
  /* Drilldown: sobald ein Projekt offen ist, tritt die Akte in den Vordergrund, die 3 Spalten weichen */
  #v-projekte.drill .proj-cols{display:none}
  #v-projekte:not(.drill) #vent-detail{display:none!important}
+ /* Werkbank PR 2b — Master-Detail: im Drill steht die Projektliste SCHMAL LINKS neben
+    der Akte (Projekt-Wechsel ohne Zurueck-Klick), statt als Band drueber. */
+ #v-projekte.drill{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px;align-items:stretch}
+ #v-projekte.drill #proj-top{max-height:none;grid-column:1;min-width:0}
+ #v-projekte.drill #vent-detail{grid-column:2;min-width:0}
+ #v-projekte.drill #proj-top .row,#v-projekte.drill #obj-form{flex-wrap:wrap}
  /* Me: 3 App-Style-Spalten, jede stapelt schlanke Panels mit internem Scroll — kein Seiten-Scroll */
  #v-me.on{overflow:hidden}
  .me-grid{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
