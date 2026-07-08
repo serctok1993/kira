@@ -107,6 +107,10 @@ VIEWS = r"""</head><body>
       </div>
       <div class="cmd-side">
         <div class="panel">
+          <div class="panel-h">◈ Tagewerk <span class="sp"></span><a id="go-tagewerk" class="muted" style="cursor:pointer;font-size:10px">→ Detail</a></div>
+          <div id="tagewerk" class="panel-b"><span class="muted">…</span></div>
+        </div>
+        <div class="panel">
           <div class="panel-h">◈ Heute <span class="sp"></span><a id="go-todo" class="muted" style="cursor:pointer;font-size:10px">→ Me</a></div>
           <div id="digest" class="panel-b"><span class="muted">…</span></div>
         </div>
@@ -450,6 +454,7 @@ VIEWS = r"""</head><body>
       <div class="card"><h3>System-Checkliste — ist das Fundament gesund?</h3>
         <div class="muted">Die Paragraphen aus <b>docs/HANDBUCH.md</b> als Live-Ampeln.
         Gruen = laeuft · Gelb = wartet auf dich/Aufbau · Rot = klemmt.</div>
+        <div id="ck-tagewerk" style="margin-top:10px"><span class="muted">…</span></div>
         <div id="ck-list" style="margin-top:12px"><span class="muted">…</span></div>
       </div>
     </div>
