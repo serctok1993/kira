@@ -96,36 +96,49 @@ def checkout(repo: str, commit: str, dest: Path) -> None:
     _git("checkout", "--quiet", "FETCH_HEAD", cwd=dest)
 
 
-def _agent_env(workdir: Path, allow_llm: bool = True) -> dict:
-    """Sandbox-Env fuer den Agenten-Subprozess: Kiras Werkzeuge operieren auf dem FREMDEN
-    Repo (KIRA_ROOT=workdir), Daten liegen AUSSERHALB (der Patch bleibt sauber),
-    Firewall an (kein Mail/Telegram), Modell erlaubt (der Sinn des Benchmarks)."""
+def _agent_env(allow_llm: bool = True) -> dict:
+    """Sandbox-Env fuer den Agenten-Subprozess. WICHTIG (0%-Bug, Lauf 1): KIRA_ROOT darf
+    NICHT aufs Fremd-Repo zeigen — dort fehlen config.yaml und core/mind/, der Subprozess
+    stirbt beim Import, bevor er anfaengt. Kira laeuft in IHREM Repo; das Fremd-Repo liegt
+    als Unterordner in data/bench/work/ (Werkzeuge sind ROOT-gebunden -> erreichbar).
+    Nur die DATEN sind umgelenkt (frische state.db), Firewall an, Modell erlaubt."""
     import os
 
     data = Path(tempfile.mkdtemp(prefix="kira-swb-data-"))
     env = {**os.environ,
-           "KIRA_ROOT": str(workdir.resolve()),
            "KIRA_DATA_DIR": str(data),
            "KIRA_TEST_MODE": "1",
            "KIRA_NO_OUTBOUND": "1",
-           # attempt.py liegt in KIRAS Repo, nicht im fremden -> Import darueber aufloesen
            "PYTHONPATH": str(_kira_repo())}
+    env.pop("KIRA_ROOT", None)
     if allow_llm:
         env["KIRA_ALLOW_LLM"] = "1"
     return env
 
 
-_PROMPT = ("Du arbeitest in einem fremden Python-Repository. Unten steht ein ECHTER "
-           "GitHub-Issue. Finde die Ursache im Quellcode und behebe sie mit einem "
-           "moeglichst kleinen, gezielten Patch. Aendere NUR Quellcode (keine Tests, "
-           "keine Doku, nichts loeschen was du nicht verstehst).\n\nISSUE:\n{issue}")
+_PROMPT = ("SWE-BENCH-AUFGABE. Ein fremdes Python-Repository liegt in DIESEM Projekt "
+           "unter dem relativen Pfad '{repo}'. Unten steht ein ECHTER GitHub-Issue dazu. "
+           "Finde die Ursache im Quellcode und behebe sie mit einem moeglichst kleinen, "
+           "gezielten Patch (edit_datei mit exaktem Suchtext).\n"
+           "HARTE REGELN: Aendere AUSSCHLIESSLICH Dateien unter '{repo}/' — NIE Dateien "
+           "ausserhalb (das eigene System ist tabu). Keine Tests, keine Doku anfassen, "
+           "nichts loeschen, was du nicht verstehst.\n\nISSUE:\n{issue}")
 
 
 def _run_agent(workdir: Path, task: dict, allow_llm: bool = True, timeout: int = 1800):
     """Kiras Coding-Kreis auf dem fremden Repo (Subprozess) — yieldet @EV-Ereignisse live."""
-    env = _agent_env(workdir, allow_llm=allow_llm)
+    env = _agent_env(allow_llm=allow_llm)
+    try:
+        rel = workdir.resolve().relative_to(_kira_repo()).as_posix()
+    except ValueError:
+        rel = str(workdir)
     payload = {"id": task.get("instance_id", "swb"),
-               "prompt": _PROMPT.format(issue=(task.get("problem_statement") or "")[:6000]),
+               "prompt": _PROMPT.format(repo=rel,
+                                        issue=(task.get("problem_statement") or "")[:6000]),
+               # KEINE Kira-Endabnahme im Fremd-Repo: die waere dort immer rot und
+               # wuerde den fertigen Patch zurueckrollen (0%-Bug). Das offizielle
+               # SWE-bench-Eval IST die Abnahme.
+               "code_review": False,
                "timeout": timeout}
     proc = subprocess.Popen([sys.executable, "-m", "core.testkit.attempt"],
                             cwd=str(_kira_repo()), env=env,
@@ -211,7 +224,10 @@ def stream_swebench(limit: int = 3, allow_llm: bool = True, agent_fn=None):
         kopf = (t.get("problem_statement") or "").strip().splitlines()
         yield {"kind": "task_start", "id": tid,
                "prompt": (kopf[0] if kopf else tid)[:120]}
-        base = Path(tempfile.mkdtemp(prefix=f"kira-swb-{uuid.uuid4().hex[:6]}-"))
+        # Arbeitsordner UNTER Kiras Datenbereich (gitignored) statt /tmp: die Werkzeuge
+        # (edit_datei & Co.) sind ROOT-gebunden und kommen nur dorthin (0%-Bug, Lauf 1).
+        base = _bench_dir() / "work" / f"{tid[:40]}-{uuid.uuid4().hex[:6]}"
+        base.mkdir(parents=True, exist_ok=True)
         wd = base / "repo"
         try:
             t0 = time.time()

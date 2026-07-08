@@ -1704,16 +1704,17 @@ async function loadBenchResults(){const w=$("#bench-results");if(!w)return;
   if(!rs.length){w.innerHTML='<span class="muted">Noch keine Läufe — der Endstand jedes Laufs landet automatisch hier.</span>';return;}
   const dt=t=>{const d2=new Date(t*1000);return d2.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit"})+" "+d2.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});};
   const cell=(c,w2)=>'<span style="'+(w2?('min-width:'+w2+'px;'):'flex:1;')+'padding:0 6px;white-space:nowrap">'+c+'</span>';
+  const suiteName=s2=>s2==="humaneval"?"HumanEval":s2==="swebench"?"SWE-bench*":"Smoke";  /* * = Prognose, kein amtlicher Score */
   const line=(cs,head)=>'<div style="display:flex;padding:5px 0;border-bottom:1px solid var(--line);font-size:12.5px'+(head?';color:var(--muted)':'')+'">'+cs+'</div>';
   w.innerHTML=line(cell("Modell")+cell("Test",84)+cell("Rolle",70)+cell("Aufgaben",64)+cell("Score",64)+cell("Datum",92),true)
    +_benchRows.map(r=>line(cell(esc((r.model||"?").replace("openrouter/","")))
-    +cell(r.suite==="humaneval"?"HumanEval":"Smoke",84)+cell(esc(r.role||"—"),70)
+    +cell(suiteName(r.suite),84)+cell(esc(r.role||"—"),70)
     +cell((r.passed!=null?r.passed:"?")+"/"+(r.total!=null?r.total:"?"),64)
     +cell(r.pass_at_1!=null?("<b>"+r.pass_at_1+"%</b>"):"—",64)+cell(dt(r.ts),92))).join("");
  }catch(e){w.innerHTML='<span class="muted">Leaderboard nicht ladbar.</span>';}}
 function copyBenchResults(){const rows=_benchRows;if(!rows.length){$("#bench-copy-hint").textContent="nichts zu kopieren";return;}
  const md="| Modell | Test | Rolle | Aufgaben | pass@1 | Datum |\n|---|---|---|---|---|---|\n"
-  +rows.map(r=>"| "+(r.model||"?")+" | "+(r.suite==="humaneval"?"HumanEval":"Smoke")+" | "+(r.role||"—")+" | "
+  +rows.map(r=>"| "+(r.model||"?")+" | "+(r.suite==="humaneval"?"HumanEval":r.suite==="swebench"?"SWE-bench (Prognose)":"Smoke")+" | "+(r.role||"—")+" | "
    +(r.passed!=null?r.passed:"?")+"/"+(r.total!=null?r.total:"?")+" | "+(r.pass_at_1!=null?(r.pass_at_1+"%"):"—")+" | "
    +new Date(r.ts*1000).toLocaleString("de-DE")+" |").join("\n");
  const done=()=>{$("#bench-copy-hint").textContent="✓ kopiert (Markdown-Tabelle)";};
@@ -1736,7 +1737,7 @@ function startBench(){if(benchWs){try{benchWs.close();}catch(e){}}
  const proto=location.protocol==="https:"?"wss":"ws";
  benchWs=new WebSocket(proto+"://"+location.host+"/ws/bench");
  benchWs.onopen=()=>{benchWs.send(JSON.stringify({allow_llm:!!allow,suite:suite,role:role,limit:limit}));
-  benchLog('<span class="muted">'+(suite==="humaneval"?("HumanEval startet — "+limit+" Aufgaben auf Rolle '"+role+"' (Datensatz laedt beim ersten Mal kurz) …"):"Sandbox wird vorbereitet … (jeder Lauf ist isoliert)")+'</span>');};
+  benchLog('<span class="muted">'+(suite==="humaneval"?("HumanEval startet — "+limit+" Aufgaben auf Rolle '"+role+"' (Datensatz laedt beim ersten Mal kurz) …"):suite==="swebench"?("SWE-bench startet — "+limit+" echte GitHub-Issues, MINUTEN pro Aufgabe (Repo-Download beim ersten Mal). Klein anfangen!"):"Sandbox wird vorbereitet … (jeder Lauf ist isoliert)")+'</span>');};
  benchWs.onmessage=e=>{let ev;try{ev=JSON.parse(e.data);}catch(x){return;}renderBenchEvent(ev);};
  benchWs.onclose=()=>{$("#bench-start").style.display="";$("#bench-stop").style.display="none";benchWs=null;};
  benchWs.onerror=()=>{benchLog('<span style="color:var(--danger)">Verbindungsfehler</span>');};}
@@ -1745,7 +1746,9 @@ function renderBenchEvent(ev){const k=ev.kind,a=ev.ev||{};
  if(k==="suite_start"){benchTotal=ev.total;benchPassed=0;updateBenchScore();benchLog('<b>Benchmark: '+ev.total+' Aufgabe(n)</b>');}
  else if(k==="task_start")benchLog('<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:6px"><b>▶ '+esc(ev.id)+'</b> <span class="muted">'+esc(ev.prompt||"")+'</span></div>');
  else if(k==="act"){let s="";if(a.kind==="think")s='<span class="muted">💭 '+esc((a.text||"").slice(0,300))+'</span>';else if(a.kind==="tool")s='🔧 '+esc(a.name||"")+' <span class="muted">'+esc(JSON.stringify(a.args||{}).slice(0,120))+'</span>';else if(a.kind==="obs")s='<span class="muted">↳ '+esc(((a.name||"")+" "+(a.text||"")).slice(0,300))+'</span>';else if(a.kind==="final")s='<span class="muted">'+esc((a.text||"").slice(0,200))+'</span>';if(s)benchLog(s);}
- else if(k==="task_done"){if(ev.passed)benchPassed++;updateBenchScore();benchLog((ev.passed?'<span style="color:var(--ok)">✓ bestanden</span>':'<span style="color:var(--danger)">✗ nicht bestanden (rc='+ev.rc+')</span>')+' — '+esc(ev.id));}
+ else if(k==="task_done"){if(ev.passed)benchPassed++;updateBenchScore();
+  benchLog((ev.passed?'<span style="color:var(--ok)">✓ bestanden</span>':'<span style="color:var(--danger)">✗ nicht bestanden (rc='+ev.rc+')</span>')+' — '+esc(ev.id)
+   +(ev.out?' <span class="muted">· '+esc((""+ev.out).slice(0,180))+'</span>':''));}
  else if(k==="summary"){benchPassed=ev.passed;benchTotal=ev.total;updateBenchScore();
   benchLog('<div style="margin-top:8px"><b>Fertig: '+ev.passed+'/'+ev.total+' bestanden</b>'
    +(ev.pass_at_1!=null?(' — <b>pass@1 = '+ev.pass_at_1+'%</b> <span class="muted">(Referenz: Frontier ~90%+, starke offene Modelle ~70–90%)</span>'):'')+'</div>');

@@ -128,3 +128,41 @@ def test_ws_bench_kennt_swebench():
     import core.api.server as s
     src = inspect.getsource(s.ws_bench)
     assert "swebench" in src and "stream_swebench" in src
+
+
+# --- Fixes nach Sergens 0/40-Lauf (Lauf 1 war systematisch kaputt) -----------
+def test_agent_env_laesst_kira_root_in_ruhe(monkeypatch):
+    """0%-Ursache 1: KIRA_ROOT zeigte aufs Fremd-Repo -> Subprozess starb beim Import
+    (config.yaml/core/mind fehlen dort). Jetzt: ROOT bleibt Kiras Repo, nur Daten umgelenkt."""
+    import shutil
+    from core.testkit import swebench as swb
+    monkeypatch.setenv("KIRA_ROOT", "/sollte/verschwinden")
+    env = swb._agent_env(allow_llm=False)
+    try:
+        assert "KIRA_ROOT" not in env
+        assert env["KIRA_TEST_MODE"] == "1" and env["KIRA_NO_OUTBOUND"] == "1"
+        assert "KIRA_ALLOW_LLM" not in env and env["KIRA_DATA_DIR"]
+    finally:
+        shutil.rmtree(env["KIRA_DATA_DIR"], ignore_errors=True)
+
+
+def test_agent_payload_ohne_kira_endabnahme_und_mit_repo_pfad():
+    """0%-Ursache 2: Kiras Testsuite-Endabnahme war im Fremd-Repo immer rot und rollte
+    den fertigen Patch zurueck. SWE-bench laeuft ohne code_review; der Prompt nennt
+    den relativen Repo-Pfad und verbietet Aenderungen ausserhalb."""
+    import inspect
+    from core.testkit import swebench as swb
+    src = inspect.getsource(swb._run_agent)
+    assert '"code_review": False' in src
+    assert "AUSSCHLIESSLICH" in swb._PROMPT and "{repo}" in swb._PROMPT
+    from core.testkit import attempt
+    assert 'task.get("code_review", True)' in inspect.getsource(attempt.main)
+
+
+def test_leaderboard_beschriftet_swebench_richtig():
+    """Anzeige-Bug: swebench-Laeufe hiessen im Leaderboard 'Smoke'."""
+    from fastapi.testclient import TestClient
+    import core.api.server as s
+    html = TestClient(s.app).get("/").text
+    assert 'SWE-bench*' in html and "suiteName" in html
+    assert "ev.out" in html  # Fehl-Grund je Aufgabe sichtbar im Live-Verlauf
