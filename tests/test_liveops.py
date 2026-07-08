@@ -83,14 +83,24 @@ def test_wall_hat_ticker_und_schalter():
     import core.api.server as s
     html = TestClient(s.app).get("/wall").text
     assert 'id="ticker"' in html and 'id="w-ticker"' in html
-    assert "loadTicker" in html and "/api/events?limit=5" in html
+    assert "loadTicker" in html and "/api/events?limit=8" in html
+    assert 'class="tkh"' in html  # Panel-Kopf "Live · was Kira gerade tut"
+
+
+def test_wall_graph_hoehe_und_maske_folgen_position():
+    from fastapi.testclient import TestClient
+    import core.api.server as s
+    html = TestClient(s.app).get("/wall").text
+    assert 'id="w-posy"' in html                 # Hoehe-Wahl im Zahnrad
+    assert "var(--gx" in html and "applyMask" in html   # Sichtfenster folgt dem Graph
+    assert '"rechts"' in html and '"oben"' in html      # Standard: Graph oben rechts
 
 
 def test_wall_editor_im_cockpit_hat_ticker_schalter():
     from fastapi.testclient import TestClient
     import core.api.server as s
     html = TestClient(s.app).get("/").text
-    assert 'id="wp-ticker"' in html
+    assert 'id="wp-ticker"' in html and 'id="wp-posy"' in html
 
 
 def test_wall_settings_akzeptieren_ticker(tmp_path, monkeypatch):
@@ -98,6 +108,7 @@ def test_wall_settings_akzeptieren_ticker(tmp_path, monkeypatch):
     import core.api.server as s
     monkeypatch.setattr(s, "_WALL_FILE", tmp_path / "wall_settings.json")
     c = TestClient(s.app)
-    r = c.post("/api/wall/settings", json={"ticker": False}).json()
-    assert r["settings"]["ticker"] is False
-    assert c.get("/api/wall/settings").json()["ticker"] is False
+    r = c.post("/api/wall/settings", json={"ticker": False, "posy": "unten"}).json()
+    assert r["settings"]["ticker"] is False and r["settings"]["posy"] == "unten"
+    got = c.get("/api/wall/settings").json()
+    assert got["ticker"] is False and got["posy"] == "unten"
