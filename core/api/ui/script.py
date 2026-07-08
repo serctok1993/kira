@@ -1381,6 +1381,7 @@ function pulsePhrase(e){const p=e.payload||{},t=e.type,tool=p.tool||"";
  if(t==="focus_set")return "🧭 Du hast mir eine Richtung gegeben";
  if(t==="act_done")return "✓ Aufgabe fertig";
  if(t==="cron_run")return "⏰ Geplante Aufgabe gelaufen";
+ if(t==="cron_missed")return "⏰ Verpassten Cron uebersprungen (PC war aus)";
  return "· aktiv";}
 async function updatePulse(){try{const es=await (await fetch("/api/events?limit=6")).json();const el=$("#pulse");if(!el)return;
   if(!es.length){el.textContent="Leerlauf";return;}
