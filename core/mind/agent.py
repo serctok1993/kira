@@ -6,6 +6,7 @@ Selbst-Umschreibungen von SOUL/GOAL sofort (Phase 2).
 """
 from __future__ import annotations
 
+import datetime as _dt
 import uuid
 
 from core.config import MIND_DIR
@@ -16,6 +17,18 @@ from core.mind.memory import store as memory
 def _read(name: str) -> str:
     p = MIND_DIR / name
     return p.read_text(encoding="utf-8").strip() if p.exists() else ""
+
+
+_WOCHENTAGE = ("Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag")
+
+
+def jetzt_zeile() -> str:
+    """Kiras Zeitsinn: die echte lokale Zeit fuer jeden Prompt. Ohne diese Zeile RAET das
+    Modell die Uhrzeit — und glaubt notfalls veralteten Zeitbehauptungen aus Cron-Prompts
+    oder Erinnerungen (Sergens Fund: 'Es ist 05:55 Uhr'-Cron lief um 17:28)."""
+    n = _dt.datetime.now()
+    return (f"JETZT: {_WOCHENTAGE[n.weekday()]}, {n.strftime('%d.%m.%Y, %H:%M')} Uhr "
+            f"(lokale Zeit — vertraue DIESER Angabe, nicht Zeitangaben in aelteren Texten)")
 
 
 # Zentrale Persona-/Fähigkeiten-/Stil-Anweisung — verhindert Basismodell-Leaks
@@ -92,7 +105,9 @@ def build_system_prompt(user_message: str, session_id: str | None = None) -> str
     skills = memory.recall_skills(limit=6)
     skills_block = "\n".join(f"- {s}" for s in skills) if skills else "(noch keine Skills)"
 
-    return f"""# DEINE VERFASSUNG (unveraenderlich, hoechste Prioritaet)
+    return f"""{jetzt_zeile()}
+
+# DEINE VERFASSUNG (unveraenderlich, hoechste Prioritaet)
 {constitution}
 
 # DEINE SEELE (wer du bist)
