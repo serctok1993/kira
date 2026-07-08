@@ -68,5 +68,6 @@ def test_roher_add_provisioniert_NICHT(monkeypatch, tmp_path):
 def test_user_md_traegt_selbststaendigkeit():
     from core.config import ROOT
     user = (ROOT / "core" / "mind" / "USER.md").read_text(encoding="utf-8")
-    assert "Wissenslücke = Struktur" in user
-    assert "venture_add" in user and "neuer Ast" in user
+    # Seit 08.07. kompakter formuliert: Luecke -> ???-Feld statt raten (gleiche Regel)
+    assert "???" in user and "statt raten" in user
+    assert "venture_add" in user and "Stammbaum-Ast" in user

@@ -109,6 +109,68 @@ def _stammbaum_question(heute: str = "") -> str:
         return ""
 
 
+_TERMIN_FELDER = ("geburtstag", "jahrestag", "hochzeitstag", "jubilaeum", "jubiläum")
+
+
+def _termin_radar(heute: datetime.date | None = None, vorlauf_tage: int = 8) -> str:
+    """Sergens Kernwunsch (08.07.): Erinnerungen ANWENDEN statt nur ablegen.
+
+    Liest Datums-Felder aus dem Stammbaum (kein LLM, 0 EUR):
+      - Jahrestage ('- geburtstag: 01.07.[1993]') -> naechstes Vorkommen im Vorlauf
+      - einmalige Termine mit vollem Datum ('- vertrag endet: 15.07.2026') -> im Vorlauf
+    Faellige landen im Briefing mit klarer Anweisung, sie VON SELBST anzusprechen."""
+    import re as _re
+
+    try:
+        base = ROOT / "gedaechtnis" / "stammbaum"
+        if not base.exists():
+            return ""
+        heute = heute or datetime.date.today()
+        funde: list[tuple[int, str]] = []  # (tage_bis, zeile)
+        pat = _re.compile(r"^-\s*([^:]{2,60}):\s*.*?(\d{1,2})\.(\d{1,2})\.(\d{4})?\s*$")
+        for p in sorted(base.rglob("*.md")):
+            if "_VORLAGE" in p.name:
+                continue
+            wer = p.stem.replace("-", " ").replace("_", " ").title()
+            try:
+                zeilen = p.read_text(encoding="utf-8").splitlines()
+            except Exception:  # noqa: BLE001
+                continue
+            for z in zeilen:
+                m = pat.match(z.strip())
+                if not m:
+                    continue
+                feld = m.group(1).strip().lower()
+                try:
+                    tag, monat = int(m.group(2)), int(m.group(3))
+                    jahr = int(m.group(4)) if m.group(4) else None
+                    jaehrlich = any(k in feld for k in _TERMIN_FELDER)
+                    if jaehrlich:
+                        naechster = datetime.date(heute.year, monat, tag)
+                        if naechster < heute:
+                            naechster = datetime.date(heute.year + 1, monat, tag)
+                        extra = f" (wird {heute.year - jahr})" if (jahr and "geburtstag" in feld) else ""
+                    elif jahr:
+                        naechster = datetime.date(jahr, monat, tag)
+                        extra = ""
+                    else:
+                        continue  # einmaliger Termin ohne Jahr -> nicht deutbar
+                    diff = (naechster - heute).days
+                    if 0 <= diff <= vorlauf_tage:
+                        wann = "HEUTE" if diff == 0 else ("morgen" if diff == 1 else f"in {diff} Tagen")
+                        funde.append((diff, f"- {wer}: {feld} am {naechster.strftime('%d.%m.')} — {wann}{extra}"))
+                except (ValueError, TypeError):
+                    continue
+        if not funde:
+            return ""
+        funde.sort()
+        return ("TERMIN-RADAR (aus dem Stammbaum — sprich es VON DIR AUS an, warm und "
+                "rechtzeitig; nicht warten, bis Sergen fragt):\n"
+                + "\n".join(z for _, z in funde[:6]))
+    except Exception:  # noqa: BLE001 — das Briefing darf daran nie scheitern
+        return ""
+
+
 def build_context(scope: str = "morgen") -> str:
     """Der Lagebericht. scope ist informativ (morgen|abend|coach) — Inhalt identisch."""
     from core.agency.missions import metrics, objectives, queue
@@ -193,6 +255,10 @@ def build_context(scope: str = "morgen") -> str:
     news = _news_block()
     if news:
         text = f"{text}\n\n{news}"
+    # Termin-Radar: faellige Geburtstage/Termine aus dem Stammbaum (post-cap, nie beschnitten).
+    termine = _termin_radar()
+    if termine:
+        text = f"{text}\n\n{termine}"
     # Das hungrige Logbuch: EINE Stammbaum-Luecke pro Tag erfragen (ebenfalls post-cap).
     frage = _stammbaum_question()
     if frage:
