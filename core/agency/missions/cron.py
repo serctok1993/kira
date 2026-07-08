@@ -192,6 +192,14 @@ def run_job(job: dict, notify: bool = True) -> dict:
     from core.agency.act import act
 
     prompt = job["prompt"]
+    try:
+        # Zeitsinn (Sergens Fund): Cron-Prompts behaupten gern feste Uhrzeiten
+        # ("Es ist 05:55 Uhr") — die ECHTE Zeit steht ab jetzt immer davor.
+        from core.mind.agent import jetzt_zeile
+
+        prompt = f"{jetzt_zeile()}\n\n{prompt}"
+    except Exception:  # noqa: BLE001
+        pass
     if "{{standup}}" in prompt:
         # S5: Briefings/Coach lesen echte Boards (Leben, Ziele, Ventures, Metriken)
         # statt zu raten — der Platzhalter wird pro Lauf frisch expandiert.
@@ -218,16 +226,35 @@ def run_job(job: dict, notify: bool = True) -> dict:
     return {"ok": ok, "summary": summary}
 
 
+# Verfallsfenster fuer Tages-Crons (Sergens Fund: Sunrise-Job von 05:55 lief um 17:28
+# nach PC-Neustart): mehr als N Sekunden ueberfaellig -> NICHT nachholen, sondern als
+# 'verpasst' protokollieren und auf den naechsten regulaeren Termin legen.
+# Intervall-Jobs sind davon ausgenommen — die laufen einfach einmal und takten neu ab jetzt.
+MISSED_GRACE_S = 2 * 3600
+
+
 def run_due(now: float | None = None) -> list[dict]:
     now = now or time.time()
     jobs = _load()
     ran = []
     changed = False
     for j in jobs:
-        if j.get("enabled") and j.get("next_run", 0) <= now:
-            res = run_job(j)
-            ran.append({"label": j["label"], **res})
+        if not (j.get("enabled") and j.get("next_run", 0) <= now):
+            continue
+        overdue = now - float(j.get("next_run") or 0)
+        if j.get("schedule", {}).get("type") == "daily" and overdue > MISSED_GRACE_S:
+            j["next_run"] = _next_run(j["schedule"], ref=now)
+            j["runs"] = (j.get("runs", []) + [{
+                "ts": now, "ok": False,
+                "summary": f"verpasst ({round(overdue / 3600, 1)}h ueberfaellig, PC aus?) — "
+                           f"uebersprungen statt nachgeholt"}])[-20:]
+            events.emit("cron_missed", {"label": j["label"],
+                                        "overdue_h": round(overdue / 3600, 1)})
             changed = True
+            continue
+        res = run_job(j)
+        ran.append({"label": j["label"], **res})
+        changed = True
     if changed:
         _save(jobs)
     return ran
