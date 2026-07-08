@@ -377,6 +377,37 @@ def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
     return {"task": full["description"], "failed": True, "score": out["score"]}
 
 
+def _werktakt() -> int:
+    """Tagespensum pro Ziel (mission.steps_per_objective_daily, 0 = unbegrenzt).
+    Sergens Regel (08.07.): lieber 2-3 dosierte, vielversprechende Schritte als
+    4-6 Fallstudien am Tag durch den 30-Minuten-Takt."""
+    try:
+        return max(0, int(_mission().get("steps_per_objective_daily", 3)))
+    except Exception:  # noqa: BLE001
+        return 3
+
+
+def _pop_paced(mission: str) -> dict | None:
+    """Naechsten Task ziehen, Werktakt beachten: ist das Tagespensum eines Ziels voll,
+    werden dessen Tasks auf morgen verschoben und der naechste (anderes Ziel) kommt dran."""
+    import datetime as _dt
+
+    cap = _werktakt()
+    for _ in range(12):  # Sicherheitsdeckel gegen Endlos-Verschieben
+        task = queue.pop_next(mission)
+        if not task or not cap:
+            return task
+        full = queue.get_task(task["id"]) or {}
+        oid = full.get("objective_id")
+        if not oid or queue.done_today(oid) < cap:
+            return task
+        morgen = (_dt.date.today() + _dt.timedelta(days=1)).isoformat()
+        queue.update_task(task["id"], status="pending", deferred_until=morgen)
+        events.emit("objective_paced", {"objective_id": oid, "cap": cap,
+                                        "task": str(full.get("description") or "")[:120]})
+    return None
+
+
 def run_once(escalate: bool = False) -> dict:
     events.init_db()
     if kill_switch_active():
@@ -411,6 +442,13 @@ def run_once(escalate: bool = False) -> dict:
         # S5: nur Business-Ziele werden vom Heartbeat gegrindet — Lebens-Ziele
         # (domain='leben') laufen ueber Coach/Briefings, nie automatisch.
         actives = _obj.list_active(domain="business")
+        cap = _werktakt()
+        if cap:  # Werktakt: Ziele mit vollem Tagespensum heute nicht weiter beplanen
+            im_takt = [o for o in actives if queue.done_today(o["id"]) < cap]
+            if im_takt != actives:
+                events.emit("objective_paced_planning",
+                            {"uebersprungen": len(actives) - len(im_takt), "cap": cap})
+            actives = im_takt
         target = _pick_objective(actives)
         if target and target.get("kind") in ("big", "monthly"):
             # S6.3: ein grosses Ziel ohne aktive Wochen-Kinder wird (max. 1x pro Woche)
@@ -483,7 +521,7 @@ def run_once(escalate: bool = False) -> dict:
         events.emit("mission_planned", {"mission": mission, "tasks": tasks,
                                         "objective": (target or {}).get("title")})
 
-    task = queue.pop_next(mission)
+    task = _pop_paced(mission)
     if not task:
         events.emit("heartbeat_idle", {"mission": mission})
         return {"idle": True}
