@@ -690,6 +690,8 @@ VIEWS = r"""</head><body>
           <option value="classify">Lokal (classify)</option>
         </select>
         <label class="muted" style="font-size:12px">Aufgaben <input id="bench-limit" type="number" value="20" min="1" max="164" style="width:64px"></label>
+        <input id="bench-model-pick" list="bench-model-list" placeholder="Modell direkt (leer = Rolle)" title="Direktwahl: exakt DIESES Modell testen — beliebige OpenRouter-ID (auch neue) oder ollama_chat/... Leer lassen = die gewaehlte Rolle zaehlt." style="min-width:250px"/>
+        <datalist id="bench-model-list"></datalist>
         <label class="muted" style="font-size:12px;display:inline-flex;align-items:center;gap:6px">
           <input type="checkbox" id="bench-allow-llm" checked> echtes Modell (statt lokal)</label>
         <span class="muted" id="bench-model" style="font-size:12px"></span>

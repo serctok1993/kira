@@ -1722,8 +1722,21 @@ function copyBenchResults(){const rows=_benchRows;if(!rows.length){$("#bench-cop
  else fallbackCopy(md,done);}
 function fallbackCopy(text,done){const ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();
  try{document.execCommand("copy");done();}catch(e){$("#bench-copy-hint").textContent="Kopieren fehlgeschlagen";}ta.remove();}
+function benchModelInfo(){const m=$("#bench-model");if(!m)return;
+ const pick=$("#bench-model-pick")?$("#bench-model-pick").value.trim():"";
+ if(pick){m.textContent="Gemessen wird: "+pick+" (Direktwahl)";return;}
+ const role=$("#bench-role")?$("#bench-role").value:"reason";
+ fetch("/api/model/resolve?role="+encodeURIComponent(role)).then(r=>r.json())
+  .then(d=>{m.textContent="Gemessen wird: "+(d.model||"?")+(d.fallback?" (Fallback!)":"");}).catch(()=>{});}
 function loadBench(){const b=$("#bench-start");if(!b)return;
- fetch("/api/status").then(r=>r.json()).then(s=>{const m=$("#bench-model");if(m&&s&&s.model)m.textContent="Aktuelles Modell: "+s.model;}).catch(()=>{});
+ benchModelInfo();
+ const rs=$("#bench-role");if(rs)rs.onchange=benchModelInfo;
+ const mp=$("#bench-model-pick");if(mp){mp.onchange=benchModelInfo;mp.oninput=benchModelInfo;}
+ /* Datalist: bekannte Modelle aus dem Katalog — Freitext (neue OpenRouter-IDs) geht immer */
+ const dl=$("#bench-model-list");
+ if(dl&&!dl.childElementCount){fetch("/api/model/catalog").then(r=>r.json()).then(d=>{
+  const all=[];const cat=d.catalog||{};for(const k in cat){if(Array.isArray(cat[k]))cat[k].forEach(x=>{if(x&&x.id)all.push(x.id);});}
+  dl.innerHTML=[...new Set(all)].slice(0,80).map(id=>'<option value="'+esc(id)+'">').join("");}).catch(()=>{});}
  loadBenchResults();
  const cp=$("#bench-copy");if(cp)cp.onclick=()=>copyBenchResults();
  b.onclick=()=>startBench();const st=$("#bench-stop");if(st)st.onclick=()=>stopBench();}
@@ -1734,9 +1747,11 @@ function startBench(){if(benchWs){try{benchWs.close();}catch(e){}}
  const suite=$("#bench-suite")?$("#bench-suite").value:"harness";
  const role=$("#bench-role")?$("#bench-role").value:"reason";
  const limit=$("#bench-limit")?parseInt($("#bench-limit").value||"20",10):20;
+ const model=$("#bench-model-pick")?$("#bench-model-pick").value.trim():"";
  const proto=location.protocol==="https:"?"wss":"ws";
  benchWs=new WebSocket(proto+"://"+location.host+"/ws/bench");
- benchWs.onopen=()=>{benchWs.send(JSON.stringify({allow_llm:!!allow,suite:suite,role:role,limit:limit}));
+ benchWs.onopen=()=>{benchWs.send(JSON.stringify({allow_llm:!!allow,suite:suite,role:role,limit:limit,model:model||undefined}));
+  if(model)benchLog('<span class="muted">Direktwahl: gemessen wird '+esc(model)+'</span>');
   benchLog('<span class="muted">'+(suite==="humaneval"?("HumanEval startet — "+limit+" Aufgaben auf Rolle '"+role+"' (Datensatz laedt beim ersten Mal kurz) …"):suite==="swebench"?("SWE-bench startet — "+limit+" echte GitHub-Issues, MINUTEN pro Aufgabe (Repo-Download beim ersten Mal). Klein anfangen!"):"Sandbox wird vorbereitet … (jeder Lauf ist isoliert)")+'</span>');};
  benchWs.onmessage=e=>{let ev;try{ev=JSON.parse(e.data);}catch(x){return;}renderBenchEvent(ev);};
  benchWs.onclose=()=>{$("#bench-start").style.display="";$("#bench-stop").style.display="none";benchWs=null;};

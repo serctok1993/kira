@@ -96,7 +96,7 @@ def checkout(repo: str, commit: str, dest: Path) -> None:
     _git("checkout", "--quiet", "FETCH_HEAD", cwd=dest)
 
 
-def _agent_env(allow_llm: bool = True) -> dict:
+def _agent_env(allow_llm: bool = True, model: str | None = None) -> dict:
     """Sandbox-Env fuer den Agenten-Subprozess. WICHTIG (0%-Bug, Lauf 1): KIRA_ROOT darf
     NICHT aufs Fremd-Repo zeigen — dort fehlen config.yaml und core/mind/, der Subprozess
     stirbt beim Import, bevor er anfaengt. Kira laeuft in IHREM Repo; das Fremd-Repo liegt
@@ -114,6 +114,10 @@ def _agent_env(allow_llm: bool = True) -> dict:
            "KIRA_RANK_FLOOR": "reason",
            "PYTHONPATH": str(_kira_repo())}
     env.pop("KIRA_ROOT", None)
+    if model:  # Direktwahl: DIESES Modell fuer alle Rollen im Bench-Subprozess
+        env["KIRA_FORCE_MODEL"] = model
+    else:
+        env.pop("KIRA_FORCE_MODEL", None)
     if allow_llm:
         env["KIRA_ALLOW_LLM"] = "1"
     return env
@@ -128,9 +132,10 @@ _PROMPT = ("SWE-BENCH-AUFGABE. Ein fremdes Python-Repository liegt in DIESEM Pro
            "nichts loeschen, was du nicht verstehst.\n\nISSUE:\n{issue}")
 
 
-def _run_agent(workdir: Path, task: dict, allow_llm: bool = True, timeout: int = 1800):
+def _run_agent(workdir: Path, task: dict, allow_llm: bool = True, timeout: int = 1800,
+               model: str | None = None):
     """Kiras Coding-Kreis auf dem fremden Repo (Subprozess) — yieldet @EV-Ereignisse live."""
-    env = _agent_env(allow_llm=allow_llm)
+    env = _agent_env(allow_llm=allow_llm, model=model)
     try:
         rel = workdir.resolve().relative_to(_kira_repo()).as_posix()
     except ValueError:
@@ -234,7 +239,8 @@ def _record_prediction(instance_id: str, model: str, patch: str) -> None:
                             "model_patch": patch}, ensure_ascii=False) + "\n")
 
 
-def stream_swebench(limit: int = 3, allow_llm: bool = True, agent_fn=None):
+def stream_swebench(limit: int = 3, allow_llm: bool = True, agent_fn=None,
+                    model: str | None = None):
     """Generator fuer die Live-Ansicht im Cockpit — gleiche Ereignis-Formen wie
     bench.stream_suite/stream_humaneval. 'passed' = PROGNOSE (siehe oben), der
     Endstand traegt zusaetzlich den Pfad der predictions.jsonl."""
@@ -244,12 +250,13 @@ def stream_swebench(limit: int = 3, allow_llm: bool = True, agent_fn=None):
     except Exception as e:  # noqa: BLE001
         yield {"kind": "error", "text": f"SWE-bench-Datensatz nicht ladbar: {str(e)[:200]}"}
         return
-    try:
-        from core.kernel import llm_router
+    if not model:  # Direktwahl schlaegt die Rolle
+        try:
+            from core.kernel import llm_router
 
-        model, _fb = llm_router.resolve_model("reason")
-    except Exception:  # noqa: BLE001
-        model = "?"
+            model, _fb = llm_router.resolve_model("reason")
+        except Exception:  # noqa: BLE001
+            model = "?"
     yield {"kind": "suite_start", "total": len(tasks), "suite": "swebench",
            "role": "harness", "model": model}
     passed = 0
@@ -266,7 +273,8 @@ def stream_swebench(limit: int = 3, allow_llm: bool = True, agent_fn=None):
         try:
             t0 = time.time()
             checkout(str(t.get("repo")), str(t.get("base_commit")), wd)
-            for ev in agent_fn(wd, t, allow_llm=allow_llm):
+            for ev in agent_fn(wd, t, allow_llm=allow_llm,
+                               model=(model if model != "?" else None)):
                 yield {"kind": "act", "id": tid, "ev": ev}
             patch = collect_patch(wd)
             ok, info = prognose(patch, t.get("patch") or "")

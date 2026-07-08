@@ -212,6 +212,12 @@ def resolve_model(task_type: str = "default", escalate: bool = False) -> tuple[s
     damit der Wechsel nie STILL verpufft — siehe model_fallback-Event).
     """
     models = CONFIG["models"]
+    # Benchmark-Direktwahl: KIRA_FORCE_MODEL (nur in Bench-Subprozessen gesetzt) schlaegt
+    # ALLE Rollen — so testet Sergen jedes beliebige Modell (auch kuenftige OpenRouter-IDs)
+    # auf dem Harness, ohne die Live-Rollen zu verstellen. Budget/Firewall greifen weiter.
+    forced = os.getenv("KIRA_FORCE_MODEL")
+    if forced:
+        return forced, False
     if escalate:
         target = models.get("escalation_model")
         if target and _has_key(target):
@@ -274,11 +280,14 @@ def complete(
     escalate: bool = False,
     tools: list | None = None,
     reasoning: str | None = None,
+    model: str | None = None,
 ) -> dict:
     """Fuehrt einen Chat-Completion-Call aus und protokolliert ihn.
 
     escalate=True bittet um das Cloud-Modell. Eine harte Tagesbudget-Bremse
     setzt die Eskalation zurueck auf lokal, sobald das Limit erreicht ist.
+    model=... (Benchmark-Direktwahl) schlaegt die Rollen-Aufloesung — Budget-
+    Bremse und Firewall gelten trotzdem.
 
     Rueckgabe: {text, model, cost_usd, fell_back, latency_s, escalated}
     """
@@ -290,7 +299,10 @@ def complete(
             events.emit("budget_block", {"reason": why, "spent_usd": round(treasury.today_spend(), 4)}, session_id=session_id)
             escalate = False  # zurueck auf lokal -> 0 EUR
 
-    model, fell_back = resolve_model(task_type, escalate=escalate)
+    if model:
+        fell_back = False
+    else:
+        model, fell_back = resolve_model(task_type, escalate=escalate)
     # Firewall (Benchmark/Sandbox): kein Cloud-Spend. Erzwinge das lokale 0-EUR-Modell (liefert
     # trotzdem Output), ausser KIRA_ALLOW_LLM ist bewusst gesetzt. Standard aus -> Live unveraendert.
     if outbound_blocked() and not os.getenv("KIRA_ALLOW_LLM") and not model.startswith("ollama"):
@@ -479,7 +491,10 @@ def stream(messages, system=None, task_type="chat", session_id=None, escalate=Fa
     Cloud-Calls laufen ueber complete() (sauberes Kosten-Logging) und werden als
     ein Block ausgegeben.
     """
-    model, fell_back = resolve_model(task_type, escalate=escalate)
+    if model:
+        fell_back = False
+    else:
+        model, fell_back = resolve_model(task_type, escalate=escalate)
     real, _api_base, _key_env = _provider_config(model)
 
     if not real.startswith("ollama"):
@@ -555,7 +570,10 @@ def stream_tagged(messages, system=None, task_type="chat", session_id=None, esca
     Fuer das Dashboard, das Kiras Denken live sichtbar machen soll. Lokale Modelle
     werden tokenweise getaggt; Cloud/Provider laufen ueber complete() (ein answer-Block).
     """
-    model, fell_back = resolve_model(task_type, escalate=escalate)
+    if model:
+        fell_back = False
+    else:
+        model, fell_back = resolve_model(task_type, escalate=escalate)
     real, _api_base, _key_env = _provider_config(model)
 
     if not real.startswith("ollama"):
