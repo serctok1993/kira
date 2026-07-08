@@ -1940,9 +1940,16 @@ def api_wall_settings() -> dict:
     # Desktop-Wallpaper-Einstellungen SERVERSEITIG -> jede /wall-Instanz (auch die Lively-WebView,
     # die keinen localStorage mit dem Browser teilt) zieht dieselben Werte.
     try:
-        return json.loads(_WALL_FILE.read_text(encoding="utf-8"))
+        cur = json.loads(_WALL_FILE.read_text(encoding="utf-8"))
     except Exception:  # noqa: BLE001
         return {}
+    # Migration Desktop-Layout (Juli 2026): Alt-Staende ohne 'posy' tragen noch das alte
+    # Default pos="mitte" aus der Zeit VOR dem 3-Zonen-Layout (Feed links, Graph rechts
+    # oben, Mitte frei). Nur dieses alte Default wird fallengelassen — eine bewusste
+    # Wahl (links/rechts) bleibt unangetastet. Beim naechsten Speichern steht posy drin.
+    if isinstance(cur, dict) and "posy" not in cur and cur.get("pos") == "mitte":
+        cur.pop("pos")
+    return cur
 
 
 @app.post("/api/wall/settings")
