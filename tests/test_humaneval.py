@@ -109,3 +109,22 @@ def test_cockpit_hat_humaneval_auswahl():
     assert 'id="bench-suite"' in html and 'value="humaneval"' in html
     assert 'id="bench-role"' in html and 'id="bench-limit"' in html
     assert "pass@1" in html
+
+
+def test_stream_humaneval_direktwahl_modell(monkeypatch):
+    """model=... schlaegt die Rolle: complete bekommt das Modell explizit, das
+    Leaderboard traegt die Direktwahl."""
+    from core.testkit import humaneval as he
+    from core.kernel import llm_router
+    monkeypatch.setattr(he, "load_problems", lambda limit=None: [PROBLEM])
+    seen = {}
+    def fake(msgs, **k):
+        seen.update(k)
+        return {"text": "```python\ndef add(a, b):\n    return a + b\n```", "model": "x",
+                "cost_usd": 0, "fell_back": False, "latency_s": 0, "escalated": False,
+                "tool_calls": []}
+    monkeypatch.setattr(llm_router, "complete", fake)
+    evs = list(he.stream_humaneval(limit=1, role="reason", model="openrouter/neu/super-6"))
+    assert seen.get("model") == "openrouter/neu/super-6"
+    assert evs[0]["model"] == "openrouter/neu/super-6"
+    assert evs[-1]["model"] == "openrouter/neu/super-6"

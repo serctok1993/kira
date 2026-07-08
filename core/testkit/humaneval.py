@@ -97,13 +97,13 @@ _PROMPT = ("Vervollstaendige die folgende Python-Funktion. Antworte NUR mit EINE
            "noetigen Imports) enthaelt. Keine Erklaerungen, keine Beispiele.\n\n")
 
 
-def solve(problem: dict, role: str = "reason") -> tuple[bool, str]:
-    """Eine Aufgabe: Modell fragen (Route = role) -> Programm bauen -> pruefen."""
+def solve(problem: dict, role: str = "reason", model: str | None = None) -> tuple[bool, str]:
+    """Eine Aufgabe: Modell fragen (Route = role, oder Direktwahl model) -> bauen -> pruefen."""
     from core.kernel import llm_router
 
     try:
         r = llm_router.complete([{"role": "user", "content": _PROMPT + problem["prompt"]}],
-                                task_type=role, session_id="bench-humaneval")
+                                task_type=role, session_id="bench-humaneval", model=model)
         gen = r.get("text") or ""
         model = r.get("model") or "?"
     except Exception as e:  # noqa: BLE001 — Modell-Fehler = nicht bestanden, Lauf geht weiter
@@ -114,7 +114,7 @@ def solve(problem: dict, role: str = "reason") -> tuple[bool, str]:
         return False, f"Programm-Fehler: {str(e)[:120]}"
 
 
-def stream_humaneval(limit: int = 20, role: str = "reason"):
+def stream_humaneval(limit: int = 20, role: str = "reason", model: str | None = None):
     """Generator fuer die Live-Ansicht im Cockpit — gleiche Ereignis-Formen wie
     bench.stream_suite (suite_start/task_start/task_done/summary)."""
     try:
@@ -122,12 +122,13 @@ def stream_humaneval(limit: int = 20, role: str = "reason"):
     except Exception as e:  # noqa: BLE001
         yield {"kind": "error", "text": f"HumanEval-Datensatz nicht ladbar: {str(e)[:200]}"}
         return
-    try:  # welches Modell liegt gerade auf der Rolle? -> fuers Leaderboard
-        from core.kernel import llm_router
+    if not model:  # Direktwahl schlaegt die Rolle; sonst: was liegt auf der Rolle? -> Leaderboard
+        try:
+            from core.kernel import llm_router
 
-        model, _fb = llm_router.resolve_model(role)
-    except Exception:  # noqa: BLE001
-        model = "?"
+            model, _fb = llm_router.resolve_model(role)
+        except Exception:  # noqa: BLE001
+            model = "?"
     yield {"kind": "suite_start", "total": len(probs), "suite": "humaneval",
            "role": role, "model": model}
     passed = 0
@@ -136,7 +137,7 @@ def stream_humaneval(limit: int = 20, role: str = "reason"):
         kopf = (pr.get("prompt") or "").strip().splitlines()
         sig = next((z for z in kopf if z.strip().startswith("def ")), tid)
         yield {"kind": "task_start", "id": tid, "prompt": sig.strip()[:120]}
-        ok, info = solve(pr, role=role)
+        ok, info = solve(pr, role=role, model=model if model != "?" else None)
         passed += 1 if ok else 0
         yield {"kind": "task_done", "id": tid, "passed": ok, "rc": 0 if ok else 1,
                "out": info[:200]}

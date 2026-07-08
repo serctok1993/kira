@@ -86,7 +86,7 @@ def test_stream_swebench_ende_zu_ende_offline(monkeypatch, tmp_path):
     monkeypatch.setattr(llm_router, "resolve_model",
                         lambda role="default", escalate=False: ("test-modell", False))
 
-    def fake_agent(wd, task, allow_llm=True):
+    def fake_agent(wd, task, allow_llm=True, model=None):
         (wd / "modul.py").write_text("def kaputt():\n    return 2\n", encoding="utf-8")
         yield {"type": "tool_call", "payload": {"tool": "edit_datei"}}
     evs = list(swb.stream_swebench(limit=1, agent_fn=fake_agent))
@@ -108,7 +108,7 @@ def test_stream_swebench_agent_crash_reisst_nicht_ab(monkeypatch, tmp_path):
     monkeypatch.setattr(swb, "load_tasks", lambda limit=None: [{
         "instance_id": "demo-2", "repo": "demo/demo", "base_commit": sha,
         "problem_statement": "x", "patch": ""}])
-    def boom(wd, task, allow_llm=True):
+    def boom(wd, task, allow_llm=True, model=None):
         raise RuntimeError("agent tot")
         yield  # pragma: no cover
     evs = list(swb.stream_swebench(limit=1, agent_fn=boom))
@@ -185,3 +185,42 @@ def test_leaderboard_beschriftet_swebench_richtig():
     html = TestClient(s.app).get("/").text
     assert 'SWE-bench*' in html and "suiteName" in html
     assert "ev.out" in html  # Fehl-Grund je Aufgabe sichtbar im Live-Verlauf
+
+
+# --- Modell-Direktwahl (Sergens Wunsch: beliebige IDs testen, auch kuenftige) --
+def test_force_model_schlaegt_alle_rollen(monkeypatch):
+    from core.kernel import llm_router
+    monkeypatch.setenv("KIRA_FORCE_MODEL", "openrouter/zukunft/super-5")
+    assert llm_router.resolve_model("reason") == ("openrouter/zukunft/super-5", False)
+    assert llm_router.resolve_model("classify", escalate=True) == ("openrouter/zukunft/super-5", False)
+    monkeypatch.delenv("KIRA_FORCE_MODEL")
+    m, _ = llm_router.resolve_model("reason")
+    assert m != "openrouter/zukunft/super-5"  # ohne Env: normale Rollen-Aufloesung
+
+
+def test_swebench_env_traegt_direktwahl(monkeypatch):
+    import shutil
+    from core.testkit import swebench as swb
+    env = swb._agent_env(allow_llm=False, model="openrouter/neu/modell-x")
+    try:
+        assert env["KIRA_FORCE_MODEL"] == "openrouter/neu/modell-x"
+    finally:
+        shutil.rmtree(env["KIRA_DATA_DIR"], ignore_errors=True)
+
+
+def test_cockpit_hat_modell_direktwahl():
+    from fastapi.testclient import TestClient
+    import core.api.server as s
+    html = TestClient(s.app).get("/").text
+    assert 'id="bench-model-pick"' in html and 'id="bench-model-list"' in html
+    assert "Gemessen wird" in html  # ehrliche Anzeige statt Chat-Modell
+
+
+def test_api_model_resolve(monkeypatch):
+    from fastapi.testclient import TestClient
+    import core.api.server as s
+    from core.kernel import llm_router
+    monkeypatch.setattr(llm_router, "resolve_model",
+                        lambda role="default", escalate=False: ("openrouter/z-ai/glm-5.2", False))
+    d = TestClient(s.app).get("/api/model/resolve?role=reason").json()
+    assert d["model"] == "openrouter/z-ai/glm-5.2" and d["fallback"] is False

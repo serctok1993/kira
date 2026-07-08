@@ -1772,6 +1772,19 @@ def _bench_record(meta: dict, ev: dict) -> None:
         pass
 
 
+@app.get("/api/model/resolve")
+def api_model_resolve(role: str = "reason") -> dict:
+    """Welches Modell laeuft WIRKLICH auf einer Rolle? (Benchmark-Anzeige: Sergen sah
+    vorher das Chat-Modell und wunderte sich, warum 'Denker' nicht GLM zeigt.)"""
+    from core.kernel import llm_router
+
+    try:
+        m, fb = llm_router.resolve_model(str(role or "reason"))
+        return {"role": role, "model": m, "fallback": bool(fb)}
+    except Exception as e:  # noqa: BLE001
+        return {"role": role, "model": "?", "error": str(e)[:120]}
+
+
 @app.get("/api/bench/results")
 def api_bench_results(limit: int = 50) -> dict:
     """Alle bisherigen Benchmark-Laeufe (neueste zuerst) — fuers Leaderboard im Cockpit."""
@@ -1817,7 +1830,8 @@ async def ws_bench(ws: WebSocket) -> None:
 
             gen = humaneval.stream_humaneval(
                 limit=max(1, min(int(cfg.get("limit") or 20), 164)),
-                role=str(cfg.get("role") or "reason"))
+                role=str(cfg.get("role") or "reason"),
+                model=(str(cfg.get("model")).strip() or None) if cfg.get("model") else None)
         elif (cfg.get("suite") or "") == "swebench":
             # SWE-bench Lite: misst AGENT+MODELL zusammen (echte GitHub-Issues).
             # 'passed' = Prognose (Datei-Treffer); amtlicher Score via predictions.jsonl.
@@ -1825,7 +1839,8 @@ async def ws_bench(ws: WebSocket) -> None:
 
             gen = swebench.stream_swebench(
                 limit=max(1, min(int(cfg.get("limit") or 3), 300)),
-                allow_llm=bool(cfg.get("allow_llm", True)))
+                allow_llm=bool(cfg.get("allow_llm", True)),
+                model=(str(cfg.get("model")).strip() or None) if cfg.get("model") else None)
         else:
             suite = str(ROOT / (cfg.get("suite") or "tests/bench/suite.json"))
             allow = bool(cfg.get("allow_llm", True))  # echtes Modell testen (Modell-Vergleich)
