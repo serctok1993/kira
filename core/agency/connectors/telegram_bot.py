@@ -198,6 +198,17 @@ def _handle(client: httpx.Client, update: dict) -> None:
         _handle_command(client, chat_id, text)
         return
 
+    # 'todo:'-Fast-Path: blitzschnell erfassen, deterministisch (kein LLM, keine Wartezeit)
+    if text.lower().startswith("todo:"):
+        from core.agency.tools import life_tools
+
+        body_text = text.split(":", 1)[1].strip()
+        if body_text:
+            _send(client, chat_id, "📝 " + life_tools.todo_add(body_text))
+            events.emit("telegram_in", {"chat_id": chat_id, "text": text[:120]},
+                        session_id=f"telegram-{chat_id}")
+            return
+
     # 'merke:'-Fast-Path: lange Texte deterministisch ins Archiv (kein LLM noetig)
     if text.lower().startswith("merke:") and len(text) > 400:
         try:
@@ -665,6 +676,91 @@ def _kalibrierung_text() -> str:
         return "Kalibrierung gerade nicht abrufbar."
 
 
+def _todo_overview() -> tuple[str, dict | None]:
+    """Offene Todos als eine Nachricht + Abhak-Knoepfe (ein Tipp = erledigt)."""
+    try:
+        from core.agency.missions import queue
+        queue.init_queue()
+        board = queue.board("leben")
+    except Exception:  # noqa: BLE001
+        return "Todos gerade nicht abrufbar.", None
+    lines = ["📝 <b>Deine Todos</b>"]
+    buttons: list[list[dict]] = []
+    n = 0
+    for key, label in (("today", "HEUTE"), ("week", "WOCHE"), ("later", "SPAETER")):
+        items = board.get(key, [])
+        if not items:
+            continue
+        lines.append(f"\n<b>{label}</b>")
+        for t in items:
+            if n >= 8:  # Knopf-Limit: uebersichtlich bleiben
+                break
+            n += 1
+            due = f" [{t['due_date']}]" if t.get("due_date") else ""
+            desc = str(t.get("description") or "?")
+            lines.append(f"{n}. {_tg_html(desc[:80])}{due}")
+            buttons.append([{"text": f"✔ {n}. {desc[:28]}",
+                             "callback_data": f"todo:done:{t['id'][:8]}"}])
+    if n == 0:
+        return "📝 Keine offenen Todos — freies Feld. 🙂", None
+    lines.append("\n<i>Tipp: „todo: Reifen wechseln“ legt sofort eins an.</i>")
+    return "\n".join(lines), {"inline_keyboard": buttons}
+
+
+def _send_todos(chat_id: int) -> None:
+    text, kb = _todo_overview()
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+    if kb:
+        payload["reply_markup"] = kb
+    try:
+        _ctrl().post(f"{API}/sendMessage", json=payload)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+# --- Abend-Resuemee: das Tagewerk kommt von selbst (deterministisch, 0 Token) ---
+_RESUEMEE_FILE = DATA_DIR / "telegram_resuemee.json"
+
+
+def _resuemee_zeit() -> str:
+    """HH:MM aus config (channels.telegram.tagewerk_zeit); '' = aus. Default 21:30."""
+    v = _cfg().get("tagewerk_zeit", "21:30")
+    v = str(v or "").strip()
+    return v if re.fullmatch(r"\d{1,2}:\d{2}", v) else ("" if not v else "21:30")
+
+
+def _resuemee_due(now_struct: time.struct_time | None = None) -> bool:
+    """Faellig, wenn die konfigurierte Zeit heute erreicht und heute noch nicht gesendet."""
+    zeit = _resuemee_zeit()
+    if not zeit:
+        return False
+    lt = now_struct or time.localtime()
+    hh, mm = (int(x) for x in zeit.split(":"))
+    if (lt.tm_hour, lt.tm_min) < (hh, mm):
+        return False
+    heute = time.strftime("%Y-%m-%d", lt)
+    try:
+        import json
+        return json.loads(_RESUEMEE_FILE.read_text(encoding="utf-8")).get("date") != heute
+    except Exception:  # noqa: BLE001
+        return True
+
+
+def _maybe_evening_resuemee(client: httpx.Client) -> None:
+    """Einmal am Abend das Tagewerk pushen — Feierabend-Blick ohne Nachfragen. Raist nie."""
+    chat = _cfg().get("allowed_chat_id")
+    if not chat or not _resuemee_due():
+        return
+    try:
+        import json
+        _RESUEMEE_FILE.write_text(json.dumps({"date": time.strftime("%Y-%m-%d")}),
+                                  encoding="utf-8")
+        _send(client, chat, "🌙 **Feierabend-Blick** — das war mein Tag:\n\n" + _tagewerk_text())
+        events.emit("telegram_resuemee", {"zeit": _resuemee_zeit()})
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _tasks_text() -> str:
     """Kompakte Liste der naechsten offenen Aufgaben (fuer den Aufgaben-Knopf)."""
     try:
@@ -719,6 +815,8 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
               "Befehle:\n"
               "/status – Heartbeat, Budget & Modell auf einen Blick\n"
               "/tagewerk – was ich HEUTE geschafft habe (Tasks, Mails, Skills, Kosten)\n"
+              "/todo – deine Todos mit Abhak-Knoepfen · „todo: Reifen wechseln“ legt sofort eins an\n"
+              "/fokus <richtung> – Tagesfokus setzen (/fokus - loescht) — ich plane darum herum\n"
               "/kalibrierung – wie meine Modelle laufen (Fehler/Kosten/Empfehlungen)\n"
               "/steuer – Steuerpult mit Knoepfen (Heartbeat, Aufgaben, Freigaben, Tagewerk)\n"
               "/freigaben – offene Eintraege entscheiden (🔔 Aktion · 💶 Anfrage · 📋 Info)\n"
@@ -742,6 +840,30 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
         return
     if cmd in ("kalibrierung", "kalib"):
         _send(client, chat_id, _kalibrierung_text())
+        return
+    if cmd == "todo":
+        if rest:  # /todo <text> = anlegen (wie 'todo: <text>')
+            from core.agency.tools import life_tools
+            _send(client, chat_id, "📝 " + life_tools.todo_add(rest))
+        else:
+            _send_todos(chat_id)
+        return
+    if cmd == "fokus":
+        from core.agency import fokus
+        arg = rest.strip()
+        if not arg:
+            cur = fokus.get().get("focus") or ""
+            _send(client, chat_id, ("🧭 Aktueller Fokus:\n<i>" + cur + "</i>\n\n" if cur
+                   else "🧭 Kein Fokus gesetzt.\n\n")
+                  + "Setzen: <code>/fokus LUVEX-Leads vorbereiten</code> · "
+                    "Loeschen: <code>/fokus -</code>")
+        elif arg in ("-", "aus", "loeschen", "löschen", "clear"):
+            fokus.set_focus("", via="telegram")
+            _send(client, chat_id, "🧭 **Fokus geloescht** — ich plane wieder frei.")
+        else:
+            fokus.set_focus(arg, via="telegram")
+            _send(client, chat_id, "🧭 **Fokus gesetzt:** " + arg + "\n"
+                  "Ich plane meine naechsten Schritte darum herum (offene Queue geleert).")
         return
     if cmd in ("steuer", "panel"):
         _send_panel(chat_id)
@@ -1044,6 +1166,24 @@ def _handle_callback(client: httpx.Client, cq: dict) -> None:
     if data.startswith("ctl:"):
         _handle_ctl(client, cq, data)
         return
+    m_todo = re.match(r"todo:done:([0-9a-f]{4,})$", data)
+    if m_todo:
+        from core.agency.tools import life_tools
+        res = life_tools.todo_done(m_todo.group(1))
+        _answer_cb(cq_id, res[:180])
+        msg = cq.get("message") or {}
+        chat_id = (msg.get("chat") or {}).get("id")
+        mid = msg.get("message_id")
+        if chat_id and mid:  # Liste an Ort und Stelle aktualisieren
+            text, kb = _todo_overview()
+            payload = {"chat_id": chat_id, "message_id": mid, "text": text, "parse_mode": "HTML"}
+            if kb:
+                payload["reply_markup"] = kb
+            try:
+                _ctrl().post(f"{API}/editMessageText", json=payload)
+            except Exception:  # noqa: BLE001
+                pass
+        return
     m = re.match(r"appr:(ok|no):([0-9a-f]+)$", data)
     if not m:
         _answer_cb(cq_id, "")
@@ -1144,6 +1284,8 @@ def _bundle(state: dict, error: str | None) -> dict | None:
 _BOT_COMMANDS = [
     ("status", "Heartbeat, Budget & Modell auf einen Blick"),
     ("tagewerk", "Was Kira HEUTE geschafft hat (Tasks, Mails, Kosten)"),
+    ("todo", "Todos: Liste mit Abhak-Knöpfen · /todo <text> legt an"),
+    ("fokus", "Tagesfokus setzen/löschen – Kira plant darum herum"),
     ("steuer", "Steuerpult – Heartbeat, Aufgaben, Freigaben per Knopf"),
     ("freigaben", "Offene Einträge entscheiden (Aktion/Anfrage/Info)"),
     ("kalibrierung", "Modell-Report: Fehler, Kosten, Empfehlungen (7 Tage)"),
@@ -1198,6 +1340,7 @@ def run() -> None:
                 print("KILL-SWITCH aktiv — Bot haelt an.")
                 break
             _push_new_approvals(client)  # jede Runde (~60s): neue Freigaben proaktiv schicken
+            _maybe_evening_resuemee(client)  # einmal am Abend: Tagewerk von selbst
             try:
                 resp = client.get(f"{API}/getUpdates", params={"timeout": 60, "offset": offset})
                 for update in resp.json().get("result", []):
