@@ -1,6 +1,6 @@
-"""Charakter-Editor: die charakter-praegenden Prompts sind editierbare Textdateien (kein Code),
-in der App als 'Charakter'-Reiter mit Erklaerung + Feld + Speichern. PERSONA wurde aus dem Code
-in PERSONA.md ausgelagert und wird frisch pro Turn gelesen (Aenderung wirkt sofort).
+"""Charakter-Dateien (SOUL/GOAL/USER/PERSONA): editierbare Textdateien (kein Code), alle an
+EINEM Ort — Kira -> Seele & Dateien (Sergens Wunsch: ein Tab zum Durcharbeiten, der separate
+Charakter-Reiter wurde entfernt). PERSONA wird frisch pro Turn gelesen (Aenderung wirkt sofort).
 """
 from __future__ import annotations
 
@@ -32,12 +32,14 @@ def test_files_hat_persona_editierbar():
     assert "PERSONA.md" in server.FILES and server.FILES["PERSONA.md"]["editable"] is True
 
 
-def test_cockpit_hat_charakter_reiter():
+def test_charakter_reiter_ist_weg_dateien_ist_der_eine_ort():
+    """Sergens Entscheidung: EIN Tab fuer alle editierbaren Prompt-Dateien (Seele & Dateien);
+    der separate Charakter-Reiter ist entfernt."""
     from fastapi.testclient import TestClient
     import core.api.server as s
     html = TestClient(s.app).get("/").text
-    assert 'id="v-charakter"' in html and 'data-s="charakter"' in html
-    assert "loadCharakter" in html and "PERSONA.md" in html
+    assert 'id="v-charakter"' not in html and 'data-s="charakter"' not in html
+    assert "loadCharakter" not in html
 
 
 def test_neue_subtabs_sind_in_kira_gruppen_sichtbar():
@@ -54,7 +56,7 @@ def test_neue_subtabs_sind_in_kira_gruppen_sichtbar():
     bar = re.search(r'id="kira-tabs".*?</div>', views.VIEWS if hasattr(views, "VIEWS") else "", re.DOTALL)
     subs = re.findall(r'data-s="([a-z]+)"', bar.group(0)) if bar else []
     if not subs:  # Fallback: bekannte Pflicht-Subtabs pruefen
-        subs = ["charakter", "bench"]
+        subs = ["bench", "files"]
     fehlend = [s2 for s2 in subs if f'"{s2}"' not in gruppen]
     assert not fehlend, f"Subtabs ohne Gruppe (unsichtbar!): {fehlend}"
 
@@ -66,18 +68,18 @@ def test_fable_review_notiz_vorhanden():
         assert m in t, m
 
 
-def test_dateien_liste_ohne_charakter_doppelung():
-    """Sergens Fund: SOUL/GOAL/USER/PERSONA lagen doppelt (Dateien-Liste UND Charakter-Tab).
-    Die Liste laesst sie jetzt aus; /api/file (der Charakter-Editor) liefert sie weiter."""
+def test_dateien_liste_hat_alle_charakter_dateien():
+    """Alle vier Charakter-Dateien leben in der EINEN Dateien-Liste, mit erklaerenden Labels."""
     from fastapi.testclient import TestClient
     import core.api.server as s
     c = TestClient(s.app)
-    namen = [f["name"] for f in c.get("/api/files").json()]
-    for doppelt in ("SOUL.md", "GOAL.md", "USER.md", "PERSONA.md"):
-        assert doppelt not in namen
-    assert "constitution.md" in namen and "HANDBUCH.md" in namen   # Rest bleibt
+    eintraege = {f["name"]: f for f in c.get("/api/files").json()}
+    for name in ("SOUL.md", "GOAL.md", "USER.md", "PERSONA.md"):
+        assert name in eintraege and eintraege[name]["editable"]
+    assert "wirkt sofort" in eintraege["SOUL.md"]["label"]          # Erklaertext zog mit um
+    assert "constitution.md" in eintraege and "HANDBUCH.md" in eintraege
     r = c.get("/api/file?name=SOUL.md").json()
-    assert "content" in r and not r.get("error")                    # Charakter-Tab funktioniert
+    assert "content" in r and not r.get("error")
 
 
 def test_persona_traegt_kommandeurs_prinzip():
