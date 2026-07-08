@@ -95,6 +95,21 @@ def count_since(types: tuple[str, ...], since_ts: float) -> int:
     return int(row[0]) if row else 0
 
 
+def rows_since(types: tuple[str, ...], since_ts: float, limit: int = 20000) -> list[dict]:
+    """Events bestimmter Typen ab Zeitpunkt (aelteste zuerst) — fuer Aggregationen
+    wie den Kalibrierungs-Report. Ein Index-Scan statt recent()-Pagination."""
+    if not types:
+        return []
+    ph = ",".join("?" * len(types))
+    with _conn() as c:
+        rows = c.execute(
+            f"SELECT ts, type, payload FROM events WHERE ts >= ? AND type IN ({ph}) "
+            f"ORDER BY ts ASC LIMIT ?",
+            (since_ts, *types, limit),
+        ).fetchall()
+    return [{"ts": r[0], "type": r[1], "payload": json.loads(r[2] or "{}")} for r in rows]
+
+
 _ERROR_HINTS = ("error", "fail", "blocked", "timeout", "halt", "crash", "rollback", "denied", "exception")
 _ACTION_TYPES = {
     "act_start", "act_done", "act_step", "tool_call", "shell_run",

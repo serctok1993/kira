@@ -9,3 +9,5 @@ pystray>=0.19
 pillow>=10.0
 # CPU/RAM-Kennzahlen fuer die Desktop-Leiste (GPU/Temp laufen ueber nvidia-smi, brauchen kein Paket)
 psutil>=5.9
+# Globale Hotkeys (Phase 4): Fenster-nach-vorn + Push-to-Talk. Nur Windows relevant.
+keyboard>=0.13

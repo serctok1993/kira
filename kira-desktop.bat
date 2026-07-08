@@ -5,10 +5,10 @@ cd /d %~dp0
 set PY=.venv\Scripts\python.exe
 if not exist "%PY%" set PY=python
 
-REM Fehlt pywebview? -> einmalig die Desktop-Extras nachziehen (danach nie wieder).
-"%PY%" -c "import webview" 2>nul
+REM Fehlt ein Desktop-Extra (auch neue wie keyboard/Phase 4)? -> nachziehen.
+"%PY%" -c "import webview, keyboard" 2>nul
 if errorlevel 1 (
-  echo === Erster Start: installiere Desktop-Extras ^(pywebview, pystray, pillow^) ...
+  echo === Installiere/aktualisiere Desktop-Extras ^(pywebview, pystray, keyboard^) ...
   uv pip install -r requirements-desktop.txt
 )
 

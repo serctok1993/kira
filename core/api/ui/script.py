@@ -142,7 +142,10 @@ async function loadCheckliste(){const el=$("#ck-list");if(!el)return;
  row(pbs.length?"ok":"warn","§7 Playbooks",pbs.length+" vorhanden · "+pbs.filter(p=>p.reifegrad!=="entwurf").length+" ueber Entwurf hinaus");
  row(ck.handbuch?"ok":"bad","HANDBUCH",ck.handbuch?"docs/HANDBUCH.md vorhanden (auch hier links unter Dateien)":"fehlt!");
  el.innerHTML=rows.join("");
-}catch(e){el.innerHTML='<span class="muted">Checkliste nicht ladbar.</span>';}}
+}catch(e){el.innerHTML='<span class="muted">Checkliste nicht ladbar.</span>';}
+ try{const k=await (await fetch("/api/kalibrierung")).json();const kel=$("#ck-kalib");
+  if(kel)kel.textContent=k.text||"";
+ }catch(e){}}
 
 function subnav(tab,s){const g=SUBTABS[tab];if(!g)return;g.cur=s;
  $$(g.bar+" a").forEach(a=>a.classList.toggle("on",a.dataset.s===s));
@@ -885,6 +888,7 @@ $("#cin")&&$("#cin").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shift
 
 /* ---- Sprachmemo (Aufnahme -> Whisper) + Assistenz-Modus (freihaendige Schleife) ---- */
 let mediaRec=null,chunks=[],recAutoSend=false,vadSpoke=false,liveTimer=null,liveBusy=false;
+let pttDown=false,pttSend=false;   /* Push-to-Talk (Desktop-Hotkey, Phase 4) */
 /* Live-Transkription (lokal): waehrend der Aufnahme alle ~2s die bisherige Aufnahme durch Whisper
    jagen und den wachsenden Text ins Feld schreiben. Nur EINE Transkription gleichzeitig (kein Stau);
    am Aufnahme-Ende laeuft die finale (genauere) Transkription und ersetzt die Vorschau. */
@@ -945,7 +949,8 @@ async function startRec(autoSend){recAutoSend=!!autoSend;
   mediaRec.onstop=async()=>{stopLive();stream.getTracks().forEach(t=>t.stop());$("#micbtn")&&($("#micbtn").textContent="🎤");
    if(recAutoSend&&!vadSpoke){if(handsFree)armListen();return;}  /* nur Stille -> nicht transkribieren */
    const blob=new Blob(chunks,{type:"audio/webm"});const rd=new FileReader();
-   rd.onload=async()=>{if(!recAutoSend)$("#cin").value="… transkribiere …";
+   rd.onload=async()=>{const sendNow=pttSend;pttSend=false;      /* PTT: einmalig konsumieren */
+    if(!recAutoSend)$("#cin").value="… transkribiere …";
     let txt="",ok=false;
     try{const r=await (await fetch("/api/transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audio:rd.result})})).json();
      ok=!!r.ok;txt=ok?(r.text||""):"";if(!ok&&!recAutoSend)$("#cin").value="(Audio-Fehler: "+(r.error||"")+")";}catch(e){}
@@ -956,7 +961,9 @@ async function startRec(autoSend){recAutoSend=!!autoSend;
       if(instr)sendText(instr,{voice:true});           /* Weckwort abgestreift -> Auftrag */
       else{add("🎙️ Ja? Ich hoere.","sys");armListen();} /* nur "Kira" -> weiterlauschen */
      }else if(handsFree)armListen();                   /* nicht angesprochen -> still weiterlauschen */
-    }else if(ok){$("#cin").value=txt;growCin();$("#cin").focus();}};
+    }else if(ok){const t=(txt||"").trim();
+     if(sendNow&&t){$("#cin").value="";sendText(t,{voice:false});} /* PTT losgelassen -> direkt senden */
+     else{$("#cin").value=txt;growCin();$("#cin").focus();}}};
    rd.readAsDataURL(blob);};
   /* manuelles Mikro (kein Weckwort-Lauschen) -> Aufnahme in Haeppchen + Live-Transkription */
   if(recAutoSend){mediaRec.start();}else{$("#cin").value="";growCin();mediaRec.start(1200);startLive();}
@@ -964,6 +971,13 @@ async function startRec(autoSend){recAutoSend=!!autoSend;
   if(autoSend)attachVAD(stream,mediaRec);              /* freihaendig -> Pause stoppt automatisch */
  }catch(err){add("Mikrofon nicht verfuegbar: "+err,"sys");handsFree=false;paintAssist();}}
 $("#micbtn")&&($("#micbtn").onclick=()=>{if(mediaRec&&mediaRec.state==="recording"){mediaRec.stop();return;}startRec(false);});
+/* Push-to-Talk (Phase 4): die Desktop-App ruft window.kiraPTT(true/false) per globalem
+   Hotkey (F9 halten). Idempotent gegen Tasten-Autorepeat; loslassen = transkribieren+senden. */
+window.kiraPTT=function(down){
+ if(down){if(pttDown)return;pttDown=true;pttSend=false;
+  if(!(mediaRec&&mediaRec.state==="recording"))startRec(false);}
+ else{if(!pttDown)return;pttDown=false;
+  try{if(mediaRec&&mediaRec.state==="recording"){pttSend=true;mediaRec.stop();}}catch(e){}}};
 /* Assistenz-Modus lebt in der Zentrale (#hud-assist). Toggle: an -> lauschen + vorlesen; aus -> stumm. */
 function paintAssist(){const b=$("#hud-assist");if(b){b.textContent=handsFree?"🎙️ hoert zu · AUS?":"🎙️ Zuhoeren?";
  b.style.color=handsFree?"var(--ok)":"var(--muted)";}}
@@ -1017,16 +1031,34 @@ let fcur=null;
 async function loadFiles(){const fs=await (await fetch("/api/files")).json();const el=$("#flist");el.innerHTML="";
  fs.forEach(f=>{const d=document.createElement("div");d.className="f";
   d.innerHTML="<b>"+f.name+"</b><small>"+f.label+(f.editable?"":" · nur lesen")+"</small>";
-  d.onclick=()=>openFile(f.name,d);el.appendChild(d);});}
+  d.onclick=()=>openFile(f.name,d);el.appendChild(d);});
+ /* Gedaechtnis-Browser (B-024): der ganze Vault darunter — gleicher Editor rechts */
+ try{const v=await (await fetch("/api/vault")).json();
+  const h=document.createElement("div");h.className="muted";
+  h.style.cssText="margin:12px 4px 4px;font-size:11px;letter-spacing:.08em";
+  h.textContent="◈ VAULT — gedaechtnis · playbooks · docs (frei editierbar, nie im Prompt)";el.appendChild(h);
+  (v.files||[]).forEach(f=>{const d=document.createElement("div");d.className="f";
+   const depth=(f.path.match(/\//g)||[]).length-1;d.style.paddingLeft=(10+depth*14)+"px";
+   d.innerHTML="<b>"+esc(f.name)+"</b><small>"+esc(f.path)+"</small>";
+   d.onclick=()=>openVaultFile(f.path,d);el.appendChild(d);});
+ }catch(e){}}
 async function openFile(name,el){$$(".flist .f").forEach(x=>x.classList.remove("on"));el.classList.add("on");
  const f=await (await fetch("/api/file?name="+encodeURIComponent(name))).json();fcur=f;
  $("#ftitle").textContent=f.label;$("#ftitle").className="";$("#farea").value=f.content;
  $("#farea").readOnly=!f.editable;$("#fsave").style.display=f.editable?"block":"none";}
+async function openVaultFile(path,el){$$(".flist .f").forEach(x=>x.classList.remove("on"));el.classList.add("on");
+ const f=await (await fetch("/api/vault/file?path="+encodeURIComponent(path))).json();
+ if(f.error){$("#ftitle").textContent=f.error;return;}
+ fcur={vault:true,name:f.path,label:f.path,editable:true};
+ $("#ftitle").textContent=f.path;$("#ftitle").className="";$("#farea").value=f.content;
+ $("#farea").readOnly=false;$("#fsave").style.display="block";}
 $("#fsave").onclick=async()=>{if(!fcur)return;
  // Verfassung ist Kiras Kern -> Sicherheits-Rueckfrage (andere Dateien speichern direkt)
  if(fcur.name==="constitution.md"&&!confirm("Kiras Verfassung ändern?\n\nGilt sofort für alle Antworten. Ein Backup wird automatisch angelegt (core/mind/history) — rückgängig machbar."))return;
- const r=await (await fetch("/api/file",{method:"POST",headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({name:fcur.name,content:$("#farea").value})})).json();
+ const url=fcur.vault?"/api/vault/file":"/api/file";
+ const body=fcur.vault?{path:fcur.name,content:$("#farea").value}:{name:fcur.name,content:$("#farea").value};
+ const r=await (await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify(body)})).json();
  $("#ftitle").textContent=fcur.label+(r.ok?" — gespeichert ✓":" — Fehler");};
 
 /* ---- Models ---- */

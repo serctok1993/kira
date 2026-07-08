@@ -610,6 +610,12 @@ def run_forever(interval: int | None = None) -> None:
                     lessons = _ins.weekly_lessons()  # Outcome-Muster -> Lektionen (S6.2)
                     if lessons:
                         events.emit("insights_lessons", {"count": len(lessons)})
+                if maintenance.maybe_run("calibration_report", interval_s=7 * 86400):
+                    # B-025: Nudge-/Fehler-/Fallback-Raten pro Modell -> Vorschlag in die
+                    # Inbox (nur bei genug Daten), damit Sergen Rollen datenbasiert nachzieht.
+                    from core.agency import calibration as _cal
+
+                    _cal.propose()
                 if maintenance.maybe_run("selfmetric_snapshot", interval_s=7 * 86400):
                     # Selbstmessung (0 Token): Wochen-Messpunkt in die Zeitreihe -> Drift sichtbar.
                     from core.agency import selfmetrics as _sm

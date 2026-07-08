@@ -75,14 +75,38 @@ def _send_resend(to: str, subject: str, body: str) -> str:
     return f"Gesendet an {to}: {subject}"
 
 
+# Bekannte Anbieter: Host/Port automatisch aus der Adresse — Sergen gibt nur noch
+# Adresse (SMTP_USER) + App-Passwort (SMTP_PASS) ein, die Hosts kommen von hier.
+# smtp_host/imap_host in config.yaml GEWINNEN, wenn gesetzt (Flexibilitaet bleibt).
+_HOST_PRESETS = {
+    "gmail.com": ("smtp.gmail.com", 587, "imap.gmail.com"),
+    "googlemail.com": ("smtp.gmail.com", 587, "imap.gmail.com"),
+    "outlook.com": ("smtp-mail.outlook.com", 587, "outlook.office365.com"),
+    "hotmail.com": ("smtp-mail.outlook.com", 587, "outlook.office365.com"),
+    "gmx.de": ("mail.gmx.net", 587, "imap.gmx.net"),
+    "gmx.net": ("mail.gmx.net", 587, "imap.gmx.net"),
+    "web.de": ("smtp.web.de", 587, "imap.web.de"),
+}
+
+
+def _preset() -> tuple | None:
+    addr = (os.getenv("SMTP_USER") or _cfg().get("from_address") or "").strip().lower()
+    return _HOST_PRESETS.get(addr.rsplit("@", 1)[-1]) if "@" in addr else None
+
+
 def _send_smtp(to: str, subject: str, body: str) -> str:
     cfg = _cfg()
     host, port = cfg.get("smtp_host") or "", int(cfg.get("smtp_port") or 587)
     user, pw = os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
+    if not host:  # bekannter Anbieter? -> Hosts automatisch (Gmail & Co.)
+        pre = _preset()
+        if pre:
+            host, port = pre[0], pre[1]
     sender = cfg.get("from_address") or user or ""
     if not (host and user and pw):
-        return ("SMTP-Zugaenge fehlen — smtp_host in config.yaml setzen und "
-                "request_secret('SMTP_USER'/'SMTP_PASS', ...) anfragen.")
+        return ("SMTP-Zugaenge fehlen — SMTP_USER (deine Adresse) + SMTP_PASS (App-Passwort) "
+                "via request_secret anfragen; bei Gmail/Outlook/GMX/web.de sind die Hosts "
+                "automatisch, sonst smtp_host in config.yaml setzen.")
     msg = EmailMessage()
     msg["From"], msg["To"], msg["Subject"] = sender, to, subject
     msg.set_content(body)
@@ -137,7 +161,7 @@ def unread_count(max_age: float = 120.0) -> int | None:
     try:
         if enabled():
             cfg = _cfg()
-            host = cfg.get("imap_host") or ""
+            host = cfg.get("imap_host") or ((_preset() or ("", 0, ""))[2])
             user, pw = os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
             if host and user and pw:
                 with imaplib.IMAP4_SSL(host, int(cfg.get("imap_port") or 993)) as m:
@@ -157,7 +181,7 @@ def check(limit: int = 10) -> list[dict] | str:
     if not enabled():
         return "Email ist noch nicht eingerichtet (channels.email.enabled=false)."
     cfg = _cfg()
-    host, port = cfg.get("imap_host") or "", int(cfg.get("imap_port") or 993)
+    host, port = cfg.get("imap_host") or ((_preset() or ("", 0, ""))[2]), int(cfg.get("imap_port") or 993)
     user, pw = os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
     if not host:
         return "IMAP ist nicht konfiguriert (channels.email.imap_host) — nur Senden moeglich."

@@ -42,8 +42,12 @@ models:
   keep_alive: "24h"                         # Modell warm halten -> kein Kaltstart im Dauerbetrieb
   num_ctx: 32768                            # Kontextfenster (Live-Baseline; kleiner = guenstiger pro Call)
 
-# Desktop-Wallpaper (/wall)
+# Desktop-Wallpaper (/wall) + Desktop-App (Fenster/Hotkeys)
 desktop:
+  # Globale Tasten der Desktop-App (Phase 4). Syntax = keyboard-Paket, z.B. "alt+space",
+  # "ctrl+alt+k", "f9". Greift nur, wenn die App laeuft (kira-desktop.bat).
+  hotkey: "alt+space"        # holt das Kira-Fenster nach vorn (aus jeder App heraus)
+  ptt_key: "f9"              # Push-to-Talk: HALTEN = aufnehmen, LOSLASSEN = senden
   # Zusaetzliche Obsidian-Vault-Ordner fuer den Live-Graph. Leer = nur Kiras Gedaechtnis
   # (gedaechtnis/ + playbooks/). Trage deinen ECHTEN Obsidian-Vault-Pfad ein, damit dein
   # ganzer Graph erscheint. Windows-Pfad in Anfuehrungszeichen, mit / statt \:
@@ -193,7 +197,7 @@ channels:
     from_address: ""          # Kiras Absender-Adresse
     own_addresses:            # Sergens Adressen -> kein Fremd-Gate
       - serc.tok1993@gmail.com
-    smtp_host: ""
+    smtp_host: ""            # leer = automatisch bei Gmail/Outlook/GMX/web.de (Adresse+App-Passwort reichen)
     smtp_port: 587
     imap_host: ""
     imap_port: 993
