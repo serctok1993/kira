@@ -888,6 +888,7 @@ $("#cin")&&$("#cin").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shift
 
 /* ---- Sprachmemo (Aufnahme -> Whisper) + Assistenz-Modus (freihaendige Schleife) ---- */
 let mediaRec=null,chunks=[],recAutoSend=false,vadSpoke=false,liveTimer=null,liveBusy=false;
+let pttDown=false,pttSend=false;   /* Push-to-Talk (Desktop-Hotkey, Phase 4) */
 /* Live-Transkription (lokal): waehrend der Aufnahme alle ~2s die bisherige Aufnahme durch Whisper
    jagen und den wachsenden Text ins Feld schreiben. Nur EINE Transkription gleichzeitig (kein Stau);
    am Aufnahme-Ende laeuft die finale (genauere) Transkription und ersetzt die Vorschau. */
@@ -948,7 +949,8 @@ async function startRec(autoSend){recAutoSend=!!autoSend;
   mediaRec.onstop=async()=>{stopLive();stream.getTracks().forEach(t=>t.stop());$("#micbtn")&&($("#micbtn").textContent="🎤");
    if(recAutoSend&&!vadSpoke){if(handsFree)armListen();return;}  /* nur Stille -> nicht transkribieren */
    const blob=new Blob(chunks,{type:"audio/webm"});const rd=new FileReader();
-   rd.onload=async()=>{if(!recAutoSend)$("#cin").value="… transkribiere …";
+   rd.onload=async()=>{const sendNow=pttSend;pttSend=false;      /* PTT: einmalig konsumieren */
+    if(!recAutoSend)$("#cin").value="… transkribiere …";
     let txt="",ok=false;
     try{const r=await (await fetch("/api/transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audio:rd.result})})).json();
      ok=!!r.ok;txt=ok?(r.text||""):"";if(!ok&&!recAutoSend)$("#cin").value="(Audio-Fehler: "+(r.error||"")+")";}catch(e){}
@@ -959,7 +961,9 @@ async function startRec(autoSend){recAutoSend=!!autoSend;
       if(instr)sendText(instr,{voice:true});           /* Weckwort abgestreift -> Auftrag */
       else{add("🎙️ Ja? Ich hoere.","sys");armListen();} /* nur "Kira" -> weiterlauschen */
      }else if(handsFree)armListen();                   /* nicht angesprochen -> still weiterlauschen */
-    }else if(ok){$("#cin").value=txt;growCin();$("#cin").focus();}};
+    }else if(ok){const t=(txt||"").trim();
+     if(sendNow&&t){$("#cin").value="";sendText(t,{voice:false});} /* PTT losgelassen -> direkt senden */
+     else{$("#cin").value=txt;growCin();$("#cin").focus();}}};
    rd.readAsDataURL(blob);};
   /* manuelles Mikro (kein Weckwort-Lauschen) -> Aufnahme in Haeppchen + Live-Transkription */
   if(recAutoSend){mediaRec.start();}else{$("#cin").value="";growCin();mediaRec.start(1200);startLive();}
@@ -967,6 +971,13 @@ async function startRec(autoSend){recAutoSend=!!autoSend;
   if(autoSend)attachVAD(stream,mediaRec);              /* freihaendig -> Pause stoppt automatisch */
  }catch(err){add("Mikrofon nicht verfuegbar: "+err,"sys");handsFree=false;paintAssist();}}
 $("#micbtn")&&($("#micbtn").onclick=()=>{if(mediaRec&&mediaRec.state==="recording"){mediaRec.stop();return;}startRec(false);});
+/* Push-to-Talk (Phase 4): die Desktop-App ruft window.kiraPTT(true/false) per globalem
+   Hotkey (F9 halten). Idempotent gegen Tasten-Autorepeat; loslassen = transkribieren+senden. */
+window.kiraPTT=function(down){
+ if(down){if(pttDown)return;pttDown=true;pttSend=false;
+  if(!(mediaRec&&mediaRec.state==="recording"))startRec(false);}
+ else{if(!pttDown)return;pttDown=false;
+  try{if(mediaRec&&mediaRec.state==="recording"){pttSend=true;mediaRec.stop();}}catch(e){}}};
 /* Assistenz-Modus lebt in der Zentrale (#hud-assist). Toggle: an -> lauschen + vorlesen; aus -> stumm. */
 function paintAssist(){const b=$("#hud-assist");if(b){b.textContent=handsFree?"🎙️ hoert zu · AUS?":"🎙️ Zuhoeren?";
  b.style.color=handsFree?"var(--ok)":"var(--muted)";}}
