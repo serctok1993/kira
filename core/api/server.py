@@ -234,6 +234,18 @@ def api_steuer() -> dict:
             "max_kosten_eur": _kosten_deckel()}
 
 
+@app.get("/api/kalibrierung")
+def api_kalibrierung(days: int = 7) -> dict:
+    """Selbstkalibrierung (B-025, read-only, 0 Token): Nudge-/Fehler-/Fallback-Raten
+    pro Modell aus dem Event-Log — plus der lesbare Report-Text mit Empfehlungen."""
+    from core.agency import calibration
+
+    days = max(1, min(int(days or 7), 90))
+    rep = calibration.report(days)
+    rep["text"] = calibration.render(days, rep)
+    return rep
+
+
 @app.get("/api/tagewerk")
 def api_tagewerk() -> dict:
     """Kiras Tagewerk (Achievements, read-only, 0 Token): was sie HEUTE getan hat —

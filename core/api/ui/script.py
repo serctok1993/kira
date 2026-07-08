@@ -142,7 +142,10 @@ async function loadCheckliste(){const el=$("#ck-list");if(!el)return;
  row(pbs.length?"ok":"warn","§7 Playbooks",pbs.length+" vorhanden · "+pbs.filter(p=>p.reifegrad!=="entwurf").length+" ueber Entwurf hinaus");
  row(ck.handbuch?"ok":"bad","HANDBUCH",ck.handbuch?"docs/HANDBUCH.md vorhanden (auch hier links unter Dateien)":"fehlt!");
  el.innerHTML=rows.join("");
-}catch(e){el.innerHTML='<span class="muted">Checkliste nicht ladbar.</span>';}}
+}catch(e){el.innerHTML='<span class="muted">Checkliste nicht ladbar.</span>';}
+ try{const k=await (await fetch("/api/kalibrierung")).json();const kel=$("#ck-kalib");
+  if(kel)kel.textContent=k.text||"";
+ }catch(e){}}
 
 function subnav(tab,s){const g=SUBTABS[tab];if(!g)return;g.cur=s;
  $$(g.bar+" a").forEach(a=>a.classList.toggle("on",a.dataset.s===s));

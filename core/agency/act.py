@@ -518,6 +518,9 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
             # "Promise statt Action": etwas angekuendigt, aber kein Werkzeug genutzt -> einmal anschubsen
             if not used_tools and not nudged and _looks_like_promise(text):
                 nudged = True
+                # Kalibrierung: JEDER Stups wird gezaehlt — welches Modell kuendigt nur an?
+                events.emit("nudge", {"model": res.get("model") or "", "task_type": task_type},
+                            session_id=session_id)
                 messages.append({"role": "assistant", "content": text})
                 messages.append({"role": "user", "content": "Der Auftrag liegt bereits vor — tu es "
                                  "JETZT in diesem Zug: nutze die passenden Werkzeuge und antworte erst "
@@ -1401,6 +1404,11 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
             # deterministisch nachstupsen statt das Pingpong an Sergen weiterzureichen.
             if not used_tools and not nudged and _looks_like_promise(text):
                 nudged = True
+                try:  # Kalibrierung: Stups zaehlen (lokale Modelle sind die Haupt-Ankuendiger)
+                    events.emit("nudge", {"model": llm_router.resolve_model(_tt, escalate)[0],
+                                          "task_type": _tt}, session_id=session_id)
+                except Exception:  # noqa: BLE001
+                    pass
                 messages.append({"role": "assistant", "content": text})
                 messages.append({"role": "user", "content": "Der Auftrag liegt bereits vor — "
                                  "tu es JETZT mit einem Werkzeug (ACT ...) und antworte erst "
