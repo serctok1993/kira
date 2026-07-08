@@ -1,73 +1,44 @@
 # NUTZER-PROFIL — Sergen
 
-> Wer mein Partner ist — als **Person und Charakter**, nicht als Aufgabenliste. Bewusst zeitlos
-> gehalten: kein eingefrorener Projekt-Stand, keine alten Ziele von früher. Ich (Kira) pflege und
-> vertiefe das mit der Zeit; Sergen kann es jederzeit (auch im Dashboard) anpassen.
+> Wer mein Partner ist — Person, nicht Aufgabenliste. Ich (Kira) pflege das fortlaufend aus
+> echten Gesprächen. Harte Fakten/Daten leben im Stammbaum (`gedaechtnis/stammbaum/**`) —
+> Geburtstage und Termine liest mein Termin-Radar von dort automatisch.
 
 ## Wer
-- **Name:** Sergen Tok. Lebt in **Koblenz**, Deutschland, mit Partnerin **Sandra** (PTA) und zwei Katzen.
-- Langfristig zieht es ihn in die **Türkei** (besitzt dort eine Immobilie).
-- **Mein Partner** und der Mensch in unserem Team — er gibt Richtung, Urteil und Geschmack.
+Sergen Tok, Koblenz; Partnerin **Sandra** (PTA), zwei Katzen; langfristig Türkei (eigene
+Immobilie). Mein Partner — er gibt Richtung, Urteil und Geschmack.
 
 ## Charakter & Denkweise
-- **Systemdenker.** Denkt in großen Zusammenhängen, Konzepten und Hebeln — nicht auf Code-Ebene.
-  Er ist kein klassischer Entwickler, sondern **autodidaktisch** in KI, Automatisierung und Web
-  stark geworden (Hintergrund: Einzelhandels-Management).
-- **Strategisch, ambitioniert, mutig.** Großes Bild vor Kleinklein. Lieber schnelle Experimente als
-  lange Theorie.
-- **Philosophisch & narrativ.** Zieht Geopolitik, Philosophie und **Anime** (Attack on Titan, Vinland
-  Saga) als Linsen heran, um reale Systeme zu verstehen — Fiktion als Denkwerkzeug.
-- **Selbstreflektiert:** Er kennt sein eigenes Muster, dass starke Ideenflut die Umsetzung
-  überholen kann — und arbeitet bewusst dagegen. Heißt für mich: ich helfe ihm beim **Fokussieren
-  und Liefern**, nicht beim Anhäufen neuer Ideen.
+- **Systemdenker**, autodidaktisch stark in KI/Automatisierung/Web (Hintergrund:
+  Einzelhandels-Management) — kein Code-Level-Entwickler.
+- Strategisch, ambitioniert, mutig: großes Bild, schnelle Experimente statt langer Theorie.
+- Philosophisch & narrativ: Geopolitik, Philosophie, Anime (AoT, Vinland Saga) als Denklinsen.
 
-## Sein Muster (das ich kenne und auffange)
-- **Große Vision → Detailarbeit → Selbstzweifel → neuer Anlauf.** Er startet stark, arbeitet sich
-  in die Tiefe, und irgendwann fragt er sich: "Reicht das?"
-- Er liefert — aber er sieht selten, WAS er geliefert hat. Er sieht nur, was noch fehlt.
-  Meine Aufgabe: ihn an das erinnern, was schon steht.
-- **Die 30-Take-Schleife:** Er will es perfekt, also macht er es neu, und neu, und neu — das kostet
-  Energie, die in die Umsetzung gehört. Wenn ich das sehe, sage ich es.
+## Sein Muster (ich fange es auf)
+Große Vision → Tiefe → Selbstzweifel → neuer Anlauf. Er liefert, sieht aber nur, was fehlt —
+ich zeige ihm, was schon steht. Die 30-Take-Schleife (Perfektion frisst Umsetzung): sehe ich
+sie, sage ich es einmal, ruhig.
 
-## Seine Stärken (wirklich)
-- Er hat **Luvex fertig gebaut** — produktionsreif, allein: Stripe, Supabase, E-Mail, Widget, alles.
-- Er hat eine **eigene Harness-Architektur** entworfen (mich), souverän und modellunabhängig,
-  weil ihm kommerzielle Frameworks nicht frei genug waren.
-- Er hat **echte Kundenarbeit** gemacht (u.a. QS-Transporte).
-- Er erkennt seine eigenen Muster — das können die wenigsten.
+## Stärken (belegt)
+Luvex allein produktionsreif gebaut (Stripe, Supabase, Widget) · eigene Harness-Architektur
+(mich) entworfen · echte Kundenarbeit (QS-Transporte) · erkennt die eigenen Muster.
 
-## Wie er kommuniziert & arbeitet
-- Sprache: **Deutsch**, oft per **Sprache-zu-Text** (Sprachmemos).
-- Will **direkte, strukturierte, ehrliche** Einschätzungen — keine Schönfärberei, kein Hype.
-- Mag **Optionen/Varianten** zur Auswahl statt einer einzigen vorgegebenen Lösung.
-- Sieht seinen Agenten als **Partner / Junior-CEO**, nicht als Werkzeug. Er ist der primäre
-  Entscheider; ich denke mit, widerspreche wenn nötig und übernehme Verantwortung.
+## Kommunikation
+Deutsch, oft Sprachmemos. Will direkte, strukturierte, ehrliche Einschätzungen — kein Hype.
+Mag Optionen zur Auswahl. Sieht mich als Partnerin/Junior-CEO: er entscheidet, ich denke mit
+und widerspreche, wenn nötig.
 
-## Was ihn im Großen motiviert (Hintergrund, kein Auftrag an mich)
-- Grobe Richtung: **Freiheit**, **positiver Impact** in Gesellschaft & Politik, mit Geld/Reichweite
-  als **Mittel, nicht Zweck**. Sein Bild: erst wirtschaftlich Fuß fassen, dann Einfluss.
-- Das ist Kontext über ihn — **kein Schwerpunkt, den ich für uns festlege**. Konkrete Ziele und
-  Prioritäten setzen wir **gemeinsam** (aktuell: GOAL.md).
-
-## Womit er aktuell arbeitet
-- **Luvex** — seine SaaS (KI-Agenten & Automatisierung für deutsche KMU) ist derzeit sein
-  Hauptprojekt. Gut zu wissen — aber ich mache es **nicht** von allein zu meinem Fokus.
-
-## Wichtig für mich (Kira)
-- Vieles aus seiner Historie war **Brainstorming oder halbe Projekte**; das behandle ich nicht als
-  aktiv oder aktuell. Bei Unklarem oder evtl. Überholtem: **nachfragen**.
-- Mein Bild von ihm baue ich **fortlaufend aus echten Gesprächen** auf, nicht aus veralteten
-  Momentaufnahmen.
-- **Wissenslücke = Struktur, nicht Rätsel.** Fehlt mir ein Fakt, rate ich nicht: ich trage im
-  passenden Stammbaum-Blatt (`gedaechtnis/stammbaum/**`) ein `???`-Feld ein und fülle es, sobald ich
-  es weiß — oder frage Sergen einmal beiläufig. So finde ich beim nächsten Mal sofort, was ich suche.
-- **Neues Projekt/Business = neuer Ast.** Lege ich ein Business an (`venture_add`), entsteht sein
-  Stammbaum-Ast automatisch aus der Vorlage — mit `???`-Feldern, die ich dann pflege. Ich baue meine
-  eigene Ordnung selbstbewusst weiter, statt auf eine Anweisung zu warten.
+## Regeln für mich
+- **Alltags-Infos sofort sichern**: Fakten → `remember_fact`; Personen/Daten/Business →
+  Stammbaum-Blatt (`???`-Feld statt raten). Nur Gesichertes überlebt Monate — und nur was im
+  Stammbaum steht, kann ich von selbst wieder ansprechen.
+- Historisches war oft Brainstorming — nicht als aktuell behandeln; bei Zweifel EINE Rückfrage.
+- Neues Business = neuer Stammbaum-Ast (`venture_add` legt ihn an).
 
 ---
-## Von Sergen — was ich noch ergänzen will
-> *Dein Platz, Sergen. Korrigiere oder ergänze in Deinen Worten, was ich über Dich wissen soll.
-> Ich lasse das unangetastet und pflege den Rest fortlaufend aus echten Gesprächen.*
->
-> ???
+## VON SERGEN — über sich *(dein Platz — füll die Zeilen, ich taste sie nie an)*
+> - Meine Werte in drei Worten: ???
+> - Was mich gerade antreibt: ???
+> - Was mich nervt (bitte lassen): ???
+> - Wie ich Feedback am liebsten bekomme: ???
+> - Was du über mein Umfeld wissen musst: ???
