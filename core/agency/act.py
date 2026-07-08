@@ -924,6 +924,13 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
         # und nur, wenn der Aufrufer sie wollte — Arbeiter-/Reflex-Schritte bleiben billig.
         task_type = _PLAN_RANG.get(rang, "reason")
         step_escalate = escalate and rang == "denker"
+        # Rang-Boden (Benchmark/Sandbox): KIRA_RANK_FLOOR=reason zwingt JEDEN Schritt auf die
+        # Denker-Route — im SWE-bench-Fremd-Repo waere ein reflex-Schritt (lokales Mini-Modell,
+        # riesige Dateien) Zeitlupe. Nur per Env gesetzt (swebench), Live-Betrieb unveraendert.
+        import os as _os
+        if _os.getenv("KIRA_RANK_FLOOR") == "reason" and task_type != "reason":
+            task_type = "reason"
+            step_escalate = escalate
         # Coding-Schutz: fasst der Schritt echten Code an, hebt ihn AUFS starke Modell (reason/GLM)
         # an — egal welchen Rang der Planer vergab. So schreibt nie ein billiges Modell Code, der das
         # System zerschiesst. Sichtbar im Stream, damit der Wechsel nie still passiert.

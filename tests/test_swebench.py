@@ -142,8 +142,27 @@ def test_agent_env_laesst_kira_root_in_ruhe(monkeypatch):
         assert "KIRA_ROOT" not in env
         assert env["KIRA_TEST_MODE"] == "1" and env["KIRA_NO_OUTBOUND"] == "1"
         assert "KIRA_ALLOW_LLM" not in env and env["KIRA_DATA_DIR"]
+        assert env["KIRA_RANK_FLOOR"] == "reason"   # kein Schritt faellt auf reflex/lokal
     finally:
         shutil.rmtree(env["KIRA_DATA_DIR"], ignore_errors=True)
+
+
+def test_rank_floor_hebt_reflex_schritte(monkeypatch):
+    """Mit KIRA_RANK_FLOOR=reason laeuft im Plan-Dispatcher kein Schritt mehr auf
+    classify/worker — der Boden greift VOR dem Code-Guard (Quelle: act.py-Dispatcher)."""
+    import inspect
+    from core.agency import act
+    src = inspect.getsource(act.plan_and_execute)
+    assert "KIRA_RANK_FLOOR" in src
+
+
+def test_run_agent_hat_lebenszeichen_und_timeout():
+    """'Haengt er oder denkt er?': stiller Subprozess liefert alle ~25s ein
+    Lebenszeichen-Event, und nach 'timeout' wird hart gekillt."""
+    import inspect
+    from core.testkit import swebench as swb
+    src = inspect.getsource(swb._run_agent)
+    assert "arbeitet noch" in src and "proc.kill()" in src and "Timeout" in src
 
 
 def test_agent_payload_ohne_kira_endabnahme_und_mit_repo_pfad():
