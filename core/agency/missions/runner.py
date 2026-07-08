@@ -12,6 +12,7 @@ Start:  uv run python -m core.agency.missions.runner            (ein Tick zum Te
 """
 from __future__ import annotations
 
+import json
 import os
 import sys
 import threading
@@ -192,6 +193,54 @@ def _attempt_prompt(task: dict, criteria: list[dict], attempt: int) -> str:
     return "\n".join(parts)
 
 
+def _book_playbook_results(sid: str, since_ts: float, erfolg: bool, score) -> None:
+    """Audit-Fund: die Playbook-Reifung hing daran, dass das MODELL brav playbook_result
+    ruft — tat es das nicht, blieb jedes Playbook ewig 'entwurf'. Jetzt deterministisch:
+    hat der Lauf ein Playbook GELESEN (playbook_read im Event-Log dieser Session), wird
+    das Richter-Urteil automatisch verbucht. Hat das Modell selbst schon gebucht
+    (playbook_result im selben Fenster), buchen wir nicht doppelt. Raist nie."""
+    try:
+        import sqlite3
+
+        from core.config import DB_PATH
+
+        gelesen: set[str] = set()
+        selbst_gebucht: set[str] = set()
+        con = sqlite3.connect(DB_PATH)
+        try:
+            con.execute("PRAGMA busy_timeout=5000")
+            rows = con.execute(
+                "SELECT payload FROM events WHERE session_id=? AND ts>=? AND type='act_step'",
+                (sid, since_ts)).fetchall()
+        finally:
+            con.close()
+        for (p,) in rows:
+            try:
+                d = json.loads(p or "{}")
+            except Exception:  # noqa: BLE001
+                continue
+            n = str((d.get("args") or {}).get("name") or "")
+            if not n:
+                continue
+            if d.get("tool") == "playbook_read":
+                gelesen.add(n)
+            elif d.get("tool") == "playbook_result":
+                selbst_gebucht.add(n)
+        offen = gelesen - selbst_gebucht
+        if not offen:
+            return
+        from core.mind import playbooks as _pb
+
+        for n in offen:
+            r = _pb.record_result(n, erfolg,
+                                  notiz=f"auto: Richter-{'pass' if erfolg else 'fail'}"
+                                        + (f" (Score {score})" if score is not None else ""))
+            events.emit("playbook_auto_result", {"name": n, "erfolg": erfolg,
+                                                 "ok": bool(r.get("ok"))}, session_id=sid)
+    except Exception as e:  # noqa: BLE001 — Buchhaltung darf den Task nie mitreissen
+        events.emit("playbook_book_error", {"error": str(e)[:200]})
+
+
 def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
     """Ein Task-Versuch MIT Ergebnis-Rueckkopplung (S2): act -> pruefen -> pass/retry/fail.
 
@@ -256,6 +305,7 @@ def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
                                   time.time() - t0, criteria, out["score"])
         except Exception as e:  # noqa: BLE001
             events.emit("skill_loop_error", {"error": str(e)[:200]})
+        _book_playbook_results(sid, t0, erfolg=True, score=out["score"])
         label = f" (Score {out['score']})" if out["score"] is not None else ""
         _notify(f"🤖 Mission-Schritt erledigt{label}:\n{full['description']}\n\n{text[:1200]}")
         return {"task": full["description"], "result": text, "score": out["score"]}
@@ -271,6 +321,7 @@ def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
 
     queue.complete(full["id"], text, status="failed")
     queue.update_task(full["id"], score=out["score"])
+    _book_playbook_results(sid, t0, erfolg=False, score=out["score"])
     events.emit("task_failed_final", {"id": full["id"], "attempts": attempt, "score": out["score"],
                                       "desc": full["description"][:200]}, session_id=sid)
     try:
