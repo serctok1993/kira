@@ -193,7 +193,7 @@ channels:
     from_address: ""          # Kiras Absender-Adresse
     own_addresses:            # Sergens Adressen -> kein Fremd-Gate
       - serc.tok1993@gmail.com
-    smtp_host: ""
+    smtp_host: ""            # leer = automatisch bei Gmail/Outlook/GMX/web.de (Adresse+App-Passwort reichen)
     smtp_port: 587
     imap_host: ""
     imap_port: 993
