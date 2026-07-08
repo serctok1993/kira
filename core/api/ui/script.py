@@ -1560,6 +1560,9 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
   goals+='<div style="margin-top:8px"><span class="badge kind">'+(KIND_LABEL[o.kind]||o.kind)+'</span> <b>'+esc(o.title||"")+'</b> <span class="muted">'+o.progress+'%</span></div>';
   (o.tasks||[]).slice(0,6).forEach(t=>{goals+='<div class="muted" style="font-size:12px;margin-left:12px">'+(t.status==="done"?"&#10003;":"&middot;")+' '+esc((t.description||"").slice(0,110))+(t.score!=null?(' <span style="color:var(--hud)">['+t.score+']</span>'):'')+'</div>';});
   if(o.workingset)act+='<div style="margin-top:6px"><b style="font-size:12px">'+esc(o.title||"")+'</b><div class="muted" style="font-size:11px;white-space:pre-wrap;border-left:2px solid var(--line);padding-left:8px;margin-top:3px">'+esc(o.workingset.slice(-700))+'</div></div>';});
+ if((d.objectives||[]).length)goals+='<div class="row" style="margin-top:10px"><input id="ak-task" placeholder="+ Aufgabe fuer dieses Projekt" style="flex:1;min-width:180px"/>'
+  +'<select id="ak-task-obj">'+(d.objectives||[]).map(o=>'<option value="'+o.id+'">'+esc((o.title||"").slice(0,44))+'</option>').join("")+'</select>'
+  +'<button id="ak-task-add">+</button></div>';
  if(!act)act='<div class="muted">Noch kein Arbeitsstand aufgezeichnet.</div>';
  const files=(d.files||[]).map(f=>'<div class="muted" style="font-size:12px">📎 '+esc(f.name)+' <span style="opacity:.6">('+Math.round(f.bytes/1024)+' KB)</span> <a data-fdel="'+esc(f.name)+'" style="cursor:pointer;color:var(--muted)" title="Datei loeschen">&#10005;</a></div>').join("")||'<div class="muted" style="font-size:12px">(keine Dateien)</div>';
  /* Auf-einen-Blick: was fuer dieses Projekt schon getan wurde */
@@ -1580,6 +1583,9 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
   +'<textarea id="ak-brief" class="k" style="min-height:90px"></textarea>'
   +'<div class="row" style="margin-top:6px"><button class="ghost" id="ak-brief-save">Briefing speichern</button>'
   +'<input id="ak-note" placeholder="Neue Daueranweisung (eine Zeile)…" style="flex:1;min-width:200px"/><button id="ak-note-add">+ Notiz</button></div>'
+  +'<div class="muted" style="font-size:11px;letter-spacing:1px;margin:12px 0 4px">AN KIRA ZU DIESEM PROJEKT</div>'
+  +'<div class="row"><input id="ak-cmd" placeholder="Auftrag nur fuer dieses Projekt — Briefing &amp; Kontext fliessen automatisch mit ein…" style="flex:1;min-width:220px"/><button id="ak-cmd-go">⚡ Ausfuehren</button></div>'
+  +'<div class="muted" id="ak-cmd-out" style="font-size:12px;margin-top:5px;white-space:pre-wrap"></div>'
   +'<div class="muted" style="font-size:11px;letter-spacing:1px;margin:12px 0 4px">DATEIEN</div>'+files
   +'<div class="row" style="margin-top:6px"><label class="ghost" style="display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px solid var(--line);border-radius:8px;cursor:pointer">📎 Datei hochladen<input id="ak-file" type="file" style="display:none"/></label><span class="muted" id="ak-hint" style="align-self:center;font-size:12px"></span></div>';
  const fin='<div style="font-size:13px"><b>Kosten bislang:</b> '+(d.costs||0).toFixed(2)+' € <span class="muted">(LLM-Arbeit an diesem Projekt)</span></div>'
@@ -1613,6 +1619,16 @@ async function loadVentureTrace(id){const el=$("#vent-detail");try{
   const fd=new FormData();fd.append("id",v.id);fd.append("file",f);
   const r=await (await fetch("/api/ventures/upload",{method:"POST",body:fd})).json();
   $("#ak-hint").textContent=r.ok?"✓ "+f.name:"Fehler: "+(r.error||"?");if(r.ok)loadVentureTrace(v.id);};
+ const cg=$("#ak-cmd-go");if(cg)cg.onclick=async()=>{const p=$("#ak-cmd").value.trim();if(!p)return;
+  $("#ak-cmd-out").textContent="… Kira arbeitet an deinem Projekt-Auftrag (Ergebnis kommt auch per Telegram) …";
+  try{const r=await (await fetch("/api/direktive/now",{method:"POST",headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({prompt:p,venture_id:v.id})})).json();
+   $("#ak-cmd-out").textContent=(r.result||r.error||"?").slice(0,900);$("#ak-cmd").value="";}
+  catch(e3){$("#ak-cmd-out").textContent="Fehler: "+e3;}};
+ const ta=$("#ak-task-add");if(ta)ta.onclick=async()=>{const t=$("#ak-task").value.trim();if(!t)return;
+  await fetch("/api/mission/queue/add",{method:"POST",headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({description:t,priority:3,objective_id:$("#ak-task-obj").value||null})});
+  toast("Aufgabe im Projekt eingeplant","ok");loadVentureTrace(v.id);};
  $$("#vent-detail [data-fdel]").forEach(a=>a.onclick=async()=>{
   if(!confirm('Datei "'+a.dataset.fdel+'" loeschen?'))return;
   await fetch("/api/ventures/file-delete",{method:"POST",headers:{"Content-Type":"application/json"},
