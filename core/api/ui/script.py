@@ -1020,16 +1020,34 @@ let fcur=null;
 async function loadFiles(){const fs=await (await fetch("/api/files")).json();const el=$("#flist");el.innerHTML="";
  fs.forEach(f=>{const d=document.createElement("div");d.className="f";
   d.innerHTML="<b>"+f.name+"</b><small>"+f.label+(f.editable?"":" · nur lesen")+"</small>";
-  d.onclick=()=>openFile(f.name,d);el.appendChild(d);});}
+  d.onclick=()=>openFile(f.name,d);el.appendChild(d);});
+ /* Gedaechtnis-Browser (B-024): der ganze Vault darunter — gleicher Editor rechts */
+ try{const v=await (await fetch("/api/vault")).json();
+  const h=document.createElement("div");h.className="muted";
+  h.style.cssText="margin:12px 4px 4px;font-size:11px;letter-spacing:.08em";
+  h.textContent="◈ VAULT — gedaechtnis · playbooks · docs (frei editierbar, nie im Prompt)";el.appendChild(h);
+  (v.files||[]).forEach(f=>{const d=document.createElement("div");d.className="f";
+   const depth=(f.path.match(/\//g)||[]).length-1;d.style.paddingLeft=(10+depth*14)+"px";
+   d.innerHTML="<b>"+esc(f.name)+"</b><small>"+esc(f.path)+"</small>";
+   d.onclick=()=>openVaultFile(f.path,d);el.appendChild(d);});
+ }catch(e){}}
 async function openFile(name,el){$$(".flist .f").forEach(x=>x.classList.remove("on"));el.classList.add("on");
  const f=await (await fetch("/api/file?name="+encodeURIComponent(name))).json();fcur=f;
  $("#ftitle").textContent=f.label;$("#ftitle").className="";$("#farea").value=f.content;
  $("#farea").readOnly=!f.editable;$("#fsave").style.display=f.editable?"block":"none";}
+async function openVaultFile(path,el){$$(".flist .f").forEach(x=>x.classList.remove("on"));el.classList.add("on");
+ const f=await (await fetch("/api/vault/file?path="+encodeURIComponent(path))).json();
+ if(f.error){$("#ftitle").textContent=f.error;return;}
+ fcur={vault:true,name:f.path,label:f.path,editable:true};
+ $("#ftitle").textContent=f.path;$("#ftitle").className="";$("#farea").value=f.content;
+ $("#farea").readOnly=false;$("#fsave").style.display="block";}
 $("#fsave").onclick=async()=>{if(!fcur)return;
  // Verfassung ist Kiras Kern -> Sicherheits-Rueckfrage (andere Dateien speichern direkt)
  if(fcur.name==="constitution.md"&&!confirm("Kiras Verfassung ändern?\n\nGilt sofort für alle Antworten. Ein Backup wird automatisch angelegt (core/mind/history) — rückgängig machbar."))return;
- const r=await (await fetch("/api/file",{method:"POST",headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({name:fcur.name,content:$("#farea").value})})).json();
+ const url=fcur.vault?"/api/vault/file":"/api/file";
+ const body=fcur.vault?{path:fcur.name,content:$("#farea").value}:{name:fcur.name,content:$("#farea").value};
+ const r=await (await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify(body)})).json();
  $("#ftitle").textContent=fcur.label+(r.ok?" — gespeichert ✓":" — Fehler");};
 
 /* ---- Models ---- */
