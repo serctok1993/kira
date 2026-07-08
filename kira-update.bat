@@ -7,12 +7,13 @@ REM Selbst-Edits scheitert ("would be overwritten by merge").
 REM
 REM SICHER fuer deine Sachen:
 REM   - data/ und .env sind gitignored  -> git fasst sie NIE an (Gedaechtnis-DB, Secrets, Modelle).
-REM   - gedaechtnis/ und playbooks/ (deine Obsidian-Notizen) werden VOR dem Update
-REM     beiseitegelegt und DANACH wieder eingespielt -> deine Eintraege bleiben erhalten.
+REM   - gedaechtnis/ und playbooks/ (deine Obsidian-Notizen) UND deine Charakter-Dateien
+REM     (SOUL/GOAL/USER/PERSONA, im Cockpit editierbar) werden VOR dem Update beiseitegelegt
+REM     und DANACH wieder eingespielt -> deine Eintraege bleiben erhalten.
 REM   Es weichen nur lokale CODE-Aenderungen, die der Cloud-Stand ohnehin ersetzt.
 cd /d %~dp0
-echo === Sichere deine Obsidian-Notizen (gedaechtnis, playbooks) ...
-git stash push --quiet -- gedaechtnis playbooks
+echo === Sichere deine Notizen und Charakter-Dateien ...
+git stash push --quiet -- gedaechtnis playbooks core/mind/SOUL.md core/mind/GOAL.md core/mind/USER.md core/mind/PERSONA.md
 echo === Verwerfe Kiras lokale Code-Selbst-Edits ...
 git checkout --quiet -- .
 echo === Hole neuesten Cloud-Stand ...

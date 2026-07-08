@@ -171,9 +171,16 @@ async def api_autonomy_set(body: dict) -> dict:
     return {"ok": True, **d}
 
 
+# SOUL/GOAL/USER/PERSONA haben im Charakter-Tab eigene Editoren — in der Dateien-Liste
+# waren sie DOPPELT (Sergens Fund). Sie bleiben in FILES (der Charakter-Tab liest/schreibt
+# ueber /api/file), verschwinden aber aus der Listen-Ansicht. Verfassung bleibt bei Dateien.
+_CHARAKTER_FILES = {"SOUL.md", "GOAL.md", "USER.md", "PERSONA.md"}
+
+
 @app.get("/api/files")
 def api_files() -> list[dict]:
-    return [{"name": n, "label": f["label"], "editable": f["editable"]} for n, f in FILES.items()]
+    return [{"name": n, "label": f["label"], "editable": f["editable"]}
+            for n, f in FILES.items() if n not in _CHARAKTER_FILES]
 
 
 @app.get("/api/file")
