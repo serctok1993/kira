@@ -109,6 +109,9 @@ def _agent_env(allow_llm: bool = True) -> dict:
            "KIRA_DATA_DIR": str(data),
            "KIRA_TEST_MODE": "1",
            "KIRA_NO_OUTBOUND": "1",
+           # Rang-Boden: kein Schritt faellt auf reflex/lokal zurueck — im Fremd-Repo
+           # (riesige Dateien) waere das Zeitlupe und verfaelscht den Harness-Messwert.
+           "KIRA_RANK_FLOOR": "reason",
            "PYTHONPATH": str(_kira_repo())}
     env.pop("KIRA_ROOT", None)
     if allow_llm:
@@ -144,11 +147,42 @@ def _run_agent(workdir: Path, task: dict, allow_llm: bool = True, timeout: int =
                             cwd=str(_kira_repo()), env=env,
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                             stderr=subprocess.DEVNULL, text=True, bufsize=1)
+    # Lebenszeichen + harter Timeout (Sergens 'haengt er oder denkt er?'-Problem):
+    # ein Reader-Thread fuettert eine Queue; bleibt sie ~25s still, melden wir
+    # 'arbeitet noch' statt Funkstille, und nach 'timeout' wird hart abgebrochen.
+    import queue as _q
+    import threading as _th
+
+    lines: _q.Queue = _q.Queue()
+
+    def _reader() -> None:
+        try:
+            for line in proc.stdout:
+                lines.put(line.rstrip("\n"))
+        finally:
+            lines.put(None)
+
+    _th.Thread(target=_reader, daemon=True).start()
     try:
         proc.stdin.write(json.dumps(payload))
         proc.stdin.close()
-        for line in proc.stdout:
-            line = line.rstrip("\n")
+        start = time.time()
+        while True:
+            try:
+                line = lines.get(timeout=25)
+            except _q.Empty:
+                laufzeit = int(time.time() - start)
+                if laufzeit > timeout:
+                    with contextlib.suppress(Exception):
+                        proc.kill()
+                    yield {"kind": "obs", "name": "⏱ Timeout",
+                           "text": f"Aufgabe nach {laufzeit}s hart abgebrochen"}
+                    break
+                yield {"kind": "obs", "name": "⏳",
+                       "text": f"arbeitet noch ({laufzeit}s) — Modell denkt/antwortet gerade"}
+                continue
+            if line is None:
+                break
             if line.startswith("@EV "):
                 with contextlib.suppress(Exception):
                     yield json.loads(line[4:])
