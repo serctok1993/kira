@@ -215,6 +215,12 @@ def describe(etype: str, payload: dict | None) -> dict:
             return {"text": "🪞 Denkt ueber sich nach", "detail": ""}
         if t == "self_tick":
             return {"text": "🔧 Selbst-Optimierungs-Tick", "detail": _kv_fallback(p)}
+        if t == "skill_learned":
+            return {"text": "🧠 Neue Faehigkeit gelernt", "detail": str(p.get("name") or "")[:80]}
+        if t == "skill_rejected":
+            return {"text": "🛡 Skeptiker hat Skill verworfen",
+                    "detail": " · ".join(x for x in (str(p.get('name') or ''),
+                                                     str(p.get('grund') or '')[:70]) if x)}
         if t == "budget_block":
             return {"text": "💰 Budget-Bremse hat gegriffen", "detail": _kv_fallback(p)}
         if t == "heartbeat_toggle":
