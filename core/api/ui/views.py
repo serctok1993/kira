@@ -457,6 +457,11 @@ VIEWS = r"""</head><body>
         <div id="ck-tagewerk" style="margin-top:10px"><span class="muted">…</span></div>
         <div id="ck-list" style="margin-top:12px"><span class="muted">…</span></div>
       </div>
+      <div class="card"><h3>Selbstkalibrierung — wie oft musste das System nachhelfen?</h3>
+        <div class="muted">Nudge-/Fehler-/Fallback-Raten pro Modell (letzte 7 Tage, aus dem
+        Event-Log, 0 Token). Der Wochen-Report landet automatisch als Vorschlag in der Inbox.</div>
+        <div id="ck-kalib" style="margin-top:10px;font-size:12.5px;white-space:pre-wrap"><span class="muted">…</span></div>
+      </div>
     </div>
 
     <div class="subview" id="v-stats">

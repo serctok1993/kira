@@ -7,9 +7,9 @@ state.db, damit Freigaben Neustarts ueberleben und nachvollziehbar sind.
 
 Sicherheits-Kern der Autonomie: der Runner/die Tools LEGEN nur an. Bei Freigabe
 wird ausgefuehrt, was deterministisch nachziehbar ist (evolution, playbook,
-email_stranger — Payload steckt im Eintrag); money/external/publish sind reine
-Anfragen — dort muss Kira die Aktion nach dem GO erneut anstossen (steht im
-decide-Ergebnis). Reject = verworfen, mit Spur im Log.
+email_stranger, publish/bluesky — Payload steckt im Eintrag); money/external
+sind reine Anfragen — dort muss Kira die Aktion nach dem GO erneut anstossen
+(steht im decide-Ergebnis). Reject = verworfen, mit Spur im Log.
 """
 from __future__ import annotations
 
@@ -163,7 +163,17 @@ def decide(aid: str, approved: bool, note: str | None = None) -> dict:
             applied = {"email_sent": True, "result": str(r)[:200]}
         except Exception as e:  # noqa: BLE001
             applied = {"email_sent": False, "error": str(e)[:200]}
-    elif approved and entry.get("kind") in ("money", "external", "publish"):
+    if approved and entry.get("kind") == "publish":
+        # Freigegebener Post: Payload steckt im detail-JSON -> deterministisch senden.
+        try:
+            raw = (entry.get("detail") or "").split("\n\n--- RATS-URTEIL")[0].strip()
+            p = json.loads(raw)
+            if p.get("platform") == "bluesky":
+                from core.agency.connectors import bluesky
+                applied = {"posted": True, "result": str(bluesky.post(p.get("text") or ""))[:200]}
+        except Exception as e:  # noqa: BLE001
+            applied = {"posted": False, "error": str(e)[:200]}
+    elif approved and entry.get("kind") in ("money", "external"):
         # Ehrlichkeit statt stiller Luecke: diese Arten tragen KEIN deterministisches
         # Payload — die Aktion passiert durch die Freigabe allein NICHT.
         applied = {"hint": "Aktion wird nicht automatisch ausgefuehrt — Kira muss sie "

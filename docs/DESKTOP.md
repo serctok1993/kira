@@ -55,12 +55,21 @@ komplett, poppt **nicht** bei Mausberührung auf. Deine Desktop-Icons bleiben si
 
 ---
 
-## 3 · Interaktion (Chat) — kommt in Phase 4
+## 3 · Interaktion (Chat) — Phase 4: Hotkey + Push-to-Talk ✓
 
 Hinter den Icons ist die Ebene **ambient** — Windows lässt dort keine Klicks/Eingaben zu.
-Der Chat-Balken ist also zunächst nur **sichtbar**, nicht bedienbar. Die Bedienung kommt in
-**Phase 4**: ein globaler Hotkey (`Alt/⌥ + Space`) holt das echte Chatfenster nach vorne.
-Bis dahin chattest du über die **Desktop-App** (`kira-desktop.bat`) oder das Cockpit.
+Deshalb holt ein **globaler Hotkey** das echte Chatfenster nach vorne (aus jeder App heraus):
+
+- **`Alt + Space`** → Kira-Fenster nach vorn (auch wenn minimiert/versteckt).
+- **`F9` HALTEN** → Push-to-Talk: Fenster kommt hoch, Mikro läuft solange du die Taste
+  hältst; **loslassen** → Whisper transkribiert lokal und **sendet sofort** an Kira.
+- Beide Tasten sind in `config.yaml` unter `desktop.hotkey` / `desktop.ptt_key` änderbar
+  (Syntax des `keyboard`-Pakets, z.B. `"ctrl+alt+k"`).
+
+Voraussetzungen: die **Desktop-App läuft** (`kira-desktop.bat`) und die Desktop-Extras sind
+aktuell (`uv pip install -r requirements-desktop.txt` — einmalig, holt das `keyboard`-Paket).
+Hinweis: `Alt+Space` überlagert das Windows-Fenstermenü; wenn dich das stört, einfach in
+`config.yaml` eine andere Kombi eintragen.
 
 ---
 

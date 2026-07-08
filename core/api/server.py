@@ -204,6 +204,72 @@ async def api_file_save(body: dict) -> dict:
     return {"ok": True}
 
 
+# Gedaechtnis-Browser (B-024): der ganze Vault im Cockpit — nicht nur die 10 FILES.
+# Nur .md, nur unterhalb dieser Wurzeln (Traversal-Guard), Backups vor jedem Speichern.
+_VAULT_ROOTS = {"gedaechtnis": ROOT / "gedaechtnis",
+                "playbooks": ROOT / "playbooks",
+                "docs": ROOT / "docs"}
+
+
+def _vault_resolve(path: str):
+    """Pfad-Guard: nur .md-Dateien unterhalb der Vault-Wurzeln, kein ../-Ausbruch."""
+    rel = (path or "").replace("\\", "/").strip("/")
+    parts = rel.split("/", 1)
+    base = _VAULT_ROOTS.get(parts[0])
+    if not base or len(parts) < 2 or not rel.endswith(".md") or ".." in rel.split("/"):
+        return None
+    p = (base / parts[1]).resolve()
+    try:
+        p.relative_to(base.resolve())
+    except ValueError:
+        return None
+    return p
+
+
+@app.get("/api/vault")
+def api_vault() -> dict:
+    """Alle .md-Dateien des Vaults (gedaechtnis/playbooks/docs), sortiert nach Pfad."""
+    out = []
+    for key, base in _VAULT_ROOTS.items():
+        if not base.exists():
+            continue
+        for p in sorted(base.rglob("*.md")):
+            rel = f"{key}/{p.relative_to(base).as_posix()}"
+            out.append({"path": rel, "name": p.name})
+            if len(out) >= 500:  # Schutz gegen ausgeartete Vaults
+                break
+    return {"files": out}
+
+
+@app.get("/api/vault/file")
+def api_vault_file(path: str) -> dict:
+    p = _vault_resolve(path)
+    if not p:
+        return {"error": "Pfad nicht erlaubt (nur .md unter gedaechtnis/playbooks/docs)."}
+    content = p.read_text(encoding="utf-8") if p.exists() else ""
+    return {"path": path.strip("/"), "content": content, "editable": True}
+
+
+@app.post("/api/vault/file")
+async def api_vault_file_save(body: dict) -> dict:
+    from core.config import DATA_DIR
+
+    rel = str(body.get("path") or "").strip("/")
+    p = _vault_resolve(rel)
+    if not p:
+        return {"ok": False, "error": "Pfad nicht erlaubt (nur .md unter gedaechtnis/playbooks/docs)."}
+    if p.exists():  # Undo-Spur wie beim FILES-Flow, nur im Datenordner (gitignored)
+        hist = DATA_DIR / "vault_history"
+        hist.mkdir(parents=True, exist_ok=True)
+        ts = time.strftime("%Y%m%d-%H%M%S")
+        (hist / f"{rel.replace('/', '__')}.{ts}.bak").write_text(
+            p.read_text(encoding="utf-8"), encoding="utf-8")
+    p.parent.mkdir(parents=True, exist_ok=True)  # neue Blaetter (z.B. Stammbaum-Ast) erlaubt
+    p.write_text(str(body.get("content") or ""), encoding="utf-8")
+    events.emit("file_edited", {"file": rel, "via": "dashboard"})
+    return {"ok": True}
+
+
 @app.get("/api/steuer")
 def api_steuer() -> dict:
     """Steuerpult-Daten: Rang-Tafel (gesetzt vs. real laufend) + Schwarm-Regler.
@@ -232,6 +298,18 @@ def api_steuer() -> dict:
     return {"raenge": raenge,
             "schwarm_max": int(dg.get("schwarm_max", 8) or 8),
             "max_kosten_eur": _kosten_deckel()}
+
+
+@app.get("/api/kalibrierung")
+def api_kalibrierung(days: int = 7) -> dict:
+    """Selbstkalibrierung (B-025, read-only, 0 Token): Nudge-/Fehler-/Fallback-Raten
+    pro Modell aus dem Event-Log — plus der lesbare Report-Text mit Empfehlungen."""
+    from core.agency import calibration
+
+    days = max(1, min(int(days or 7), 90))
+    rep = calibration.report(days)
+    rep["text"] = calibration.render(days, rep)
+    return rep
 
 
 @app.get("/api/tagewerk")
@@ -373,7 +451,8 @@ def api_secrets() -> dict:
         "set": status,
         "pending": secrets.pending(),
         "suggested": list(_PROVIDER_KEYS.values())
-        + ["TELEGRAM_BOT_TOKEN", "BRAVE_API_KEY", "ELEVENLABS_API_KEY"],
+        + ["TELEGRAM_BOT_TOKEN", "BRAVE_API_KEY", "ELEVENLABS_API_KEY",
+           "SMTP_USER", "SMTP_PASS", "BLUESKY_HANDLE", "BLUESKY_APP_PASSWORD"],
         # Kira-Stimme: alles an einem Ort (Key + An/Aus + Stimme) fuer die Zugaenge-Karte.
         "tts": {
             "enabled": bool(tel_tts.get("enabled")),
