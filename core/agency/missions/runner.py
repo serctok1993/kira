@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -190,7 +191,34 @@ def _attempt_prompt(task: dict, criteria: list[dict], attempt: int) -> str:
                          "Quellen/Werkzeuge als zuvor. Benenne deine neue Strategie im ersten Satz.")
         else:
             parts.append("\nBehebe die Kritikpunkte gezielt.")
+    # Sergens Melde-Regel (08.07.): die Telegram-Meldung zeigt NUR diesen Block —
+    # er muss allein verstaendlich sein. Der Volltext bleibt im Cockpit.
+    parts.append("\nBeende dein Ergebnis IMMER mit dem Block 'KURZ FUER SERGEN:' — 3-5 Saetze "
+                 "in einfacher Sprache (kurze Saetze, Fachbegriffe in Klammern erklaert): "
+                 "was rausgekommen ist, was es fuer das Projekt bedeutet, was der naechste "
+                 "Schritt ist. Kein Behoerdendeutsch.")
     return "\n".join(parts)
+
+
+_KURZ_RE = re.compile(r"KURZ\s+F(?:UE|Ü)R\s+SERGEN\s*:?", re.IGNORECASE)
+
+
+def _report(desc: str, text: str, label: str = "") -> str:
+    """Telegram-Meldung fuer einen erledigten Task: Klartext-Block statt Roh-Dump.
+
+    Sergens Schmerz: 1200 rohe Zeichen, mitten im Satz abgerissen, Hochdeutsch ohne
+    Einordnung. Jetzt: NUR der 'KURZ FUER SERGEN'-Block (das Modell schreibt ihn per
+    Melde-Regel); fehlt er, ein Anriss mit sauberem Satzende. Volltext -> Cockpit."""
+    head = f"🤖 Mission-Schritt erledigt{label}:\n{desc[:180]}"
+    m = _KURZ_RE.search(text or "")
+    kurz = (text or "")[m.end():].strip().lstrip("*# \n") if m else ""
+    if kurz:
+        body = kurz[:900]
+    else:
+        body = (text or "").strip()[:700]
+        if len((text or "").strip()) > 700:  # an der Satzgrenze kappen statt mitten im Wort
+            body = (body.rsplit(". ", 1)[0] + ". […]") if ". " in body else body + " […]"
+    return f"{head}\n\n{body}\n\n📄 Volltext im Cockpit (Kira → Log)."
 
 
 def _book_playbook_results(sid: str, since_ts: float, erfolg: bool, score) -> None:
@@ -255,7 +283,7 @@ def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
         text = result["text"]
         queue.complete(full["id"], text)
         events.emit("mission_task_done", {"id": full["id"], "summary": text[:300]}, session_id=sid)
-        _notify(f"🤖 Mission-Schritt erledigt:\n{full['description']}\n\n{text[:1200]}")
+        _notify(_report(full["description"], text))
         return {"task": full["description"], "result": text}
 
     criteria = verifier.ensure_criteria(full)
@@ -307,7 +335,7 @@ def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
             events.emit("skill_loop_error", {"error": str(e)[:200]})
         _book_playbook_results(sid, t0, erfolg=True, score=out["score"])
         label = f" (Score {out['score']})" if out["score"] is not None else ""
-        _notify(f"🤖 Mission-Schritt erledigt{label}:\n{full['description']}\n\n{text[:1200]}")
+        _notify(_report(full["description"], text, label))
         return {"task": full["description"], "result": text, "score": out["score"]}
 
     if attempt <= verifier.max_quality_retries():
