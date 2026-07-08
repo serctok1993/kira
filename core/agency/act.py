@@ -16,7 +16,7 @@ import re
 from core.kernel import events, executor, llm_router
 from core.agency.tools import builtin  # noqa: F401  -> registriert die eingebauten Tools
 from core.agency.tools import registry, synthesize
-from core.mind.agent import _read, persona_text, build_system_prompt
+from core.mind.agent import _read, jetzt_zeile, persona_text, build_system_prompt
 from core.mind.memory import store as memory
 from core.config import CONFIG
 
@@ -112,6 +112,7 @@ def _identity() -> str:
     except Exception:  # noqa: BLE001
         lernen = ""
     return (
+        f"{jetzt_zeile()}\n\n"
         f"# DEINE VERFASSUNG\n{_read('constitution.md')}\n\n"
         f"# DEINE SEELE\n{_read('SOUL.md')}\n\n"
         f"# DEIN ZIEL\n{_read('GOAL.md')}\n\n"

@@ -211,6 +211,9 @@ def describe(etype: str, payload: dict | None) -> dict:
             return {"text": f"⏰ Cron gelaufen ({ok})",
                     "detail": " · ".join(x for x in (str(p.get('label') or ''),
                                                      str(p.get('summary') or '')[:80]) if x)}
+        if t == "cron_missed":
+            return {"text": "⏰ Cron verpasst — uebersprungen (PC aus?)",
+                    "detail": f"{p.get('label', '?')} · {p.get('overdue_h', '?')}h ueberfaellig"}
         if t in ("selfdev_applied", "file_edited"):
             return {"text": "🔧 Code geaendert",
                     "detail": " · ".join(x for x in (str(p.get('file') or ''),
