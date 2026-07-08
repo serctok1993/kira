@@ -112,3 +112,29 @@ def test_wall_settings_akzeptieren_ticker(tmp_path, monkeypatch):
     assert r["settings"]["ticker"] is False and r["settings"]["posy"] == "unten"
     got = c.get("/api/wall/settings").json()
     assert got["ticker"] is False and got["posy"] == "unten"
+
+
+def test_wall_settings_migration_altes_mitte_faellt(tmp_path, monkeypatch):
+    """Alt-Stand vor dem 3-Zonen-Layout (pos=mitte, kein posy) -> pos wird beim Lesen
+    fallengelassen, damit der neue Standard (rechts/oben) greift. Bewusste Wahl bleibt."""
+    import json
+    import core.api.server as s
+    from fastapi.testclient import TestClient
+    f = tmp_path / "wall_settings.json"
+    monkeypatch.setattr(s, "_WALL_FILE", f)
+    c = TestClient(s.app)
+    f.write_text(json.dumps({"pos": "mitte", "labels": True}), encoding="utf-8")
+    assert "pos" not in c.get("/api/wall/settings").json()          # altes Default -> weg
+    f.write_text(json.dumps({"pos": "links"}), encoding="utf-8")
+    assert c.get("/api/wall/settings").json()["pos"] == "links"     # bewusste Wahl bleibt
+    f.write_text(json.dumps({"pos": "mitte", "posy": "mitte"}), encoding="utf-8")
+    assert c.get("/api/wall/settings").json()["pos"] == "mitte"     # neuer Stand: unangetastet
+
+
+def test_wall_chat_verlauf_in_der_mitte():
+    from fastapi.testclient import TestClient
+    import core.api.server as s
+    html = TestClient(s.app).get("/wall").text
+    assert 'id="convo"' in html and "pushTurn" in html   # Gespraechsverlauf (rote Zone)
+    assert 'id="t-me"' not in html                       # alte Einzelzeilen ersetzt
+    assert 'maxSpan' in html                             # Graph seitlich: kompakte Baender
