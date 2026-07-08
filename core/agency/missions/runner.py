@@ -214,8 +214,18 @@ def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
     strategy = ("standard", "eskaliert", "strategiewechsel")[min(attempt, 3) - 1]
     t0 = time.time()
     # Versuch 1 auf der billigen bulk-Route (wie bisher); ab Versuch 2 hebt 'reason' an.
+    # AUSNAHME (Audit-Fund): CODE-Tasks nie auf bulk — derselbe Guard wie im
+    # interaktiven code:-Pfad (docs/CODING.md §1), sonst schreibt der 24/7-Motor
+    # Produktionscode mit dem Massen-Modell.
+    code_task = False
+    try:
+        from core.agency.act import _is_code_step
+        code_task = _is_code_step(full["description"])
+    except Exception:  # noqa: BLE001
+        pass
     result = act(_attempt_prompt(full, criteria, attempt), session_id=sid,
-                 escalate=escalate, task_type=("reason" if attempt >= 2 else "bulk"))
+                 escalate=escalate,
+                 task_type=("reason" if (attempt >= 2 or code_task) else "bulk"))
     text = result["text"]
     out = verifier.verify(full, criteria, text)
     outcomes.record(full["id"], attempt, criteria, out["checks"], out["score"], out["verdict"],
@@ -555,6 +565,12 @@ def run_forever(interval: int | None = None) -> None:
 
                     pt = _sm.snapshot()
                     events.emit("selfmetric_snapshot", pt)
+                if maintenance.maybe_run("db_backup", interval_s=7 * 86400):
+                    # Wochen-Backup der state.db (Gedaechtnis/Ziele/Ledger) — Audit-Fund:
+                    # ohne Backup waere ein Platten-Crash der einzige Totalverlust-Pfad.
+                    from core.kernel import backup as _bk
+
+                    events.emit("db_backup", _bk.backup_state_db())
                 if maintenance.maybe_run("stall_check", interval_s=86400):
                     # S6.3: festgefahrene Ziele erkennen -> Freigabe-Eintrag statt stilles Grinden.
                     from core.agency import insights as _ins2

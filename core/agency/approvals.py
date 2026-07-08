@@ -5,8 +5,11 @@ und jeder Selbst-Aenderungs-Vorschlag (SOUL/GOAL) landet hier als Eintrag mit
 Status 'pending'. Sergen entscheidet im Cockpit: approve / reject. Persistent in
 state.db, damit Freigaben Neustarts ueberleben und nachvollziehbar sind.
 
-Sicherheits-Kern der Autonomie: der Runner/die Tools LEGEN nur an — ausgefuehrt
-wird erst NACH einer Freigabe (approve). Reject = verworfen, mit Spur im Log.
+Sicherheits-Kern der Autonomie: der Runner/die Tools LEGEN nur an. Bei Freigabe
+wird ausgefuehrt, was deterministisch nachziehbar ist (evolution, playbook,
+email_stranger — Payload steckt im Eintrag); money/external/publish sind reine
+Anfragen — dort muss Kira die Aktion nach dem GO erneut anstossen (steht im
+decide-Ergebnis). Reject = verworfen, mit Spur im Log.
 """
 from __future__ import annotations
 
@@ -148,6 +151,23 @@ def decide(aid: str, approved: bool, note: str | None = None) -> dict:
             applied = playbooks.promote(entry["ref"])
         except Exception as e:  # noqa: BLE001
             applied = {"error": str(e)}
+    if approved and entry.get("kind") == "email_stranger":
+        # Audit-Fund: Freigabe war frueher ein No-Op — die Mail wurde NIE gesendet
+        # (gate.guarded verwirft die execute-Lambda). Das Payload steckt komplett im
+        # detail-JSON (mail_tools.email_send) -> hier deterministisch nachziehen.
+        try:
+            raw = (entry.get("detail") or "").split("\n\n--- RATS-URTEIL")[0].strip()
+            p = json.loads(raw)
+            from core.agency.connectors import mail
+            r = mail.send(p["to"], p["subject"], p.get("body") or "")
+            applied = {"email_sent": True, "result": str(r)[:200]}
+        except Exception as e:  # noqa: BLE001
+            applied = {"email_sent": False, "error": str(e)[:200]}
+    elif approved and entry.get("kind") in ("money", "external", "publish"):
+        # Ehrlichkeit statt stiller Luecke: diese Arten tragen KEIN deterministisches
+        # Payload — die Aktion passiert durch die Freigabe allein NICHT.
+        applied = {"hint": "Aktion wird nicht automatisch ausgefuehrt — Kira muss sie "
+                           "nach der Freigabe erneut anstossen."}
     events.emit("approval_decided", {"id": aid, "status": status, "kind": entry.get("kind"),
                                      "title": (entry.get("title") or "")[:160], "applied": bool(applied)})
     return {"ok": True, "status": status, "applied": applied}

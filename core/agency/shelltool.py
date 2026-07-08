@@ -37,6 +37,16 @@ _BLOCKED = [
     r"wmic\s+process.*\bdelete\b",                     # wmic process ... delete
     r"\bdiskpart\b", r">\s*/dev/sd",  # Datentraeger
     r"\|\s*(sh|bash|iex)\b", r"iex\s*\(",  # Pipe-to-Shell aus dem Netz
+    # --- Audit-Fund: die Shell umging ALLE Code-Schutzwaelle (write_file-Guard,
+    # constitution-Sperre, self_edit-Verify+Rollback). Quellcode wird NUR ueber die
+    # Werkzeuge geaendert (edit_datei/self_edit) — nie per Redirect/Set-Content/
+    # destruktivem Git. data/, Logs, Desktop-Dateien bleiben frei.
+    r"(>>?\s*|Set-Content\b|Out-File\b|Add-Content\b)[^|&\n]{0,120}\.(py|js|ts|ps1|bat)\b",
+    r"constitution\.md",                               # Verfassung: via Shell gar nicht anfassen
+    r"git\s+reset\s+--hard",                           # verwirft Arbeit/Selbst-Edits
+    r"git\s+checkout\s+(--\s|\.$|\.\s|-f\b)",          # Arbeitsbaum-Verwerfen
+    r"git\s+clean\s+-[a-z]*[fd]",
+    r"git\s+push\s+[^|&\n]*(--force|-f\b)",            # niemals Historie ueberschreiben
 ]
 
 
