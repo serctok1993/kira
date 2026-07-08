@@ -210,12 +210,35 @@ def balance(venture_id: str) -> float:
     return round(float(row[0]), 2)
 
 
+def archive(vid: str) -> bool:
+    """Projekt archivieren (Soft-Delete, PR Loesch-Grundausstattung): status='dead' —
+    verschwindet aus Cockpit/Standup. Ledger/Briefing/Dateien bleiben als Spur (Audit)."""
+    ok = update(vid, status="dead")
+    if ok:
+        events.emit("venture_archived", {"venture_id": vid})
+    return ok
+
+
+def delete_file(vid: str, name: str) -> bool:
+    """Eine Projekt-Datei loeschen. Nur nackte Dateinamen — kein Pfad-Ausbruch."""
+    name = (name or "").strip()
+    if not name or "/" in name or "\\" in name or name.startswith("."):
+        return False
+    p = files_dir(vid) / name
+    if not p.is_file():
+        return False
+    p.unlink()
+    events.emit("venture_file_deleted", {"venture_id": vid, "name": name})
+    return True
+
+
 def summary() -> list[dict]:
-    """Pro Venture: Einnahmen/Ausgaben/Kasse + Meilenstein-Fortschritt (fuers Cockpit/Standup)."""
+    """Pro Venture: Einnahmen/Ausgaben/Kasse + Meilenstein-Fortschritt (fuers Cockpit/Standup).
+    Archivierte (status='dead') bleiben draussen — sonst waere Archivieren wirkungslos."""
     init_ventures()
     out = []
     with _conn() as c:
-        for v in list_all(include_dead=True):
+        for v in list_all():
             row = c.execute(
                 "SELECT COALESCE(SUM(CASE direction WHEN 'in' THEN amount_eur ELSE 0 END), 0), "
                 "       COALESCE(SUM(CASE direction WHEN 'out' THEN amount_eur ELSE 0 END), 0) "

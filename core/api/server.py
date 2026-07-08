@@ -1055,6 +1055,25 @@ async def api_opportunities_convert(body: dict) -> dict:
     return await anyio.to_thread.run_sync(lambda: radar.convert(body.get("id", "")))
 
 
+@app.post("/api/opportunities/delete")
+async def api_opportunities_delete(body: dict) -> dict:
+    from core.agency import radar
+
+    return {"ok": radar.delete(body.get("id", ""))}
+
+
+@app.post("/api/opportunities/purge")
+async def api_opportunities_purge(body: dict) -> dict:
+    """Abgelehnte Ideen aelter N Tage (Default 30) aufraeumen."""
+    from core.agency import radar
+
+    try:
+        days = int(body.get("days", 30) or 30)
+    except (TypeError, ValueError):
+        days = 30
+    return {"ok": True, "purged": radar.purge_rejected(days)}
+
+
 @app.post("/api/radar/scan")
 async def api_radar_scan() -> dict:
     from core.agency import radar
@@ -1258,6 +1277,33 @@ async def api_venture_upload(id: str = Form(...), file: UploadFile = File(...)) 
     dest.write_bytes(raw)
     events.emit("venture_file_added", {"venture_id": id, "name": safe, "bytes": len(raw)})
     return {"ok": True, "files": ventures.list_files(id)}
+
+
+@app.post("/api/ventures/archive")
+async def api_venture_archive(body: dict) -> dict:
+    """Projekt archivieren (Soft-Delete: status='dead') — verschwindet aus allen Listen."""
+    from core.agency import ventures
+
+    return {"ok": ventures.archive(body.get("id", ""))}
+
+
+@app.post("/api/ventures/file-delete")
+async def api_venture_file_delete(body: dict) -> dict:
+    from core.agency import ventures
+
+    ok = ventures.delete_file(body.get("id", ""), body.get("name", ""))
+    return {"ok": ok, "files": ventures.list_files(body.get("id", "")) if ok else None}
+
+
+@app.post("/api/metrics/delete")
+async def api_metrics_delete(body: dict) -> dict:
+    """Metrik komplett entfernen (Werte + Ziel-Meta)."""
+    from core.agency.missions import metrics as _metrics
+
+    ok = _metrics.delete(body.get("name", ""))
+    if ok:
+        events.emit("metric_deleted", {"name": str(body.get("name", ""))[:60]})
+    return {"ok": ok}
 
 
 # ---------- Freigabe-Inbox + Tages-Digest (Phase 2) ----------
@@ -1535,7 +1581,9 @@ def api_evolution(limit: int = 40) -> dict:
         if len(timeline) >= limit:
             break
     skills = memory.all_skills()[:20] if hasattr(memory, "all_skills") else []
-    return {"timeline": timeline, "skills": skills, "lessons": memory.recall_lessons(8)}
+    # Lektionen MIT id (statt recall_lessons-Strings) -> das ✕ im Cockpit kann loeschen.
+    lessons = memory.all_lessons()[:8] if hasattr(memory, "all_lessons") else []
+    return {"timeline": timeline, "skills": skills, "lessons": lessons}
 
 
 _NEWS_CACHE: dict = {"ts": 0.0, "data": None}
@@ -1890,6 +1938,43 @@ def api_bench_results(limit: int = 50) -> dict:
                 except Exception:  # noqa: BLE001
                     pass
     return {"results": rows[-max(1, min(int(limit or 50), 200)):][::-1]}
+
+
+@app.post("/api/bench/delete")
+async def api_bench_delete(body: dict) -> dict:
+    """Einen Leaderboard-Eintrag loeschen (ts identifiziert die Zeile).
+    Temp-Datei + os.replace gegen Race mit einem laufenden Lauf (append)."""
+    import json as _j
+    import os as _os
+    from pathlib import Path as _P
+
+    from core import config as _c
+
+    try:
+        ts = float(body.get("ts") or 0)
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "ts fehlt"}
+    p = _P(_c.DATA_DIR) / "bench" / "results.jsonl"
+    if not ts or not p.exists():
+        return {"ok": False, "error": "nichts zu loeschen"}
+    kept, removed = [], 0
+    for line in p.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        try:
+            row = _j.loads(line)
+        except Exception:  # noqa: BLE001
+            kept.append(line)
+            continue
+        if abs(float(row.get("ts") or 0) - ts) < 0.5:
+            removed += 1
+        else:
+            kept.append(line)
+    tmp = p.with_suffix(".jsonl.tmp")
+    tmp.write_text(("\n".join(kept) + "\n") if kept else "", encoding="utf-8")
+    _os.replace(str(tmp), str(p))
+    events.emit("bench_result_deleted", {"ts": ts, "removed": removed})
+    return {"ok": removed > 0, "removed": removed}
 
 
 @app.websocket("/ws/bench")

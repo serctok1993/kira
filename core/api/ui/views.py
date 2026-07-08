@@ -225,7 +225,8 @@ VIEWS = r"""</head><body>
       <div class="panel">
         <div class="panel-h">◈ RADAR · IDEEN <span class="sp"></span>
           <a id="rd-focus-edit" class="muted" style="cursor:pointer;font-size:11px" title="Wonach soll Kira suchen?">🔧 Fokus</a>
-          <a id="rd-scan" class="muted" style="cursor:pointer;font-size:11px;margin-left:8px">⚡ scannen</a></div>
+          <a id="rd-scan" class="muted" style="cursor:pointer;font-size:11px;margin-left:8px">⚡ scannen</a>
+          <a id="rd-purge" class="muted" style="cursor:pointer;font-size:11px;margin-left:8px" title="verworfene Ideen aelter 30 Tage loeschen">🧹 aufraeumen</a></div>
         <div id="rd-focus-box" class="panel-b" style="display:none;border-bottom:1px solid var(--line)">
           <div class="muted" style="font-size:10px;letter-spacing:1px;margin-bottom:4px">WONACH KIRA SUCHT (Themen mit „;“ trennen)</div>
           <textarea id="rd-focus" class="k" style="min-height:56px;font-size:12px" placeholder="z.B. KI-Tools fuer Handwerker; Social-Media-Automatisierung fuer lokale Laeden"></textarea>
