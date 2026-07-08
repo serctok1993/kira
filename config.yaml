@@ -180,6 +180,7 @@ channels:
     allowed_chat_id: 7037806562   # Sergens Chat (nur er darf mit Kira reden)
     voice: true               # Sprachmemos lokal transkribieren
     whisper_model: base       # tiny | base | small | medium  (CPU, 0 EUR)
+    tagewerk_zeit: "21:30"    # Abend-Resuemee: Tagewerk kommt von selbst (leer = aus, 0 Token)
     # Kira spricht ZURUECK (TTS). AUS, bis du Anbieter + Key setzt. Regel: Voice rein -> Voice raus
     # (tippst du, antwortet sie mit Text). Sprache zahlt pro Zeichen -> max_chars deckelt die Credits.
     tts:
