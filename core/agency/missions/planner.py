@@ -35,7 +35,11 @@ def generate_tasks(goal: str, context: str, n: int = 3, escalate: bool = False,
         f"was schon erledigt ist. WICHTIG: jede Aufgabe ist KLEIN und ATOMAR — genau EIN "
         f"konkreter Rechercheschritt (z.B. 'Suche und lies 3 Quellen zur Nachfrage nach "
         f"Micro-SaaS X'), NICHT mehrere Themen in einer Aufgabe. Jede als eine Zeile mit '- '. "
-        f"Nur Recherche/Analyse/Reflexion."
+        f"Nur Recherche/Analyse/Reflexion.\n"
+        f"RECHERCHE-DISZIPLIN (Sergens Regel): Fallstudien/Markt-Analysen nur, wenn sie "
+        f"VIELVERSPRECHEND sind und eine konkrete Entscheidung vorbereiten — Klasse statt "
+        f"Masse, maximal EINE Fallstudie pro Planung. Jede Analyse-Aufgabe muss mit einer "
+        f"direkten Empfehlung enden, wie Sergen das konkret nutzen/umsetzen kann."
     )
     # Grind-Sparsamkeit: Task-Zerlegung braucht nicht die teure 'reason'-Stufe (pro),
     # 'bulk' (flash/lokal) genuegt fuer atomare Rechercheschritte. escalate=True hebt weiter an.

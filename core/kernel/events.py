@@ -214,6 +214,9 @@ def describe(etype: str, payload: dict | None) -> dict:
         if t == "cron_missed":
             return {"text": "⏰ Cron verpasst — uebersprungen (PC aus?)",
                     "detail": f"{p.get('label', '?')} · {p.get('overdue_h', '?')}h ueberfaellig"}
+        if t == "objective_paced":
+            return {"text": "⏳ Tagespensum fuer dieses Ziel erreicht — Rest kommt morgen",
+                    "detail": f"max {p.get('cap', '?')}/Tag · {str(p.get('task') or '')[:80]}"}
         if t in ("selfdev_applied", "file_edited"):
             return {"text": "🔧 Code geaendert",
                     "detail": " · ".join(x for x in (str(p.get('file') or ''),
