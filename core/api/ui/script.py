@@ -1192,7 +1192,23 @@ async function loadKeys(){const s=await (await fetch("/api/secrets")).json();
  const ks=Object.entries(s.set);
  $("#k-set").innerHTML=ks.length?ks.map(([k,v])=>'<span class="pill '+(v?'ok':'no')+'">'+k+(v?' ✓':' (leer)')+'</span>').join(""):'<span class=muted>(noch keine)</span>';
  const sg=$("#k-sugg");sg.innerHTML="Vorschlaege: "+s.suggested.map(n=>'<span class="pill" data-n="'+n+'">'+n+'</span>').join(" ");
- sg.querySelectorAll(".pill").forEach(p=>p.onclick=()=>{$("#k-name").value=p.dataset.n;$("#k-val").focus();});}
+ sg.querySelectorAll(".pill").forEach(p=>p.onclick=()=>{$("#k-name").value=p.dataset.n;$("#k-val").focus();});
+ loadRemote();}
+/* ---- Handy-Zugriff (PWA): Fernzugriff an/aus + Token anzeigen (nur lokal sichtbar) ---- */
+async function loadRemote(){const b=$("#remote-toggle");if(!b)return;
+ try{const r=await (await fetch("/api/remote/status")).json();
+  b.textContent=r.enabled?"Fernzugriff ausschalten":"📱 Fernzugriff aktivieren";
+  const tk=$("#remote-token"),cp=$("#remote-copy");
+  const show=r.enabled&&r.token;
+  if(tk){tk.style.display=show?"inline-block":"none";tk.textContent=show?r.token:"";}
+  if(cp)cp.style.display=show?"inline-block":"none";
+  $("#remote-hint").textContent=r.enabled?(r.local?"aktiv — Token am Handy einmal eingeben":"aktiv"):"aus — Cockpit nur an diesem PC";
+  b.onclick=async()=>{const url=r.enabled?"/api/remote/disable":"/api/remote/enable";
+   const res=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+   if(!res.ok){$("#remote-hint").textContent="Nur direkt am PC schaltbar.";return;}
+   loadRemote();};
+  if(cp)cp.onclick=async()=>{try{await navigator.clipboard.writeText(r.token||"");$("#remote-hint").textContent="Token kopiert ✓";}catch(e){}};
+ }catch(e){}}
 $("#k-save").onclick=async()=>{const name=$("#k-name").value.trim();if(!name)return;
  await fetch("/api/secrets/set",{method:"POST",headers:{"Content-Type":"application/json"},
   body:JSON.stringify({name,value:$("#k-val").value})});
@@ -1787,4 +1803,7 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden){pollFails
  apply();
  document.addEventListener("click",function(e){if(e.target&&e.target.closest&&e.target.closest("#side"))setTimeout(apply,60);});
 })();
+
+/* PWA: Service Worker registrieren -> Cockpit ist am Handy installierbar ("Zum Startbildschirm") */
+if("serviceWorker" in navigator){try{navigator.serviceWorker.register("/sw.js").catch(()=>{});}catch(e){}}
 </script></body></html>"""
