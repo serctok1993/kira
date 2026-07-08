@@ -113,7 +113,13 @@ async function loadPlaybooks(){const el=$("#pb-list");if(!el)return;try{
 }catch(e){el.innerHTML='<span class="muted">Playbooks nicht ladbar.</span>';}}
 
 /* ---- System-Checkliste (HANDBUCH-Paragraphen als Live-Ampeln) ---- */
-async function loadCheckliste(){const el=$("#ck-list");if(!el)return;try{
+async function loadCheckliste(){const el=$("#ck-list");if(!el)return;
+ try{const d=await (await fetch("/api/tagewerk")).json();const tw=$("#ck-tagewerk");
+  if(tw){const li=(t,arr)=>arr&&arr.length?('<div style="margin-top:4px"><b>'+t+':</b> '+esc(arr.join(" · "))+"</div>"):"";
+   tw.innerHTML='<div class="muted" style="font-size:12.5px">Heute: <b>'+d.tasks.done+'</b> Tasks (Ø '+(d.tasks.avg_score!=null?d.tasks.avg_score:"—")+') · <b>'+d.mails.anzahl+'</b> Mails · <b>'+d.skills.anzahl+'</b> Skills · <b>'+d.crons.anzahl+'</b> Crons · <b>'+d.selbstverbesserung.ticks+'</b> Selbst-Ticks · '+d.kosten_heute_usd.toFixed(2)+' $</div>'
+    +li("Mails an",d.mails.an)+li("Skills",d.skills.namen)+li("Crons",d.crons.labels)+li("Code-Edits",d.selbstverbesserung.code_edits);}
+ }catch(e){}
+ try{
  const [ck,ov,dg,pb]=await Promise.all([
   fetch("/api/checkliste").then(r=>r.json()),
   fetch("/api/overview").then(r=>r.json()),
@@ -472,7 +478,7 @@ function bindNewsSeed(){const s=$("#news-seed");if(!s)return;s.onclick=async()=>
   for(const f of DEFAULT_FEEDS){try{await fetch("/api/monitor/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(f)});}catch(e){}}
   s.textContent="✓ hinzugefuegt";loadNews();};}
 function bindOpsFilter(){$$("#ops-filter a").forEach(a=>a.onclick=()=>{opsFilter=a.dataset.of;$$("#ops-filter a").forEach(x=>x.classList.toggle("on",x===a));renderOps();});}
-function loadCommand(){loadHud();loadOps();loadNews();loadHome();loadDigest();bindNewsSeed();bindOpsFilter();}
+function loadCommand(){loadHud();loadOps();loadTagewerk();loadNews();loadHome();loadDigest();bindNewsSeed();bindOpsFilter();}
 
 /* ---- Projekte (S9.3): eine Uebersicht — Standbeine + Ziele/Backlog + Radar zusammen ---- */
 let _openVent=null;
@@ -564,6 +570,22 @@ async function loadInbox(){const el=$("#inbox-list");if(!el)return;
    loadInbox();loadDigest();};
   $$('#inbox-list [data-appr]').forEach(b=>b.onclick=()=>decideOnce(b,b.dataset.appr,true,"✓ Freigeben"));
   $$('#inbox-list [data-rej]').forEach(b=>b.onclick=()=>{if(!confirm("Wirklich verwerfen?"))return;decideOnce(b,b.dataset.rej,false,"✕ Verwerfen");});
+ }catch(e){}}
+/* ---- Tagewerk: was Kira HEUTE getan hat (Achievements, deterministisch aus Events) ---- */
+async function loadTagewerk(){const el=$("#tagewerk");if(!el)return;
+ try{const d=await (await fetch("/api/tagewerk")).json();
+  const row=(ico,txt)=>'<div style="display:flex;gap:8px;padding:3px 0;font-size:12.5px"><span style="min-width:18px">'+ico+'</span><span>'+txt+'</span></div>';
+  const dz=d.diagnose?new Date(d.diagnose.ts*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):null;
+  el.innerHTML=
+   row("✅","<b>"+d.tasks.done+"</b> Tasks erledigt"+(d.tasks.avg_score!=null?" (Ø "+d.tasks.avg_score+")":"")+(d.tasks.failed?' · <span style="color:var(--danger)">'+d.tasks.failed+" gescheitert</span>":""))
+  +row("✉","<b>"+d.mails.anzahl+"</b> Mails gesendet"+(d.mails.an.length?' <span class="muted">('+esc(d.mails.an.slice(0,2).join(", "))+")</span>":""))
+  +row("🧠","<b>"+d.skills.anzahl+"</b> Skills gelernt · <b>"+d.lektionen+"</b> Lektionen")
+  +row("⏰","<b>"+d.crons.anzahl+"</b> Cron-Laeufe"+(d.crons.labels.length?' <span class="muted">('+esc(d.crons.labels.slice(0,2).join(", "))+")</span>":""))
+  +row("🔧","<b>"+d.selbstverbesserung.ticks+"</b> Selbst-Optimierungen"+(d.selbstverbesserung.code_edits.length?" · "+d.selbstverbesserung.code_edits.length+" Code-Edits":""))
+  +row("🩺",d.diagnose?("Diagnose "+dz+" — "+(d.diagnose.ok?'<span style="color:var(--ok)">alles ok</span>':'<span style="color:var(--warn)">'+d.diagnose.probleme+" Punkte</span>")):'<span class="muted">heute keine Diagnose</span>')
+  +row("⏸",d.freigaben_offen?('<b style="color:var(--warn)">'+d.freigaben_offen+"</b> Freigaben warten auf dich"):'<span class="muted">keine offenen Freigaben</span>')
+  +row("💰",d.kosten_heute_usd.toFixed(2).replace(".",",")+" $ heute");
+  const g=$("#go-tagewerk");if(g)g.onclick=()=>{nav("kira");if(typeof subnav==="function")subnav("kira","checkliste");};
  }catch(e){}}
 async function loadDigest(){const el=$("#digest");if(!el)return;
  try{const d=await (await fetch("/api/digest")).json();const b=d.budget||{};
