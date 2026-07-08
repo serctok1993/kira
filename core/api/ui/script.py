@@ -1664,7 +1664,15 @@ $("#rd-focus-edit")&&($("#rd-focus-edit").onclick=async()=>{
  const show=box.style.display==="none";box.style.display=show?"block":"none";
  if(show){try{const d=await (await fetch("/api/radar/focus")).json();
   $("#rd-focus").value=(d.themes||[]).join(";\n");
-  $("#rd-focus-hint").textContent=d.default?"(noch kein eigener Fokus — Standardthemen)":"";}catch(e){}}});
+  $("#rd-focus-hint").textContent=d.default?"(noch kein eigener Fokus — Standardthemen)":"";}catch(e){}
+  try{const t=await (await fetch("/api/radar/takt")).json();
+   $("#rd-takt-tage")&&($("#rd-takt-tage").value=t.intervall_tage);
+   $("#rd-takt-ideen")&&($("#rd-takt-ideen").value=t.max_ideen);}catch(e){}}});
+$("#rd-takt-save")&&($("#rd-takt-save").onclick=async()=>{
+ const r=await (await fetch("/api/radar/takt",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({intervall_tage:parseInt($("#rd-takt-tage").value)||7,
+                       max_ideen:parseInt($("#rd-takt-ideen").value)||2})})).json();
+ $("#rd-takt-hint").textContent=r.ok?("✓ alle "+r.intervall_tage+" Tage, "+r.max_ideen+" Idee(n)"):"Fehler";});
 $("#rd-focus-save")&&($("#rd-focus-save").onclick=async()=>{
  const r=await (await fetch("/api/radar/focus",{method:"POST",headers:{"Content-Type":"application/json"},
   body:JSON.stringify({themes:$("#rd-focus").value})})).json();
