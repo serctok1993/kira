@@ -716,13 +716,18 @@ async def api_direktive_now(body: dict) -> dict:
     prompt = (body.get("prompt") or "").strip()
     if not prompt:
         return {"ok": False, "error": "leer"}
-    events.emit("direktive_now", {"prompt": prompt[:200], "via": "dashboard"})
+    # Werkbank PR 2: 'An Kira zu diesem Projekt' — venture_id schaltet die Projekt-Session
+    # ein (session venture-<id> injiziert Briefing/Kontext, siehe agent._project_block).
+    vid = str(body.get("venture_id") or "").strip()
+    sid = f"venture-{vid}" if vid else "direktive"
+    events.emit("direktive_now", {"prompt": prompt[:200], "via": "dashboard",
+                                  **({"venture_id": vid} if vid else {})})
     from core.kernel import runstate
-    runstate.enter_turn("direktive")  # aktiver Cockpit-Zug -> Neustart wartet bis danach
+    runstate.enter_turn(sid)  # aktiver Cockpit-Zug -> Neustart wartet bis danach
     try:
-        out = await anyio.to_thread.run_sync(lambda: act(prompt, session_id="direktive", escalate=bool(body.get("escalate"))))
+        out = await anyio.to_thread.run_sync(lambda: act(prompt, session_id=sid, escalate=bool(body.get("escalate"))))
     finally:
-        runstate.exit_turn("direktive")
+        runstate.exit_turn(sid)
     text = (out.get("text") or "").strip()
     try:
         import os as _os
