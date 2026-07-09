@@ -746,6 +746,30 @@ def _resuemee_due(now_struct: time.struct_time | None = None) -> bool:
         return True
 
 
+def _maybe_melde_buendel(client: httpx.Client) -> None:
+    """Missions-Buendel (Sergens Fix): alle N Stunden EIN Sammel-Post mit Einzeilern
+    statt 10 Einzelmeldungen. Details stehen im Cockpit (Log) und im Tagewerk."""
+    chat = _cfg().get("allowed_chat_id")
+    if not chat:
+        return
+    try:
+        from core.config import CONFIG as _C
+        stunden = float((_C.get("mission", {}) or {}).get("buendel_stunden", 3) or 3)
+        from core.agency.missions import melde
+
+        if not melde.faellig(stunden):
+            return
+        zeilen = melde.leeren()
+        if not zeilen:
+            return
+        _send(client, chat, "🧺 **Missions-Bündel** (" + str(len(zeilen)) + " Schritte):\n"
+              + "\n".join("• " + z for z in zeilen[-15:])
+              + "\n\nDetails: /tagewerk oder Cockpit → Kira → Puls.")
+        events.emit("melde_buendel", {"zeilen": len(zeilen)})
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _maybe_evening_resuemee(client: httpx.Client) -> None:
     """Einmal am Abend das Tagewerk pushen — Feierabend-Blick ohne Nachfragen. Raist nie."""
     chat = _cfg().get("allowed_chat_id")
@@ -1341,6 +1365,7 @@ def run() -> None:
                 break
             _push_new_approvals(client)  # jede Runde (~60s): neue Freigaben proaktiv schicken
             _maybe_evening_resuemee(client)  # einmal am Abend: Tagewerk von selbst
+            _maybe_melde_buendel(client)     # Missions-Meldungen gebuendelt statt Flut
             try:
                 resp = client.get(f"{API}/getUpdates", params={"timeout": 60, "offset": offset})
                 for update in resp.json().get("result", []):
