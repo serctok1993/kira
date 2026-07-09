@@ -1300,6 +1300,39 @@ def api_agents() -> dict:
     }
 
 
+@app.get("/api/factory/preview")
+def api_factory_preview() -> dict:
+    """Werkszustand-Vorschau: was fiele einem Reset zum Opfer (mit Anzahlen)."""
+    from core.kernel import factory
+
+    return factory.preview()
+
+
+@app.post("/api/factory/reset")
+async def api_factory_reset(body: dict) -> dict:
+    """Blanko-Handover: ausgewaehlte Kategorien auf Werkszustand (jede vorher gesichert).
+    Verlangt confirm='WERKSZUSTAND'."""
+    from core.kernel import factory
+
+    res = factory.reset(scope=body.get("scope") or [], confirm=body.get("confirm", ""))
+    if res.get("ok"):
+        events.emit("factory_reset_via", {"scope": body.get("scope"), "via": "dashboard"})
+    return res
+
+
+@app.get("/api/preflight")
+def api_preflight() -> dict:
+    """Uebergabe-Preflight: gruener Start-Blick (Modell, MCP, Wissensbasis, Abhaengigkeiten).
+    Read-only, 0 Tokens."""
+    from core.kernel import preflight
+
+    try:
+        return preflight.check()
+    except Exception as e:  # noqa: BLE001
+        return {"items": [{"label": "Preflight", "state": "blocker", "detail": str(e)[:160]}],
+                "ready": False, "blockers": 1, "todos": 0, "warns": 0}
+
+
 @app.get("/api/mcp/catalog")
 def api_mcp_catalog() -> dict:
     """Macht-Schritt 2: kuratierter MCP-Server-Katalog fuers Ein-Klick-Anlegen +
