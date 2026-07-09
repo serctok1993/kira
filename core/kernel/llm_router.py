@@ -564,12 +564,15 @@ def stream(messages, system=None, task_type="chat", session_id=None, escalate=Fa
     )
 
 
-def stream_tagged(messages, system=None, task_type="chat", session_id=None, escalate=False, reasoning=None):
+def stream_tagged(messages, system=None, task_type="chat", session_id=None, escalate=False,
+                  reasoning=None, model=None):
     """Wie stream(), aber getaggt: yields {"kind": "think"|"answer", "text": delta}.
 
     Fuer das Dashboard, das Kiras Denken live sichtbar machen soll. Lokale Modelle
     werden tokenweise getaggt; Cloud/Provider laufen ueber complete() (ein answer-Block).
-    """
+    model: optionale Direktwahl (Benchmark/Chat-Chip) — sonst entscheidet der Router.
+    Fix 09.07.: 'model' fehlte in der Signatur (Benchmark-Commit) -> UnboundLocalError,
+    JEDER lokale Chat brach mit '(Fehler: cannot access local variable model)' ab."""
     if model:
         fell_back = False
     else:
