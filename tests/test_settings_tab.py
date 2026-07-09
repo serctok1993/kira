@@ -40,3 +40,14 @@ def test_settings_bar_hat_alle_sechs():
     bar = html.split('id="settings-tabs"', 1)[1].split("</div>", 1)[0]
     for sub in ("models", "bench", "steuer", "keys", "cockpit", "wall"):
         assert f'data-s="{sub}"' in bar
+
+
+def test_settings_bar_gegen_gedaechtnis_falle():
+    """Sergens Fund 09.07.: grosser Subview (Modelle/Benchmark) quetschte die
+    Einstellungen-Leiste auf 2px — man kam nicht mehr aus dem Tab raus."""
+    from core.api.ui.css import HEAD_AND_CSS as css
+    # die Schutzregel enthaelt settings-tabs UND me-tabs
+    rule = [z for z in css.splitlines() if "flex-shrink:0;align-self:flex-start" in z]
+    assert rule and "#settings-tabs" in rule[0] and "#me-tabs" in rule[0]
+    # grosse Subviews scrollen intern statt die Leiste zu verdraengen
+    assert "#v-settings .subview.on{flex:1;min-height:0;overflow:auto" in css
