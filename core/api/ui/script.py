@@ -1684,7 +1684,7 @@ async function loadAgenten(){try{const d=await (await fetch("/api/agents")).json
   h+='<div>'+dot(okd)+(okd?'alles gesund':((dr.problems||[]).length+' Problem(e)'))+'</div>';
   if(!okd)h+='<ul style="margin:4px 0;padding-left:16px;font-size:12px;color:var(--warn)">'+(dr.problems||[]).map(p=>'<li>'+(""+p).replace(/</g,"&lt;")+'</li>').join("")+'</ul>';}
  $("#ag-infra").innerHTML=h;}catch(e){}
- loadMcp();}
+ loadMcp();loadFactory();}
 
 /* ---- Handover-Härtung B: Übergabe-Preflight — grüner Start-Blick ---- */
 const PF_ICON={ok:"✓",warn:"▲",todo:"○",blocker:"✕"};
@@ -1701,6 +1701,28 @@ async function runPreflight(){const btn=$("#pf-run"),list=$("#pf-list"),sum=$("#
  }catch(e){list.innerHTML='<span class=muted>Preflight nicht erreichbar.</span>';}
  if(btn)btn.disabled=false;}
 $("#pf-run")&&($("#pf-run").onclick=runPreflight);
+
+/* ---- Handover-Härtung C: Werkszustand / Blanko-Handover ---- */
+async function loadFactory(){const el=$("#fac-cats");if(!el)return;
+ try{const d=await (await fetch("/api/factory/preview")).json();
+  el.innerHTML=(d.categories||[]).map(c=>'<label class="memrow" style="display:block;cursor:pointer"><div class="mh">'
+   +'<input type="checkbox" data-fk="'+esc(c.key)+'"'+(c.standard?" checked":"")+' style="accent-color:var(--danger);margin-right:8px"/>'
+   +'<b>'+esc(c.label)+'</b><span class="muted" style="margin-left:8px;font-size:12px">'+esc(c.desc)+'</span>'
+   +'<span style="flex:1"></span><span class="muted">'+c.count+'</span></div></label>').join("");
+ }catch(e){el.innerHTML='<span class=muted>Vorschau nicht erreichbar.</span>';}}
+$("#fac-reset")&&($("#fac-reset").onclick=async()=>{
+ const scope=$$('#fac-cats [data-fk]').filter(x=>x.checked).map(x=>x.dataset.fk);
+ if(!scope.length){$("#fac-hint").textContent="Nichts ausgewählt.";return;}
+ const cnt=$$('#fac-cats [data-fk]').filter(x=>x.checked).map(x=>x.closest(".memrow").querySelector(".muted:last-child")).length;
+ if(!confirm("Werkszustand für: "+scope.join(", ")+"?\n\nAlles wird vorher gesichert (data/backups), aber aus Kira entfernt. Verfassung/Persona/USER.md/Zugänge bleiben.\n\nFortfahren?"))return;
+ const ok=prompt("Zur Sicherheit tippe WERKSZUSTAND ein, um zu bestätigen:");
+ if(ok!=="WERKSZUSTAND"){$("#fac-hint").textContent="Abgebrochen (Bestätigung stimmte nicht).";return;}
+ $("#fac-hint").textContent="… setze zurück";
+ const r=await (await fetch("/api/factory/reset",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({scope:scope,confirm:"WERKSZUSTAND"})})).json();
+ if(r.ok){const tot=Object.values(r.cleared||{}).reduce((a,b)=>a+(b>0?b:0),0);
+  $("#fac-hint").innerHTML='<span style="color:var(--ok)">✓ Werkszustand gesetzt — '+tot+' Einträge gesichert & entfernt</span>';
+  toast("Werkszustand gesetzt","ok");loadFactory();}
+ else $("#fac-hint").textContent="Fehler: "+(r.error||"?");});
 
 /* ---- Macht-Schritt 2: MCP-Universum — Server per Katalog/Config einstoepseln ---- */
 async function loadMcp(){const cat=$("#mcp-catalog"),list=$("#mcp-list");if(!cat||!list)return;

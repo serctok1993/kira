@@ -281,3 +281,20 @@ def delete(doc_id: str) -> bool:
         except Exception:  # noqa: BLE001
             pass
     return True
+
+
+def count_docs() -> int:
+    init_knowledge()
+    with _conn() as c:
+        return int(c.execute("SELECT COUNT(*) FROM knowledge_docs").fetchone()[0])
+
+
+def clear_all() -> int:
+    """Loescht das ganze Wissens-Archiv (Werkszustand-Reset). Gibt die Anzahl Dokumente zurueck."""
+    docs = list_docs(limit=100000)
+    for d in docs:
+        try:
+            delete(d["id"])
+        except Exception:  # noqa: BLE001
+            pass
+    return len(docs)
