@@ -166,6 +166,9 @@ mission:
     Geld zusaetzlich durch den Rat). Nichts Irreversibles ohne Freigabe. Budget + Verfassung strikt.
     Bevorzuge billige lokale Schritte; eskaliere nur, wenn das Ergebnis es rechtfertigt.
   notify_telegram: true           # AN: knappe Mission-Reports per Telegram (im Dashboard/Mission-Tab umschaltbar)
+  notify_mode: gebuendelt         # gebuendelt (Default: 1 Sammel-Post statt Flut) | sofort | aus
+                                  # Wichtiges (Gescheitertes, Geld, Selbst-Check-Probleme) kommt IMMER sofort
+  buendel_stunden: 3              # Missions-Buendel alle N Stunden (nur wenn etwas anliegt)
 
 api:
   host: 127.0.0.1
