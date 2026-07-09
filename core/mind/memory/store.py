@@ -294,6 +294,42 @@ def forget_matching(substrings: list[str], role: str | None = None) -> int:
     return deleted
 
 
+def count_by_kind(kind: str) -> int:
+    with _conn() as c:
+        return int(c.execute("SELECT COUNT(*) FROM memory WHERE kind=?", (kind,)).fetchone()[0])
+
+
+def delete_by_kind(kinds: list[str], backup: bool = True) -> dict:
+    """Loescht alle Erinnerungen bestimmter Arten (z.B. ['skill','lesson']) fuer den
+    Werkszustand-Reset. Sichert vorher zeilenweise (data/backups/). {deleted, backup}."""
+    import json
+    from pathlib import Path
+
+    from core.config import DATA_DIR
+    kinds = [k for k in (kinds or []) if k]
+    if not kinds:
+        return {"deleted": 0, "backup": ""}
+    ph = ",".join("?" * len(kinds))
+    with _conn() as c:
+        rows = c.execute(
+            f"SELECT id, ts, session_id, role, kind, text FROM memory WHERE kind IN ({ph})", kinds
+        ).fetchall()
+        backup_path = ""
+        if backup and rows:
+            bdir = Path(DATA_DIR) / "backups"
+            bdir.mkdir(parents=True, exist_ok=True)
+            backup_path = str(bdir / f"memory-{'_'.join(kinds)}-{int(time.time())}.jsonl")
+            cols = ["id", "ts", "session_id", "role", "kind", "text"]
+            with open(backup_path, "w", encoding="utf-8") as f:
+                for r in rows:
+                    f.write(json.dumps(dict(zip(cols, r)), ensure_ascii=False) + "\n")
+        c.execute(f"DELETE FROM memory WHERE kind IN ({ph})", kinds)
+        if _HAS_FTS:
+            for r in rows:
+                c.execute("DELETE FROM memory_fts WHERE mem_id=?", (r[0],))
+    return {"deleted": len(rows), "backup": backup_path}
+
+
 def recent(limit: int = 60) -> list[dict]:
     """Juengste Erinnerungen (fuer die Gedaechtnis-Verwaltung im Dashboard)."""
     with _conn() as c:
