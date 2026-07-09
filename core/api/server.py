@@ -1311,6 +1311,7 @@ def api_mcp_catalog() -> dict:
     for e in registry_bridge.CATALOG:
         sec = e.get("secret") or ""
         cat.append({**{k: e[k] for k in ("id", "label", "info", "secret")},
+                    "setup": e.get("setup", ""),
                     "secret_ready": (not sec) or bool(have.get(sec))})
     return {"catalog": cat, "status": registry_bridge.server_status()}
 
