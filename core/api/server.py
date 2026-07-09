@@ -362,8 +362,33 @@ def api_events(limit: int = 60, before: float | None = None) -> list[dict]:
 
 
 @app.get("/api/memory")
-def api_memory(limit: int = 80) -> list[dict]:
-    return memory.recent(limit)
+def api_memory(limit: int = 80, offset: int = 0, kind: str = "", q: str = "") -> list[dict]:
+    """Erinnerungen — kuratiert statt Session-Dump (Werkbank PR 5): optional serverseitig
+    nach kind ('fact'/'lesson'/'skill'/... oder Rolle 'partner'/'user') und Suchtext
+    gefiltert, mit offset fuer 'aeltere laden'. Ohne Parameter: Alt-Verhalten."""
+    limit = max(1, min(int(limit or 80), 500))
+    offset = max(0, int(offset or 0))
+    rows = memory.recent(min(limit + offset + 500, 2000))
+    kind = (kind or "").strip().lower()
+    if kind in ("partner", "user"):
+        rows = [m for m in rows if m.get("role") == kind]
+    elif kind:
+        rows = [m for m in rows if (m.get("kind") or "") == kind]
+    ql = (q or "").strip().lower()
+    if ql:
+        rows = [m for m in rows if ql in str(m.get("text") or "").lower()]
+    return rows[offset:offset + limit]
+
+
+@app.post("/api/memory/delete-batch")
+async def api_memory_delete_batch(body: dict) -> dict:
+    """Mehrfachauswahl loeschen: EIN Aufruf, EIN Confirm im UI (Sergens Kernwunsch)."""
+    ids = [str(i) for i in (body.get("ids") or []) if i][:200]
+    for mid in ids:
+        memory.delete(mid)
+    if ids:
+        events.emit("memory_deleted_batch", {"count": len(ids), "via": "dashboard"})
+    return {"ok": bool(ids), "deleted": len(ids)}
 
 
 @app.get("/api/memory/history")
