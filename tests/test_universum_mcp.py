@@ -100,9 +100,34 @@ def test_registry_unregister():
 
 def test_katalog_hat_gaengige_server():
     ids = {e["id"] for e in rb.CATALOG}
-    assert {"github", "supabase", "notion", "slack"} <= ids
+    assert {"github", "supabase", "notion", "slack", "whatsapp", "gcal"} <= ids
     for e in rb.CATALOG:                                        # jede Vorlage ist startbar
         assert e["config"].get("command")
+
+
+def test_aussenwelt_kanaele_gegated():
+    # Macht-Schritt 3: WhatsApp-Senden und Kalender-Schreiben laufen durchs Freigabe-Gate
+    wa = next(e for e in rb.CATALOG if e["id"] == "whatsapp")
+    assert wa["config"]["kinds"]["send_message"] == "external"
+    assert wa.get("setup") and "clone" in wa["setup"].lower()   # Einricht-Hinweis vorhanden
+    gc = next(e for e in rb.CATALOG if e["id"] == "gcal")
+    assert gc["config"]["kinds"]["create-event"] == "external"
+
+
+def test_arg_variablen_werden_aufgeloest(monkeypatch):
+    # $VAR in args muss aus der Umgebung (Tresor) kommen — sonst startet WhatsApp nie mit dem Repo-Pfad
+    monkeypatch.setenv("WHATSAPP_MCP_MAIN", "/home/serge/wa/src/main.ts")
+    assert rb._resolve_args(["$WHATSAPP_MCP_MAIN", "--flag", "-y"]) == [
+        "/home/serge/wa/src/main.ts", "--flag", "-y"]
+    assert rb._resolve_token("$NICHT_GESETZT") == ""            # unbekannt -> leer, kein Crash
+    assert rb._resolve_token("wortlaut") == "wortlaut"          # ohne $ unveraendert
+
+
+def test_api_katalog_zeigt_setup(monkeypatch, tmp_path):
+    _isolate(monkeypatch, tmp_path)
+    r = TestClient(s.app).get("/api/mcp/catalog").json()
+    wa = next(e for e in r["catalog"] if e["id"] == "whatsapp")
+    assert wa["setup"] and wa["secret"] == "WHATSAPP_MCP_MAIN"
 
 
 # ---------- API ----------

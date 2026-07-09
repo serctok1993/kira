@@ -1692,8 +1692,12 @@ async function loadMcp(){const cat=$("#mcp-catalog"),list=$("#mcp-list");if(!cat
   const st=d.status||{};
   cat.innerHTML=(d.catalog||[]).map(c=>{const drin=st[c.id]!=null;
    const dis=(!c.secret_ready||drin);
-   const t=drin?"schon angeschlossen":(!c.secret_ready?("Zugang fehlt: "+c.secret+" (im Tresor eintragen)"):c.info);
-   return '<button class="ghost mcp-cat" data-id="'+c.id+'" title="'+esc(t)+'"'+(dis?" disabled":"")+' style="font-size:12px">＋ '+esc(c.label)+(c.secret&&!c.secret_ready?" 🔒":"")+'</button>';}).join("");
+   const t=drin?"schon angeschlossen":(c.setup?c.setup:(!c.secret_ready?("Zugang fehlt: "+c.secret+" (im Tresor eintragen)"):c.info));
+   return '<button class="ghost mcp-cat" data-id="'+c.id+'" title="'+esc(t)+'"'+(dis?" disabled":"")+' style="font-size:12px">＋ '+esc(c.label)+(c.setup?" ⚙":(c.secret&&!c.secret_ready?" 🔒":""))+'</button>';}).join("");
+  /* Einrichtungs-Hinweise fuer Server, die eine einmalige Vorbereitung brauchen (WhatsApp/Kalender) */
+  const setups=(d.catalog||[]).filter(c=>c.setup&&st[c.id]==null);
+  const sb=$("#mcp-setups");if(sb)sb.innerHTML=setups.length?('<div class="muted" style="font-size:11px;letter-spacing:1px;margin:10px 0 4px">EINRICHTUNG</div>'
+   +setups.map(c=>'<details style="margin:2px 0"><summary style="cursor:pointer;font-size:12px">⚙ '+esc(c.label)+'</summary><div class="muted" style="font-size:12px;margin:4px 0 8px;white-space:pre-wrap">'+esc(c.setup)+'</div></details>').join("")):"";
   $$('.mcp-cat').forEach(b=>b.onclick=async()=>{b.textContent="… starte";
    const r=await (await fetch("/api/mcp/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({catalog_id:b.dataset.id})})).json();
    toast(r.ok?(r.error?("angelegt, aber: "+r.error):("✓ "+(r.tools||0)+" Werkzeuge da")):("Fehler: "+(r.error||"?")),r.ok&&!r.error?"ok":"warn");loadMcp();});
