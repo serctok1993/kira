@@ -1296,6 +1296,7 @@ async function loadSteuer(){const el=$("#st-raenge");if(!el)return;
   const st={};(d.raenge||[]).forEach(r=>st[r.rang]=r.schritte);
   set("#st-s-reflex",st.reflex);set("#st-s-arbeiter",st.arbeiter);set("#st-s-denker",st.denker);set("#st-s-richter",st.richter);
   set("#st-breite",d.schwarm_max);set("#st-kosten",d.max_kosten_eur);
+  const cu=$("#st-cu");if(cu){cu.checked=!!d.computer_use;$("#st-cu-hint").textContent=d.computer_use?"aktiv — Kira darf sehen & klicken":"aus";}
   const dl=$("#st-modelle");if(dl&&!dl.children.length){try{const c=await (await fetch("/api/model/catalog")).json();
    const cat=c.catalog||{};const all=(cat.local||[]).concat(cat.openrouter||[]).concat(cat.aimlapi||[]);
    dl.innerHTML=all.slice(0,600).map(m=>'<option value="'+(m.id||"").replace(/"/g,"&quot;")+'">').join("");}catch(e){}}
@@ -1307,6 +1308,11 @@ $("#st-regler-save")&&($("#st-regler-save").onclick=async()=>{
    ["#st-breite","agency.delegate.schwarm_max"]]){const v=n(id);if(!isNaN(v))await cfgSet(path,Math.round(v));}
  const k=n("#st-kosten");if(!isNaN(k))await cfgSet("agency.delegate.max_kosten_eur",k);
  $("#st-regler-hint").textContent="✓ live übernommen";loadSteuer();});
+$("#st-cu")&&($("#st-cu").onchange=async e=>{
+ const on=e.target.checked;
+ if(on&&!confirm("Kira erlauben, den Rechner zu steuern?\n\nSie kann dann den Bildschirm sehen und Maus/Tastatur bedienen — jedes Programm bedienen. Jede Aktion steht im Protokoll, Not-Aus stoppt sofort. Jederzeit hier wieder abschaltbar.")){e.target.checked=false;return;}
+ await cfgSet("agency.computer_use.enabled",on);
+ $("#st-cu-hint").textContent=on?"aktiv — Kira darf sehen & klicken":"aus";});
 $("#st-cmd-schwarm")&&($("#st-cmd-schwarm").onchange=e=>{$("#st-cmd-items").style.display=e.target.checked?"":"none";});
 $("#st-cmd-go")&&($("#st-cmd-go").onclick=()=>{
  const rang=$("#st-cmd-rang").value;const auftrag=($("#st-cmd-auftrag").value||"").trim().replace(/\s*\n\s*/g," ");

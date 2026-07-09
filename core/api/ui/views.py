@@ -632,6 +632,11 @@ VIEWS = r"""</head><body>
         <span class="muted" id="st-regler-hint" style="align-self:center"></span>
       </div>
     </div>
+    <div class="card"><h3>Rechner steuern — Kira sieht den Bildschirm &amp; bedient Maus/Tastatur</h3>
+      <div class="muted" style="margin-top:4px;font-size:12px">Macht-Schritt 1: damit steuert Kira jedes Programm auf dem PC — auch ohne API (Photoshop, Desktop-Apps, Legacy-Tools). Jede Aktion landet im Protokoll; Not-Aus stoppt sie sofort. <b>Standard aus</b> — bewusst freischalten.</div>
+      <label class="chip tog" id="st-cu-l" style="margin-top:10px;display:inline-flex"><input type="checkbox" id="st-cu"/> 🖥 Rechner-Steuerung erlauben</label>
+      <span class="muted" id="st-cu-hint" style="margin-left:8px"></span>
+    </div>
     <div class="card"><h3>Kommandobrücke — Auftrag direkt an die Armee</h3>
       <div class="row" style="flex-wrap:wrap;gap:10px;margin-top:6px">
         <label class="muted" style="align-self:center">Rang:</label>
