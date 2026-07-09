@@ -100,9 +100,18 @@ def test_registry_unregister():
 
 def test_katalog_hat_gaengige_server():
     ids = {e["id"] for e in rb.CATALOG}
-    assert {"github", "supabase", "notion", "slack", "whatsapp", "gcal"} <= ids
+    assert {"github", "supabase", "notion", "slack", "whatsapp", "gcal",
+            "context7", "exa"} <= ids
     for e in rb.CATALOG:                                        # jede Vorlage ist startbar
         assert e["config"].get("command")
+
+
+def test_context7_keyless_exa_braucht_key():
+    c7 = next(e for e in rb.CATALOG if e["id"] == "context7")
+    assert not c7["secret"]                                     # Doku-Server laeuft ohne Zugang
+    exa = next(e for e in rb.CATALOG if e["id"] == "exa")
+    assert exa["secret"] == "EXA_API_KEY"
+    assert exa["config"]["env"]["EXA_API_KEY"] == "$EXA_API_KEY"
 
 
 def test_aussenwelt_kanaele_gegated():
