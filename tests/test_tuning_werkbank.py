@@ -58,6 +58,10 @@ def test_record_wirft_nie(monkeypatch, tmp_path):
 
 # ---------- Synth-Generator ----------
 
+def _assistant_turns(e):
+    return [c for r, c in e["messages"] if r == "assistant"]
+
+
 def test_synth_kommt_aus_der_liven_registry():
     import core.agency.tools.builtin  # noqa: F401 — registriert die Werkzeuge
     from core.agency.tools import registry
@@ -67,14 +71,28 @@ def test_synth_kommt_aus_der_liven_registry():
     assert len(tool_ex) == len(registry.all_tools())          # je Werkzeug ein Beispiel
     # jede Werkzeug-Zeile ist echtes ACT-Protokoll und vom echten Parser lesbar
     from core.agency.act import _parse_act
-    sample = next(e for e in tool_ex if e["assistant"].startswith("ACT web_search"))
-    parsed = _parse_act(sample["assistant"])
+    sample = next(e for e in tool_ex if _assistant_turns(e)[0].startswith("ACT web_search"))
+    parsed = _parse_act(_assistant_turns(sample)[0])
     assert parsed and parsed[0] == "web_search"
 
 
-def test_synth_enthaelt_disziplin_und_ton():
+def test_synth_enthaelt_disziplin_ton_und_grundstock():
     src = {e["source"] for e in tuning.synth_examples()}
-    assert "synth_discipline" in src and "synth_persona" in src
+    assert {"synth_discipline", "synth_persona", "seed_coding", "seed_toolchain",
+            "seed_plan", "seed_approval", "seed_stil", "seed_mission"} <= src
+
+
+def test_seed_coding_lehrt_verify_nach_edit():
+    e = next(x for x in tuning.synth_examples() if x["source"] == "seed_coding")
+    roles = [r for r, _ in e["messages"]]
+    assert "tool" in roles                                     # mehrstufig mit Beobachtung
+    assert any("pytest" in c or "run_command" in c for _, c in e["messages"])  # verifiziert
+
+
+def test_seed_mission_kennt_sergens_werte():
+    e = next(x for x in tuning.synth_examples() if x["source"] == "seed_mission")
+    txt = " ".join(_assistant_turns(e)).lower()
+    assert "unabhängig" in txt or "wirkung" in txt            # Identitaet/Werte drin
 
 
 # ---------- Export ----------
@@ -88,7 +106,9 @@ def test_export_ist_gueltiges_chatml(monkeypatch, tmp_path):
     assert len(lines) == res["count"]
     for row in lines:
         roles = [m["role"] for m in row["messages"]]
-        assert roles == ["system", "user", "assistant"]       # sauberes ChatML-Tripel
+        assert roles[0] == "system"                            # startet mit System
+        assert roles[-1] == "assistant"                        # endet mit Kiras Antwort (Trainingsziel)
+        assert set(roles) <= {"system", "user", "assistant"}   # gueltige ChatML-Rollen (tool -> user)
 
 
 def test_export_ohne_episoden(monkeypatch, tmp_path):
