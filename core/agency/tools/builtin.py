@@ -713,3 +713,5 @@ from core.agency.tools import playbook_tools  # noqa: E402,F401
 from core.agency.tools import delegate_tools  # noqa: E402,F401
 # Coding-Grundausstattung: code_suche/datei_finden/edit_datei (suchen -> chirurgisch editieren -> verifizieren).
 from core.agency.tools import code_tools  # noqa: E402,F401
+# Widget-System (Werkbank PR 8): Cockpit-Kacheln per Config einblenden, nie Code.
+from core.agency.tools import widget_tools  # noqa: E402,F401
