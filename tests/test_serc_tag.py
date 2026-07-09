@@ -28,7 +28,8 @@ def test_tag_subtab_markup():
 def test_tag_loader_registriert():
     # Registry: Tag ist Start-Subtab und hat einen Loader
     assert 'me:      {bar:"#me-tabs", cur:"tag"' in SCRIPT
-    assert "tag:()=>loadTag()" in SCRIPT
+    # seit Werkbank PR 8 laedt der Tag auch seine Widgets mit
+    assert "tag:()=>{loadTag();loadWidgets(" in SCRIPT
     # Loader zieht NUR vorhandene Endpunkte (jede Zahl lebt an ihrem Ort)
     fn = SCRIPT.split("async function loadTag()", 1)[1].split("async function loadMeCrons", 1)[0]
     for api in ('"/api/life/board"', '"/api/digest"', '"/api/cron"'):

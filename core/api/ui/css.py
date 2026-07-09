@@ -358,6 +358,10 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
 .seg a{padding:5px 10px;color:var(--muted);cursor:pointer;border-right:1px solid var(--line)}
 .seg a:last-child{border-right:none}
 .seg a.on{background:color-mix(in srgb,var(--hud) 14%,transparent);color:var(--hud)}
+/* Werkbank PR 8: Widget-Slots — leere Slots kollabieren, gefuellte werden ein Kachel-Raster */
+.wslot{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+.wslot:empty{display:none}
+.wslot .panel{margin:0}
 /* Werkbank PR 7: Freigaben-Badge am Serc-Eintrag in der Sidebar */
 .frei-badge{margin-left:6px;background:var(--warn);color:#000;border-radius:9px;font-size:10px;padding:0 6px;font-weight:700;line-height:16px;display:inline-block}
 /* S11: Serc- & Kira-Subtableiste komplett lila mit weisser Schrift; Aktiv = schwarz mit lilaner Schrift */

@@ -51,7 +51,7 @@ const SUBTABS={
            loaders:{models:()=>loadModels(),bench:()=>loadBench(),steuer:()=>loadSteuer(),
                     keys:()=>loadKeys(),cockpit:()=>loadDesktop(),wall:()=>loadWallEditor()}},
  me:      {bar:"#me-tabs", cur:"tag",   /* Werkbank PR 7: erster Blick = DEIN Tag */
-           loaders:{tag:()=>loadTag(),todos:()=>loadLeben(),freigaben:()=>{loadInbox();loadTodoSecrets();},
+           loaders:{tag:()=>{loadTag();loadWidgets("serc","#widgets-serc");},todos:()=>loadLeben(),freigaben:()=>{loadInbox();loadTodoSecrets();},
                     routinen:()=>loadMeCrons(),post:()=>{},metriken:()=>loadZiele()}}};
 const _SETTINGS_SUBS=["models","bench","steuer","keys","cockpit","wall"];
 
@@ -195,6 +195,49 @@ async function meTodoAdd(){const i=$("#me-todo-in");const t=(i.value||"").trim()
  i.value="";toast("notiert","ok");loadLeben();}
 $("#me-todo-add")&&($("#me-todo-add").onclick=meTodoAdd);
 $("#me-todo-in")&&($("#me-todo-in").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();meTodoAdd();}}));
+/* ---- Widget-System (Werkbank PR 8): Kira liefert CONFIG (data/widgets/*.json), nie Code.
+   Drei feste, sichere Renderer (metric/chart/list) — alles esc()-gesichert, list-Widgets
+   duerfen NUR whitelisted Endpunkte lesen (Server prueft dieselbe Liste nochmal). ---- */
+const W_ENDPOINTS=["/api/digest","/api/tagewerk","/api/status","/api/evolution"];
+async function loadWidgets(slot,sel){const box=$(sel);if(!box)return;try{
+ const d=await (await fetch("/api/widgets")).json();
+ const ws=(d.widgets||[]).filter(w=>w.slot===slot).slice(0,8);
+ if(!ws.length){box.innerHTML="";return;}
+ const parts=await Promise.all(ws.map(w=>renderWidget(w).catch(()=>"")));
+ box.innerHTML=parts.filter(Boolean).join("");
+ box.querySelectorAll("[data-wdel]").forEach(a=>a.onclick=async()=>{
+  if(!confirm('Widget "'+a.dataset.wdel+'" entfernen?'))return;
+  await fetch("/api/widgets/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.wdel})});
+  loadWidgets(slot,sel);});
+}catch(e){}}
+async function renderWidget(w){
+ const head='<div class="panel-h">◈ '+esc(w.title||w.id)
+  +(w.demo?' <span class="muted" style="font-size:10px">Demo</span>':'')
+  +'<span class="sp"></span><a data-wdel="'+esc(w.id)+'" class="muted" style="cursor:pointer;font-size:10px" title="Widget entfernen">&#10005;</a></div>';
+ if(w.type==="metric"||w.type==="chart"){
+  const m=await (await fetch("/api/metrics?name="+encodeURIComponent(w.metric||"")+"&days="+((+w.days||30)))).json();
+  const se=m.series||[];
+  if(w.type==="metric"){
+   const last=se.length?se[se.length-1].value:null;
+   return '<div class="panel wgt">'+head+'<div class="panel-b" style="display:flex;align-items:center;gap:10px">'
+    +spark(se)+'<b style="font-size:20px">'+(last==null?"&mdash;":esc(""+last))+'</b>'
+    +(last==null?'<span class="muted" style="font-size:11px">noch keine Daten — sag: „Kira, tracke '+esc(w.metric||"")+'“</span>':'')
+    +'</div></div>';}
+  if(!se.length)return "";
+  const vs=se.slice(-31).map(p=>+p.value||0),mx=Math.max.apply(null,vs.concat([1]));
+  return '<div class="panel wgt">'+head+'<div class="panel-b" style="display:flex;align-items:flex-end;gap:2px;height:64px">'
+   +vs.map(v=>'<i style="flex:1;background:var(--hud);opacity:.75;border-radius:2px 2px 0 0;height:'+Math.max(4,Math.round(v/mx*56))+'px"></i>').join("")
+   +'</div></div>';}
+ if(w.type==="list"&&W_ENDPOINTS.includes(w.endpoint)){
+  const d=await (await fetch(w.endpoint)).json();
+  const arr=Array.isArray(d[w.key])?d[w.key]:[];
+  if(!arr.length)return "";
+  return '<div class="panel wgt">'+head+'<div class="panel-b">'
+   +arr.slice(0,+w.limit||5).map(x=>'<div class="memrow" style="font-size:12.5px">'
+     +esc((typeof x==="string"?x:JSON.stringify(x)).slice(0,160))+'</div>').join("")
+   +'</div></div>';}
+ return "";}
+
 /* ---- Serc "Tag" (Werkbank PR 7): dein Erst-Blick — heute faellig, heute erledigt,
    Routinen des Tages, Freigaben-Zaehler + Kiras Kurz-Digest. Nur vorhandene
    Endpunkte (life/board, digest, cron) — jede Zahl lebt weiter an ihrem Ort. ---- */
@@ -546,13 +589,13 @@ function bindNewsSeed(){const s=$("#news-seed");if(!s)return;s.onclick=async()=>
   for(const f of DEFAULT_FEEDS){try{await fetch("/api/monitor/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(f)});}catch(e){}}
   s.textContent="✓ hinzugefuegt";loadNews();};}
 function bindOpsFilter(){$$("#ops-filter a").forEach(a=>a.onclick=()=>{opsFilter=a.dataset.of;$$("#ops-filter a").forEach(x=>x.classList.toggle("on",x===a));renderOps();});}
-function loadCommand(){loadHud();loadOps();loadTagewerk();loadNews();loadHome();loadDigest();bindNewsSeed();bindOpsFilter();}
+function loadCommand(){loadHud();loadOps();loadTagewerk();loadNews();loadHome();loadDigest();bindNewsSeed();bindOpsFilter();loadWidgets("zentrale","#widgets-home");}
 
 /* ---- Projekte (S9.3): eine Uebersicht — Standbeine + Ziele/Backlog + Radar zusammen ---- */
 let _openVent=null;
 function closeVent(){const vd=$("#vent-detail");if(vd)vd.style.display="none";
  const pv=$("#v-projekte");if(pv)pv.classList.remove("drill");_openVent=null;}
-function loadProjekte(){closeVent();loadVentures();loadMission();loadRadar();}
+function loadProjekte(){closeVent();loadVentures();loadMission();loadRadar();loadWidgets("projekt","#widgets-projekt");}
 
 /* ---- Mission-Workspace (Ziele + To-Do-Board) ---- */
 const KIND_LABEL={big:"BIG",monthly:"MONAT",weekly:"WOCHE"};

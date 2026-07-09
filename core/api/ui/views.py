@@ -119,6 +119,9 @@ VIEWS = r"""</head><body>
           <div id="digest" class="panel-b" style="border-top:1px solid var(--line)"><span class="muted">…</span></div>
           <div id="z-lektionen" class="panel-b" style="display:none;border-top:1px solid var(--line)"></div>
         </div>
+        <!-- Widget-System (Werkbank PR 8): Kacheln, die Kira per Config einblendet -->
+        <div id="widgets-home" class="wslot">
+        </div>
         <div class="panel" id="z-ziele-panel" style="display:none">
           <div class="panel-h">◈ Kennzahlen <span class="sp"></span><a id="go-ziele" class="muted" style="cursor:pointer;font-size:10px">→ Ziele</a></div>
           <div id="z-ziele" class="panel-b"></div>
@@ -244,6 +247,7 @@ VIEWS = r"""</head><body>
         </div>
         <div id="rd-list" class="panel-b"><span class="muted" id="rd-hint">Ideen kommen im eingestellten Takt (🔧 Fokus). „→ Projekt“ macht aus einer Idee ein Projekt.</span></div>
       </div>
+      <div id="widgets-projekt" class="wslot"></div>
     </div>
   </div>
 
@@ -272,6 +276,7 @@ VIEWS = r"""</head><body>
         <div class="panel"><div class="panel-h">◈ KIRA HEUTE <span class="sp"></span><a id="tag-go-puls" class="muted" style="cursor:pointer;font-size:10px">→ Kira · Puls</a></div>
           <div id="tag-digest" class="panel-b"><span class="muted">…</span></div></div>
       </div>
+      <div id="widgets-serc" class="wslot" style="margin-top:12px"></div>
     </div>
 
     <div class="subview" id="v-todos">
