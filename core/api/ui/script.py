@@ -50,8 +50,8 @@ const SUBTABS={
  settings:{bar:"#settings-tabs", cur:"models",
            loaders:{models:()=>loadModels(),bench:()=>loadBench(),steuer:()=>loadSteuer(),
                     keys:()=>loadKeys(),cockpit:()=>loadDesktop(),wall:()=>loadWallEditor()}},
- me:      {bar:"#me-tabs", cur:"todos",
-           loaders:{todos:()=>loadLeben(),freigaben:()=>{loadInbox();loadTodoSecrets();},
+ me:      {bar:"#me-tabs", cur:"tag",   /* Werkbank PR 7: erster Blick = DEIN Tag */
+           loaders:{tag:()=>loadTag(),todos:()=>loadLeben(),freigaben:()=>{loadInbox();loadTodoSecrets();},
                     routinen:()=>loadMeCrons(),post:()=>{},metriken:()=>loadZiele()}}};
 const _SETTINGS_SUBS=["models","bench","steuer","keys","cockpit","wall"];
 
@@ -195,6 +195,45 @@ async function meTodoAdd(){const i=$("#me-todo-in");const t=(i.value||"").trim()
  i.value="";toast("notiert","ok");loadLeben();}
 $("#me-todo-add")&&($("#me-todo-add").onclick=meTodoAdd);
 $("#me-todo-in")&&($("#me-todo-in").addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();meTodoAdd();}}));
+/* ---- Serc "Tag" (Werkbank PR 7): dein Erst-Blick — heute faellig, heute erledigt,
+   Routinen des Tages, Freigaben-Zaehler + Kiras Kurz-Digest. Nur vorhandene
+   Endpunkte (life/board, digest, cron) — jede Zahl lebt weiter an ihrem Ort. ---- */
+async function loadTag(){const el=$("#tag-heute");if(!el)return;try{
+ const [lb,dg,cr]=await Promise.all([
+  fetch("/api/life/board").then(r=>r.json()).catch(()=>({})),
+  fetch("/api/digest").then(r=>r.json()).catch(()=>null),
+  fetch("/api/cron").then(r=>r.json()).catch(()=>({}))]);
+ const b=(lb&&lb.board)||{};
+ const t0=new Date();t0.setHours(0,0,0,0);const start=t0.getTime()/1000;
+ const row=t=>{const due=t.due_date?(' <span class="muted">&#9200;'+esc(t.due_date)+'</span>'):'';
+  const act=t.status==="pending"?' <a data-tgdone="'+esc(t.id)+'" style="cursor:pointer;color:var(--ok)" title="abhaken">&#10003;</a>':'';
+  return '<div class="op" style="border-radius:8px;margin-bottom:3px"><span class="od"></span><span class="opx">'+esc((t.description||"").slice(0,150))+due+'</span>'+act+'</div>';};
+ const heute=(b.running||[]).concat(b.today||[]);
+ const rest=(b.week||[]).length+(b.later||[]).length;
+ el.innerHTML=(heute.length?heute.map(row).join(""):'<div class="emptybox">Heute ist nichts faellig.<br>Neues kommt unter ✅ Todos rein.</div>')
+  +(rest?'<div class="muted" style="font-size:11px;margin-top:6px">+ '+rest+' weitere offen → ✅ Todos</div>':'');
+ $$('#tag-heute [data-tgdone]').forEach(a=>a.onclick=async()=>{
+  await fetch("/api/mission/task/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.tgdone,status:"done"})});
+  toast("abgehakt","ok");loadTag();});
+ const doneToday=(b.done||[]).filter(t=>t.status==="done"&&(t.updated_ts||t.ts||0)>=start);
+ const de=$("#tag-done");if(de)de.innerHTML=doneToday.length
+  ?doneToday.map(t=>'<div class="memrow" style="font-size:12.5px"><span style="color:var(--ok)">&#10003;</span> '+esc((t.description||"").slice(0,150))+'</div>').join("")
+  :'<div class="emptybox">Heute noch nichts abgehakt.</div>';
+ const end=start+86400;
+ const jobs=((cr&&cr.jobs)||[]).filter(j=>(j.scope||"system")==="me"&&j.enabled&&j.next_run&&j.next_run<end);
+ const re=$("#tag-routinen");if(re)re.innerHTML=jobs.length
+  ?jobs.map(j=>'<div class="memrow" style="font-size:12.5px"><b>'+new Date(j.next_run*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})+'</b> '+esc(j.label||"")+'</div>').join("")
+  :'<div class="emptybox">Heute keine Routinen mehr.<br>Anlegen unter ⏰ Routinen.</div>';
+ const fr=$("#tag-frei");if(fr){const n=(dg&&dg.pending_approvals)|0;
+  fr.innerHTML=n?('<a style="cursor:pointer;color:var(--warn)">🔔 '+n+' Freigabe'+(n>1?'n':'')+' offen</a>'):'';
+  const fa=fr.querySelector("a");if(fa)fa.onclick=()=>subnav("me","freigaben");}
+ const di=$("#tag-digest");if(di)di.innerHTML=dg
+  ?('<div style="font-size:13px"><b>'+(dg.tasks_done_count||0)+'</b> Schritte erledigt · <b>'+(dg.planned||0)+'</b> geplant'
+    +(dg.errors?(' · <b style="color:var(--warn)">'+dg.errors+'</b> Fehler'):'')
+    +' · '+(+dg.spend_usd||0).toFixed(2)+' $</div>')
+  :'<span class="muted">Digest nicht ladbar.</span>';
+}catch(e){el.innerHTML='<span class="muted">Tag nicht ladbar.</span>';}}
+$("#tag-go-puls")&&($("#tag-go-puls").onclick=()=>nav("kira"));
 async function loadMeCrons(){const el=$("#me-crons");if(!el)return;try{
  const d=await (await fetch("/api/cron")).json();
  const mine=(d.jobs||[]).filter(j=>(j.scope||"system")==="me");
@@ -638,6 +677,7 @@ async function refreshStatus(){let s;try{s=await J("/api/status");}catch(e){retu
  const k=$("#kill"); k.classList.toggle("active",s.kill_switch);
  k.textContent="Not-Aus: "+(s.kill_switch?"AKTIV":"aus");
  $("#b-kill").innerHTML=s.kill_switch?'<b style="color:var(--danger)">⛔ NOT-AUS</b>':'';
+ const fb=$("#side-frei");if(fb){const n=s.freigaben_offen|0;fb.textContent=n||"";fb.style.display=n?"":"none";}
  return s;}
 $("#kill").onclick=async()=>{const on=!$("#kill").classList.contains("active");
  await fetch("/api/kill",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({on})});refreshStatus();};

@@ -113,7 +113,18 @@ def api_status() -> dict:
             ("turn_timeout", "llm_call_timeout", "service_crash", "act_degraded"),
             time.time() - 7 * 86400),
         "lessons": memory.recall_lessons(8),
+        "freigaben_offen": _freigaben_offen(),   # Serc-Badge in der Sidebar (Werkbank PR 7)
     }
+
+
+def _freigaben_offen() -> int:
+    """Offene Freigaben (Inbox + Vorschlaege) — fuer den Sidebar-Badge, raist nie."""
+    try:
+        from core.agency import approvals
+        approvals.init_approvals()
+        return len(approvals.pending()) + len(_pending_proposals())
+    except Exception:  # noqa: BLE001
+        return 0
 
 
 @app.get("/api/overview")

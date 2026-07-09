@@ -20,7 +20,7 @@ VIEWS = r"""</head><body>
   <a data-v="home" class="on" title="Kommandostand: Status, Befehl, Live-Ops, Digest"><i class="ti">◈</i> Zentrale</a>
   <a data-v="chat" title="Mit mir reden"><i class="ti">›</i> Chat</a>
   <a data-v="projekte" title="Projekte, Ziele, Radar-Chancen"><i class="ti">◈</i> Projekte</a>
-  <a data-v="me" title="Dein Bereich: Todos, Freigaben, was Kira von dir braucht, deine Routinen"><i class="ti">☰</i> Serc</a>
+  <a data-v="me" title="Dein Bereich: Todos, Freigaben, was Kira von dir braucht, deine Routinen"><i class="ti">☰</i> Serc <b id="side-frei" class="frei-badge" style="display:none"></b></a>
   <a data-v="kira" title="Wer ich bin: Seele, Gedaechtnis, Wissen, Gewissen, Automatik, Lernen"><i class="ti">✦</i> Kira</a>
   <a data-v="settings" title="Einstellungen: Modelle, Benchmark, Steuerpult, Zugaenge, Cockpit, Wallpaper"><i class="ti">⚙</i> Einstellungen</a>
   <div class="spacer"></div>
@@ -250,10 +250,31 @@ VIEWS = r"""</head><body>
   <!-- ================= ME (dein Bereich) ================= -->
   <div class="view" id="v-me">
     <div class="seg" id="me-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="todos" class="on">✅ Todos</a><a data-s="freigaben">🔔 Freigaben</a><a data-s="routinen">⏰ Routinen</a><a data-s="post">✉ Post</a><a data-s="metriken">🎯 Ziele</a>
+      <a data-s="tag" class="on">☀ Tag</a><a data-s="todos">✅ Todos</a><a data-s="freigaben">🔔 Freigaben</a><a data-s="routinen">⏰ Routinen</a><a data-s="post">✉ Post</a><a data-s="metriken">🎯 Ziele</a>
     </div>
 
-    <div class="subview on" id="v-todos">
+    <!-- Werkbank PR 7: Serc "Tag" — DEIN Erst-Blick (Kiras Erst-Blick ist der Puls).
+         Heute faellig + heute erledigt + Routinen des Tages + Freigaben-Zaehler. -->
+    <div class="subview on" id="v-tag">
+      <div class="me-grid2">
+        <div class="panel me-grow">
+          <div class="panel-h">◈ HEUTE DRAN <span class="sp"></span><span id="tag-frei" style="font-size:11px"></span></div>
+          <div id="tag-heute" class="panel-b me-scroll"><span class="muted">…</span></div>
+        </div>
+        <div class="panel me-grow">
+          <div class="panel-h">◈ HEUTE ERLEDIGT</div>
+          <div id="tag-done" class="panel-b me-scroll"><span class="muted">…</span></div>
+        </div>
+      </div>
+      <div class="me-grid2" style="margin-top:12px">
+        <div class="panel"><div class="panel-h">◈ ROUTINEN HEUTE</div>
+          <div id="tag-routinen" class="panel-b me-scroll" style="max-height:26vh"><span class="muted">…</span></div></div>
+        <div class="panel"><div class="panel-h">◈ KIRA HEUTE <span class="sp"></span><a id="tag-go-puls" class="muted" style="cursor:pointer;font-size:10px">→ Kira · Puls</a></div>
+          <div id="tag-digest" class="panel-b"><span class="muted">…</span></div></div>
+      </div>
+    </div>
+
+    <div class="subview" id="v-todos">
       <div class="me-grid2">
         <div class="panel me-grow">
           <div class="panel-h">◈ AN KIRA — deine Auftraege</div>

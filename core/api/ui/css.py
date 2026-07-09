@@ -358,6 +358,8 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
 .seg a{padding:5px 10px;color:var(--muted);cursor:pointer;border-right:1px solid var(--line)}
 .seg a:last-child{border-right:none}
 .seg a.on{background:color-mix(in srgb,var(--hud) 14%,transparent);color:var(--hud)}
+/* Werkbank PR 7: Freigaben-Badge am Serc-Eintrag in der Sidebar */
+.frei-badge{margin-left:6px;background:var(--warn);color:#000;border-radius:9px;font-size:10px;padding:0 6px;font-weight:700;line-height:16px;display:inline-block}
 /* S11: Serc- & Kira-Subtableiste komplett lila mit weisser Schrift; Aktiv = schwarz mit lilaner Schrift */
 #me-tabs,#kira-groups{background:var(--accent);border-color:var(--accent)}
 #me-tabs a,#kira-groups a{color:#fff;border-right-color:color-mix(in srgb,#fff 28%,transparent)}
