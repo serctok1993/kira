@@ -86,6 +86,9 @@ VIEWS = r"""</head><body>
       <div class="ticker" id="news-ticker" style="flex:1;min-width:0"><span>… Intel wird geladen …</span></div>
       <a id="news-seed" class="muted" style="cursor:pointer;font-size:10px;white-space:nowrap">+ Quellen</a>
     </div>
+    <!-- Feedback 09.07.: die Luecke neben dem Befehl gehoert den Widgets (Kira blendet
+         hier per widget_add Kacheln ein — Follower, Kennzahlen, Listen) -->
+    <div class="dir-row">
     <div class="direktive">
       <h3>Befehl an Kira</h3>
       <textarea id="dir-text" class="k" placeholder="Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…"></textarea>
@@ -101,6 +104,8 @@ VIEWS = r"""</head><body>
         <span class="muted" id="dir-hint" style="align-self:center"></span>
       </div>
       <div id="dir-result" style="margin-top:8px;white-space:pre-wrap;display:none;border-top:1px solid var(--line);padding-top:8px"></div>
+    </div>
+    <div id="widgets-home" class="wslot"></div>
     </div>
     <div class="cmd-grid">
       <div class="cmd-main">
@@ -118,9 +123,6 @@ VIEWS = r"""</head><body>
           <div id="tagewerk" class="panel-b"><span class="muted">…</span></div>
           <div id="digest" class="panel-b" style="border-top:1px solid var(--line)"><span class="muted">…</span></div>
           <div id="z-lektionen" class="panel-b" style="display:none;border-top:1px solid var(--line)"></div>
-        </div>
-        <!-- Widget-System (Werkbank PR 8): Kacheln, die Kira per Config einblendet -->
-        <div id="widgets-home" class="wslot">
         </div>
         <div class="panel" id="z-ziele-panel" style="display:none">
           <div class="panel-h">◈ Kennzahlen <span class="sp"></span><a id="go-ziele" class="muted" style="cursor:pointer;font-size:10px">→ Ziele</a></div>
@@ -429,7 +431,9 @@ VIEWS = r"""</head><body>
       </div>
       <div class="muted" style="margin:6px 0 8px;max-width:980px">Was Kira sich merkt — 🧠 = sie selbst, 👤 = du. ✎ bearbeiten, ✕ loeschen. (Verfassung/Seele/Ziel sind Dateien und bleiben unberuehrt.)</div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:4px 0 12px;max-width:980px">
-        <span class="seg" id="mem-filter"><a data-mf="all" class="on">alle</a><a data-mf="partner">🧠 Kira</a><a data-mf="user">👤 Du</a><a data-mf="fact">facts</a><a data-mf="lesson">lessons</a><a data-mf="skill">skills</a></span>
+        <!-- Gedaechtnis-Diaet (Sergens Fund): Standard = nur bewusst Gemerktes; der rohe
+             Chat-Verlauf liegt hinter 'chat' und flutet die Liste nicht mehr -->
+        <span class="seg" id="mem-filter"><a data-mf="wichtig" class="on">★ wichtig</a><a data-mf="fact">Fakten</a><a data-mf="lesson">Lektionen</a><a data-mf="skill">Skills</a><a data-mf="episodic">chat</a><a data-mf="partner">🧠 Kira</a><a data-mf="user">👤 Du</a><a data-mf="all">alles</a></span>
         <input id="mem-search" placeholder="🔍 suchen…" style="flex:1;min-width:150px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);outline:none"/>
       </div>
       <div id="mem-selbar" style="display:none;gap:10px;align-items:center;margin:0 0 10px;max-width:980px;
