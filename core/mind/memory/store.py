@@ -99,6 +99,20 @@ def remember(
     return mid
 
 
+def find_duplicate(text: str, kind: str = "fact") -> str | None:
+    """Gibt die id eines textgleichen Eintrags zurueck (case-/whitespace-tolerant) —
+    damit remember_fact denselben Fakt nicht zehnmal ansammelt (Sergens Fund 09.07.)."""
+    norm = " ".join((text or "").split()).lower()
+    if not norm:
+        return None
+    with _conn() as c:
+        rows = c.execute("SELECT id, text FROM memory WHERE kind=?", (kind,)).fetchall()
+    for mid, t in rows:
+        if " ".join((t or "").split()).lower() == norm:
+            return mid
+    return None
+
+
 def _fts_query(query: str) -> str:
     tokens = [t for t in re.findall(r"\w+", query.lower(), flags=re.UNICODE) if len(t) > 2]
     return " OR ".join(f'"{t}"' for t in tokens[:12])

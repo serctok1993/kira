@@ -81,7 +81,9 @@ WAS LIEF GUT:
 - ...
 WAS LIEF SCHLECHT:
 - ...
-LEKTIONEN (konkret, umsetzbar, je eine Zeile, hoechstens 3):
+LEKTIONEN (hoechstens 3): je EIN vollstaendiger Satz Klartext, den Sergen ohne Kontext
+versteht — WAS gelernt wurde und WIE es kuenftig angewendet wird. Keine Stichworte,
+keine Insider-Abkuerzungen, nicht mitten im Satz enden:
 - ...
 """
     res = llm_router.complete(
@@ -110,7 +112,9 @@ Was ich getan habe (Schritte und Ergebnisse):
 
 Reflektiere kurz und ehrlich als mein innerer kritischer Beobachter. Halte dich an dieses Format:
 
-LEKTIONEN (konkret, umsetzbar fuer kuenftige aehnliche Aufgaben, je eine Zeile, hoechstens 3):
+LEKTIONEN (hoechstens 3): je EIN vollstaendiger Satz Klartext, den Sergen ohne Kontext
+versteht — WAS gelernt wurde und WIE es bei kuenftigen aehnlichen Aufgaben angewendet wird.
+Keine Stichworte, nicht mitten im Satz enden:
 - ..."""
     res = llm_router.complete(
         [{"role": "user", "content": prompt}], system=REFLECT_SYSTEM, task_type="bulk", escalate=escalate

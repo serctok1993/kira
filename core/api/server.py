@@ -467,7 +467,8 @@ def api_secrets() -> dict:
         "set": status,
         "pending": secrets.pending(),
         "suggested": list(_PROVIDER_KEYS.values())
-        + ["TELEGRAM_BOT_TOKEN", "BRAVE_API_KEY", "ELEVENLABS_API_KEY",
+        + ["TELEGRAM_BOT_TOKEN", "BRAVE_API_KEY", "TAVILY_API_KEY",
+           "GOOGLE_CSE_KEY", "GOOGLE_CSE_ID", "SEARXNG_URL", "ELEVENLABS_API_KEY",
            "SMTP_USER", "SMTP_PASS", "BLUESKY_HANDLE", "BLUESKY_APP_PASSWORD"],
         # Kira-Stimme: alles an einem Ort (Key + An/Aus + Stimme) fuer die Zugaenge-Karte.
         "tts": {
