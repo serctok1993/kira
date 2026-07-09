@@ -2051,7 +2051,18 @@ function benchModelInfo(){const m=$("#bench-model");if(!m)return;
  const role=$("#bench-role")?$("#bench-role").value:"reason";
  fetch("/api/model/resolve?role="+encodeURIComponent(role)).then(r=>r.json())
   .then(d=>{m.textContent="Gemessen wird: "+(d.model||"?")+(d.fallback?" (Fallback!)":"");}).catch(()=>{});}
+/* ---- Tuning-Werkbank: Datensatz-Übersicht + Export (Training läuft außerhalb) ---- */
+async function loadTuning(){const el=$("#tun-stats");if(!el)return;
+ try{const d=await (await fetch("/api/tuning/stats")).json();
+  el.innerHTML='<b style="color:var(--accent);font-size:16px">'+d.total+'</b> Beispiele bereit &nbsp;·&nbsp; '
+   +'<span class="muted">'+d.episodes+' echte Episoden ('+d.episodes_mit_werkzeug+' mit Werkzeug) + '+d.synth+' generierte (Struktur/Disziplin/Ton)</span>';
+ }catch(e){el.innerHTML='<span class=muted>Statistik nicht erreichbar.</span>';}}
+$("#tun-export")&&($("#tun-export").onclick=async()=>{const h=$("#tun-hint");if(h)h.textContent="… exportiere";
+ try{const r=await (await fetch("/api/tuning/export",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();
+  if(h)h.innerHTML=r.ok?'<span style="color:var(--ok)">✓ '+r.count+' Beispiele → '+esc(r.path)+'</span>':'Fehler';}
+ catch(e){if(h)h.textContent="Fehler beim Export.";}});
 function loadBench(){const b=$("#bench-start");if(!b)return;
+ loadTuning();
  benchModelInfo();
  const rs=$("#bench-role");if(rs)rs.onchange=benchModelInfo;
  const mp=$("#bench-model-pick");if(mp){mp.onchange=benchModelInfo;mp.oninput=benchModelInfo;}

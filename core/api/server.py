@@ -1300,6 +1300,24 @@ def api_agents() -> dict:
     }
 
 
+@app.get("/api/tuning/stats")
+def api_tuning_stats() -> dict:
+    """Tuning-Werkbank: wie viel Trainingsmaterial liegt bereit (read-only, 0 Tokens)."""
+    from core.mind import tuning
+
+    return tuning.stats()
+
+
+@app.post("/api/tuning/export")
+async def api_tuning_export(body: dict) -> dict:
+    """Exportiert den Datensatz als ChatML-JSONL (data/tuning/) — Training laeuft AUSSERHALB."""
+    from core.mind import tuning
+
+    res = tuning.export(include_episodes=body.get("include_episodes", True))
+    events.emit("tuning_export", {"count": res.get("count"), "path": res.get("path")})
+    return res
+
+
 @app.get("/api/factory/preview")
 def api_factory_preview() -> dict:
     """Werkszustand-Vorschau: was fiele einem Reset zum Opfer (mit Anzahlen)."""

@@ -1241,7 +1241,11 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
       {"kind":"obs","name":...,"text":...} | {"kind":"final","text":...}
     Gibt die finale Antwort zurueck. Nur die finale Antwort kommt ins Gedaechtnis.
     """
+    _ep = {"tools": False}  # Tuning-Werkbank: merkt, ob die Episode Werkzeuge nutzte
+
     def emit(ev):
+        if isinstance(ev, dict) and ev.get("kind") == "tool":
+            _ep["tools"] = True
         if on_event:
             try:
                 on_event(ev)
@@ -1352,6 +1356,11 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
         memory.remember(text, role="partner", session_id=session_id)
         events.emit("partner_message", {"text": text, "agentic": True}, session_id=session_id)
         _book_work_result(work_objective, user_message, text)
+        try:  # Tuning-Werkbank: jede echte Episode ist Trainingsmaterial — stoert NIE den Chat
+            from core.mind import tuning
+            tuning.record_chat(session_id, user_message, text, used_tools=_ep["tools"])
+        except Exception:  # noqa: BLE001
+            pass
         emit({"kind": "final", "text": text})
         return text
 
