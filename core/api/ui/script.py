@@ -1686,6 +1686,22 @@ async function loadAgenten(){try{const d=await (await fetch("/api/agents")).json
  $("#ag-infra").innerHTML=h;}catch(e){}
  loadMcp();}
 
+/* ---- Handover-Härtung B: Übergabe-Preflight — grüner Start-Blick ---- */
+const PF_ICON={ok:"✓",warn:"▲",todo:"○",blocker:"✕"};
+const PF_COL={ok:"var(--ok)",warn:"var(--warn)",todo:"var(--muted)",blocker:"var(--danger)"};
+async function runPreflight(){const btn=$("#pf-run"),list=$("#pf-list"),sum=$("#pf-sum");if(!list)return;
+ if(btn)btn.disabled=true;if(sum)sum.textContent="… prüfe";
+ try{const d=await (await fetch("/api/preflight")).json();
+  list.innerHTML=(d.items||[]).map(i=>'<div class="memrow"><div class="mh">'
+   +'<span style="color:'+(PF_COL[i.state]||"var(--muted)")+';font-weight:700;margin-right:8px">'+(PF_ICON[i.state]||"·")+'</span>'
+   +'<b>'+esc(i.label)+'</b><span class="muted" style="margin-left:8px;font-size:12px">'+esc(i.detail||"")+'</span></div></div>').join("");
+  if(sum)sum.innerHTML=d.ready
+   ?'<b style="color:var(--ok)">✓ startklar</b>'+(d.todos?' · '+d.todos+' optional offen':'')+(d.warns?' · '+d.warns+' Hinweis(e)':'')
+   :'<b style="color:var(--danger)">'+d.blockers+' Blocker</b> — vor dem Start beheben'+(d.warns?' · '+d.warns+' Hinweis(e)':'');
+ }catch(e){list.innerHTML='<span class=muted>Preflight nicht erreichbar.</span>';}
+ if(btn)btn.disabled=false;}
+$("#pf-run")&&($("#pf-run").onclick=runPreflight);
+
 /* ---- Macht-Schritt 2: MCP-Universum — Server per Katalog/Config einstoepseln ---- */
 async function loadMcp(){const cat=$("#mcp-catalog"),list=$("#mcp-list");if(!cat||!list)return;
  try{const d=await (await fetch("/api/mcp/catalog")).json();
