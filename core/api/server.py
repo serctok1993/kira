@@ -361,6 +361,38 @@ def api_checkliste() -> dict:
     }
 
 
+# ---------- Widget-System (Werkbank PR 8): Kira liefert Config, nie Code ----------
+
+@app.get("/api/widgets")
+def api_widgets() -> dict:
+    """Deklarative Cockpit-Kacheln aus data/widgets/*.json (validiert, whitelisted)."""
+    from core.agency import widgets
+
+    return {"widgets": widgets.list_all(), "types": list(widgets.TYPES),
+            "slots": list(widgets.SLOTS), "endpoints": list(widgets.LIST_ENDPOINTS)}
+
+
+@app.post("/api/widgets/save")
+async def api_widgets_save(body: dict) -> dict:
+    from core.agency import widgets
+
+    res = widgets.save(body or {})
+    if res.get("ok"):
+        events.emit("widget_saved", {"id": res["id"], "via": "cockpit"})
+    return res
+
+
+@app.post("/api/widgets/delete")
+async def api_widgets_delete(body: dict) -> dict:
+    from core.agency import widgets
+
+    wid = str((body or {}).get("id", ""))
+    ok = widgets.delete(wid)
+    if ok:
+        events.emit("widget_deleted", {"id": wid, "via": "cockpit"})
+    return {"ok": ok}
+
+
 @app.get("/api/events")
 def api_events(limit: int = 60, before: float | None = None) -> list[dict]:
     evs = events.recent(limit, before=before)
