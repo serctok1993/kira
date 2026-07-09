@@ -761,6 +761,14 @@ VIEWS = r"""</head><body>
   </div>
 
   <div class="subview" id="v-bench">
+    <div class="card"><h3>🧬 Tuning-Werkbank — unser eigenes LLM</h3>
+      <div class="muted" style="font-size:12px;margin-top:4px">Kira sammelt bei jeder echten Unterhaltung still Trainingsmaterial und generiert Struktur-Beispiele live aus ihrer Werkzeug-Registry. Der Export ist ein Standard-JSONL — das Training selbst läuft <b>außerhalb</b> von Kira (Anleitung: docs/TUNING.md). Das getunte Modell erscheint danach einfach als weiteres Ollama-Modell im Dropdown; Cloud-Modelle bleiben unberührt.</div>
+      <div id="tun-stats" style="margin-top:8px"><span class="muted">…</span></div>
+      <div class="row" style="gap:10px;margin-top:8px;align-items:center">
+        <button id="tun-export">Datensatz exportieren (JSONL)</button>
+        <span class="muted" id="tun-hint" style="font-size:12px"></span>
+      </div>
+    </div>
     <div class="card"><h3>🏁 Coding-Benchmark</h3>
       <div class="muted"><b>HumanEval</b> = der internationale Standard (164 genormte Python-Aufgaben,
       pass@1 — direkt vergleichbar mit publizierten Scores: Frontier-Modelle ~90 %+, starke offene
