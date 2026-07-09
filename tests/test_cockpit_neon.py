@@ -56,7 +56,8 @@ def test_farbwaehler_vorhanden():
 # ---- Me -> Serc (Label geändert, data-v bleibt) -----------------------------------------
 
 def test_me_heisst_serc():
-    assert "> Serc</a>" in VIEWS
+    # seit Werkbank PR 7 haengt der Freigaben-Badge hinter dem Namen
+    assert '> Serc <b id="side-frei"' in VIEWS
     assert 'data-v="me"' in VIEWS        # Hooks/Loader bleiben unangetastet
     assert "> Me</a>" not in VIEWS
 
@@ -93,7 +94,7 @@ def test_config_aufgeloest():
     for ld in ("models:()=>loadModels()", "steuer:()=>loadSteuer()", "cron:()=>loadCron()",
                "cockpit:()=>loadDesktop()"):
         assert ld in SCRIPT
-    # default-aktive Subviews: v-files (Kira) + v-todos (Serc) — kein doppeltes 'on' pro Tab
+    # default-aktive Subviews: v-puls (Kira) + v-tag (Serc, Werkbank PR 7) — kein doppeltes 'on' pro Tab
     assert VIEWS.count('class="subview on"') == 2
 
 
@@ -133,7 +134,7 @@ def test_serc_subtabs():
     assert 'me:      {bar:"#me-tabs"' in SCRIPT
     assert "freigaben:()=>{loadInbox();loadTodoSecrets();}" in SCRIPT
     # genau EIN default-aktiver Serc-Subview
-    assert VIEWS.count('class="subview on"') == 2   # v-files (Kira) + v-todos (Serc)
+    assert VIEWS.count('class="subview on"') == 2   # v-puls (Kira) + v-tag (Serc, Werkbank PR 7)
 
 
 # ---- Chat/Coding-Werkbank: breiter Umschalter oben, Werkzeuge gebündelt, Modus-Farbe fix ----
