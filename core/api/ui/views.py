@@ -408,6 +408,12 @@ VIEWS = r"""</head><body>
         <span class="seg" id="mem-filter"><a data-mf="all" class="on">alle</a><a data-mf="partner">🧠 Kira</a><a data-mf="user">👤 Du</a><a data-mf="fact">facts</a><a data-mf="lesson">lessons</a><a data-mf="skill">skills</a></span>
         <input id="mem-search" placeholder="🔍 suchen…" style="flex:1;min-width:150px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);outline:none"/>
       </div>
+      <div id="mem-selbar" style="display:none;gap:10px;align-items:center;margin:0 0 10px;max-width:980px;
+        background:var(--panel);border:1px solid var(--accent);border-radius:10px;padding:7px 12px">
+        <b id="mem-selcount" style="font-size:13px">0 ausgewaehlt</b>
+        <button class="ghost" id="mem-del-batch" style="font-size:12px">🗑 Auswahl loeschen</button>
+        <a id="mem-sel-clear" class="muted" style="cursor:pointer;font-size:12px">abwaehlen</a>
+      </div>
       <div id="memlist" style="max-width:980px"></div>
       <div class="panel" style="margin-top:16px;max-width:980px"><div class="panel-h">◈ Verlauf · Aenderungen (vorher → nachher)</div><div id="memhist" class="panel-b"><span class="muted">…</span></div></div>
     </div>
