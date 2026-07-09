@@ -21,7 +21,8 @@ def _setup(monkeypatch, tmp_path, verdicts: list[dict]):
     monkeypatch.setitem(CONFIG, "mission", {"name": "testmission", "notify_telegram": False})
     monkeypatch.setitem(CONFIG, "outcomes", {"enabled": True, "pass_score": 70, "max_quality_retries": 2})
     monkeypatch.setattr(runner, "kill_switch_active", lambda: False)
-    monkeypatch.setattr(runner, "_notify", lambda text: None)
+    # seit Melde-Buendelung hat _notify (wichtig=, kurz=) — Attrappe nimmt alles
+    monkeypatch.setattr(runner, "_notify", lambda *a, **k: None)
     monkeypatch.setattr(reflection, "reflect_on", lambda task, work, escalate=False: {"lessons": []})
 
     crit = [{"text": "Kriterium A"}, {"text": "Kriterium B"}]

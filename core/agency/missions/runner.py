@@ -59,12 +59,25 @@ def _context(limit: int = 12) -> str:
     return "\n".join(lines[-limit:]) or "(noch kein Fortschritt)"
 
 
-def _notify(text: str) -> None:
+def _notify(text: str, wichtig: bool = False, kurz: str | None = None) -> None:
+    """Missions-Meldung. Sergens Fix (09.07.): Standard ist BUENDELN (mission.notify_mode
+    'gebuendelt') — der Einzeiler `kurz` wandert in den Melde-Puffer, der Bot schickt alle
+    N Stunden EIN Buendel. wichtig=True (Gescheitertes, Freigabe-Bedarf) geht sofort raus;
+    notify_mode 'sofort' = Alt-Verhalten, 'aus' = still."""
     from core import config as _cfg
     if _cfg.outbound_blocked():  # Firewall (Benchmark/Sandbox): kein Telegram
         return
     if not _mission().get("notify_telegram"):
         return
+    mode = str(_mission().get("notify_mode") or "gebuendelt").lower()
+    if not wichtig:
+        if mode == "aus":
+            return
+        if mode != "sofort":
+            from core.agency.missions import melde
+
+            melde.merken(kurz or text.splitlines()[0])
+            return
     try:
         import httpx
 
@@ -122,7 +135,8 @@ def _self_improve_tick(mission: str, escalate: bool) -> dict:
     text = result["text"]
     events.emit("mission_task_done", {"id": "self", "summary": text[:300], "self": True},
                 session_id=sid)
-    _notify(f"🔧 Selbst-Optimierung:\n{text[:1000]}")
+    _notify(f"🔧 Selbst-Optimierung:\n{text[:1000]}",
+            kurz=f"🔧 Selbst-Optimierung: {text[:110]}")
     return {"self_tick": True, "result": text[:400]}
 
 
@@ -283,7 +297,7 @@ def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
         text = result["text"]
         queue.complete(full["id"], text)
         events.emit("mission_task_done", {"id": full["id"], "summary": text[:300]}, session_id=sid)
-        _notify(_report(full["description"], text))
+        _notify(_report(full["description"], text), kurz=f"✅ {full['description'][:120]}")
         return {"task": full["description"], "result": text}
 
     criteria = verifier.ensure_criteria(full)
@@ -335,7 +349,8 @@ def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
             events.emit("skill_loop_error", {"error": str(e)[:200]})
         _book_playbook_results(sid, t0, erfolg=True, score=out["score"])
         label = f" (Score {out['score']})" if out["score"] is not None else ""
-        _notify(_report(full["description"], text, label))
+        _notify(_report(full["description"], text, label),
+                kurz=f"✅ ({out['score'] if out['score'] is not None else '–'}) {full['description'][:110]}")
         return {"task": full["description"], "result": text, "score": out["score"]}
 
     if attempt <= verifier.max_quality_retries():
@@ -373,7 +388,7 @@ def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
     except Exception as e:  # noqa: BLE001
         events.emit("approval_error", {"error": str(e)[:200]})
     _notify(f"⚠️ Task endgueltig gescheitert ({attempt} Versuche, Score {out['score']}):\n"
-            f"{full['description']}\n\nPruefer: {(out['feedback'] or '')[:600]}")
+            f"{full['description']}\n\nPruefer: {(out['feedback'] or '')[:600]}", wichtig=True)
     return {"task": full["description"], "failed": True, "score": out["score"]}
 
 
@@ -585,7 +600,7 @@ def _run_tick_timeboxed() -> dict | None:
     _tick_thread.join(timeout)
     if _tick_thread.is_alive():
         events.emit("heartbeat_tick_timeout", {"timeout_s": timeout})
-        _notify(f"⏱ Ein Missions-Tick haengt seit >{timeout}s — der Loop laeuft weiter "
+        _notify(wichtig=True, text=f"⏱ Ein Missions-Tick haengt seit >{timeout}s — der Loop laeuft weiter "
                 "(Cron/Monitor aktiv), der Tick werkelt im Hintergrund.")
         return None
     return _tick_result
@@ -717,7 +732,8 @@ def run_forever(interval: int | None = None) -> None:
                     events.emit("doctor_report", {"problems": rep.get("problems", [])[:10],
                                                   "ok": rep.get("ok")})
                     if rep.get("problems"):
-                        _notify("🩺 Selbst-Check meldet:\n- " + "\n- ".join(rep["problems"][:5]))
+                        _notify("🩺 Selbst-Check meldet:\n- " + "\n- ".join(rep["problems"][:5]),
+                                wichtig=True)
                 if maintenance.maybe_run("desktop_watch", interval_s=86400):
                     # S8.5: Desktop-Pflege — taeglicher lokaler Scan -> Sortiervorschlag (kein Move).
                     from core.agency import desktop_watch
@@ -738,7 +754,7 @@ def run_forever(interval: int | None = None) -> None:
 
                     res = stripe_sync.sync()
                     if res.get("booked"):
-                        _notify(f"💶 Stripe: {res['booked']} neue Zahlung(en), "
+                        _notify(wichtig=True, text=f"💶 Stripe: {res['booked']} neue Zahlung(en), "
                                 f"+{res['total_eur']:.2f} EUR im Konto-Buch.")
             except Exception as e:  # noqa: BLE001
                 events.emit("stripe_sync_error", {"error": str(e)})
