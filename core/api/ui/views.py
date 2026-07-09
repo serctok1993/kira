@@ -336,7 +336,15 @@ VIEWS = r"""</head><body>
       <a data-g="geist" class="on">Geist</a><a data-g="gewissen">Gewissen</a><a data-g="automatik">Automatik</a><a data-g="zustand">Zustand &amp; Lernen</a>
     </div>
     <div class="seg" id="kira-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="files" class="on">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="playbooks">Playbooks</a><a data-s="checkliste">Checkliste</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a><a data-s="evolution">Evolution</a><a data-s="log">Protokoll</a>
+      <a data-s="puls" class="on">⚡ Puls</a><a data-s="files">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="playbooks">Playbooks</a><a data-s="checkliste">Checkliste</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a><a data-s="evolution">Evolution</a><a data-s="log">Protokoll</a>
+    </div>
+
+    <div class="subview on" id="v-puls">
+      <div class="card"><h3>⚡ Puls — was Kira heute tut und lernt</h3>
+        <div class="muted">Erster Blick auf SIE: heute getan, zuletzt gelernt, Skills, Evolution.
+        Tiefer: Checkliste (Zustand) · Gedaechtnis (Geist) · Statistik.</div>
+        <div id="puls-body" style="margin-top:10px"><span class="muted">…</span></div>
+      </div>
     </div>
 
     <div class="subview" id="v-keys">
@@ -378,7 +386,7 @@ VIEWS = r"""</head><body>
       <div class="card"><h3>Vorhandene Zugaenge</h3><div id="k-set"></div></div>
     </div>
 
-    <div class="subview on" id="v-files">
+    <div class="subview" id="v-files">
       <div class="cols">
         <div class="flist" id="flist"></div>
         <div class="fedit">
