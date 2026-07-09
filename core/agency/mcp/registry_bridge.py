@@ -639,6 +639,16 @@ CATALOG: list[dict] = [
      "info": "Ordner lesen/schreiben (MCP-Referenz)",
      "config": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem",
                                             "$HOME"], "timeout": 30}},
+    # Der meistempfohlene Server 2026: aktuelle, versionsgenaue Bibliotheks-Doku live in den
+    # Prompt -> Kira halluziniert beim Coden keine veralteten APIs mehr. Laeuft keyless.
+    {"id": "context7", "label": "Context7 (Doku)", "secret": "",
+     "info": "Aktuelle Bibliotheks-Doku live — killt erfundene APIs beim Coden",
+     "config": {"command": "npx", "args": ["-y", "@upstash/context7-mcp"], "timeout": 60}},
+    # Exa: fuer Agenten gebaute semantische Web-Suche + Crawling (2026 die meistgenutzte).
+    {"id": "exa", "label": "Exa (Web-Suche)", "secret": "EXA_API_KEY",
+     "info": "Semantische Web-Suche & Crawling — schaerfer als DuckDuckGo/Brave",
+     "config": {"command": "npx", "args": ["-y", "exa-mcp-server"],
+                "env": {"EXA_API_KEY": "$EXA_API_KEY"}, "timeout": 60}},
     {"id": "brave", "label": "Brave Search", "secret": "BRAVE_API_KEY",
      "info": "Web-Suche als MCP",
      "config": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-brave-search"],
