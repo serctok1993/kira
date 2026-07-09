@@ -154,12 +154,21 @@ def set_params(num_ctx: int | None = None, max_tokens: int | None = None,
 _CATALOG_CACHE = {"ts": 0.0, "data": None}
 
 
+def _local_catalog() -> list[dict]:
+    """Lokale Ollama-Modelle — IMMER frisch abgefragt (Abfrage kostet ~ms), damit ein
+    frisch gezogenes Modell (ollama pull) sofort im Dropdown steht, ohne 10-min-Cache."""
+    return [{"id": "ollama_chat/" + n.replace(":latest", ""),
+             "name": n.replace(":latest", "") + " (lokal)", "in": 0, "out": 0}
+            for n in ollama_models() if not any(x in n.lower() for x in ("embed", "hf.co", "gguf"))]
+
+
 def catalog(force: bool = False) -> dict:
-    """Alle verfuegbaren Modelle: OpenRouter (live, 10 min gecacht) + lokal (Ollama)."""
+    """Alle verfuegbaren Modelle: OpenRouter/AIML (live, 10 min gecacht) + lokal (Ollama,
+    ungecacht — neue Downloads erscheinen sofort)."""
     import time as _t
 
     if not force and _CATALOG_CACHE["data"] and (_t.time() - _CATALOG_CACHE["ts"]) < 600:
-        return _CATALOG_CACHE["data"]
+        return {**_CATALOG_CACHE["data"], "local": _local_catalog()}
     ors = []
     try:
         data = httpx.get("https://openrouter.ai/api/v1/models", timeout=15).json().get("data", [])
@@ -169,12 +178,10 @@ def catalog(force: bool = False) -> dict:
                         "in": pr.get("prompt"), "out": pr.get("completion"), "ctx": m.get("context_length")})
     except Exception:  # noqa: BLE001
         pass
-    local = [{"id": "ollama_chat/" + n.replace(":latest", ""), "name": n.replace(":latest", "") + " (lokal)", "in": 0, "out": 0}
-             for n in ollama_models() if not any(x in n.lower() for x in ("embed", "hf.co", "gguf"))]
     aimlapi_list = sorted(aimlapi_models(), key=lambda x: x["id"])
-    out = {"openrouter": sorted(ors, key=lambda x: x["id"]), "local": local, "aimlapi": aimlapi_list}
+    out = {"openrouter": sorted(ors, key=lambda x: x["id"]), "aimlapi": aimlapi_list}
     _CATALOG_CACHE.update(ts=_t.time(), data=out)
-    return out
+    return {**out, "local": _local_catalog()}
 
 
 def roles() -> dict:
