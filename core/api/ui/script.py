@@ -392,28 +392,17 @@ $("#cr-add").onclick=async()=>{const p=$("#cr-prompt").value.trim();if(!p)return
  cancelEditCron();loadCron();};
 
 /* ---- Uebersicht ---- */
-/* S6.7b: Zentrale entruempelt — System/Modell/Budget/Vertrauen leben im HUD-Streifen,
-   die 73-Werkzeuge-Wolke gehoert (gruppiert) nach Kira->Anatomie. Hier nur noch:
-   Fokus-Hinweis, Lektionen (3) und Schnellzugriff. */
+/* Zentrale-Randdaten (PR 6 entschlackt): Fokus-Hinweis + letzte 3 Lektionen ins
+   'Kira heute'-Panel; System/Modell/Budget leben im HUD-Streifen. */
 async function loadHome(){const o=await (await fetch("/api/overview")).json();
  try{const dz=await (await fetch("/api/direktive")).json();const dh=$("#dir-hint");if(dh&&dz.focus)dh.textContent="🧭 Aktueller Fokus: "+dz.focus.slice(0,140);}catch(e){}
- const card=(t,c)=>'<div class="card"><h3>'+t+'</h3>'+c+'</div>';
- let h='<div style="display:flex;flex-direction:column;gap:10px">';
- /* Schnellzugriff ZUERST (haeufig genutzt, war vorher unter der Falz versteckt) */
- h+=card("Schnellzugriff",'<button class=ghost data-go="chat">Chat</button> '
-   +'<button class=ghost data-go="models">Modelle</button> '
-   +'<button class=ghost data-go="gov">Gewissen</button> '
-   +'<button class=ghost data-go="stats">Statistik</button> '
-   +'<button class=ghost data-go="me">Me</button>');
- /* Lektionen nur wenn vorhanden — sonst kein leerer Platzhalter */
- if((o.lessons||[]).length)h+=card("Letzte Lektionen",'<ul style="margin:0;padding-left:18px">'
-   +o.lessons.slice(0,3).map(l=>'<li>'+esc(l.slice(0,140))+'</li>').join("")+'</ul>');
- h+='</div>';$("#home").innerHTML=h;
- /* Subtab-Ziele brauchen nav(config)+syst — nackte nav() darauf war der Weisser-Screen-Bug */
- $$('#home [data-go]').forEach(b=>b.onclick=()=>{const g=b.dataset.go;
-  if(g==="stats"){nav("kira");subnav("kira","stats");}
-  else if(g==="models"||g==="gov"){nav("kira");subnav("kira",g);}
-  else nav(g);});
+ /* Werkbank PR 6: Schnellzugriff-Karte ersatzlos raus (Sidebar reicht) — die letzten 3
+    Lektionen wandern ins 'Kira heute'-Panel; die Historie lebt im Kira-Puls. */
+ const zl=$("#z-lektionen");
+ if(zl){const ls=(o.lessons||[]).slice(0,3);
+  zl.style.display=ls.length?"block":"none";
+  zl.innerHTML=ls.length?('<div class="muted" style="font-size:10px;letter-spacing:1px;margin-bottom:3px">ZULETZT GELERNT</div>'
+   +'<ul style="margin:0;padding-left:16px;font-size:12px">'+ls.map(l=>'<li>'+esc((""+l).slice(0,120))+'</li>').join("")+'</ul>'):"";}
  loadZielePinned();
  const gz=$("#go-ziele");if(gz)gz.onclick=()=>{nav("me");subnav("me","metriken");};}
 
@@ -502,21 +491,13 @@ function renderOps(){const el=$("#ops-feed");if(!el)return;
 async function loadOps(){const el=$("#ops-feed");if(!el)return;  // holt+cached; Filter rendert clientseitig (kein Refetch)
  try{_opsCache=await (await fetch("/api/events?limit=70")).json();renderOps();}catch(e){}}
 /* S9.1: Intel zeigt KIRAS eigene Monitor-News (kuratiert, mit Zusammenfassung) statt roher RSS. */
-async function loadNews(){const tk=$("#news-ticker"),ls=$("#news-list");if(!ls)return;
+/* Werkbank PR 6: Intel ist nur noch das Laufband unterm HUD — das grosse Panel ist raus.
+   Volltexte weiterhin im Monitor (Kira -> Automatik -> Monitor). */
+async function loadNews(){const tk=$("#news-ticker");if(!tk)return;
  try{const d=await (await fetch("/api/monitor")).json();const rec=d.recent||[];
-  if(!rec.length){if(tk)tk.innerHTML='<span>Noch keine Meldungen — Kira faellt hier ein, was ihre Beobachtungen ergeben (Monitor unter Config).</span>';
-   ls.innerHTML='<div class="emptybox" style="min-height:80px">Kira hat noch nichts gemeldet.<br>Themen/Feeds richtest du unter Config → Monitor ein.</div>';return;}
+  if(!rec.length){tk.innerHTML='<span>Intel: noch keine Meldungen — Quellen mit „+ Quellen" anlegen; Volltexte unter Kira → Monitor.</span>';return;}
   const head=rec.map(x=>'▟ '+(x.label||"")+': '+((x.summary||"").replace(/\n/g," ").slice(0,90))).join('     ◆     ');
-  if(tk)tk.innerHTML='<span>'+esc(head)+'</span>';
-  const item=x=>{const t=new Date(x.ts*1000).toLocaleString([], {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
-   return '<div class="news-item"><small>'+esc(x.label||"")+' · '+t+' · '+(x.count||0)+' neu</small><br>'+esc((x.summary||"").slice(0,220))+'</div>';};
-  /* Nur 4 zeigen (kein innerer Scroll mehr) — Rest hinter einem "mehr", damit nichts unerreichbar wird. */
-  const restArr=rec.slice(4,12);
-  const rest=restArr.length?('<div id="news-more" style="display:none">'+restArr.map(item).join("")+'</div>'
-   +'<a id="news-moretog" class="muted" style="cursor:pointer;font-size:11px;display:inline-block;margin-top:4px">+ '+restArr.length+' mehr</a>'):"";
-  ls.innerHTML=rec.slice(0,4).map(item).join("")+rest;
-  const mt=$("#news-moretog");if(mt)mt.onclick=()=>{const m=$("#news-more");if(!m)return;const open=m.style.display!=="none";
-   m.style.display=open?"none":"block";mt.textContent=open?("+ "+restArr.length+" mehr"):"− weniger";};
+  tk.innerHTML='<span>'+esc(head)+'</span>';
  }catch(e){}}
 const DEFAULT_FEEDS=[{kind:"feed",value:"https://hnrss.org/frontpage",label:"Hacker News"},
  {kind:"feed",value:"https://www.theverge.com/rss/index.xml",label:"The Verge"},
