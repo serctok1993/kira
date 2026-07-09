@@ -354,7 +354,7 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
 /* S6.7-BUGFIX: Subtab-Leisten (Kira/Config) leben in einer Flex-Spalte (.view.on) — ohne
    flex-shrink:0 quetscht ein grosser Subview-Inhalt die Leiste auf 2px (Rand) zusammen ->
    'Gedaechtnis-Falle': man kommt nicht mehr aus dem Tab raus. */
-#sys-tabs,#kira-tabs,#kira-groups{flex-shrink:0;align-self:flex-start}
+#sys-tabs,#kira-tabs,#kira-groups,#settings-tabs,#me-tabs{flex-shrink:0;align-self:flex-start}
 .seg a{padding:5px 10px;color:var(--muted);cursor:pointer;border-right:1px solid var(--line)}
 .seg a:last-child{border-right:none}
 .seg a.on{background:color-mix(in srgb,var(--hud) 14%,transparent);color:var(--hud)}
@@ -582,6 +582,10 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
  /* Kira: Subtab-Leiste fest, aktiver Unterreiter scrollt intern (kein Seiten-Scroll) */
  #v-kira.on{overflow:hidden}
  #v-kira .subview.on{flex:1;min-height:0;overflow:auto;padding-right:2px}
+ /* Einstellungen genauso — sonst quetscht ein grosser Subview (Modelle/Benchmark)
+    die Leiste zusammen und man kommt nicht mehr zurueck (Sergens Fund 09.07.) */
+ #v-settings.on{overflow:hidden}
+ #v-settings .subview.on{flex:1;min-height:0;overflow:auto;padding-right:2px}
 }
 
 /* ===== Redesign-Umbau 1 (Sergen): ruhiger + Live-Ops schmaler ===== */
