@@ -1300,6 +1300,54 @@ def api_agents() -> dict:
     }
 
 
+@app.get("/api/mcp/catalog")
+def api_mcp_catalog() -> dict:
+    """Macht-Schritt 2: kuratierter MCP-Server-Katalog fuers Ein-Klick-Anlegen +
+    aktueller Status. Zeigt pro Katalog-Eintrag, ob der noetige Zugang schon im Tresor liegt."""
+    from core.agency.mcp import registry_bridge
+
+    have = secrets.names_status()
+    cat = []
+    for e in registry_bridge.CATALOG:
+        sec = e.get("secret") or ""
+        cat.append({**{k: e[k] for k in ("id", "label", "info", "secret")},
+                    "secret_ready": (not sec) or bool(have.get(sec))})
+    return {"catalog": cat, "status": registry_bridge.server_status()}
+
+
+@app.post("/api/mcp/add")
+async def api_mcp_add(body: dict) -> dict:
+    """Server aus dem Katalog oder frei per Config hinzufuegen (und live einstoepseln)."""
+    from core.agency.mcp import registry_bridge
+
+    name = (body.get("name") or "").strip()
+    cfg = body.get("config")
+    cat_id = body.get("catalog_id")
+    if cat_id and not cfg:                       # Ein-Klick aus dem Katalog
+        entry = next((e for e in registry_bridge.CATALOG if e["id"] == cat_id), None)
+        if not entry:
+            return {"ok": False, "error": f"Katalog-Eintrag '{cat_id}' unbekannt."}
+        name = name or entry["id"]
+        cfg = dict(entry["config"])
+    if not isinstance(cfg, dict):
+        return {"ok": False, "error": "config fehlt oder ist ungueltig."}
+    return registry_bridge.add_server(name, cfg)
+
+
+@app.post("/api/mcp/toggle")
+async def api_mcp_toggle(body: dict) -> dict:
+    from core.agency.mcp import registry_bridge
+
+    return registry_bridge.toggle_server((body.get("name") or "").strip(), bool(body.get("enabled")))
+
+
+@app.post("/api/mcp/remove")
+async def api_mcp_remove(body: dict) -> dict:
+    from core.agency.mcp import registry_bridge
+
+    return registry_bridge.remove_server((body.get("name") or "").strip())
+
+
 @app.get("/api/venture/trace")
 def api_venture_trace(id: str) -> dict:
     """Projekt-Drilldown: Ziel-Baum + Tasks (mit Scores) + Arbeitsstand je Ziel."""
