@@ -806,3 +806,6 @@ from core.agency.tools import delegate_tools  # noqa: E402,F401
 from core.agency.tools import code_tools  # noqa: E402,F401
 # Widget-System (Werkbank PR 8): Cockpit-Kacheln per Config einblenden, nie Code.
 from core.agency.tools import widget_tools  # noqa: E402,F401
+# Computer-Use (Macht-Schritt 1): Bildschirm sehen + Maus/Tastatur/Fenster. Standard AUS,
+# Freigabe im Steuerpult, Not-Aus/Testmodus blocken, jede Aktion auditiert.
+from core.agency import computer as _computer_tools  # noqa: E402,F401

@@ -305,10 +305,13 @@ def api_steuer() -> dict:
         raenge.append({"rang": rang, "rolle": rolle[rang], "info": beschreibung[rang],
                        "modell": gesetzt, "real": real, "fallback": fb,
                        "schritte": _steps_for(rang)})
-    dg = CONFIG.get("agency", {}).get("delegate", {}) if isinstance(CONFIG.get("agency"), dict) else {}
+    ag = CONFIG.get("agency", {}) if isinstance(CONFIG.get("agency"), dict) else {}
+    dg = ag.get("delegate", {}) if isinstance(ag.get("delegate"), dict) else {}
+    cu = ag.get("computer_use", {}) if isinstance(ag.get("computer_use"), dict) else {}
     return {"raenge": raenge,
             "schwarm_max": int(dg.get("schwarm_max", 8) or 8),
-            "max_kosten_eur": _kosten_deckel()}
+            "max_kosten_eur": _kosten_deckel(),
+            "computer_use": bool(cu.get("enabled"))}
 
 
 @app.get("/api/kalibrierung")
@@ -740,6 +743,8 @@ _CONFIG_WHITELIST = {
     "agency.delegate.schritte.reflex", "agency.delegate.schritte.arbeiter",
     "agency.delegate.schritte.denker", "agency.delegate.schritte.richter",
     "agency.delegate.schwarm_max", "agency.delegate.max_kosten_eur",
+    # Computer-Use (Macht-Schritt 1): Rechner-Steuerung ein/aus — Standard AUS, bewusste Freigabe
+    "agency.computer_use.enabled",
 }
 _MODEL_LIVE = {"models.temperature": "temperature", "models.max_tokens": "max_tokens",
                "models.num_ctx": "num_ctx", "models.keep_alive": "keep_alive"}  # live, kein Neustart
