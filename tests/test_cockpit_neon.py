@@ -553,10 +553,11 @@ def test_dashboard_entschlackt():
     # Filter rendert clientseitig aus Cache (kein Refetch pro Klick)
     assert "let _opsCache=" in SCRIPT and "function renderOps(" in SCRIPT
     assert 'x===a));renderOps();' in SCRIPT and 'x===a));loadOps();' not in SCRIPT
-    # Schnellzugriff steht VOR den Lektionen (war unter der Falz versteckt)
-    assert SCRIPT.index('"Schnellzugriff"') < SCRIPT.index('"Letzte Lektionen"')
-    # News auf 4 gekappt mit 'mehr'-Aufklapp (nichts wird unerreichbar)
-    assert "news-moretog" in SCRIPT and "rec.slice(0,4)" in SCRIPT
+    # Werkbank PR 6: Schnellzugriff-Karte ist ersatzlos raus (Sidebar reicht),
+    # Lektionen leben im 'Kira heute'-Panel, News nur noch als Laufband unterm HUD.
+    assert '"Schnellzugriff"' not in SCRIPT
+    assert "z-lektionen" in SCRIPT and "ZULETZT GELERNT" in SCRIPT
+    assert "news-moretog" not in SCRIPT and 'id="news-list"' not in VIEWS
 
 
 # ---- Chat-Politur v2: Thinking-Klappe gefixt + Typewriter ----

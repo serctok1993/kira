@@ -81,6 +81,11 @@ VIEWS = r"""</head><body>
       </div>
     </div>
     <div class="hud-strip" id="hud-strip"></div>
+    <!-- Werkbank PR 6: Intel als 1-Zeilen-Laufband direkt unterm HUD (grosses Panel entfaellt) -->
+    <div style="display:flex;align-items:center;gap:8px;margin:2px 0">
+      <div class="ticker" id="news-ticker" style="flex:1;min-width:0"><span>… Intel wird geladen …</span></div>
+      <a id="news-seed" class="muted" style="cursor:pointer;font-size:10px;white-space:nowrap">+ Quellen</a>
+    </div>
     <div class="direktive">
       <h3>Befehl an Kira</h3>
       <textarea id="dir-text" class="k" placeholder="Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…"></textarea>
@@ -107,24 +112,17 @@ VIEWS = r"""</head><body>
         </div>
       </div>
       <div class="cmd-side">
+        <!-- Werkbank PR 6: EIN Erst-Blick-Panel — was Kira heute tat, was ansteht, was sie lernte -->
         <div class="panel">
-          <div class="panel-h">◈ Tagewerk <span class="sp"></span><a id="go-tagewerk" class="muted" style="cursor:pointer;font-size:10px">→ Detail</a></div>
+          <div class="panel-h">◈ Kira heute <span class="sp"></span><a id="go-tagewerk" class="muted" style="cursor:pointer;font-size:10px">→ Detail</a></div>
           <div id="tagewerk" class="panel-b"><span class="muted">…</span></div>
-        </div>
-        <div class="panel">
-          <div class="panel-h">◈ Heute <span class="sp"></span><a id="go-todo" class="muted" style="cursor:pointer;font-size:10px">→ Me</a></div>
-          <div id="digest" class="panel-b"><span class="muted">…</span></div>
+          <div id="digest" class="panel-b" style="border-top:1px solid var(--line)"><span class="muted">…</span></div>
+          <div id="z-lektionen" class="panel-b" style="display:none;border-top:1px solid var(--line)"></div>
         </div>
         <div class="panel" id="z-ziele-panel" style="display:none">
           <div class="panel-h">◈ Kennzahlen <span class="sp"></span><a id="go-ziele" class="muted" style="cursor:pointer;font-size:10px">→ Ziele</a></div>
           <div id="z-ziele" class="panel-b"></div>
         </div>
-        <div class="panel">
-          <div class="panel-h">◈ Intel · KI-News <span class="sp"></span><a id="news-seed" class="muted" style="cursor:pointer;font-size:10px">+ Quellen</a></div>
-          <div class="ticker" id="news-ticker"><span>… Intel wird geladen …</span></div>
-          <div id="news-list" class="panel-b"><span class="muted">…</span></div>
-        </div>
-        <div class="home-side" id="home"></div>
       </div>
     </div>
   </div>
