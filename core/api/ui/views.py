@@ -491,8 +491,9 @@ VIEWS = r"""</head><body>
       <div class="panel" style="margin-top:14px"><div class="panel-h">◈ MCP-UNIVERSUM — Server einstöpseln</div>
         <div class="panel-b">
           <div class="muted" style="font-size:12px;margin-bottom:8px">Macht-Schritt 2: beliebige MCP-Server anschließen, ohne Code. Ein Klick aus dem Katalog (Zugang muss im Tresor liegen) — dann stehen ihre Werkzeuge sofort bereit. Schreibende Tools laufen automatisch durchs Freigabe-Gate.</div>
-          <div id="mcp-catalog" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px"></div>
-          <div id="mcp-list"><span class="muted">…</span></div>
+          <div id="mcp-catalog" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+          <div id="mcp-setups"></div>
+          <div id="mcp-list" style="margin-top:8px"><span class="muted">…</span></div>
           <details style="margin-top:12px"><summary class="muted" style="cursor:pointer;font-size:12px">Eigenen Server hinzufügen (Experten)</summary>
             <div class="row" style="flex-wrap:wrap;gap:8px;margin-top:8px">
               <input id="mcp-name" placeholder="Name (z.B. meinserver)" style="flex:1;min-width:140px"/>

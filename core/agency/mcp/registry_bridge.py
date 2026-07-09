@@ -51,6 +51,17 @@ def _emit(etype: str, payload: dict) -> None:
 # Schreib-/Lese-Heuristik
 # ---------------------------------------------------------------------------
 
+def _resolve_token(v: Any) -> Any:
+    """$VAR aus der Umgebung (inkl. Tresor-Zugaenge) aufloesen — sonst unveraendert.
+    Damit sind Zugaenge/Pfade sowohl in env als auch in args steckbar
+    (z.B. WhatsApp-Repo-Pfad $WHATSAPP_MCP_MAIN)."""
+    return os.getenv(v[1:], "") if isinstance(v, str) and v.startswith("$") else v
+
+
+def _resolve_args(args: list) -> list:
+    return [_resolve_token(a) for a in (args or [])]
+
+
 _WRITE_VERBS = [
     "create", "update", "delete", "remove", "write", "post", "send",
     "deploy", "publish", "push", "commit", "merge", "insert", "upsert",
@@ -151,9 +162,10 @@ class _ServerHandle:
         cfg = self.config
         resolved_env = {**os.environ}
         for k, v in (cfg.get("env") or {}).items():
-            resolved_env[k] = os.getenv(v[1:], "") if isinstance(v, str) and v.startswith("$") else str(v)
+            resolved_env[k] = _resolve_token(v) if isinstance(v, str) and v.startswith("$") else str(v)
+        args = _resolve_args(cfg.get("args", []))
         try:
-            async with McpServer(command=cfg["command"], args=cfg.get("args", []),
+            async with McpServer(command=cfg["command"], args=args,
                                  env=resolved_env,
                                  timeout=float(cfg.get("timeout", 15.0))) as srv:
                 self.tools = await srv.list_tools()
@@ -640,4 +652,26 @@ CATALOG: list[dict] = [
      "config": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-slack"],
                 "env": {"SLACK_BOT_TOKEN": "$SLACK_BOT_TOKEN"}, "timeout": 60,
                 "kinds": {"post_message": "external"}}},
+    # Macht-Schritt 3 (als MCP): WhatsApp KOSTENLOS ueber deine (Zweit-)Nummer (Baileys/QR,
+    # wie OpenWA — inoffiziell). Einmal klonen, Pfad zu src/main.ts als Zugang WHATSAPP_MCP_MAIN.
+    # send_message = 'external' -> laeuft durchs Freigabe-Gate (Ban-Schutz + Aussenwirkung).
+    {"id": "whatsapp", "label": "WhatsApp", "secret": "WHATSAPP_MCP_MAIN",
+     "info": "Senden/Empfangen ueber deine Nummer — gratis (Baileys)",
+     "setup": "Einmalig: git clone https://github.com/jlucaso1/whatsapp-mcp-ts && cd whatsapp-mcp-ts "
+              "&& bun install (oder npm i). Dann den absoluten Pfad zu src/main.ts als Zugang "
+              "WHATSAPP_MCP_MAIN eintragen. Erststart zeigt einen QR — mit der Zweitnummer scannen "
+              "(WhatsApp > Verknuepfte Geraete). ACHTUNG: inoffiziell — bei Massen-/Kaltnachrichten "
+              "Sperr-Risiko. Nummer warmlaufen lassen, langsam dosieren, nur relevante Nachrichten.",
+     "config": {"command": "node", "args": ["$WHATSAPP_MCP_MAIN"], "timeout": 60,
+                "kinds": {"send_message": "external"}}},
+    # Macht-Schritt 3 (als MCP): Google Kalender — Termine lesen/anlegen/verschieben.
+    {"id": "gcal", "label": "Google Kalender", "secret": "GOOGLE_OAUTH_CREDENTIALS",
+     "info": "Termine lesen, anlegen, verschieben",
+     "setup": "OAuth-Client-JSON in der Google Cloud Console anlegen (Calendar-API aktivieren), "
+              "herunterladen und den absoluten Pfad als Zugang GOOGLE_OAUTH_CREDENTIALS eintragen. "
+              "Beim ersten Aufruf einmal im Browser autorisieren.",
+     "config": {"command": "npx", "args": ["-y", "@cocal/google-calendar-mcp"],
+                "env": {"GOOGLE_OAUTH_CREDENTIALS": "$GOOGLE_OAUTH_CREDENTIALS"}, "timeout": 60,
+                "kinds": {"create-event": "external", "update-event": "external",
+                          "delete-event": "external"}}},
 ]
