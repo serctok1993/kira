@@ -12,6 +12,12 @@ auf deinem PC, und ist komplett optional.
   `data/tuning/episodes.jsonl` geschrieben (Test-/Benchmark-/Wallpaper-Chats nie).
 - **Synth-Generator:** erzeugt live aus Kiras Werkzeug-Registry Beispiele für das
   ACT-Protokoll, Arbeitsdisziplin (sofort handeln statt ankündigen) und Kira-Ton.
+- **Grundstock (Seed):** handgeschriebene Mehrschritt-Beispiele, die Kiras Struktur
+  lehren — Coding (suchen → chirurgisch editieren → **verifizieren**), Tool-Ketten,
+  Planen-dann-ausführen, Freigabe-Reflex für Außen-Aktionen, Ton/Kreativität, plus
+  Sergens stabile Identität & Werte (Systemdenker, positive Wirkung, Unabhängigkeit).
+  Wichtig: **stabile** Dinge (Stil, Werte, Struktur) gehören in die Gewichte —
+  **veränderliche** Fakten (Termine, Zahlen, Projektdetails) bleiben im Gedächtnis.
 - **Export:** Prüfstand → „Datensatz exportieren" schreibt ein ChatML-JSONL nach
   `data/tuning/kira-sft-<zeit>.jsonl` (Standardformat, das jedes Trainingswerkzeug frisst).
 
