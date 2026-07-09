@@ -39,8 +39,9 @@ function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle(
    Neue Bereiche/Unterreiter andocken = Eintrag hier + Markup (subview id="v-<s>").
    Kein Spezialcode pro Tab mehr (vorher: syst() + kirat() doppelt). */
 const SUBTABS={
- kira:    {bar:"#kira-tabs", cur:"files",
-           loaders:{files:()=>loadFiles(),mem:()=>loadMem(),wissen:()=>loadWissen(),
+ kira:    {bar:"#kira-tabs", cur:"puls",
+           loaders:{puls:()=>loadPuls(),
+                    files:()=>loadFiles(),mem:()=>loadMem(),wissen:()=>loadWissen(),
                     playbooks:()=>loadPlaybooks(),
                     anatomie:()=>loadAgenten(),evolution:()=>loadEvolution(),stats:()=>loadStats(),
                     checkliste:()=>loadCheckliste(),gov:()=>loadGov(),
@@ -166,7 +167,7 @@ Object.keys(SUBTABS).forEach(t=>$$(SUBTABS[t].bar+" a").forEach(a=>a.onclick=()=
 /* Kira-Tab: 2 Ebenen — 5 Gruppen filtern die Sub-Tabs. Views/Loader bleiben unveraendert;
    nur sichtbar ist immer NUR die aktive Gruppe -> 16 flache Reiter werden zu 5 klaren Gruppen. */
 const KIRA_GROUPS=[
- {key:"geist",   subs:["files","mem","wissen"]},
+ {key:"geist",   subs:["puls","files","mem","wissen"]},
  {key:"gewissen",subs:["gov"]},
  {key:"automatik",subs:["cron","monitor","playbooks"]},
  {key:"zustand", subs:["checkliste","anatomie","stats","evolution","log"]}];
@@ -224,6 +225,37 @@ $("#au-add")&&($("#au-add").onclick=async()=>{
  if(hint)hint.textContent=r.ok?("✓ eingerichtet "+(enabled?"(aktiv)":"(aus — oben aktivieren)")):"Fehler";
  $("#au-what").value="";$("#au-interval").value="";$("#au-now").checked=false;
  loadMeCrons();});
+
+/* ---- Kira-Puls (Werkbank PR 4): erster Blick = was sie heute tut und lernt.
+   Regel aus dem Bauplan: die Zentrale zeigt die letzten 3, der Puls die Historie
+   mit Loesch-Knoepfen — keine Dopplung. ---- */
+async function loadPuls(){const el=$("#puls-body");if(!el)return;try{
+ const [tw,ev]=await Promise.all([
+  fetch("/api/tagewerk").then(r=>r.json()).catch(()=>null),
+  fetch("/api/evolution").then(r=>r.json()).catch(()=>({}))]);
+ let h="";
+ if(tw)h+='<div class="muted" style="font-size:11px;letter-spacing:1px;margin-bottom:4px">HEUTE GETAN</div>'
+  +'<div style="font-size:13px"><b>'+tw.tasks.done+'</b> Tasks'+(tw.tasks.avg_score!=null?(' (Ø '+tw.tasks.avg_score+')'):'')
+  +(tw.tasks.failed?(' · <b>'+tw.tasks.failed+'</b> gescheitert'):'')
+  +' · <b>'+tw.mails.anzahl+'</b> Mails · <b>'+tw.skills.anzahl+'</b> Skills · <b>'+tw.crons.anzahl+'</b> Crons'
+  +' · <b>'+tw.selbstverbesserung.ticks+'</b> Selbst-Ticks · '+tw.kosten_heute_usd.toFixed(2)+' $'
+  +(tw.freigaben_offen?(' · <b style="color:var(--warn)">'+tw.freigaben_offen+'</b> Freigaben offen'):'')+'</div>';
+ const mdel=id=>id?' <a data-pdel="'+esc(id)+'" style="cursor:pointer;color:var(--muted)" title="aus dem Gedaechtnis loeschen">&#10005;</a>':'';
+ const ls=(ev.lessons||[]);
+ h+='<div class="muted" style="font-size:11px;letter-spacing:1px;margin:12px 0 4px">ZULETZT GELERNT — LEKTIONEN</div>';
+ h+=ls.length?ls.map(l=>'<div class="memrow" style="font-size:12.5px">'+esc((""+(l.text||l)).slice(0,180))+mdel(l.id)+'</div>').join(""):'<span class="muted">(noch keine)</span>';
+ const sk=(ev.skills||[]);
+ h+='<div class="muted" style="font-size:11px;letter-spacing:1px;margin:12px 0 4px">SKILLS ('+sk.length+')</div>';
+ h+=sk.length?sk.slice(0,10).map(s2=>'<div class="memrow" style="font-size:12.5px">'+esc((""+(s2.text||s2)).slice(0,180))+mdel(s2.id)+'</div>').join(""):'<span class="muted">(noch keine)</span>';
+ const tl=(ev.timeline||[]).slice(0,6);
+ if(tl.length)h+='<div class="muted" style="font-size:11px;letter-spacing:1px;margin:12px 0 4px">EVOLUTION — ZULETZT AN SICH GEBAUT</div>'
+  +tl.map(e=>'<div class="muted" style="font-size:12px">'+esc(e.label)+(e.detail?(' — '+esc((""+e.detail).slice(0,90))):'')+'</div>').join("");
+ el.innerHTML=h||'<span class="muted">Noch nichts aufgezeichnet.</span>';
+ $$('#puls-body [data-pdel]').forEach(a=>a.onclick=async()=>{
+  if(!confirm("Eintrag aus dem Gedaechtnis loeschen?"))return;
+  await fetch("/api/memory/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.pdel})});
+  loadPuls();});
+}catch(e){el.innerHTML='<span class="muted">Puls nicht ladbar.</span>';}}
 
 /* ---- Evolution (S8.1): was Kira zuletzt an sich verbessert hat ---- */
 async function loadEvolution(){try{
