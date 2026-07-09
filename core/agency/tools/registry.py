@@ -37,6 +37,11 @@ def get(name: str) -> Tool | None:
     return _REGISTRY.get(name)
 
 
+def unregister(name: str) -> bool:
+    """Ein Werkzeug wieder entfernen (z.B. wenn ein MCP-Server abgeschaltet wird)."""
+    return _REGISTRY.pop(name, None) is not None
+
+
 def all_tools() -> list[Tool]:
     return list(_REGISTRY.values())
 

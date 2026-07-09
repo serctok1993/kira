@@ -1683,7 +1683,45 @@ async function loadAgenten(){try{const d=await (await fetch("/api/agents")).json
   h+='<div class="muted" style="font-size:11px;letter-spacing:1px;margin:10px 0 4px">SELBST-CHECK</div>';
   h+='<div>'+dot(okd)+(okd?'alles gesund':((dr.problems||[]).length+' Problem(e)'))+'</div>';
   if(!okd)h+='<ul style="margin:4px 0;padding-left:16px;font-size:12px;color:var(--warn)">'+(dr.problems||[]).map(p=>'<li>'+(""+p).replace(/</g,"&lt;")+'</li>').join("")+'</ul>';}
- $("#ag-infra").innerHTML=h;}catch(e){}}
+ $("#ag-infra").innerHTML=h;}catch(e){}
+ loadMcp();}
+
+/* ---- Macht-Schritt 2: MCP-Universum — Server per Katalog/Config einstoepseln ---- */
+async function loadMcp(){const cat=$("#mcp-catalog"),list=$("#mcp-list");if(!cat||!list)return;
+ try{const d=await (await fetch("/api/mcp/catalog")).json();
+  const st=d.status||{};
+  cat.innerHTML=(d.catalog||[]).map(c=>{const drin=st[c.id]!=null;
+   const dis=(!c.secret_ready||drin);
+   const t=drin?"schon angeschlossen":(!c.secret_ready?("Zugang fehlt: "+c.secret+" (im Tresor eintragen)"):c.info);
+   return '<button class="ghost mcp-cat" data-id="'+c.id+'" title="'+esc(t)+'"'+(dis?" disabled":"")+' style="font-size:12px">＋ '+esc(c.label)+(c.secret&&!c.secret_ready?" 🔒":"")+'</button>';}).join("");
+  $$('.mcp-cat').forEach(b=>b.onclick=async()=>{b.textContent="… starte";
+   const r=await (await fetch("/api/mcp/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({catalog_id:b.dataset.id})})).json();
+   toast(r.ok?(r.error?("angelegt, aber: "+r.error):("✓ "+(r.tools||0)+" Werkzeuge da")):("Fehler: "+(r.error||"?")),r.ok&&!r.error?"ok":"warn");loadMcp();});
+  const names=Object.keys(st);
+  list.innerHTML=names.length?names.map(n=>{const s=st[n];const on=s.enabled;
+   return '<div class="memrow"><div class="mh">'
+    +'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+(s.running?"var(--ok)":(on?"var(--warn)":"var(--muted)"))+';margin-right:6px"></span>'
+    +'<b>'+esc(n)+'</b><span class="muted" style="font-size:11px;margin-left:6px">'+(s.tools||0)+' Tools'+(s.error?' &middot; ⚠ '+esc((""+s.error).slice(0,60)):'')+'</span>'
+    +'<span style="flex:1"></span>'
+    +'<button class="ghost mcp-tog" data-n="'+esc(n)+'" data-on="'+(on?1:0)+'" style="padding:1px 8px;font-size:12px">'+(on?"aktiv":"aus")+'</button>'
+    +'<button class="ghost mcp-del" data-n="'+esc(n)+'" title="entfernen" style="padding:1px 8px;font-size:12px">✕</button>'
+    +'</div></div>';}).join(""):'<span class="muted">(keine Server — oben aus dem Katalog wählen)</span>';
+  $$('.mcp-tog').forEach(b=>b.onclick=async()=>{const to=b.dataset.on!=="1";
+   await fetch("/api/mcp/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:b.dataset.n,enabled:to})});loadMcp();});
+  $$('.mcp-del').forEach(b=>b.onclick=async()=>{if(!confirm("MCP-Server '"+b.dataset.n+"' entfernen?"))return;
+   await fetch("/api/mcp/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:b.dataset.n})});loadMcp();});
+ }catch(e){list.innerHTML='<span class=muted>MCP-Status nicht erreichbar.</span>';}}
+$("#mcp-add-custom")&&($("#mcp-add-custom").onclick=async()=>{
+ const name=($("#mcp-name").value||"").trim();const cmd=($("#mcp-cmd").value||"").trim();
+ if(!name||!cmd){$("#mcp-hint").textContent="Name und command sind Pflicht.";return;}
+ const args=($("#mcp-args").value||"").split(",").map(s=>s.trim()).filter(Boolean);
+ const env={};($("#mcp-env").value||"").split(",").map(s=>s.trim()).filter(Boolean).forEach(p=>{const i=p.indexOf("=");if(i>0)env[p.slice(0,i).trim()]=p.slice(i+1).trim();});
+ const tools=($("#mcp-tools").value||"").split(",").map(s=>s.trim()).filter(Boolean);
+ const config={command:cmd,args:args,timeout:60};if(Object.keys(env).length)config.env=env;if(tools.length)config.tools=tools;
+ $("#mcp-hint").textContent="… starte";
+ const r=await (await fetch("/api/mcp/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:name,config:config})})).json();
+ $("#mcp-hint").textContent=r.ok?(r.error?("angelegt, aber: "+r.error):("✓ "+(r.tools||0)+" Werkzeuge registriert")):("Fehler: "+(r.error||"?"));
+ if(r.ok&&!r.error){$("#mcp-name").value=$("#mcp-cmd").value=$("#mcp-args").value=$("#mcp-env").value=$("#mcp-tools").value="";}loadMcp();});
 
 /* ---- Projekte (S5.3b): Projekt-Karten + Drilldown ---- */
 async function loadVentures(){const el=$("#vent-list");if(!el)return;try{
