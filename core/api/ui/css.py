@@ -93,8 +93,13 @@ button{padding:0 16px;border:none;border-radius:8px;cursor:pointer;font-weight:6
  background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff}
 button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line)}
 /* files */
-.cols{display:flex;gap:16px;flex:1;min-height:0}
-.flist{width:230px;flex-shrink:0;display:flex;flex-direction:column;gap:6px}
+.cols{display:flex;gap:16px;flex:1;min-height:0;align-items:flex-start}
+/* Kein Scrollfestival (Sergens Fund): die DATEI-LISTE scrollt intern in eigener Spalte,
+   der EDITOR klebt daneben im Blickfeld (sticky) — Datei unten anklicken, Text sofort sehen. */
+.flist{width:250px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;
+  max-height:calc(100vh - 190px);overflow-y:auto;padding-right:4px}
+.fedit{position:sticky;top:8px;max-height:calc(100vh - 190px)}
+.fedit textarea{flex:1;min-height:calc(100vh - 280px)}
 .flist .f{padding:9px 11px;border:1px solid var(--line);border-radius:8px;cursor:pointer;background:var(--panel)}
 .flist .f:hover{border-color:var(--accent2)}
 .flist .f.on{border-color:var(--accent);color:var(--accent)}

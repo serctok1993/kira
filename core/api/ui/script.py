@@ -1090,13 +1090,15 @@ async function loadFiles(){const fs=await (await fetch("/api/files")).json();con
 async function openFile(name,el){$$(".flist .f").forEach(x=>x.classList.remove("on"));el.classList.add("on");
  const f=await (await fetch("/api/file?name="+encodeURIComponent(name))).json();fcur=f;
  $("#ftitle").textContent=f.label;$("#ftitle").className="";$("#farea").value=f.content;
- $("#farea").readOnly=!f.editable;$("#fsave").style.display=f.editable?"block":"none";}
+ $("#farea").readOnly=!f.editable;$("#fsave").style.display=f.editable?"block":"none";
+ const fe=document.querySelector(".fedit");if(fe)fe.scrollIntoView({behavior:"smooth",block:"nearest"});}
 async function openVaultFile(path,el){$$(".flist .f").forEach(x=>x.classList.remove("on"));el.classList.add("on");
  const f=await (await fetch("/api/vault/file?path="+encodeURIComponent(path))).json();
  if(f.error){$("#ftitle").textContent=f.error;return;}
  fcur={vault:true,name:f.path,label:f.path,editable:true};
  $("#ftitle").textContent=f.path;$("#ftitle").className="";$("#farea").value=f.content;
- $("#farea").readOnly=false;$("#fsave").style.display="block";}
+ $("#farea").readOnly=false;$("#fsave").style.display="block";
+ const fe=document.querySelector(".fedit");if(fe)fe.scrollIntoView({behavior:"smooth",block:"nearest"});}
 $("#fsave").onclick=async()=>{if(!fcur)return;
  // Verfassung ist Kiras Kern -> Sicherheits-Rueckfrage (andere Dateien speichern direkt)
  if(fcur.name==="constitution.md"&&!confirm("Kiras Verfassung ändern?\n\nGilt sofort für alle Antworten. Ein Backup wird automatisch angelegt (core/mind/history) — rückgängig machbar."))return;
@@ -1330,20 +1332,30 @@ $("#voice-test")&&($("#voice-test").onclick=async()=>{const o=$("#voice-testout"
 
 /* ---- Gedaechtnis ---- */
 let memFilter="all",memQuery="",memBound=false;
+const memSel=new Set();   /* Mehrfachauswahl (Werkbank PR 5): EIN Loeschen fuer N Eintraege */
 function memBadge(role){return role==="partner"?'<span class="badge kira">🧠 Kira</span>':'<span class="badge you">👤 Du</span>';}
-async function loadMem(){bindMemFilter();const ms=await (await fetch("/api/memory?limit=150")).json();const el=$("#memlist");el.innerHTML="";
+function memSelBar(){const b=$("#mem-selbar");if(!b)return;
+ b.style.display=memSel.size?"flex":"none";
+ const c=$("#mem-selcount");if(c)c.textContent=memSel.size+" ausgewaehlt";}
+async function loadMem(){bindMemFilter();memSel.clear();memSelBar();
+ const ms=await (await fetch("/api/memory?limit=300")).json();const el=$("#memlist");el.innerHTML="";
  const q=memQuery.toLowerCase();
  const rows=ms.filter(m=>{
    if(memFilter==="partner"||memFilter==="user"){if(m.role!==memFilter)return false;}
    else if(memFilter!=="all"){if((m.kind||"")!==memFilter)return false;}
    if(q&&!(""+(m.text||"")).toLowerCase().includes(q))return false;
    return true;});
+ const hint=$("#mem-hint");
+ if(hint){const n=k=>ms.filter(m=>(m.kind||"")===k).length;
+  hint.textContent=rows.length+" von "+ms.length+" · "+n("fact")+" Fakten · "+n("lesson")+" Lektionen · "+n("skill")+" Skills";}
  if(!rows.length){el.innerHTML='<span class=muted>(keine passenden Erinnerungen)</span>';}
  rows.forEach(m=>{const d=document.createElement("div");d.className="memrow";const ts=new Date(m.ts*1000).toLocaleString();
-  d.innerHTML='<div class="mh">'+memBadge(m.role)+'<span class="badge kind">'+(m.kind||"")+'</span><span>'+ts+'</span><span style="flex:1"></span>'
+  d.innerHTML='<div class="mh"><input type="checkbox" data-sel style="accent-color:var(--accent)"/>'
+   +memBadge(m.role)+'<span class="badge kind">'+(m.kind||"")+'</span><span>'+ts+'</span><span style="flex:1"></span>'
    +'<button class="ghost" data-edit title="bearbeiten" style="padding:1px 8px">✎</button>'
    +'<button class="ghost" data-del title="loeschen" style="padding:1px 8px">✕</button></div>'
    +'<div data-txt style="white-space:pre-wrap"></div>';
+  d.querySelector('[data-sel]').onchange=e2=>{e2.target.checked?memSel.add(m.id):memSel.delete(m.id);memSelBar();};
   d.querySelector('[data-txt]').textContent=(m.text||"").slice(0,800);
   d.querySelector('[data-del]').onclick=async()=>{if(!confirm("Diese Erinnerung loeschen?"))return;await fetch("/api/memory/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:m.id})});loadMem();};
   d.querySelector('[data-edit]').onclick=()=>{const sp=d.querySelector('[data-txt]');
@@ -1352,6 +1364,14 @@ async function loadMem(){bindMemFilter();const ms=await (await fetch("/api/memor
    eb.onclick=async()=>{await fetch("/api/memory/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:m.id,text:ta.value})});loadMem();};};
   el.appendChild(d);});
  loadMemHist();}
+$("#mem-del-batch")&&($("#mem-del-batch").onclick=async()=>{
+ if(!memSel.size)return;
+ if(!confirm(memSel.size+" Erinnerung(en) endgueltig loeschen?"))return;
+ const r=await (await fetch("/api/memory/delete-batch",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({ids:[...memSel]})})).json();
+ toast((r.deleted||0)+" geloescht","ok");loadMem();});
+$("#mem-sel-clear")&&($("#mem-sel-clear").onclick=()=>{memSel.clear();memSelBar();
+ $$('#memlist [data-sel]').forEach(c=>c.checked=false);});
 async function loadMemHist(){const el=$("#memhist");if(!el)return;
  try{const hs=await (await fetch("/api/memory/history?limit=40")).json();
   if(!hs.length){el.innerHTML='<span class="muted">(noch keine Aenderungen aufgezeichnet)</span>';return;}
