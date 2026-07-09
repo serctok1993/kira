@@ -117,6 +117,7 @@ _ACTION_TYPES = {
     "mission_task_start", "mission_task_done", "mission_planned",
     "task_criteria", "task_scored", "task_retry",
     "cron_run", "cron_added", "self_edit", "file_edited", "restart_requested", "heartbeat_toggle",
+    "computer_use",  # Macht-Schritt 1: Bildschirm/Maus/Tastatur — als Aktion sichtbar
 }
 _CHAT_TYPES = {"partner_message", "user_message", "telegram_in", "telegram_photo", "vision", "reflection"}
 
