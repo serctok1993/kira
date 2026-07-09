@@ -504,10 +504,140 @@ def server_status() -> dict[str, dict]:
             t for t, s in _tool_registry.items()
             if s == name
         ])
+        handle = _servers.get(name)
         status[name] = {
             "enabled": cfg.get("enabled", True),
             "running": running,
             "tools": tool_count,
             "command": cfg.get("command", ""),
+            "comment": cfg.get("comment", ""),
+            "error": (handle.last_error if handle else "") or "",
         }
     return status
+
+
+# ---------------------------------------------------------------------------
+# Macht-Schritt 2: MCP-Universum — Server zur Laufzeit per Config einstoepseln.
+# Damit kann Sergen (oder Kira) beliebige MCP-Server ohne Code-Aenderung hinzufuegen.
+# ---------------------------------------------------------------------------
+
+_CONFIG_PATH = Path("data/mcp_servers.json")
+
+
+def _read_config() -> dict:
+    try:
+        d = json.loads(_CONFIG_PATH.read_text(encoding="utf-8")) if _CONFIG_PATH.exists() else {}
+        return d if isinstance(d, dict) else {}
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def _write_config(configs: dict) -> None:
+    from core.kernel.fs import atomic_write
+
+    atomic_write(_CONFIG_PATH, json.dumps(configs, indent=2, ensure_ascii=False))
+
+
+def _unbridge_server(name: str) -> None:
+    """Server stoppen und ALLE seine Tools aus der Registry entfernen."""
+    handle = _servers.pop(name, None)
+    if handle is not None:
+        try:
+            handle.stop()
+        except Exception:  # noqa: BLE001
+            pass
+    for kira_name in [t for t, s in _tool_registry.items() if s == name]:
+        _tool_registry.pop(kira_name, None)
+        try:
+            registry.unregister(kira_name)
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def add_server(name: str, config: dict, *, start: bool = True) -> dict:
+    """Fuegt einen MCP-Server hinzu (oder ersetzt ihn) und brueckt ihn sofort live.
+
+    Returns {ok, tools, error}. Wirft nie — Fehler kommen im Feld 'error' zurueck,
+    damit ein kaputter Server das Cockpit nicht bricht."""
+    name = (name or "").strip()
+    if not name or not isinstance(config, dict) or not config.get("command"):
+        return {"ok": False, "error": "Name und command sind Pflicht."}
+    configs = _read_config()
+    _unbridge_server(name)                       # evtl. alte Version sauber weg
+    config.setdefault("enabled", True)
+    configs[name] = config
+    _write_config(configs)
+    _emit("mcp_server_added", {"server": name, "command": config.get("command", "")})
+    if not (start and config.get("enabled", True)):
+        return {"ok": True, "tools": 0, "error": ""}
+    try:
+        n = bridge_server(name, config)
+        return {"ok": True, "tools": n, "error": ""}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": True, "tools": 0, "error": str(e)[:300]}
+
+
+def remove_server(name: str) -> dict:
+    """Entfernt einen MCP-Server ganz (stoppt ihn + loescht aus der Config)."""
+    configs = _read_config()
+    if name not in configs:
+        return {"ok": False, "error": f"'{name}' ist nicht konfiguriert."}
+    _unbridge_server(name)
+    del configs[name]
+    _write_config(configs)
+    _emit("mcp_server_removed", {"server": name})
+    return {"ok": True}
+
+
+def toggle_server(name: str, enabled: bool) -> dict:
+    """Schaltet einen Server an/aus (startet bzw. stoppt ihn live)."""
+    configs = _read_config()
+    cfg = configs.get(name)
+    if not isinstance(cfg, dict):
+        return {"ok": False, "error": f"'{name}' ist nicht konfiguriert."}
+    cfg["enabled"] = bool(enabled)
+    configs[name] = cfg
+    _write_config(configs)
+    _emit("mcp_server_toggled", {"server": name, "enabled": bool(enabled)})
+    if enabled:
+        try:
+            n = bridge_server(name, cfg)
+            return {"ok": True, "tools": n, "error": ""}
+        except Exception as e:  # noqa: BLE001
+            return {"ok": True, "tools": 0, "error": str(e)[:300]}
+    _unbridge_server(name)
+    return {"ok": True, "tools": 0}
+
+
+# Kuratierter Katalog gaengiger MCP-Server (Ein-Klick-Anlegen im Cockpit). Jeder Eintrag
+# ist eine fertige Config-Vorlage; 'secret' nennt den Tresor-Schluessel, den der Server braucht.
+CATALOG: list[dict] = [
+    {"id": "github", "label": "GitHub", "secret": "GITHUB_TOKEN",
+     "info": "Repos, Issues, PRs, Code-Suche",
+     "config": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-github"],
+                "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_TOKEN"}, "timeout": 60,
+                "tools": ["get_file_contents", "search_repositories", "create_issue",
+                          "list_issues", "create_pull_request", "list_commits"]}},
+    {"id": "supabase", "label": "Supabase", "secret": "SUPABASE_ACCESS_TOKEN",
+     "info": "Datenbank, Tabellen, SQL, Logs",
+     "config": {"command": "npx", "args": ["-y", "@supabase/mcp-server-supabase@latest"],
+                "env": {"SUPABASE_ACCESS_TOKEN": "$SUPABASE_ACCESS_TOKEN"}, "timeout": 60,
+                "tools": ["list_projects", "list_tables", "execute_sql", "get_logs"]}},
+    {"id": "filesystem", "label": "Dateisystem", "secret": "",
+     "info": "Ordner lesen/schreiben (MCP-Referenz)",
+     "config": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem",
+                                            "$HOME"], "timeout": 30}},
+    {"id": "brave", "label": "Brave Search", "secret": "BRAVE_API_KEY",
+     "info": "Web-Suche als MCP",
+     "config": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+                "env": {"BRAVE_API_KEY": "$BRAVE_API_KEY"}, "timeout": 30}},
+    {"id": "notion", "label": "Notion", "secret": "NOTION_TOKEN",
+     "info": "Seiten, Datenbanken, Notizen",
+     "config": {"command": "npx", "args": ["-y", "@notionhq/notion-mcp-server"],
+                "env": {"NOTION_TOKEN": "$NOTION_TOKEN"}, "timeout": 60}},
+    {"id": "slack", "label": "Slack", "secret": "SLACK_BOT_TOKEN",
+     "info": "Kanaele lesen, Nachrichten posten",
+     "config": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-slack"],
+                "env": {"SLACK_BOT_TOKEN": "$SLACK_BOT_TOKEN"}, "timeout": 60,
+                "kinds": {"post_message": "external"}}},
+]
