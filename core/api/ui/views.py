@@ -495,6 +495,15 @@ VIEWS = r"""</head><body>
           <span class="muted" id="pf-sum" style="margin-left:10px"></span>
           <div id="pf-list" style="margin-top:10px"></div>
         </div></div>
+      <div class="panel" style="margin-top:14px"><div class="panel-h">◈ WERKSZUSTAND — Kira als Blanko übergeben</div>
+        <div class="panel-b">
+          <div class="muted" style="font-size:12px;margin-bottom:8px">Nach der Bauphase den Test-/Dev-Wildwuchs rauswerfen — Verfassung, Persona, USER.md, Zugänge und Config bleiben unangetastet. Jede Kategorie wird <b>vorher gesichert</b> (data/backups). Nichts passiert ohne dein ausdrückliches Ja.</div>
+          <div id="fac-cats"><span class="muted">…</span></div>
+          <div class="row" style="gap:10px;margin-top:10px;align-items:center">
+            <button id="fac-reset" class="ghost" style="border-color:var(--danger);color:var(--danger)">Auf Werkszustand setzen</button>
+            <span class="muted" id="fac-hint" style="font-size:12px"></span>
+          </div>
+        </div></div>
       <div class="panel" style="margin-top:14px"><div class="panel-h">◈ MCP-UNIVERSUM — Server einstöpseln</div>
         <div class="panel-b">
           <div class="muted" style="font-size:12px;margin-bottom:8px">Macht-Schritt 2: beliebige MCP-Server anschließen, ohne Code. Ein Klick aus dem Katalog (Zugang muss im Tresor liegen) — dann stehen ihre Werkzeuge sofort bereit. Schreibende Tools laufen automatisch durchs Freigabe-Gate.</div>

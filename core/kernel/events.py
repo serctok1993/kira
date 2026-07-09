@@ -75,6 +75,19 @@ def recent(limit: int = 50, before: float | None = None) -> list[dict]:
     ]
 
 
+def count_all() -> int:
+    with _conn() as c:
+        return int(c.execute("SELECT COUNT(*) FROM events").fetchone()[0])
+
+
+def clear_all() -> int:
+    """Loescht das komplette Ereignis-Protokoll (Werkszustand-Reset). Gibt die Anzahl zurueck."""
+    with _conn() as c:
+        n = int(c.execute("SELECT COUNT(*) FROM events").fetchone()[0])
+        c.execute("DELETE FROM events")
+    return n
+
+
 def counts_by_type() -> dict[str, int]:
     with _conn() as c:
         rows = c.execute("SELECT type, COUNT(*) FROM events GROUP BY type ORDER BY 2 DESC").fetchall()
