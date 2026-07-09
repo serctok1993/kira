@@ -488,6 +488,13 @@ VIEWS = r"""</head><body>
         <div class="panel"><div class="panel-h">◈ DIENSTE &amp; MCP &amp; WERKZEUGKASTEN</div>
           <div id="ag-infra" class="panel-b"><span class="muted">…</span></div></div>
       </div>
+      <div class="panel" style="margin-top:14px"><div class="panel-h">◈ ÜBERGABE-CHECK — ist Kira startklar?</div>
+        <div class="panel-b">
+          <div class="muted" style="font-size:12px;margin-bottom:8px">Ein grüner Blick vor dem Start: Modell erreichbar, MCP-Server laufen, Abhängigkeiten da, Wissensbasis befüllt. So fällt ein fehlender Zugang <b>vorher</b> auf, nicht mitten im Projekt.</div>
+          <button id="pf-run">Übergabe-Check starten</button>
+          <span class="muted" id="pf-sum" style="margin-left:10px"></span>
+          <div id="pf-list" style="margin-top:10px"></div>
+        </div></div>
       <div class="panel" style="margin-top:14px"><div class="panel-h">◈ MCP-UNIVERSUM — Server einstöpseln</div>
         <div class="panel-b">
           <div class="muted" style="font-size:12px;margin-bottom:8px">Macht-Schritt 2: beliebige MCP-Server anschließen, ohne Code. Ein Klick aus dem Katalog (Zugang muss im Tresor liegen) — dann stehen ihre Werkzeuge sofort bereit. Schreibende Tools laufen automatisch durchs Freigabe-Gate.</div>

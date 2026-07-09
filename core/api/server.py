@@ -1300,6 +1300,19 @@ def api_agents() -> dict:
     }
 
 
+@app.get("/api/preflight")
+def api_preflight() -> dict:
+    """Uebergabe-Preflight: gruener Start-Blick (Modell, MCP, Wissensbasis, Abhaengigkeiten).
+    Read-only, 0 Tokens."""
+    from core.kernel import preflight
+
+    try:
+        return preflight.check()
+    except Exception as e:  # noqa: BLE001
+        return {"items": [{"label": "Preflight", "state": "blocker", "detail": str(e)[:160]}],
+                "ready": False, "blockers": 1, "todos": 0, "warns": 0}
+
+
 @app.get("/api/mcp/catalog")
 def api_mcp_catalog() -> dict:
     """Macht-Schritt 2: kuratierter MCP-Server-Katalog fuers Ein-Klick-Anlegen +
