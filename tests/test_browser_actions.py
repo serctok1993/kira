@@ -85,3 +85,38 @@ def test_module_imports_without_playwright():
 def test_browser_act_invalid_json_returns_string():
     out = browser.browser_act("kein json")
     assert out.startswith("Aktionsliste ungueltig")
+
+
+# --- Harness-Haertung 10.07.: robust gegen typische Fehlaufrufe kleiner Modelle ------
+
+def test_parse_accepts_parsed_list():
+    """Bereits geparste Liste (kein JSON-String) darf keinen str/bytes-TypeError werfen."""
+    acts = [{"action": "goto", "url": "https://example.com"}, {"action": "read"}]
+    assert len(browser.parse_actions(acts)) == 2
+
+
+def test_parse_accepts_single_action_dict():
+    assert browser.parse_actions({"action": "read"}) == [{"action": "read"}]
+
+
+def test_parse_accepts_actions_wrapper_dict():
+    assert len(browser.parse_actions({"actions": [{"action": "read"}]})) == 1
+
+
+def test_parse_errors_teach_the_format():
+    """Fehlermeldungen lehren: das korrekte Minimal-Beispiel ist immer dabei."""
+    for bad in ("kein json", "[]", json.dumps([{"action": "hack"}])):
+        with pytest.raises(ValueError) as e:
+            browser.parse_actions(bad)
+        assert '"action":"goto"' in str(e.value)
+
+
+def test_browser_act_unknown_kwarg_teaches():
+    """browser_act(url=...) gab frueher 'unexpected keyword argument' — jetzt Lehr-Fehler."""
+    out = browser.browser_act(url="https://example.com")
+    assert "url" in out and '"action":"goto"' in out
+
+
+def test_browser_act_missing_actions_teaches():
+    out = browser.browser_act()
+    assert "actions" in out and '"action":"goto"' in out
