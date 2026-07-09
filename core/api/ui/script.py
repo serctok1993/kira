@@ -484,7 +484,7 @@ async function loadHome(){const o=await (await fetch("/api/overview")).json();
  if(zl){const ls=(o.lessons||[]).slice(0,3);
   zl.style.display=ls.length?"block":"none";
   zl.innerHTML=ls.length?('<div class="muted" style="font-size:10px;letter-spacing:1px;margin-bottom:3px">ZULETZT GELERNT</div>'
-   +'<ul style="margin:0;padding-left:16px;font-size:12px">'+ls.map(l=>'<li>'+esc((""+l).slice(0,120))+'</li>').join("")+'</ul>'):"";}
+   +'<ul style="margin:0;padding-left:16px;font-size:12px">'+ls.map(l=>'<li class="clamp1" title="'+esc((""+l).slice(0,300))+'">'+esc((""+l).slice(0,140))+'</li>').join("")+'</ul>'):"";}
  loadZielePinned();
  const gz=$("#go-ziele");if(gz)gz.onclick=()=>{nav("me");subnav("me","metriken");};}
 
@@ -501,9 +501,10 @@ async function loadHud(){const el=$("#hud-strip");if(!el)return;
  try{const o=await (await fetch("/api/overview")).json();const st=await (await fetch("/api/status")).json();
   let sv=null;try{sv=await (await fetch("/api/services")).json();}catch(e){}
   /* S9.1: HUD-Streifen erweitert — Heartbeat, offene Aufgaben/Todos, letzte Aktion */
-  let mb=null,lb=null;
+  let mb=null,lb=null,cj=null;
   try{mb=await (await fetch("/api/mission/board")).json();}catch(e){}
   try{lb=await (await fetch("/api/life/board")).json();}catch(e){}
+  try{cj=await (await fetch("/api/cron")).json();}catch(e){}
   const b=o.budget||{};const ec=st.events||{};
   const dd=(ok,name)=>'<span title="'+name+'" style="display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;background:'+(ok?'var(--ok)':'var(--danger)')+'"></span>';
   const svc=(sv&&sv.services)||{};
@@ -531,10 +532,15 @@ async function loadHud(){const el=$("#hud-strip");if(!el)return;
    +cell("Monat",(b.month_spent||0)+' / '+(b.month_limit==null?"-":b.month_limit)+' €')
    +cell("Aufgaben",'<b style="color:var(--hud)">'+jobs+'</b> offen'+(running?' · '+running+' laeuft':''))
    +cell("Deine Todos",'<b>'+todos+'</b>')
+   /* Feedback 09.07.: leere HUD-Plaetze gefuellt — Freigaben (klick -> Inbox) + naechste Routine */
+   +cell("Freigaben",(st.freigaben_offen|0)?('<a id="hud-frei" title="klick zur Freigabe-Inbox" style="cursor:pointer;color:var(--warn)">'+(st.freigaben_offen|0)+' offen</a>'):'<span style="color:var(--ok)">0</span>')
+   +(function(){const nx=(((cj||{}).jobs)||[]).filter(j=>j.enabled&&j.next_run).sort((a,b)=>a.next_run-b.next_run)[0];
+     return cell("Naechste Routine",nx?('<span title="'+esc(nx.label||"")+'">'+new Date(nx.next_run*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})+' · '+esc((""+(nx.label||"")).slice(0,16))+'</span>'):'<span class="muted">—</span>');})()
    +dienste
    +cell("Fehler · 7 Tg",'<a id="hud-errs" title="Timeouts/Crashes der letzten 7 Tage — klick fuers Protokoll" style="cursor:pointer;color:'+(errs?"var(--warn)":"var(--ok)")+'">'+errs+'</a>')
    +'<div class="hud-cell spacer"></div>'
    +cell("Aktion",'<a id="hud-restart" style="cursor:pointer;color:var(--hud)">↻ Neustart</a>');
+  const hfr=$("#hud-frei");if(hfr)hfr.onclick=()=>{nav("me");if(typeof subnav==="function")subnav("me","freigaben");};
   const rb=$("#hud-restart");if(rb)rb.onclick=async()=>{if(!confirm("Kira neu starten? Dienste bouncen in ~20s."))return;await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});rb.textContent="↻ …";};
   const eb=$("#hud-errs");if(eb)eb.onclick=()=>{nav("kira");if(typeof subnav==="function")subnav("kira","log");};  /* Fehler-Zahl -> Protokoll */
   /* Assistenz-Modus direkt in der Zentrale (freihaendiges Zuhoeren, Weckwort "Kira"). */
@@ -585,7 +591,12 @@ const DEFAULT_FEEDS=[{kind:"feed",value:"https://hnrss.org/frontpage",label:"Hac
  {kind:"feed",value:"https://www.theverge.com/rss/index.xml",label:"The Verge"},
  {kind:"search",value:"KI Modell Release news",label:"KI-Releases"},
  {kind:"search",value:"AI agents open source",label:"Agents"}];
-function bindNewsSeed(){const s=$("#news-seed");if(!s)return;s.onclick=async()=>{s.textContent="… fuege hinzu";
+function bindNewsSeed(){const s=$("#news-seed");if(!s)return;s.onclick=async()=>{
+  /* Feedback 09.07.: nichts still hinzufuegen — erst zeigen, WAS dazukommt */
+  if(!confirm("Diese Standard-Quellen fuers Intel-Laufband hinzufuegen?\n\n"
+    +DEFAULT_FEEDS.map(f=>"• "+(f.label||f.value)).join("\n")
+    +"\n\n(Verwalten/Loeschen: Kira → Monitor)"))return;
+  s.textContent="… fuege hinzu";
   for(const f of DEFAULT_FEEDS){try{await fetch("/api/monitor/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(f)});}catch(e){}}
   s.textContent="✓ hinzugefuegt";loadNews();};}
 function bindOpsFilter(){$$("#ops-filter a").forEach(a=>a.onclick=()=>{opsFilter=a.dataset.of;$$("#ops-filter a").forEach(x=>x.classList.toggle("on",x===a));renderOps();});}
@@ -702,7 +713,12 @@ async function loadDigest(){const el=$("#digest");if(!el)return;
  try{const d=await (await fetch("/api/digest")).json();const b=d.budget||{};
   let h='<div class="muted" style="font-size:11px;letter-spacing:1px">'+d.date+'</div>';
   h+='<div style="margin:6px 0"><b>'+d.tasks_done_count+'</b> Aufgaben erledigt · <b>'+d.planned+'</b> geplant · <b>'+d.news+'</b> News</div>';
-  if(d.tasks_done&&d.tasks_done.length){h+='<ul style="margin:4px 0;padding-left:16px;font-size:12px">'+d.tasks_done.slice(0,4).map(t=>'<li>'+(""+t).replace(/</g,"&lt;")+'</li>').join("")+'</ul>';
+  /* Feedback 09.07.: EINE Zeile pro Aufgabe (kein Scrollfenster) — Markdown-Reste und
+     'Hier das Ergebnis'-Floskeln raus, voller Text im title-Tooltip */
+  const zeile=t=>(""+t).replace(/^Ich habe (jetzt )?(ausreichend )?/i,"").replace(/Hier das Ergebnis\.?/gi," ")
+    .replace(/[#*`>|-]+/g," ").replace(/\s+/g," ").trim();
+  if(d.tasks_done&&d.tasks_done.length){h+='<ul style="margin:4px 0;padding-left:16px;font-size:12px">'
+    +d.tasks_done.slice(0,4).map(t=>{const s=zeile(t);return '<li class="clamp1" title="'+esc(s.slice(0,300))+'">'+esc(s.slice(0,140))+'</li>';}).join("")+'</ul>';
    if(d.tasks_done.length>4)h+='<div class="muted" style="font-size:11px">+ '+(d.tasks_done.length-4)+' weitere &middot; <span style="cursor:pointer;text-decoration:underline" onclick="nav(\'me\')">Me</span></div>';}
   /* S11: heute angefasste Dateien (der greifbarste "was wurde gebaut"-Beleg) + Tagesausgabe */
   if(d.artifacts&&d.artifacts.length)h+='<div style="margin-top:6px;font-size:12px"><span class="muted">Heute angefasst ('+d.artifacts.length+'):</span> '+d.artifacts.slice(0,6).map(a=>'<code style="font-size:11px">'+(""+a).replace(/</g,"&lt;").split("/").pop()+'</code>').join(", ")+'</div>';
@@ -1395,7 +1411,8 @@ $("#voice-test")&&($("#voice-test").onclick=async()=>{const o=$("#voice-testout"
  }catch(e){o.innerHTML='<b class=no>Test nicht erreichbar: '+e+'</b>';}});
 
 /* ---- Gedaechtnis ---- */
-let memFilter="all",memQuery="",memBound=false;
+let memFilter="wichtig",memQuery="",memBound=false;  /* Gedaechtnis-Diaet: Standard = nur Gemerktes */
+const MEM_WICHTIG=["fact","lesson","skill","semantic"];
 const memSel=new Set();   /* Mehrfachauswahl (Werkbank PR 5): EIN Loeschen fuer N Eintraege */
 function memBadge(role){return role==="partner"?'<span class="badge kira">🧠 Kira</span>':'<span class="badge you">👤 Du</span>';}
 function memSelBar(){const b=$("#mem-selbar");if(!b)return;
@@ -1405,13 +1422,15 @@ async function loadMem(){bindMemFilter();memSel.clear();memSelBar();
  const ms=await (await fetch("/api/memory?limit=300")).json();const el=$("#memlist");el.innerHTML="";
  const q=memQuery.toLowerCase();
  const rows=ms.filter(m=>{
-   if(memFilter==="partner"||memFilter==="user"){if(m.role!==memFilter)return false;}
+   if(memFilter==="wichtig"){if(!MEM_WICHTIG.includes(m.kind||""))return false;}
+   else if(memFilter==="partner"||memFilter==="user"){if(m.role!==memFilter)return false;}
    else if(memFilter!=="all"){if((m.kind||"")!==memFilter)return false;}
    if(q&&!(""+(m.text||"")).toLowerCase().includes(q))return false;
    return true;});
  const hint=$("#mem-hint");
  if(hint){const n=k=>ms.filter(m=>(m.kind||"")===k).length;
-  hint.textContent=rows.length+" von "+ms.length+" · "+n("fact")+" Fakten · "+n("lesson")+" Lektionen · "+n("skill")+" Skills";}
+  hint.textContent=rows.length+" von "+ms.length+" · "+n("fact")+" Fakten · "+n("lesson")+" Lektionen · "+n("skill")+" Skills"
+   +(memFilter==="wichtig"?" · Chat-Verlauf unter 'chat'":"");}
  if(!rows.length){el.innerHTML='<span class=muted>(keine passenden Erinnerungen)</span>';}
  rows.forEach(m=>{const d=document.createElement("div");d.className="memrow";const ts=new Date(m.ts*1000).toLocaleString();
   d.innerHTML='<div class="mh"><input type="checkbox" data-sel style="accent-color:var(--accent)"/>'

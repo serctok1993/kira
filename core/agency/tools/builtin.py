@@ -84,50 +84,110 @@ def web_fetch(url: str, limit: int = 3000) -> str:
     return text[:limit] if text else "(kein Textinhalt gefunden)"
 
 
+def _fmt_hits(hits: list[tuple[str, str, str]], n: int) -> str | None:
+    """(titel, url, snippet)-Treffer einheitlich formatieren — None bei leer."""
+    if not hits:
+        return None
+    return "\n".join(f"- {t}\n  {u}" + (f"\n  {_strip_html(s)[:180]}" if s else "")
+                     for t, u, s in hits[:n])
+
+
+def _search_brave(query: str, n: int, key: str) -> tuple[str | None, str]:
+    r = httpx.get("https://api.search.brave.com/res/v1/web/search",
+                  params={"q": query, "count": n},
+                  headers={"X-Subscription-Token": key, "Accept": "application/json"}, timeout=20)
+    if r.status_code == 200:
+        res = (r.json().get("web") or {}).get("results", [])
+        return _fmt_hits([(x.get("title", ""), x.get("url", ""), x.get("description", ""))
+                          for x in res], n), ""
+    if r.status_code == 429:
+        return None, "Brave: Kontingent aufgebraucht"
+    if r.status_code in (401, 422):
+        return None, "Brave: Key ungueltig (Zugaenge pruefen)"
+    return None, f"Brave: Fehler {r.status_code}"
+
+
+def _search_tavily(query: str, n: int, key: str) -> tuple[str | None, str]:
+    """Tavily — fuer KI-Agenten gebaute Suche, kostenloser Plan ~1000 Anfragen/Monat."""
+    r = httpx.post("https://api.tavily.com/search",
+                   json={"query": query, "max_results": n},
+                   headers={"Authorization": f"Bearer {key}"}, timeout=20)
+    if r.status_code == 200:
+        res = r.json().get("results", [])
+        return _fmt_hits([(x.get("title", ""), x.get("url", ""), x.get("content", ""))
+                          for x in res], n), ""
+    return None, f"Tavily: Fehler {r.status_code}"
+
+
+def _search_google_cse(query: str, n: int, key: str, cx: str) -> tuple[str | None, str]:
+    """Google Programmable Search — echtes Google, kostenlos 100 Anfragen/Tag."""
+    r = httpx.get("https://www.googleapis.com/customsearch/v1",
+                  params={"key": key, "cx": cx, "q": query, "num": min(n, 10)}, timeout=20)
+    if r.status_code == 200:
+        res = r.json().get("items", []) or []
+        return _fmt_hits([(x.get("title", ""), x.get("link", ""), x.get("snippet", ""))
+                          for x in res], n), ""
+    return None, f"Google: Fehler {r.status_code}"
+
+
+def _search_searxng(query: str, n: int, base: str) -> tuple[str | None, str]:
+    """SearXNG — selbst gehostete Meta-Suche (0 Euro, unbegrenzt, unabhaengig)."""
+    r = httpx.get(base.rstrip("/") + "/search",
+                  params={"q": query, "format": "json"}, timeout=20, headers=_UA)
+    if r.status_code == 200:
+        res = r.json().get("results", []) or []
+        return _fmt_hits([(x.get("title", ""), x.get("url", ""), x.get("content", ""))
+                          for x in res], n), ""
+    return None, f"SearXNG: Fehler {r.status_code}"
+
+
 @tool("web_search",
-      "Sucht im Web und liefert Top-Treffer (Titel + URL + kurzer Snippet). Nutzt Brave Search "
-      "(zuverlaessig), wenn BRAVE_API_KEY gesetzt ist — sonst DuckDuckGo als Fallback.",
+      "Sucht im Web und liefert Top-Treffer (Titel + URL + kurzer Snippet). Provider-Kette: "
+      "Brave -> Tavily -> Google CSE -> SearXNG -> DuckDuckGo — es wird automatisch der erste "
+      "funktionierende genutzt (Keys unter 'Zugaenge': BRAVE_API_KEY, TAVILY_API_KEY, "
+      "GOOGLE_CSE_KEY + GOOGLE_CSE_ID, SEARXNG_URL).",
       {"query": "die Suchanfrage"})
 def web_search(query: str, max_results: int = 5) -> str:
     import os
 
-    key = (os.getenv("BRAVE_API_KEY") or "").strip()
-    if key and (not key.isascii() or " " in key or len(key) > 200):
-        return ("(BRAVE_API_KEY unter 'Zugaenge' ist UNGUELTIG — zu lang / Leerzeichen / Sonderzeichen. "
-                "Ein Brave-Key ist kurz & alphanumerisch (~32 Zeichen). Bitte den ECHTEN Key aus deinem "
-                "Brave-API-Dashboard eintragen, keinen Text.)")
-    if key:
-        try:
-            r = httpx.get(
-                "https://api.search.brave.com/res/v1/web/search",
-                params={"q": query, "count": max_results},
-                headers={"X-Subscription-Token": key, "Accept": "application/json"},
-                timeout=20,
-            )
-            if r.status_code == 200:
-                res = (r.json().get("web") or {}).get("results", [])[:max_results]
-                if res:
-                    return "\n".join(
-                        f"- {x.get('title', '')}\n  {x.get('url', '')}\n  {_strip_html(x.get('description', ''))[:180]}"
-                        for x in res
-                    )
-                return "(keine Treffer fuer diese Anfrage)"
-            if r.status_code in (401, 422):
-                return "(Brave lehnt den Key ab — ungueltiger Token. Bitte BRAVE_API_KEY unter 'Zugaenge' neu eintragen.)"
-            return f"(Brave-Suche Fehler {r.status_code} — BRAVE_API_KEY unter 'Zugaenge' pruefen)"
-        except Exception as e:  # noqa: BLE001
-            return f"(Brave-Suche fehlgeschlagen: {e})"
+    def _env(name: str) -> str:
+        v = (os.getenv(name) or "").strip()
+        # kaputte Keys (Leerzeichen/zu lang) still ueberspringen statt die Kette zu stoppen
+        return v if (v and v.isascii() and " " not in v and len(v) <= 300) else ""
 
-    # Fallback: DuckDuckGo — kann bei Burst-Nutzung geblockt sein -> Fehler SICHTBAR machen, nicht verschlucken
+    notes: list[str] = []
+    kette: list[tuple[str, callable]] = []
+    if _env("BRAVE_API_KEY"):
+        kette.append(("brave", lambda: _search_brave(query, max_results, _env("BRAVE_API_KEY"))))
+    if _env("TAVILY_API_KEY"):
+        kette.append(("tavily", lambda: _search_tavily(query, max_results, _env("TAVILY_API_KEY"))))
+    if _env("GOOGLE_CSE_KEY") and _env("GOOGLE_CSE_ID"):
+        kette.append(("google", lambda: _search_google_cse(
+            query, max_results, _env("GOOGLE_CSE_KEY"), _env("GOOGLE_CSE_ID"))))
+    if (os.getenv("SEARXNG_URL") or "").strip().startswith("http"):
+        kette.append(("searxng", lambda: _search_searxng(
+            query, max_results, os.getenv("SEARXNG_URL").strip())))
+    for name, fn in kette:
+        try:
+            out, note = fn()
+            if out:
+                return out
+            notes.append(note or f"{name}: keine Treffer")
+        except Exception as e:  # noqa: BLE001 — ein toter Provider stoppt nicht die Kette
+            notes.append(f"{name}: {e}")
+
+    # Letzte Instanz: DuckDuckGo-HTML (gratis, aber drosselt gern)
     try:
         r = httpx.post("https://html.duckduckgo.com/html/", data={"q": query},
                        timeout=20, headers=_UA, follow_redirects=True)
     except Exception as e:  # noqa: BLE001
-        return f"(Suche fehlgeschlagen: {e})"
+        return f"(Suche fehlgeschlagen: {e}" + (f" — vorher: {'; '.join(notes)}" if notes else "") + ")"
     if r.status_code == 202 or "anomaly" in r.text.lower():
-        return ("(Suche gerade BLOCKIERT — DuckDuckGo drosselt die IP. Trage einen kostenlosen "
-                "BRAVE_API_KEY unter 'Zugaenge' ein fuer zuverlaessige Suche, oder warte kurz und versuch es erneut. "
-                "Fuer eine bestimmte Seite geht auch das echte Browser-Werkzeug 'browse'.)")
+        return ("(Suche gerade BLOCKIERT — DuckDuckGo drosselt die IP"
+                + (f"; vorher: {'; '.join(notes)}" if notes else "") + ". "
+                "Kostenlose Abhilfe unter 'Zugaenge': TAVILY_API_KEY (~1000 Suchen/Monat) oder "
+                "GOOGLE_CSE_KEY + GOOGLE_CSE_ID (100/Tag, echtes Google). "
+                "Fuer eine bestimmte Seite geht auch das Browser-Werkzeug 'browse'.)")
     hits = re.findall(r'class="result__a"[^>]*href="([^"]+)".*?>(.*?)</a>', r.text, flags=re.DOTALL)
     out = []
     for href, title in hits[:max_results]:
@@ -137,7 +197,8 @@ def web_search(query: str, max_results: int = 5) -> str:
 
             href = unquote(m.group(1))
         out.append(f"- {_strip_html(title)}\n  {href}")
-    return "\n".join(out) if out else "(keine Ergebnisse — evtl. Formatwechsel bei DuckDuckGo; BRAVE_API_KEY empfohlen)"
+    return "\n".join(out) if out else ("(keine Ergebnisse"
+                                       + (f" — {'; '.join(notes)}" if notes else "") + ")")
 
 
 # --- Datei-Haende: Kira kann auf dem PC lesen/schreiben/auflisten/Ordner anlegen ---
@@ -219,14 +280,44 @@ def request_secret(name: str, reason: str = "") -> str:
     return f"Zugang '{name}' angefordert. Sergen traegt ihn im Dashboard unter 'Zugaenge' ein."
 
 
+# Gedaechtnis-Diaet (Sergens Fund 09.07.): "okay, super." landete als Dauer-Fakt im
+# Langzeit-Gedaechtnis. Deterministischer Waechter: Smalltalk/Bestaetigungen und
+# Duplikate kommen NICHT mehr rein — der Chat-Verlauf (episodic) bleibt unberuehrt.
+_SMALLTALK = {"ok", "okay", "oki", "super", "nice", "top", "cool", "mega", "geil", "perfekt",
+              "passt", "gut", "prima", "toll", "stark", "danke", "dankeschoen", "dankeschön",
+              "ja", "nein", "jo", "jap", "ne", "klar", "alles", "gerne", "bitte", "sehr",
+              "los", "gehts", "geht's", "weiter", "machen", "wir", "so", "dann", "mal",
+              "lol", "haha", "hi", "hallo", "hey", "moin", "servus", "tschau", "ciao",
+              "laeuft", "läuft", "lets", "let's", "go", "bis", "gleich", "morgen", "spaeter",
+              "später", "nacht", "gute", "guten", "schoen", "schön", "und", "auch", "das", "ist"}
+
+
+def _zu_banal(fact: str) -> bool:
+    """True fuer Smalltalk ('okay, super.') — kein Langzeit-Wert, nichts speichern."""
+    import re as _re
+
+    woerter = _re.sub(r"[^\w'äöüÄÖÜß]+", " ", (fact or "").lower()).split()
+    if len((fact or "").strip()) < 15 or not woerter:
+        return True
+    return all(w in _SMALLTALK for w in woerter)
+
+
 @tool("remember_fact",
       "Speichere eine wichtige DAUER-Erinnerung (Fakt ueber Sergen, ein Projekt, eine "
-      "Entscheidung, eine Praeferenz). Wird spaeter bevorzugt wieder erinnert.",
+      "Entscheidung, eine Praeferenz). Wird spaeter bevorzugt wieder erinnert. "
+      "NUR fuer Informationen mit Langzeit-Wert — KEIN Smalltalk, keine Bestaetigungen, "
+      "kein Gespraechsverlauf (der wird ohnehin erinnert).",
       {"fact": "die zu merkende Information, knapp formuliert"})
 def remember_fact(fact: str) -> str:
     from core.mind.memory import store as memory
 
+    fact = " ".join((fact or "").split())
+    if _zu_banal(fact):
+        return (f"NICHT gespeichert — '{fact[:40]}' ist Smalltalk/Bestaetigung, kein Dauer-Fakt. "
+                "Merke nur Informationen mit Langzeit-Wert (Personen, Daten, Vorlieben, Entscheidungen).")
     memory.init_memory()
+    if memory.find_duplicate(fact, kind="fact"):
+        return f"Schon im Gedaechtnis (nicht doppelt gespeichert): {fact[:90]}"
     memory.remember(fact, role="self", kind="fact")
     return f"Dauerhaft gemerkt: {fact[:90]}"
 

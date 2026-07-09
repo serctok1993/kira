@@ -358,6 +358,12 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
 .seg a{padding:5px 10px;color:var(--muted);cursor:pointer;border-right:1px solid var(--line)}
 .seg a:last-child{border-right:none}
 .seg a.on{background:color-mix(in srgb,var(--hud) 14%,transparent);color:var(--hud)}
+/* Feedback 09.07.: Befehl + Widgets teilen sich eine Reihe — keine tote Luecke mehr */
+.dir-row{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;margin:0 0 16px;max-width:1500px}
+.dir-row .direktive{flex:0 1 560px;margin:0}
+.dir-row .wslot{flex:1 1 320px;min-width:280px}
+/* EINE Zeile pro Listenpunkt (Digest/Lektionen) — voller Text im Tooltip, kein Scrollfenster */
+.clamp1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 /* Werkbank PR 8: Widget-Slots — leere Slots kollabieren, gefuellte werden ein Kachel-Raster */
 .wslot{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
 .wslot:empty{display:none}
