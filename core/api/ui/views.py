@@ -43,6 +43,8 @@ VIEWS = r"""</head><body>
         <button class="thm on" data-theme="" title="Schwarz / Lila (Standard)"><span class="td" style="background:#8b5cf6"></span></button>
         <button class="thm" data-theme="gruen" title="Schwarz / Gruen"><span class="td" style="background:#22c55e"></span></button>
         <button class="thm" data-theme="blau" title="Schwarz / Blau"><span class="td" style="background:#3b82f6"></span></button>
+        <button class="thm" data-theme="amber" title="Schwarz / Amber (Retro-Terminal)"><span class="td" style="background:#f59e0b"></span></button>
+        <button class="thm" data-theme="rot" title="Schwarz / Rot (Crimson)"><span class="td" style="background:#f43f5e"></span></button>
         <button class="thm kira" id="thm-kira" data-theme="kira" title="Kira-Modus (Bild-Hintergrund)"></button>
         <label id="bgup" title="Hintergrund-Bild waehlen" style="cursor:pointer;color:var(--muted);font-size:15px">📷<input id="bgquick" type="file" accept="image/*" style="display:none"/></label>
         <div class="colrow">
