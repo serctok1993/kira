@@ -1522,7 +1522,7 @@ function applyBgFor(t){
 function refreshKiraThumb(){const b=$("#thm-kira");if(b)b.style.backgroundImage="url('/api/bg?t="+Date.now()+"'),linear-gradient(135deg,#3a2150,#0a0410)";}
 /* ---- Farb-Themes: Standard (Schwarz/Lila) · Gruen · Blau · Kira (Bild) ---- */
 function setTheme(t){t=t||"";
- if(t==="gruen"||t==="blau")document.documentElement.setAttribute("data-theme",t);else document.documentElement.removeAttribute("data-theme");
+ if(t==="gruen"||t==="blau"||t==="amber"||t==="rot")document.documentElement.setAttribute("data-theme",t);else document.documentElement.removeAttribute("data-theme");
  try{localStorage.setItem("kira-theme",t);}catch(e){}
  $$(".look .thm").forEach(s=>s.classList.toggle("on",(s.dataset.theme||"")===t));
  applyBgFor(t);}
