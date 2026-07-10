@@ -125,6 +125,14 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   #ticker .tk .tt{color:var(--accent);opacity:.95;margin-right:8px}
   #ticker .tk .td{color:var(--muted)}
   #ticker .tk.error{color:var(--amber)}
+  /* HUD-Uhr unten rechts: gross, tabellarische Ziffern, weicher Neon-Schein im Akzentton.
+     pointer-events:none; DOM wird nur beim Minutenwechsel angefasst -> keine Dauer-Recomposites. */
+  #clock{position:fixed;right:30px;bottom:26px;z-index:2;pointer-events:none;text-align:right;
+    text-shadow:0 2px 8px rgba(0,0,0,.95)}
+  body[data-clock="off"] #clock{display:none}
+  #clock .ct{font-family:var(--mono);font-size:56px;line-height:1;color:#fff;font-variant-numeric:tabular-nums;
+    filter:drop-shadow(0 0 14px color-mix(in srgb,var(--accent) 45%,transparent))}
+  #clock .cd{margin-top:7px;font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
   .tag{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:9;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:flex;gap:8px;align-items:center}
   .tag .d{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:bl 2s infinite}
   @keyframes bl{50%{opacity:.4}}
@@ -145,8 +153,10 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
     <label>Größe <select id="w-size"><option value="klein">Klein</option><option value="mittel">Mittel</option><option value="gross">Groß</option><option value="riesig">Riesig</option></select></label>
     <div class="wt" style="padding-top:8px">Aktivität</div>
     <label><input type="checkbox" id="w-ticker"/> Live-Ticker (unten links)</label>
+    <label><input type="checkbox" id="w-clock"/> Uhr (unten rechts)</label>
   </div>
   <div id="ticker"></div>
+  <div id="clock"><div class="ct">–:–</div><div class="cd"></div></div>
 
   <div class="topbar">
     <div class="srow" id="srow"></div>
@@ -250,16 +260,37 @@ async function loadTicker(){const el=$("#ticker");if(!el)return;
     }).join("");
   }catch(e){}}
 
+/* ---- HUD-Uhr (unten rechts): minutengenau; DOM nur anfassen, wenn sich die Minute
+   aendert -> das Wallpaper wird nicht jede Sekunde neu zusammengesetzt (0%-Last). ---- */
+let _clockShown="";
+function tickClock(){
+  document.body.dataset.clock=(WALL.clock!==false)?"on":"off";
+  if(WALL.clock===false)return;
+  const d=new Date(),t=d.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
+  if(t===_clockShown)return;_clockShown=t;
+  $("#clock .ct").textContent=t;
+  $("#clock .cd").textContent=d.toLocaleDateString("de-DE",{weekday:"long"})+" · "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});
+}
+
 /* ---- Live-Vault-Graph ---- */
 let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches,settle=0,drag=null,graphVault=null,dragStart=null,dragMoved=false,GX={},GMAIN="·",lastFloat=0;
 /* Wallpaper-Einstellungen (Zahnrad) — leben im localStorage, das offene Wallpaper hoert per
    'storage'-Event mit -> aendere sie in einem Browser-Tab, der Desktop uebernimmt live. */
 const MODE_RGB={chat:"176,38,255",work:"57,255,20",coding:"0,229,255"};
+/* Cockpit-THEME uebernehmen (gruen/blau/amber/rot aus localStorage 'kira-theme'):
+   die Wallpaper-Akzentfarbe folgt der Cockpit-Wahl. Eigene Farben (kira_custom-Accent
+   oder Desktop-Editor WALL.colors) gewinnen weiterhin — Hierarchie Editor > Theme. */
+(function(){try{
+  const c=JSON.parse(localStorage.getItem("kira_custom")||"{}");if(c.accent)return;
+  const TH={gruen:["#39ff14","57,255,20"],blau:["#22d3ee","34,211,238"],amber:["#ffb02e","255,176,46"],rot:["#ff2d55","255,45,85"]};
+  const t=TH[localStorage.getItem("kira-theme")||""];if(!t)return;
+  document.documentElement.style.setProperty("--chat",t[0]);MODE_RGB.chat=t[1];
+}catch(e){}})();
 const POSX={links:0.32,mitte:0.5,rechts:0.68},POSY={oben:0.32,mitte:0.46,unten:0.6},SIZ={klein:0.72,mittel:1,gross:2.6,riesig:3.6};
 let curG=null;   // zuletzt geladener Graph (fuer Re-Layout bei Groesse/Position)
 // Standard-Layout nach Sergens Desktop-Plan: Graph oben RECHTS, Live-Feed oben links,
 // Mitte bleibt frei fuers Artwork. Standbild default (0% Last); stats=null -> alle.
-let WALL={labels:true,motion:false,color:"vault",pos:"rechts",posy:"oben",size:"gross",stats:null,colors:null,ticker:true};
+let WALL={labels:true,motion:false,color:"vault",pos:"rechts",posy:"oben",size:"gross",stats:null,colors:null,ticker:true,clock:true};
 function loadWall(){try{const s=JSON.parse(localStorage.getItem("kira_wall")||"{}");
   if(!("posy" in s)&&s.pos==="mitte")delete s.pos;   // Migration 3-Zonen-Layout: altes Default faellt, bewusste Wahl bleibt
   Object.assign(WALL,s);}catch(e){}}
@@ -491,7 +522,7 @@ function applyAnim(){document.body.dataset.anim=WALL.motion?"on":"off";}   // LE
 function applyColors(){const c=WALL.colors||{},d=document.documentElement;   // Modus-Akzente aus dem Desktop-Editor
   if(c.chat)d.style.setProperty('--chat',c.chat);if(c.work)d.style.setProperty('--work',c.work);if(c.coding)d.style.setProperty('--coding',c.coding);
   d.style.setProperty('--accent',COL[mode]||'var(--chat)');}
-function syncWallUI(){$("#w-labels").checked=WALL.labels;$("#w-motion").checked=WALL.motion;$("#w-color").value=WALL.color;$("#w-pos").value=WALL.pos;$("#w-posy").value=WALL.posy||"oben";$("#w-size").value=WALL.size;$("#w-ticker").checked=WALL.ticker!==false;applyAnim();}
+function syncWallUI(){$("#w-labels").checked=WALL.labels;$("#w-motion").checked=WALL.motion;$("#w-color").value=WALL.color;$("#w-pos").value=WALL.pos;$("#w-posy").value=WALL.posy||"oben";$("#w-size").value=WALL.size;$("#w-ticker").checked=WALL.ticker!==false;$("#w-clock").checked=WALL.clock!==false;applyAnim();tickClock();}
 $("#gear").addEventListener('click',()=>{const p=$("#wpop");p.classList.toggle('on');if(p.classList.contains('on'))syncWallUI();});
 $("#w-labels").addEventListener('change',e=>{WALL.labels=e.target.checked;saveWall();kick();});
 $("#w-motion").addEventListener('change',e=>{WALL.motion=e.target.checked;saveWall();applyAnim();kick();});
@@ -500,6 +531,7 @@ $("#w-pos").addEventListener('change',e=>{WALL.pos=e.target.value;saveWall();rel
 $("#w-posy").addEventListener('change',e=>{WALL.posy=e.target.value;saveWall();relayout();});
 $("#w-size").addEventListener('change',e=>{WALL.size=e.target.value;saveWall();relayout();});
 $("#w-ticker").addEventListener('change',e=>{WALL.ticker=e.target.checked;saveWall();loadTicker();});
+$("#w-clock").addEventListener('change',e=>{WALL.clock=e.target.checked;saveWall();tickClock();});
 window.addEventListener('storage',e=>{if(e.key==="kira_wall"){loadWall();syncWallUI();relayout();}});   // aus einem Browser-Tab geaendert -> Wallpaper zieht live nach
 document.addEventListener('click',e=>{if(!e.target.closest('#gear')&&!e.target.closest('#wpop')){const p=$("#wpop");if(p)p.classList.remove('on');}});
 
@@ -510,6 +542,7 @@ document.addEventListener('click',e=>{if(!e.target.closest('#gear')&&!e.target.c
   connect();setInterval(loadStats,30000);   // Stats leben (alle 30 s frisch) — Graph bleibt ruhig
   setInterval(pollWall,3000);                // Einstellungen serverseitig -> Lively-Wallpaper zieht nach
   loadTicker();setInterval(loadTicker,10000); // Aktivitaets-Ticker: 1 leichter Poll alle 10 s, keine Animation
+  tickClock();setInterval(tickClock,10000);   // Uhr: minutengenau, DOM nur bei Minutenwechsel
 })();
 </script>
 </body></html>"""

@@ -744,28 +744,51 @@ $("#kill").onclick=async()=>{const on=!$("#kill").classList.contains("active");
 /* ---- Chat ---- */
 const log=$("#log");
 function add(t,c){const d=document.createElement("div");d.className="msg "+c;d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight;return d;}
-/* S6.6b: Mini-Markdown fuer Kiras Antworten — sicher (esc() ZUERST), keine Bibliothek.
-   Kann: **fett**, *kursiv*, `code`, ```bloecke```, - Listen, ## Ueberschriften, [Links](https://…) */
+/* S6.6b/S12: Mini-Markdown fuer Kiras Antworten — sicher (esc() ZUERST), keine Bibliothek.
+   Kann: **fett**, *kursiv*, ~~durch~~, `code`, ```bloecke``` (mit Sprach-Label + Kopieren),
+   -/1. Listen, | Tabellen |, > Zitate, ---, ## Ueberschriften (2 Groessen), [Links](https://…) */
 function md(src){
  let s=esc(""+(src||""));
  const blocks=[];
- s=s.replace(/```[a-zA-Z0-9_-]*\n?([\s\S]*?)```/g,(w,code)=>{blocks.push(code.replace(/^\n+|\n+$/g,""));return "@@MDB"+(blocks.length-1)+"@@";});
+ s=s.replace(/```([a-zA-Z0-9_+-]*)\n?([\s\S]*?)```/g,(w,lang,code)=>{blocks.push([lang,code.replace(/^\n+|\n+$/g,"")]);return "@@MDB"+(blocks.length-1)+"@@";});
  s=s.replace(/`([^`\n]+)`/g,'<code>$1</code>');
  s=s.replace(/\*\*([^*]+)\*\*/g,'<b>$1</b>');
  s=s.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,!?:;]|$)/gm,'$1<i>$2</i>');
+ s=s.replace(/~~([^~\n]+)~~/g,'<s>$1</s>');
  s=s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>');
- const out=[];let ul=false;
- for(const line of s.split("\n")){
-  const li=line.match(/^\s*[-*•]\s+(.+)$/);
-  if(li){if(!ul){out.push("<ul>");ul=true;}out.push("<li>"+li[1]+"</li>");continue;}
-  if(ul){out.push("</ul>");ul=false;}
-  const hd=line.match(/^\s*#{1,4}\s+(.+)$/);
-  out.push(hd?('<b class="mdh">'+hd[1]+"</b>"):line);
+ const lines=s.split("\n"),out=[];let list=null;
+ const closeList=()=>{if(list){out.push("</"+list+">");list=null;}};
+ for(let i=0;i<lines.length;i++){
+  const line=lines[i];
+  /* Tabelle: Kopfzeile mit |…| + Trennzeile (|---|---|) direkt darunter */
+  if(/^\s*\|.+\|\s*$/.test(line)&&i+1<lines.length&&/^\s*\|[\s:|-]+\|\s*$/.test(lines[i+1])){
+   closeList();
+   const cells=r=>r.trim().replace(/^\||\|$/g,"").split("|").map(c=>c.trim());
+   let t='<table class="mdt"><thead><tr>'+cells(line).map(c=>"<th>"+c+"</th>").join("")+"</tr></thead><tbody>";
+   i++;
+   while(i+1<lines.length&&/^\s*\|.+\|\s*$/.test(lines[i+1])){i++;t+="<tr>"+cells(lines[i]).map(c=>"<td>"+c+"</td>").join("")+"</tr>";}
+   out.push(t+"</tbody></table>");continue;}
+  const li=line.match(/^\s*[-*•]\s+(.+)$/),oli=line.match(/^\s*\d{1,3}[.)]\s+(.+)$/);
+  if(li||oli){const want=li?"ul":"ol";
+   if(list!==want){closeList();out.push("<"+want+">");list=want;}
+   out.push("<li>"+(li?li[1]:oli[1])+"</li>");continue;}
+  closeList();
+  if(/^\s*(?:---+|\*\*\*+)\s*$/.test(line)){out.push('<hr class="mdhr">');continue;}
+  const bq=line.match(/^\s*&gt;\s?(.*)$/);
+  if(bq){out.push('<blockquote class="mdq">'+bq[1]+"</blockquote>");continue;}
+  const hd=line.match(/^\s*(#{1,4})\s+(.+)$/);
+  out.push(hd?('<b class="mdh '+(hd[1].length<=2?"mdh1":"mdh2")+'">'+hd[2]+"</b>"):line);
  }
- if(ul)out.push("</ul>");
- s=out.join("\n").replace(/\n?(<\/?ul>)\n?/g,"$1").replace(/(<\/li>)\n/g,"$1");
+ closeList();
+ s=out.join("\n").replace(/\n?(<\/?(?:ul|ol)>)\n?/g,"$1").replace(/(<\/li>)\n/g,"$1")
+  .replace(/\n?(<table class="mdt")/g,"$1").replace(/(<\/table>)\n?/g,"$1")
+  .replace(/\n?(<hr class="mdhr">)\n?/g,"$1")
+  .replace(/<\/blockquote>\n<blockquote class="mdq">/g,"<br>")
+  .replace(/\n(<blockquote class="mdq">)/g,"$1").replace(/(<\/blockquote>)\n/g,"$1");
  s=s.replace(/\n/g,"<br>");
- return s.replace(/@@MDB(\d+)@@/g,(w,i)=>'<pre class="mdc"><code>'+blocks[+i]+'</code></pre>');}
+ return s.replace(/@@MDB(\d+)@@/g,(w,i)=>{const b=blocks[+i];
+  return '<div class="mdcw">'+(b[0]?'<span class="cblang">'+b[0]+'</span>':"")
+   +'<a class="cbcopy" title="Code kopieren">⧉</a><pre class="mdc"><code>'+b[1]+"</code></pre></div>";});}
 /* Nachricht mit Koerper + Meta (Uhrzeit, Kopieren). Bot-Antworten rendern Markdown. */
 function msgEl(text,cls,ts){const d=document.createElement("div");d.className="msg "+cls;
  if(cls==="bot"&&hasAvatar){d.classList.add("withav");
@@ -779,6 +802,10 @@ function msgEl(text,cls,ts){const d=document.createElement("div");d.className="m
  meta.querySelector(".mcopy").onclick=()=>{if(navigator.clipboard){navigator.clipboard.writeText(text);toast("kopiert","ok");}};
  d.appendChild(meta);
  log.appendChild(d);log.scrollTop=log.scrollHeight;return d;}
+/* Code-Bloecke: eigener Kopier-Knopf (Delegation — Markdown wird als HTML-String gebaut) */
+log.addEventListener("click",e=>{const a=e.target.closest&&e.target.closest(".cbcopy");if(!a)return;
+ const pre=a.parentElement.querySelector("pre.mdc");
+ if(pre&&navigator.clipboard){navigator.clipboard.writeText(pre.textContent);toast("Code kopiert","ok");}});
 /* Shimmernder Denk-Indikator: rotierender Spruch, solange Kira arbeitet */
 let thinkTimer=null,thinkEl=null;
 /* Eine rotierende Phrase, ueberall live: der Vor-Trace-Puls UND die Rainbow-Ueberschrift des Traces
@@ -797,7 +824,13 @@ const TOOLMAP={read_file:["📖","Lesen","path"],code_suche:["🔎","Suche","mus
  edit_datei:["✏️","Edit","pfad"],self_edit:["✏️","Edit","path"],write_file:["📄","Neu anlegen","path"],
  append_file:["➕","Anhaengen","path"],list_dir:["📂","Ordner","path"],make_dir:["📁","Ordner+","path"],
  run_command:["▷","Terminal","command"],web_search:["🌐","Websuche","query"],web_fetch:["🌐","Web","url"],
- remember_fact:["🧠","Merken","fact"],request_approval:["🛎","Freigabe","title"],read_file_lines:["📖","Lesen","path"]};
+ remember_fact:["🧠","Merken","fact"],request_approval:["🛎","Freigabe","title"],read_file_lines:["📖","Lesen","path"],
+ browser_act:["🌍","Browser","actions"],browse:["🌍","Browser lesen","url"],screenshot_url:["📸","Screenshot","url"],
+ db_query:["🗃","DB-Abfrage","sql"],health:["🩺","Selbst-Check",""],read_logs:["🧾","Logs","name"],
+ harness_report:["📊","Selbst-Report","window"],cron_add:["⏰","Routine+","label"],cron_list:["⏰","Routinen",""],
+ cron_remove:["⏰","Routine−","job_id"],learn_skill:["🎓","Skill lernen","name"],list_skills:["🎓","Skills",""],
+ plan_and_execute:["🗺","Plan & Los","task"],switch_model:["🎛","Modell","model"],restart_self:["🔄","Neustart","which"],
+ request_secret:["🔑","Zugang","name"],watch_add:["👁","Monitor+","value"],jetzt:["🕐","Uhrzeit",""]};
 function shortArgs(a){try{const s=JSON.stringify(a||{});return s==="{}"?"":s.slice(0,90);}catch(e){return "";}}
 function toolLabel(name,args){const t=TOOLMAP[name];
  if(!t)return {icon:"🔧",label:name,target:shortArgs(args)};
@@ -1489,7 +1522,7 @@ function applyBgFor(t){
 function refreshKiraThumb(){const b=$("#thm-kira");if(b)b.style.backgroundImage="url('/api/bg?t="+Date.now()+"'),linear-gradient(135deg,#3a2150,#0a0410)";}
 /* ---- Farb-Themes: Standard (Schwarz/Lila) · Gruen · Blau · Kira (Bild) ---- */
 function setTheme(t){t=t||"";
- if(t==="gruen"||t==="blau")document.documentElement.setAttribute("data-theme",t);else document.documentElement.removeAttribute("data-theme");
+ if(t==="gruen"||t==="blau"||t==="amber"||t==="rot")document.documentElement.setAttribute("data-theme",t);else document.documentElement.removeAttribute("data-theme");
  try{localStorage.setItem("kira-theme",t);}catch(e){}
  $$(".look .thm").forEach(s=>s.classList.toggle("on",(s.dataset.theme||"")===t));
  applyBgFor(t);}

@@ -17,6 +17,7 @@ import socket
 import subprocess
 import sys
 import time
+import webbrowser
 
 from core.config import ROOT
 
@@ -68,6 +69,40 @@ def request_restart() -> None:
     RESTART_FLAG.write_text("all", encoding="utf-8")
 
 
+# Boot-Splash statt weissem Fenster: das Fenster oeffnet SOFORT (dunkel, pulsierendes
+# KIRA), waehrend der Supervisor hochfaehrt — vorher blockierte ensure_cockpit() bis
+# zu 25s, bevor ueberhaupt ein Fenster erschien.
+SPLASH_HTML = """<!doctype html><html><head><meta charset="utf-8"><style>
+html,body{height:100%;margin:0;background:#0a0a0d;color:#eceef4;
+ font:14px/1.5 ui-monospace,Consolas,monospace;display:flex;align-items:center;justify-content:center}
+.box{text-align:center}
+.k{font-size:44px;letter-spacing:6px;font-weight:700;
+ background:linear-gradient(100deg,#e9d5ff,#c084fc,#b026ff,#d946ef,#9333ea);
+ -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
+ filter:drop-shadow(0 0 14px rgba(176,38,255,.55));animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.55}}
+#st{margin-top:14px;color:#9b97b0;font-size:12px}
+body.err .k{animation:none;filter:none;-webkit-text-fill-color:#ff3d68}
+</style></head><body><div class="box"><div class="k">KIRA</div>
+<div id="st">Cockpit startet…</div></div></body></html>"""
+
+
+def _boot_into_cockpit(window) -> bool:
+    """Splash -> Cockpit: wartet aufs Hochfahren, laedt dann um. Bei Fehlschlag zeigt
+    der Splash einen Hinweis statt ewig zu pulsieren. GUI-frei testbar (Fake-Window)."""
+    if ensure_cockpit():
+        window.load_url(cockpit_url())
+        return True
+    try:
+        window.evaluate_js(
+            "document.body.classList.add('err');"
+            "var s=document.getElementById('st');"
+            "if(s)s.textContent='Cockpit startet nicht — bitte data/logs/cockpit.log pruefen.';")
+    except Exception:  # noqa: BLE001 — Fenster evtl. schon zu; Hinweis ist Best-Effort
+        pass
+    return False
+
+
 def _window_icon():
     """Fenster-/Taskleisten-Symbol fuer pywebview: NUR .ico. Windows/EdgeChromium akzeptiert als
     Fenster-Icon ausschliesslich das ICO-Format — ein .png/.jpg hier laesst die App beim Start
@@ -116,6 +151,12 @@ def _start_tray(window) -> None:
     def _restart(icon, item):
         request_restart()
 
+    def _browser(icon, item):
+        webbrowser.open(cockpit_url())
+
+    def _wall(icon, item):
+        webbrowser.open(cockpit_url() + "wall")
+
     def _quit(icon, item):
         icon.stop()
         try:
@@ -125,6 +166,8 @@ def _start_tray(window) -> None:
 
     menu = pystray.Menu(
         pystray.MenuItem("Cockpit öffnen", _open, default=True),
+        pystray.MenuItem("Im Browser öffnen", _browser),
+        pystray.MenuItem("Wallpaper-Vorschau", _wall),
         pystray.MenuItem("Kira neu starten", _restart),
         pystray.MenuItem("Beenden", _quit),
     )
@@ -192,22 +235,30 @@ def run() -> None:
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("Kira.Desktop")
     except Exception:  # noqa: BLE001 — nur Windows; anderswo egal
         pass
-    ensure_cockpit()
-    window = webview.create_window("Kira · Cockpit", cockpit_url(),
-                                   width=1280, height=860, min_size=(900, 600))
+    # Fenster SOFORT oeffnen: laeuft das Cockpit schon, direkt dorthin; sonst dunkler
+    # Splash + Boot im Hintergrund (statt bis zu 25s gar kein Fenster). background_color
+    # verhindert den weissen Blitz, bevor die Seite gerendert ist.
+    win_kwargs = dict(width=1280, height=860, min_size=(900, 600), background_color="#0a0a0d")
+    if is_cockpit_up():
+        window = webview.create_window("Kira · Cockpit", cockpit_url(), **win_kwargs)
+        boot = None
+    else:
+        window = webview.create_window("Kira · Cockpit", html=SPLASH_HTML, **win_kwargs)
+        boot = _boot_into_cockpit
     _start_tray(window)
     _start_hotkeys(window)
+    func = (lambda: boot(window)) if boot else None
     # Fenster-/Taskleisten-Symbol = data/kira-icon.ico (nur ICO, s. _window_icon). Fehlt es oder
     # mag die pywebview-Version den icon-Parameter nicht -> IMMER ohne Icon weiterstarten, damit die
     # App auf keinen Fall am Symbol scheitert.
     icon = _window_icon()
     if not icon:
-        webview.start()
+        webview.start(func)
         return
     try:
-        webview.start(icon=icon)
+        webview.start(func, icon=icon)
     except Exception:  # noqa: BLE001 — alte pywebview / Icon-Problem -> ohne Icon starten
-        webview.start()
+        webview.start(func)
 
 
 if __name__ == "__main__":
