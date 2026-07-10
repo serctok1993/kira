@@ -6,6 +6,7 @@ Werkzeuge selbst (synthesize.py).
 from __future__ import annotations
 
 import html
+import os
 import re
 from datetime import datetime
 from pathlib import Path
@@ -202,21 +203,53 @@ def web_search(query: str, max_results: int = 5) -> str:
 
 
 # --- Datei-Haende: Kira kann auf dem PC lesen/schreiben/auflisten/Ordner anlegen ---
+def _pfad(path) -> Path:
+    """Pfad-Eingaben robust aufloesen: Umgebungsvariablen (%USERPROFILE%, $HOME) und '~'.
+
+    Kleine Modelle uebergeben solche Platzhalter woertlich — expandvars macht daraus
+    nutzbare Pfade, statt an '%USERPROFILE%\\Desktop' zu scheitern (Fund 10.07.)."""
+    return Path(os.path.expandvars(str(path))).expanduser()
+
+
+def _env_hinweis(p: Path) -> str:
+    """Zusatz-Hinweis, wenn ein Platzhalter im Pfad NICHT aufgeloest werden konnte."""
+    s = str(p)
+    if "%" in s or "$" in s:
+        return " — Hinweis: Platzhalter im Pfad unbekannt; nutze den vollen Pfad (z.B. C:/Users/serge/...)."
+    return ""
+
+
+def _lehr_fehler(tool_name: str, falsche_args: dict, erwartet: str, beispiel: str) -> str:
+    """Lehrende Fehlermeldung statt nacktem TypeError: das Problem benennen UND einen
+    korrekten Minimal-Aufruf zeigen — nur so korrigieren sich kleine Modelle selbst.
+    (Ein TypeError liefe zudem durch die Executor-Retries, obwohl er deterministisch ist.)"""
+    problem = (f"unbekannte Argumente: {', '.join(sorted(falsche_args))}" if falsche_args
+               else "Pflicht-Argument fehlt")
+    return f"Falscher Aufruf von {tool_name} ({problem}). Erwartet: {erwartet}. Beispiel: {beispiel}"
+
+
 @tool("read_file",
       "Liest eine Datei vom PC (UTF-8-korrekt) und gibt den Textinhalt zurueck. Bei langen Dateien "
       "wird gestueckelt — nutze dann 'offset', um den naechsten Teil zu lesen. IMMER dieses Werkzeug "
       "fuer Quelltext nutzen, NIE PowerShell Get-Content (das verfaelscht Emojis/Umlaute).",
       {"path": "Dateipfad", "offset": "optional: ab welchem Zeichen lesen (Standard 0)"})
-def read_file(path: str, max_chars: int = 40000, offset: int = 0) -> str:
-    p = Path(path).expanduser()
+def read_file(path: str = "", max_chars: int = 40000, offset: int = 0, **falsche_args) -> str:
+    if falsche_args or not str(path).strip():
+        return _lehr_fehler("read_file", falsche_args, "'path' (Dateipfad), optional 'offset'",
+                            'read_file(path="C:/Users/serge/Desktop/notiz.txt")')
+    p = _pfad(path)
     if not p.exists():
-        return f"(Datei nicht gefunden: {p})"
+        return f"(Datei nicht gefunden: {p}){_env_hinweis(p)}"
     if p.is_dir():
-        return f"(Das ist ein Ordner, keine Datei: {p})"
+        return f"(Das ist ein Ordner, keine Datei: {p} — nutze list_dir dafuer)"
     try:
         offset = max(0, int(offset))
     except Exception:  # noqa: BLE001
         offset = 0
+    try:
+        max_chars = max(1, int(max_chars))
+    except Exception:  # noqa: BLE001
+        max_chars = 40000
     full = p.read_text(encoding="utf-8", errors="replace")
     chunk = full[offset:offset + max_chars]
     if offset + max_chars < len(full):
@@ -228,10 +261,13 @@ def read_file(path: str, max_chars: int = 40000, offset: int = 0) -> str:
       "Ordner an. Fuer gezielte Aenderungen an BESTEHENDEN Code-Dateien edit_datei nutzen "
       "(chirurgisch + Tests) statt blind zu ueberschreiben.",
       {"path": "Dateipfad", "content": "der Inhalt"})
-def write_file(path: str, content: str) -> str:
+def write_file(path: str = "", content: str | None = None, **falsche_args) -> str:
     from core.kernel.fs import atomic_write
 
-    p = Path(path).expanduser()
+    if falsche_args or not str(path).strip() or content is None:
+        return _lehr_fehler("write_file", falsche_args, "'path' und 'content'",
+                            'write_file(path="C:/Users/serge/Desktop/notiz.md", content="Hallo")')
+    p = _pfad(path)
     blocked = _write_guard(p, "write_file")
     if blocked:
         return blocked
@@ -241,8 +277,11 @@ def write_file(path: str, content: str) -> str:
 
 @tool("append_file", "Haengt Text an eine Datei an (erstellt sie bei Bedarf).",
       {"path": "Dateipfad", "content": "anzuhaengender Text"})
-def append_file(path: str, content: str) -> str:
-    p = Path(path).expanduser()
+def append_file(path: str = "", content: str | None = None, **falsche_args) -> str:
+    if falsche_args or not str(path).strip() or content is None:
+        return _lehr_fehler("append_file", falsche_args, "'path' und 'content'",
+                            'append_file(path="C:/Users/serge/Desktop/log.md", content="Zeile")')
+    p = _pfad(path)
     blocked = _write_guard(p, "append_file")
     if blocked:
         return blocked
@@ -253,18 +292,26 @@ def append_file(path: str, content: str) -> str:
 
 
 @tool("list_dir", "Listet Dateien und Ordner in einem Verzeichnis.", {"path": "Verzeichnis (Standard: aktuell)"})
-def list_dir(path: str = ".") -> str:
-    p = Path(path).expanduser()
+def list_dir(path: str = ".", **falsche_args) -> str:
+    if falsche_args:
+        return _lehr_fehler("list_dir", falsche_args, "'path' (Verzeichnis, optional)",
+                            'list_dir(path="C:/Users/serge/Desktop")')
+    p = _pfad(path or ".")
     if not p.exists():
-        return f"(Verzeichnis nicht gefunden: {p})"
+        return f"(Verzeichnis nicht gefunden: {p}){_env_hinweis(p)}"
+    if p.is_file():
+        return f"(Das ist eine Datei, kein Ordner: {p} — nutze read_file dafuer)"
     items = sorted(p.iterdir(), key=lambda x: (x.is_file(), x.name.lower()))
     lines = [("[DIR] " if i.is_dir() else "      ") + i.name for i in items[:200]]
     return "\n".join(lines) if lines else "(leer)"
 
 
 @tool("make_dir", "Erstellt einen Ordner (inklusive Elternordner).", {"path": "Ordnerpfad"})
-def make_dir(path: str) -> str:
-    p = Path(path).expanduser()
+def make_dir(path: str = "", **falsche_args) -> str:
+    if falsche_args or not str(path).strip():
+        return _lehr_fehler("make_dir", falsche_args, "'path' (Ordnerpfad)",
+                            'make_dir(path="C:/Users/serge/Desktop/neuer-ordner")')
+    p = _pfad(path)
     p.mkdir(parents=True, exist_ok=True)
     return f"OK, Ordner angelegt: {p}"
 

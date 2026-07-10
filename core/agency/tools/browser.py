@@ -38,29 +38,51 @@ _DENY_URL_RE = re.compile(r"^(file:|data:|javascript:)", re.IGNORECASE)
 _LOCAL_COCKPIT_RE = re.compile(r"^https?://(127\.0\.0\.1|localhost|\[::1\])(:\d+)?", re.IGNORECASE)
 
 
-def parse_actions(actions_json: str) -> list[dict]:
-    """Aktionsliste validieren. Wirft ValueError mit klarer Meldung (Wrapper faengt)."""
-    try:
-        actions = json.loads(actions_json)
-    except json.JSONDecodeError as e:
-        raise ValueError(f"actions ist kein gueltiges JSON: {e}") from None
+# Minimal-Beispiel fuer alle Fehlermeldungen: lehren statt nur meckern (Fund 10.07. —
+# vier abgelehnte Aufrufe in Folge, ohne dass das Modell je das erwartete Format sah).
+_BEISPIEL = '[{"action":"goto","url":"https://example.com"},{"action":"read"}]'
+
+
+def parse_actions(actions_json: str | list | dict) -> list[dict]:
+    """Aktionsliste validieren. Nimmt einen JSON-String ODER eine bereits geparste
+    Liste / ein einzelnes Aktions-Objekt an — kleine Modelle liefern beides
+    (json.loads auf eine Liste warf frueher den str/bytes-TypeError).
+    Wirft ValueError mit klarer Meldung + Minimal-Beispiel (Wrapper faengt)."""
+    actions = actions_json
+    if isinstance(actions, (str, bytes, bytearray)):
+        try:
+            actions = json.loads(actions)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"actions ist kein gueltiges JSON: {e} — erwartet wird eine "
+                             f"JSON-Liste von Aktions-Objekten, Beispiel: {_BEISPIEL}") from None
+    if isinstance(actions, dict):
+        if "action" in actions:  # einzelnes Aktions-Objekt -> Ein-Element-Liste
+            actions = [actions]
+        elif isinstance(actions.get("actions"), list):  # {"actions":[...]}-Wrapper auspacken
+            actions = actions["actions"]
     if not isinstance(actions, list) or not actions:
-        raise ValueError("actions muss eine nicht-leere JSON-Liste von Aktions-Objekten sein.")
+        raise ValueError("actions muss eine nicht-leere JSON-Liste von Aktions-Objekten sein, "
+                         f"Beispiel: {_BEISPIEL}")
     if len(actions) > MAX_ACTIONS:
         raise ValueError(f"Hoechstens {MAX_ACTIONS} Aktionen pro Aufruf (waren {len(actions)}).")
     out = []
     for i, a in enumerate(actions, 1):
         if not isinstance(a, dict) or a.get("action") not in ACTIONS:
-            raise ValueError(f"Aktion {i}: 'action' muss eine von {ACTIONS} sein.")
+            raise ValueError(f"Aktion {i}: 'action' muss eine von {ACTIONS} sein, "
+                             f"Beispiel: {_BEISPIEL}")
         kind = a["action"]
         if kind == "goto" and not str(a.get("url", "")).strip():
-            raise ValueError(f"Aktion {i} (goto): 'url' fehlt.")
+            raise ValueError(f"Aktion {i} (goto): 'url' fehlt, Beispiel: "
+                             '{"action":"goto","url":"https://example.com"}')
         if kind in ("click", "fill") and not str(a.get("selector", "")).strip():
-            raise ValueError(f"Aktion {i} ({kind}): 'selector' fehlt.")
+            raise ValueError(f"Aktion {i} ({kind}): 'selector' fehlt, Beispiel: "
+                             '{"action":"click","selector":"button.submit"}')
         if kind == "fill" and "text" not in a:
-            raise ValueError(f"Aktion {i} (fill): 'text' fehlt.")
+            raise ValueError(f"Aktion {i} (fill): 'text' fehlt, Beispiel: "
+                             '{"action":"fill","selector":"#email","text":"..."}')
         if kind == "press" and not str(a.get("key", "")).strip():
-            raise ValueError(f"Aktion {i} (press): 'key' fehlt (z.B. 'Enter').")
+            raise ValueError(f"Aktion {i} (press): 'key' fehlt, Beispiel: "
+                             '{"action":"press","key":"Enter"}')
         out.append(a)
     return out
 
@@ -173,20 +195,32 @@ def _run_actions(actions: list[dict], session: str) -> str:
       {"actions": 'JSON-Liste, z.B. [{"action":"goto","url":"https://..."},'
                   '{"action":"fill","selector":"#email","text":"..."},{"action":"read"}]',
        "session": "optional: Session-Name fuer Cookies (Standard 'default')"})
-def browser_act(actions: str, session: str = "default") -> str:
+def browser_act(actions: str | list | dict = "", session: str = "default", **falsche_args) -> str:
     from core.governance import audit, autonomy
+
+    # Lehr-Fehler statt TypeError: kleine Modelle rufen z.B. browser_act(url=...) auf.
+    # Der TypeError liefe durch die Executor-Retries und erklaert nie das richtige Format.
+    if falsche_args:
+        return (f"Falscher Aufruf: unbekannte Argumente ({', '.join(sorted(falsche_args))}). "
+                f"browser_act nimmt 'actions' (JSON-Liste) und optional 'session'. "
+                f"Beispiel: actions='{_BEISPIEL}'")
+    if actions is None or (isinstance(actions, str) and not actions.strip()):
+        return f"Falscher Aufruf: 'actions' fehlt. Beispiel: actions='{_BEISPIEL}'"
 
     try:
         parsed = parse_actions(actions)
     except ValueError as e:
         return f"Aktionsliste ungueltig: {e}"
 
+    # actions darf jetzt auch eine echte Liste sein -> fuer Inbox/Audit als Text normalisieren
+    actions_text = actions if isinstance(actions, str) else json.dumps(actions, ensure_ascii=False)
+
     try:  # Ketten AN -> auch der Browser wartet an der Inbox
         if autonomy.needs_approval("external"):
             from core.agency import approvals
 
             aid = approvals.create(title="Browser-Aktion", kind="external",
-                                   detail=actions[:2000], source="kira")
+                                   detail=actions_text[:2000], source="kira")
             return f"⏸️ Wartet auf Sergens Freigabe (id {aid[:8]}): Browser-Aktionsliste."
     except Exception as e:  # noqa: BLE001 — Gate kaputt: fail-closed
         return f"Gate-Fehler — Browser-Lauf sicherheitshalber NICHT gestartet: {e}"
