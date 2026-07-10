@@ -16,6 +16,9 @@ HEAD_AND_CSS = r"""<!doctype html>
 /* S6.7: Tuerkis raus — --hud ist helles Lila; Neon-Gruen lebt in --ok (live/positiv/Budget). */
 html[data-theme="gruen"]{--accent:#39ff14;--accent2:#16a34a;--hud:#adff2f;--glow:#39ff14;--amber:#bbf7d0;}
 html[data-theme="blau"]{--accent:#22d3ee;--accent2:#0891b2;--hud:#38bdf8;--glow:#22d3ee;--amber:#a5f3fc;}
+/* S12: zwei neue Stimmungen — Amber (Retro-Terminal) und Rot (Crimson-Alarm) */
+html[data-theme="amber"]{--accent:#ffb02e;--accent2:#d97706;--hud:#ffd166;--glow:#ffb02e;--amber:#fde68a;}
+html[data-theme="rot"]{--accent:#ff2d55;--accent2:#e11d48;--hud:#ff7a90;--glow:#ff2d55;--amber:#fecdd3;}
 .thm{width:30px;height:30px;border-radius:8px;cursor:pointer;padding:0;border:2px solid var(--line);background:var(--panel);
  display:inline-flex;align-items:center;justify-content:center;background-size:cover;background-position:center}
 .thm:hover{border-color:var(--accent)}
@@ -383,6 +386,9 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
 #kira-tabs a.on{background:color-mix(in srgb,var(--accent) 16%,transparent);color:var(--accent)}
 .thinking .tx{color:var(--hud)}
 /* ===== NEON v2: Scrollbars + Panel-Glow + Theme-follow + Mission-Grid ===== */
+/* S12: Textauswahl + Tastatur-Fokus folgen dem Theme (Mikro-Feinschliff) */
+::selection{background:color-mix(in srgb,var(--accent) 40%,transparent);color:#fff}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 *{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--accent) 45%,#2a2440) transparent}
 ::-webkit-scrollbar{width:10px;height:10px}
 ::-webkit-scrollbar-track{background:transparent}
