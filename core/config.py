@@ -80,6 +80,16 @@ def load_config() -> dict:
 
 CONFIG = load_config()
 
+
+def feature_on(name: str) -> bool:
+    """Feature-Flag (config.yaml features:) — unbekannte Namen sind AUS (fail-closed;
+    so laesst sich ein Werkzeug mit feature='legacy' stilllegen, ohne die Config
+    anzufassen). Liest CONFIG pro Aufruf -> set_override('features.x', True) wirkt
+    sofort, ohne Neustart."""
+    f = CONFIG.get("features") or {}
+    return bool(f.get(name, False))
+
+
 # Datenverzeichnis sicherstellen
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 

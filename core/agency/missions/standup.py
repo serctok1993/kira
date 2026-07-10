@@ -12,7 +12,7 @@ import datetime
 import json
 import time
 
-from core.config import ROOT
+from core.config import ROOT, feature_on
 from core.kernel import events
 
 _CAP = 3000  # S6.2: +500 fuer die ERKENNTNISSE-Sektion (Outcome-Rueckkopplung)
@@ -198,22 +198,24 @@ def build_context(scope: str = "morgen") -> str:
         parts.append("LEBEN — Missionen/Ziele:")
         parts.extend(_fmt_obj(o) for o in leben_ziele[:6])
 
-    # Business: Ziele-Kopf + Ventures
-    biz = objectives.list_active(domain="business")
-    if biz:
-        parts.append("BUSINESS — aktive Ziele:")
-        parts.extend(_fmt_obj(o) for o in biz[:4])
-    try:
-        from core.agency import ventures
+    # Business: Ziele-Kopf + Ventures — nur wenn das Feature an ist (S12), sonst
+    # briefed Kira ueber abgeschaltete Bausteine.
+    if feature_on("business"):
+        biz = objectives.list_active(domain="business")
+        if biz:
+            parts.append("BUSINESS — aktive Ziele:")
+            parts.extend(_fmt_obj(o) for o in biz[:4])
+        try:
+            from core.agency import ventures
 
-        vs = ventures.summary()
-        if vs:
-            parts.append("VENTURES:")
-            for v in vs[:5]:
-                ms = f", Meilenstein {v['milestone_progress']}%" if v.get("milestone_progress") is not None else ""
-                parts.append(f"- {v['name']} [{v['status']}]: Kasse {v['balance_eur']:.2f} EUR{ms}")
-    except Exception:  # noqa: BLE001
-        pass
+            vs = ventures.summary()
+            if vs:
+                parts.append("VENTURES:")
+                for v in vs[:5]:
+                    ms = f", Meilenstein {v['milestone_progress']}%" if v.get("milestone_progress") is not None else ""
+                    parts.append(f"- {v['name']} [{v['status']}]: Kasse {v['balance_eur']:.2f} EUR{ms}")
+        except Exception:  # noqa: BLE001
+            pass
 
     # Offen fuer Sergen + Tagesstand
     try:

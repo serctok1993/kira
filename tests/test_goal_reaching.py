@@ -99,6 +99,8 @@ def test_run_once_decomposes_big_objective(monkeypatch, tmp_path):
     monkeypatch.setattr(maintenance, "_STATE_PATH", tmp_path / "maintenance.json")
     monkeypatch.setitem(CONFIG, "mission", {"name": "testmission", "goal": "Testziel",
                                             "notify_telegram": False})
+    # S12: Business-Grind haengt am Feature-Flag — hier wird die Zerlegung selbst getestet
+    monkeypatch.setitem(CONFIG["features"], "business", True)
     monkeypatch.setattr(runner, "kill_switch_active", lambda: False)
 
     big_id = objectives.add("10k Umsatz", kind="big", target_date=_d(60))
