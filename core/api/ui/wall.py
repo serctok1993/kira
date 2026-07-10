@@ -56,8 +56,10 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   body[data-anim="on"] .edge::before{opacity:1;animation:spin 7s linear infinite}
   body[data-mode="coding"] .edge::before{background:conic-gradient(from var(--ang),#ff004d,#ff8a00,#ffe600,#39ff14,#00e5ff,#b026ff,#ff004d);
     -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
-  /* Coding = Vollgas: der Regenbogen-Sweep laeuft IMMER (nicht erst bei 'Bewegung an') —
-     der Wow-Moment "du bist jetzt im Coding-Modus". Chat/Work bleiben ruhig. */
+  /* S12b (Sergens Wunsch): der LED-Sweep laeuft in JEDEM Modus in der Modus-Farbe —
+     Chat/Work dezent (halbe Leuchtkraft, langsam), Coding = Vollgas-Regenbogen. */
+  .edge::before{opacity:.45;animation:spin 10s linear infinite}
+  body[data-anim="on"] .edge::before{opacity:1;animation-duration:7s}
   body[data-mode="coding"] .edge::before{opacity:1;animation:spin 6s linear infinite}
   @keyframes spin{to{--ang:360deg}}
 
@@ -107,15 +109,25 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
     background:color-mix(in srgb,var(--bg) 62%,transparent);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);
     backdrop-filter:blur(12px);box-shadow:0 10px 40px rgba(0,0,0,.5),0 0 22px color-mix(in srgb,var(--accent) 22%,transparent);transition:border-color .4s,box-shadow .4s,opacity .3s}
   .bar.off{opacity:.55;filter:saturate(.4)}   /* Chat getrennt -> sichtbar gedimmt statt stummer Nichtreaktion */
-  /* Coding-Modus: fliessender Regenbogen-RING um den Chat-Balken (Masken-Trick wie der
-     LED-Rand: nur der 2px-Rahmen leuchtet, innen bleibt alles lesbar) */
-  body[data-mode="coding"] .bar{border-color:transparent}
-  body[data-mode="coding"] .bar::before{content:"";position:absolute;inset:-2px;border-radius:18px;padding:2px;pointer-events:none;
-    background:conic-gradient(from var(--ang),#ff004d,#ff8a00,#ffe600,#39ff14,#00e5ff,#b026ff,#ff004d);
+  /* LED-RING um den Chat-Balken (Masken-Trick wie der LED-Rand: nur der 2px-Rahmen
+     leuchtet, innen bleibt alles lesbar). In JEDEM Modus in der Modus-Farbe — Chat/Work
+     dezent + langsam, Coding uebersteuert mit fliessendem Regenbogen. */
+  .bar::before{content:"";position:absolute;inset:-2px;border-radius:18px;padding:2px;pointer-events:none;opacity:.5;
+    background:conic-gradient(from var(--ang),transparent 0 12%,var(--accent) 26%,transparent 40% 62%,var(--accent) 76%,transparent 90% 100%);
     -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
+    animation:spin 8s linear infinite}
+  body[data-mode="coding"] .bar{border-color:transparent}
+  body[data-mode="coding"] .bar::before{opacity:1;
+    background:conic-gradient(from var(--ang),#ff004d,#ff8a00,#ffe600,#39ff14,#00e5ff,#b026ff,#ff004d);
     animation:spin 4s linear infinite;filter:drop-shadow(0 0 10px rgba(176,38,255,.45))}
+  /* aktiver Modus-Knopf: sanftes LED-Atmen in der Modus-Farbe; Coding fliesst im Regenbogen */
+  .seg button.on{animation:segglow 3.2s ease-in-out infinite}
+  @keyframes segglow{0%,100%{box-shadow:0 0 8px color-mix(in srgb,var(--accent) 45%,transparent)}
+    50%{box-shadow:0 0 20px var(--accent)}}
   body[data-mode="coding"] .seg button.on{color:#0a0712;
-    background:linear-gradient(90deg,#ff8a00,#ffe600,#39ff14,#00e5ff,#b026ff);box-shadow:0 0 16px rgba(0,229,255,.5)}
+    background:linear-gradient(90deg,#ff004d,#ff8a00,#ffe600,#39ff14,#00e5ff,#b026ff,#ff004d);
+    background-size:300% 100%;animation:segflow 3s linear infinite,segglow 3.2s ease-in-out infinite}
+  @keyframes segflow{to{background-position:-300% 0}}
   .seg{display:flex;gap:2px;background:rgba(255,255,255,.05);border-radius:10px;padding:3px}
   .seg button{border:0;background:none;color:var(--muted);font:600 12px var(--sans);letter-spacing:.3px;padding:6px 11px;border-radius:8px;cursor:pointer;transition:.2s}
   .seg button.on{color:#0a0712;background:var(--accent);box-shadow:0 0 14px color-mix(in srgb,var(--accent) 60%,transparent)}
@@ -177,7 +189,7 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   .tag{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:9;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:flex;gap:8px;align-items:center}
   .tag .d{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:bl 2s infinite}
   @keyframes bl{50%{opacity:.4}}
-  @media (prefers-reduced-motion:reduce){.edge::before,.tx,.sh,.bar::before{animation:none}}
+  @media (prefers-reduced-motion:reduce){.edge::before,.tx,.sh,.bar::before,.seg button.on{animation:none}}
 </style></head>
 <body data-mode="chat">
   <img id="bg" src="/api/bg" onerror="this.style.display='none'" alt=""/>
