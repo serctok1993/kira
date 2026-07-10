@@ -17,6 +17,10 @@ async function J(url,opts){try{const r=await fetch(url,opts);
  }catch(e){if(e.status===undefined){pollFails++;toast("Netzwerkfehler: "+url.split("?")[0],"err");}throw e;}}
 /* Kiras Denk-Sprueche (eine Quelle, beim Ausliefern injiziert) */
 const PHRASES=[/*__PHRASES__*/];
+/* Feature-Flags (S12, beim Ausliefern injiziert). Fallback {} = alles sichtbar (fail-open
+   ist ok — das Werkzeug-Gating sitzt serverseitig in der Registry). Checks daher immer
+   explizit gegen ===false, nie truthy. */
+const FEATURES={/*__FEATURES__*/};
 let _lastPhrase="";
 function rndPhrase(){if(PHRASES.length<2)return PHRASES[0]||"ich denke kurz nach";
  let p=PHRASES[Math.floor(Math.random()*PHRASES.length)],g=0;
@@ -32,7 +36,7 @@ function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle(
  if(v==="home")loadCommand();
  if(v==="chat"){loadChatModels();loadChatSessions();loadChatProjects();}
  if(v==="me")loadMe();
- if(v==="projekte")loadProjekte();  /* S9.3: eine Uebersicht statt Subtabs */
+ if(v==="projekte"&&FEATURES.business!==false)loadProjekte();  /* S9.3: eine Uebersicht statt Subtabs */
  if(SUBTABS[v])subnav(v,SUBTABS[v].cur);}
 
 /* ==== S7a: modulare Shell — EINE Subtab-Mechanik fuer alle Bereiche ====
@@ -993,6 +997,20 @@ const CMDS=[
  ["/schwarm arbeiter Vorlage | A | B","Schwarm-Auftrag an die Armee",false],
  ["/delegiere ","An einen einzelnen Sub-Agenten delegieren",false],
 ];
+/* S12 Feature-Flags: abgeschaltete Bausteine aus der Oberflaeche nehmen. Endpoints
+   bleiben aktiv — Flag aus heisst UI+Werkzeuge+Loop weg, nicht API. */
+function applyFeatures(){
+ const hide=el=>{if(el)el.style.display="none";};
+ if(FEATURES.business===false){
+  hide($('#side a[data-v="projekte"]'));                       /* Sidebar-Tab Projekte */
+  const cp=$("#chat-project");if(cp)hide(cp.closest("label")); /* Chat-Projekt-Dropdown */
+  const lg=$("#life-goals");if(lg)hide(lg.closest(".panel"));  /* me/todos: Missionen & Ziele */
+  hide($("#z-ziele-panel"));                                   /* Zentrale: Kennzahlen-Panel */
+  const zi=CMDS.findIndex(c=>c[0]==="@ziel:");if(zi>=0)CMDS.splice(zi,1);
+ }
+ if(FEATURES.radar===false){const rd=$("#rd-list");if(rd)hide(rd.closest(".panel"));}
+}
+applyFeatures();
 function renderCmdPop(){const el=$("#cmd-pop");if(!el)return;
  el.innerHTML=CMDS.map(c=>c[0]==="grp"?('<div class="cmd-grp">'+esc(c[1])+'</div>')
   :('<div class="cmd-row" data-cmd="'+esc(c[0])+'" data-send="'+(c[2]?1:0)+'"><span class="cmd-k">'+esc(c[0])+'</span><span class="cmd-d">'+esc(c[1])+'</span></div>')).join("");
@@ -1676,6 +1694,7 @@ $("#zm-add")&&($("#zm-add").onclick=async()=>{
  toast("eingetragen","ok");loadZiele();loadZielePinned();});
 /* Angeheftete Kennzahlen in der Zentrale (nur wenn welche angeheftet sind). */
 async function loadZielePinned(){const el=$("#z-ziele");if(!el)return;
+ if(FEATURES.business===false)return;  /* S12: Panel bleibt versteckt, Loader zeigt es sonst wieder */
  try{const m=await (await fetch("/api/metrics?days=90")).json();const ps=m.pinned||[];
   const wrap=$("#z-ziele-panel");
   if(!ps.length){if(wrap)wrap.style.display="none";return;}

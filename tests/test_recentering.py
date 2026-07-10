@@ -34,15 +34,20 @@ def test_persona_hat_mitdenken_und_nachschau_blocks():
 
 
 def test_mission_goal_reordered():
+    # S12: Dienst-Mission ohne Geldziel — Alltag tragen + Selbstpflege, Messbarkeit
+    # ueber Betriebs-Metriken statt Euro. Melde-Regeln bleiben woertlich bindend.
     from core.config import CONFIG
 
     m = CONFIG.get("mission", {})
     assert m.get("self_every") == 3
     g = m.get("goal", "")
-    assert "SERGEN DIENEN" in g and "DICH VERBESSERN" in g
-    # Assistenz steht VOR Projekten
-    assert g.index("SERGEN DIENEN") < g.index("GENEHMIGTE PROJEKTE")
-    assert "Kasse/Meilenstein/ROI" in g  # explizit verboten
+    assert "SERGENS ALLTAG TRAGEN" in g and "DICH SELBST PFLEGEN" in g
+    # Assistenz steht VOR der Selbstpflege; kein Business-/Etappen-Ziel mehr in der Mission
+    assert g.index("SERGENS ALLTAG TRAGEN") < g.index("DICH SELBST PFLEGEN")
+    assert "GENEHMIGTE PROJEKTE" not in g and "10k" not in g
+    assert "Kasse/Meilenstein/ROI" in g  # Geld-Denken bleibt explizit ausgeschlossen
+    assert "NIE Erfolg behaupten ohne Beleg" in g  # Melde-Regeln woertlich erhalten
+    assert "Betriebs-Metriken" in g
 
 
 # --- Selbst-Tick-Rhythmus (jeder N-te Tick) ----------------------------------------
@@ -125,6 +130,8 @@ def test_venture_prompt_has_no_money_framing(monkeypatch, tmp_path):
         monkeypatch.setattr(mod, "DB_PATH", db)
     monkeypatch.setattr(treasury, "DB_PATH", db)
     monkeypatch.setitem(CONFIG, "mission", {"name": "m", "goal": "G", "notify_telegram": False})
+    # S12: der Business-Grind haengt am Feature-Flag — hier wird die Maschinerie selbst getestet
+    monkeypatch.setitem(CONFIG["features"], "business", True)
     monkeypatch.setattr(runner, "kill_switch_active", lambda: False)
     monkeypatch.setattr(runner, "_focus", lambda: "")
 
