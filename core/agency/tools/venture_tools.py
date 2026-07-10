@@ -14,7 +14,8 @@ from core.agency.tools.registry import tool
       "optional Meilenstein in EUR. Nutze Ventures fuer alles, was Geld einbringen soll.",
       {"name": "kurzer Name des Standbeins",
        "hypothesis": "eine Zeile: wer zahlt wofuer, warum jetzt",
-       "milestone_eur": "optional: Umsatz-Meilenstein in EUR (Zahl)"})
+       "milestone_eur": "optional: Umsatz-Meilenstein in EUR (Zahl)"},
+      feature="business")
 def venture_add(name: str, hypothesis: str = "", milestone_eur: str = "") -> str:
     from core.agency import ventures
 
@@ -34,7 +35,7 @@ def venture_add(name: str, hypothesis: str = "", milestone_eur: str = "") -> str
 
 @tool("venture_list",
       "Zeigt alle Ventures mit Status, Kasse (Einnahmen/Ausgaben) und Meilenstein-Fortschritt.",
-      {})
+      {}, feature="business")
 def venture_list() -> str:
     from core.agency import ventures
 
@@ -56,7 +57,8 @@ def venture_list() -> str:
       "milestone_eur oder notes.",
       {"venture_id": "die Venture-Id (auch 8-Zeichen-Kurzform)",
        "field": "status | hypothesis | milestone_eur | notes | name",
-       "value": "der neue Wert"})
+       "value": "der neue Wert"},
+      feature="business")
 def venture_update(venture_id: str, field: str, value: str) -> str:
     from core.agency import ventures
 
@@ -78,7 +80,8 @@ def venture_update(venture_id: str, field: str, value: str) -> str:
       {"venture_id": "die Venture-Id (auch Kurzform)",
        "direction": "in | out",
        "amount_eur": "Betrag in EUR (Zahl)",
-       "note": "wofuer (eine Zeile)"})
+       "note": "wofuer (eine Zeile)"},
+      feature="business")
 def ledger_book(venture_id: str, direction: str, amount_eur: str, note: str = "") -> str:
     from core.agency import ventures
     from core.governance import treasury
@@ -121,7 +124,8 @@ def _resolve(ventures_mod, vid: str) -> dict | None:
       "Task dieses Projekts ein. project = Name-Teil oder Id; ist es mehrdeutig, bekommst du "
       "eine Rueckfrage-Liste zurueck: frag Sergen kurz, welches Projekt gemeint ist.",
       {"project": "Venture-Name (Teil reicht) oder Id/Kurzform",
-       "note": "die Daueranweisung, eine klare Zeile"})
+       "note": "die Daueranweisung, eine klare Zeile"},
+      feature="business")
 def project_note(project: str, note: str) -> str:
     from core.agency import ventures
 

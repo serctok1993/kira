@@ -745,6 +745,8 @@ _CONFIG_WHITELIST = {
     "agency.delegate.schwarm_max", "agency.delegate.max_kosten_eur",
     # Computer-Use (Macht-Schritt 1): Rechner-Steuerung ein/aus — Standard AUS, bewusste Freigabe
     "agency.computer_use.enabled",
+    # Feature-Flags (S12 Rezentrierung): Bausteine togglen — Werkzeuge/Loop live, UI beim Reload
+    "features.business", "features.radar", "features.desktop_low_level", "features.linkedin",
 }
 _MODEL_LIVE = {"models.temperature": "temperature", "models.max_tokens": "max_tokens",
                "models.num_ctx": "num_ctx", "models.keep_alive": "keep_alive"}  # live, kein Neustart
@@ -2227,7 +2229,10 @@ def index() -> str:
     # [1:-1] = ohne aeussere Klammern (die stehen schon im JS: const PHRASES=[...]) -> bei
     # ausbleibender Injektion bleibt [] als sichere, gueltige Fallback-Form.
     inner = json.dumps(THINKING_PHRASES, ensure_ascii=False)[1:-1]
-    return DASHBOARD_HTML.replace("/*__PHRASES__*/", inner)
+    # Feature-Flags fuers UI-Gating (gleiche [1:-1]-Technik, Fallback {} = alles sichtbar —
+    # UI ist fail-open ok, das Werkzeug-Gating sitzt serverseitig in der Registry).
+    feats = json.dumps(CONFIG.get("features") or {}, ensure_ascii=False)[1:-1]
+    return DASHBOARD_HTML.replace("/*__PHRASES__*/", inner).replace("/*__FEATURES__*/", feats)
 
 
 @app.get("/wall", response_class=HTMLResponse)
