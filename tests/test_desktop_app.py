@@ -56,6 +56,41 @@ def test_ensure_cockpit_startet_nicht_wenn_schon_oben(monkeypatch):
     assert calls["n"] == 0                              # laeuft schon -> KEIN zweiter Supervisor
 
 
+class _FakeWindow:
+    def __init__(self):
+        self.loaded = None
+        self.js = []
+
+    def load_url(self, url):
+        self.loaded = url
+
+    def evaluate_js(self, code):
+        self.js.append(code)
+
+
+def test_boot_into_cockpit_laedt_um(monkeypatch):
+    # Splash-Pfad: Cockpit kommt hoch -> Fenster laedt auf die Cockpit-URL um
+    monkeypatch.setattr(app, "ensure_cockpit", lambda: True)
+    w = _FakeWindow()
+    assert app._boot_into_cockpit(w) is True
+    assert w.loaded == app.cockpit_url()
+
+
+def test_boot_into_cockpit_zeigt_fehler_im_splash(monkeypatch):
+    # Cockpit kommt NICHT hoch -> kein Umladen, Splash zeigt den Hinweis (kein Ewig-Puls)
+    monkeypatch.setattr(app, "ensure_cockpit", lambda: False)
+    w = _FakeWindow()
+    assert app._boot_into_cockpit(w) is False
+    assert w.loaded is None
+    assert any("cockpit.log" in js for js in w.js)
+
+
+def test_splash_ist_dunkel_und_deutsch():
+    # kein weisser Blitz: Splash traegt das Cockpit-Schwarz und einen Status-Text
+    assert "#0a0a0d" in app.SPLASH_HTML
+    assert "KIRA" in app.SPLASH_HTML and "startet" in app.SPLASH_HTML
+
+
 def test_ensure_cockpit_startet_supervisor_wenn_unten(monkeypatch):
     calls = {"n": 0}
     seq = iter([False, True])   # erst unten, nach dem Start oben
