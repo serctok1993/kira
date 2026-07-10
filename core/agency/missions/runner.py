@@ -22,7 +22,7 @@ import time
 from core.agency import outcomes, verifier
 from core.agency.act import act
 from core.agency.missions import planner, queue, workingset
-from core.config import CONFIG
+from core.config import CONFIG, feature_on
 from core.kernel import events
 from core.kernel.scheduler import heartbeat_on, kill_switch_active
 from core.mind.agent import _read
@@ -456,7 +456,8 @@ def run_once(escalate: bool = False) -> dict:
         _obj.init_objectives()
         # S5: nur Business-Ziele werden vom Heartbeat gegrindet — Lebens-Ziele
         # (domain='leben') laufen ueber Coach/Briefings, nie automatisch.
-        actives = _obj.list_active(domain="business")
+        # S12: Business-Flag aus -> leere Liste, der ganze Zweig kollabiert auf plan_goal=goal.
+        actives = _obj.list_active(domain="business") if feature_on("business") else []
         cap = _werktakt()
         if cap:  # Werktakt: Ziele mit vollem Tagespensum heute nicht weiter beplanen
             im_takt = [o for o in actives if queue.done_today(o["id"]) < cap]
@@ -749,7 +750,7 @@ def run_forever(interval: int | None = None) -> None:
                 # Stripe-Einnahmen alle 6h ins Venture-Konto-Buch ziehen (rein lesend).
                 from core.agency.missions import maintenance
 
-                if maintenance.maybe_run("stripe_sync", interval_s=6 * 3600):
+                if feature_on("business") and maintenance.maybe_run("stripe_sync", interval_s=6 * 3600):
                     from core.agency.connectors import stripe_sync
 
                     res = stripe_sync.sync()
@@ -765,8 +766,8 @@ def run_forever(interval: int | None = None) -> None:
 
                 from core.agency import radar
 
-                if maintenance.maybe_run("radar_scan",
-                                         interval_s=radar.get_takt()["intervall_tage"] * 86400):
+                if feature_on("radar") and maintenance.maybe_run(
+                        "radar_scan", interval_s=radar.get_takt()["intervall_tage"] * 86400):
                     res = radar.scan(notify=True)
                     events.emit("radar_scan_done", res)
             except Exception as e:  # noqa: BLE001

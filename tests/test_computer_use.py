@@ -90,9 +90,13 @@ def test_klick_braucht_zahlen(monkeypatch):
 # ---------- Registrierung + Steuerpult-Gate ----------
 
 def test_werkzeuge_registriert():
+    # S12: feature desktop_low_level ist standardmaessig AUS -> get() filtert die Werkzeuge
+    # aus dem Manifest; registriert bleiben sie (Flag an holt sie ohne Neustart zurueck).
+    namen = {t.name for t in registry.all_tools(include_disabled=True)}
     for name in ("bildschirm_foto", "maus_klick", "maus_bewegen", "tippen", "taste",
                  "fenster_liste", "fenster_fokus"):
-        assert registry.get(name) is not None, f"{name} nicht registriert"
+        assert name in namen, f"{name} nicht registriert"
+        assert registry.get(name) is None, f"{name} muesste bei Flag aus gefiltert sein"
 
 
 def test_steuerpult_zeigt_und_schaltet_computer_use(tmp_path, monkeypatch):

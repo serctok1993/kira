@@ -7,7 +7,7 @@ from core.agency.tools.registry import tool
 @tool("radar_scan_now",
       "Startet sofort einen Business-Radar-Scan (Web-Signale -> konkrete Einkommens-Chancen "
       "mit Hypothese + Score). Laeuft sonst automatisch woechentlich.",
-      {})
+      {}, feature="radar")
 def radar_scan_now() -> str:
     from core.agency import radar
 
@@ -24,7 +24,8 @@ def radar_scan_now() -> str:
       "traegst es hier ein — mehrere Themen mit ';' trennen. Ohne Argument zeigst du den "
       "aktuellen Fokus. Beispiel: radar_fokus('KI-Tools fuer Handwerker; Social-Media-"
       "Automatisierung fuer lokale Laeden').",
-      {"themen": "die Suchthemen, ';'-getrennt — leer lassen zeigt den aktuellen Fokus"})
+      {"themen": "die Suchthemen, ';'-getrennt — leer lassen zeigt den aktuellen Fokus"},
+      feature="radar")
 def radar_fokus(themen: str = "") -> str:
     from core.agency import radar
 
@@ -39,7 +40,7 @@ def radar_fokus(themen: str = "") -> str:
 
 @tool("opportunity_list",
       "Zeigt die Business-Chancen-Pipeline (new/shortlist/rejected/converted) mit Scores.",
-      {"status": "optional: nur diesen Status zeigen"})
+      {"status": "optional: nur diesen Status zeigen"}, feature="radar")
 def opportunity_list(status: str = "") -> str:
     from core.agency import radar
 
@@ -56,7 +57,8 @@ def opportunity_list(status: str = "") -> str:
 @tool("opportunity_decide",
       "Setzt den Status einer Chance: shortlist (weiter beobachten) | rejected (verwerfen).",
       {"opp_id": "die Id (8-Zeichen-Kurzform reicht)", "status": "shortlist | rejected",
-       "note": "optional: warum"})
+       "note": "optional: warum"},
+      feature="radar")
 def opportunity_decide(opp_id: str, status: str, note: str = "") -> str:
     from core.agency import radar
 
@@ -67,7 +69,7 @@ def opportunity_decide(opp_id: str, status: str, note: str = "") -> str:
 @tool("opportunity_convert",
       "Macht aus einer Chance ein echtes Venture (Status idea) + Validierungs-Ziel — "
       "ab da arbeitet der 24/7-Heartbeat daran.",
-      {"opp_id": "die Id (Kurzform reicht)"})
+      {"opp_id": "die Id (Kurzform reicht)"}, feature="radar")
 def opportunity_convert(opp_id: str) -> str:
     from core.agency import radar
 

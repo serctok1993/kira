@@ -10,13 +10,22 @@ def _use_tmp_db(monkeypatch, tmp_path):
     db = str(tmp_path / "state.db")
     for mod in (objectives, queue, metrics, events, ventures):
         monkeypatch.setattr(mod, "DB_PATH", db)
+    # Post-Cap-Bloecke (Termin-Radar, Logbuch-Frage, Fokus) lesen sonst Sergens ECHTEN
+    # Vault (ROOT/gedaechtnis) -> Testlaenge/-inhalt haengt an Live-Daten. Isolieren.
+    monkeypatch.setattr(standup, "ROOT", tmp_path)
     events.init_db()
     objectives.init_objectives()
     queue.init_queue()
 
 
 def test_build_context_sections_and_cap(monkeypatch, tmp_path):
+    from core.config import CONFIG
+
     _use_tmp_db(monkeypatch, tmp_path)
+    # S12: BUSINESS/VENTURES-Bloecke haengen am Feature-Flag — hier werden sie selbst getestet
+    monkeypatch.setitem(CONFIG["features"], "business", True)
+    # News-Block liest den Live-Monitor (Netz/Zustand) -> fuer den Cap-Check stummschalten
+    monkeypatch.setattr(standup, "_news_block", lambda *a, **k: "")
     queue.add("Zahnarzt anrufen", mission="leben", due_date=__import__("datetime").date.today().isoformat())
     objectives.add("Abnehmen auf 85kg", kind="big", domain="leben")
     objectives.add("QS-SEO ausbauen", domain="business", target_date="2026-08-01")
@@ -43,6 +52,17 @@ def test_build_context_empty_db_is_calm(monkeypatch, tmp_path):
     _use_tmp_db(monkeypatch, tmp_path)
     ctx = standup.build_context()
     assert "LAGEBERICHT" in ctx and "0 Aufgaben erledigt" in ctx
+
+
+def test_build_context_business_flag_aus_briefed_nicht(monkeypatch, tmp_path):
+    # S12 Default (business aus): kein BUSINESS-/VENTURES-Block, auch wenn Daten da sind —
+    # sonst erzaehlt das Briefing von abgeschalteten Features.
+    _use_tmp_db(monkeypatch, tmp_path)
+    objectives.add("QS-SEO ausbauen", domain="business", target_date="2026-08-01")
+    vid = ventures.add("Shop", milestone_eur=100)
+    ventures.book(vid, "in", 25.0)
+    ctx = standup.build_context("morgen")
+    assert "BUSINESS" not in ctx and "VENTURES" not in ctx
 
 
 def test_cron_expands_standup_placeholder(monkeypatch, tmp_path):

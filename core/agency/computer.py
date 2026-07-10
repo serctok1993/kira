@@ -184,7 +184,8 @@ def _screenshot_png(path: str) -> None:
       "Macht ein Foto vom Bildschirm und beschreibt/analysiert, was zu sehen ist (per "
       "Vision). Damit sehe ich, was gerade laeuft, bevor ich klicke. Gib eine konkrete "
       "Frage mit ('Wo ist der Speichern-Knopf?'), dann suche ich gezielt.",
-      {"prompt": "optional: worauf ich achten / was ich finden soll"})
+      {"prompt": "optional: worauf ich achten / was ich finden soll"},
+      feature="desktop_low_level")
 def bildschirm_foto(prompt: str = "") -> str:
     blocked = _gate("bildschirm_foto")
     if blocked:
@@ -225,7 +226,8 @@ def bildschirm_foto(prompt: str = "") -> str:
       "doppel=1 fuer Doppelklick.",
       {"x": "X-Pixel", "y": "Y-Pixel",
        "button": "optional: links (Standard) oder rechts",
-       "doppel": "optional: 1 fuer Doppelklick"})
+       "doppel": "optional: 1 fuer Doppelklick"},
+      feature="desktop_low_level")
 def maus_klick(x, y, button: str = "links", doppel="0") -> str:
     blocked = _gate("maus_klick")
     if blocked:
@@ -249,7 +251,7 @@ def maus_klick(x, y, button: str = "links", doppel="0") -> str:
 @tool("maus_bewegen",
       "Bewegt den Mauszeiger an eine Position, ohne zu klicken (z.B. um ein Menue "
       "aufzuklappen, das auf Hover reagiert).",
-      {"x": "X-Pixel", "y": "Y-Pixel"})
+      {"x": "X-Pixel", "y": "Y-Pixel"}, feature="desktop_low_level")
 def maus_bewegen(x, y) -> str:
     blocked = _gate("maus_bewegen")
     if blocked:
@@ -271,7 +273,7 @@ def maus_bewegen(x, y) -> str:
 @tool("tippen",
       "Tippt Text an der aktuellen Cursor-Stelle (Unicode, layout-unabhaengig — Umlaute "
       "und Emojis gehen). Erst ins Zielfeld klicken.",
-      {"text": "der zu tippende Text"})
+      {"text": "der zu tippende Text"}, feature="desktop_low_level")
 def tippen(text: str) -> str:
     blocked = _gate("tippen")
     if blocked:
@@ -291,7 +293,7 @@ def tippen(text: str) -> str:
       "Drueckt eine Taste oder Tastenkombination, z.B. 'enter', 'ctrl+s', 'alt+tab', "
       "'win+d', 'ctrl+shift+esc'. Fuer Sonder-/Steuertasten und Shortcuts (NICHT fuer "
       "normalen Text — dafuer 'tippen').",
-      {"keys": "z.B. 'enter' oder 'ctrl+s'"})
+      {"keys": "z.B. 'enter' oder 'ctrl+s'"}, feature="desktop_low_level")
 def taste(keys: str) -> str:
     blocked = _gate("taste")
     if blocked:
@@ -312,7 +314,7 @@ def taste(keys: str) -> str:
 @tool("fenster_liste",
       "Listet die offenen Fenster (sichtbare Programme) mit Titel — damit ich weiss, was "
       "laeuft und was ich per fenster_fokus in den Vordergrund holen kann.",
-      {})
+      {}, feature="desktop_low_level")
 def fenster_liste() -> str:
     blocked = _gate("fenster_liste")
     if blocked:
@@ -331,7 +333,7 @@ def fenster_liste() -> str:
 @tool("fenster_fokus",
       "Holt ein Fenster in den Vordergrund. Gib einen Teil des Titels an (z.B. 'Photoshop' "
       "oder 'Rechnung.pdf'); das erste passende Fenster wird aktiviert.",
-      {"titel": "Teil des Fenstertitels"})
+      {"titel": "Teil des Fenstertitels"}, feature="desktop_low_level")
 def fenster_fokus(titel: str) -> str:
     blocked = _gate("fenster_fokus")
     if blocked:

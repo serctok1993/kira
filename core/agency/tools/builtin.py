@@ -275,8 +275,10 @@ def write_file(path: str = "", content: str | None = None, **falsche_args) -> st
     return f"OK, geschrieben: {p} ({len(str(content))} Zeichen)"
 
 
+# feature="legacy" existiert bewusst NICHT in config.yaml -> feature_on liefert False ->
+# dauerhaft aus dem Manifest (nie benutzt, write_file deckt den Fall ab). Code bleibt.
 @tool("append_file", "Haengt Text an eine Datei an (erstellt sie bei Bedarf).",
-      {"path": "Dateipfad", "content": "anzuhaengender Text"})
+      {"path": "Dateipfad", "content": "anzuhaengender Text"}, feature="legacy")
 def append_file(path: str = "", content: str | None = None, **falsche_args) -> str:
     if falsche_args or not str(path).strip() or content is None:
         return _lehr_fehler("append_file", falsche_args, "'path' und 'content'",
