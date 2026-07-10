@@ -30,6 +30,14 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
       linear-gradient(160deg,var(--bg),#0e0a18 55%,#080a14);}
   /* wechselbares Hintergrundbild (aus dem Cockpit gesetzt, /api/bg) — LED-Rand liegt drueber */
   #bg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.9}
+  /* Modus-Aura: weicher Farbschleier im Akzentton, steigt hinter dem Chat auf und
+     wechselt mit dem Modus mit (rein statisches CSS, 0% Last, 1s-Blende beim Wechsel) */
+  #aura{position:fixed;inset:0;z-index:0;pointer-events:none;transition:background 1s ease;
+    background:radial-gradient(58% 46% at 50% 92%,color-mix(in srgb,var(--accent) 15%,transparent),transparent 72%)}
+  body[data-mode="coding"] #aura{background:
+    radial-gradient(42% 38% at 30% 94%,rgba(255,0,77,.10),transparent 70%),
+    radial-gradient(42% 38% at 50% 96%,rgba(57,255,20,.08),transparent 70%),
+    radial-gradient(42% 38% at 70% 94%,rgba(0,229,255,.10),transparent 70%)}
   /* Maske folgt der Graph-Position (--gx/--gy aus JS) — sonst schneidet sie den Graph ab,
      sobald er nicht mittig steht (z.B. oben rechts). */
   #graph{position:fixed;inset:0;width:100%;height:100%;z-index:1;opacity:.82;
@@ -48,6 +56,9 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   body[data-anim="on"] .edge::before{opacity:1;animation:spin 7s linear infinite}
   body[data-mode="coding"] .edge::before{background:conic-gradient(from var(--ang),#ff004d,#ff8a00,#ffe600,#39ff14,#00e5ff,#b026ff,#ff004d);
     -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+  /* Coding = Vollgas: der Regenbogen-Sweep laeuft IMMER (nicht erst bei 'Bewegung an') —
+     der Wow-Moment "du bist jetzt im Coding-Modus". Chat/Work bleiben ruhig. */
+  body[data-mode="coding"] .edge::before{opacity:1;animation:spin 6s linear infinite}
   @keyframes spin{to{--ang:360deg}}
 
   /* dezente Mini-Cockpit-Leiste: leichter Tint im Modus-Farbton, kaum Blur, klar lesbar (kein Zoomen noetig) */
@@ -92,15 +103,26 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   .tx{font-weight:600;background:linear-gradient(90deg,#b026ff,#ff2d95,#ff8a00,#39ff14,#00e5ff,#b026ff);
     background-size:300% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:flow 3.2s linear infinite}
   @keyframes flow{to{background-position:-300% 0}}
-  .bar{display:flex;align-items:flex-end;gap:8px;width:100%;padding:8px 8px 8px 12px;border-radius:16px;
+  .bar{display:flex;align-items:flex-end;gap:8px;width:100%;padding:8px 8px 8px 12px;border-radius:16px;position:relative;
     background:color-mix(in srgb,var(--bg) 62%,transparent);border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);
-    backdrop-filter:blur(12px);box-shadow:0 10px 40px rgba(0,0,0,.5),0 0 22px color-mix(in srgb,var(--accent) 22%,transparent);transition:border-color .4s,box-shadow .4s}
+    backdrop-filter:blur(12px);box-shadow:0 10px 40px rgba(0,0,0,.5),0 0 22px color-mix(in srgb,var(--accent) 22%,transparent);transition:border-color .4s,box-shadow .4s,opacity .3s}
+  .bar.off{opacity:.55;filter:saturate(.4)}   /* Chat getrennt -> sichtbar gedimmt statt stummer Nichtreaktion */
+  /* Coding-Modus: fliessender Regenbogen-RING um den Chat-Balken (Masken-Trick wie der
+     LED-Rand: nur der 2px-Rahmen leuchtet, innen bleibt alles lesbar) */
+  body[data-mode="coding"] .bar{border-color:transparent}
+  body[data-mode="coding"] .bar::before{content:"";position:absolute;inset:-2px;border-radius:18px;padding:2px;pointer-events:none;
+    background:conic-gradient(from var(--ang),#ff004d,#ff8a00,#ffe600,#39ff14,#00e5ff,#b026ff,#ff004d);
+    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;
+    animation:spin 4s linear infinite;filter:drop-shadow(0 0 10px rgba(176,38,255,.45))}
+  body[data-mode="coding"] .seg button.on{color:#0a0712;
+    background:linear-gradient(90deg,#ff8a00,#ffe600,#39ff14,#00e5ff,#b026ff);box-shadow:0 0 16px rgba(0,229,255,.5)}
   .seg{display:flex;gap:2px;background:rgba(255,255,255,.05);border-radius:10px;padding:3px}
   .seg button{border:0;background:none;color:var(--muted);font:600 12px var(--sans);letter-spacing:.3px;padding:6px 11px;border-radius:8px;cursor:pointer;transition:.2s}
   .seg button.on{color:#0a0712;background:var(--accent);box-shadow:0 0 14px color-mix(in srgb,var(--accent) 60%,transparent)}
   .ic{width:34px;height:34px;flex:none;border:0;border-radius:10px;cursor:pointer;font-size:17px;background:rgba(255,255,255,.06);color:var(--accent);display:grid;place-items:center}
   #cin{flex:1;background:none;border:0;outline:none;color:var(--ink);font-size:14px;padding:6px 4px;font-family:var(--sans);
-    line-height:1.4;resize:none;overflow-y:auto;max-height:120px;white-space:pre-wrap;overflow-wrap:break-word}
+    line-height:1.4;resize:none;overflow-y:auto;max-height:120px;white-space:pre-wrap;overflow-wrap:break-word;
+    caret-color:var(--accent)}   /* Schreibmarke im Akzentton — im Fenster gut sichtbar (als Hintergrund-Wallpaper blinkt sie systembedingt nur bei Fokus) */
   #cin::placeholder{color:var(--muted)}
   .model{font:600 11px var(--mono);color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);border-radius:20px;padding:5px 11px;white-space:nowrap;cursor:pointer}
   .model:hover{background:color-mix(in srgb,var(--accent) 14%,transparent)}
@@ -126,9 +148,28 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   #ticker .tk .td{color:var(--muted)}
   #ticker .tk.error{color:var(--amber)}
   /* HUD-Uhr unten rechts: gross, tabellarische Ziffern, weicher Neon-Schein im Akzentton.
-     pointer-events:none; DOM wird nur beim Minutenwechsel angefasst -> keine Dauer-Recomposites. */
+     DOM wird nur beim Minutenwechsel angefasst -> keine Dauer-Recomposites. */
   #clock{position:fixed;right:30px;bottom:26px;z-index:2;pointer-events:none;text-align:right;
     text-shadow:0 2px 8px rgba(0,0,0,.95)}
+  /* Wochen-Kalender: 7 schmale QUER-Zeilen (Mo–So) mit lesbarem Text statt Kaestchen-Grid.
+     Quelle: Lebens-Todos mit Faelligkeit (/api/life/board) — heute leuchtet im Akzent. */
+  #week{position:fixed;left:16vw;bottom:14vh;z-index:2;display:flex;flex-direction:column;gap:3px;
+    width:min(410px,30vw);padding:12px 14px 13px;border-radius:14px;
+    background:linear-gradient(180deg,rgba(6,4,11,.55),rgba(6,4,11,.26));
+    border:1px solid color-mix(in srgb,var(--accent) 20%,transparent);
+    -webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);
+    font-family:var(--mono);font-size:12px;line-height:1.5;text-shadow:0 1px 4px #000}
+  body[data-week="off"] #week{display:none}
+  #week .wkh{font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent);margin-bottom:4px}
+  #week .wd{display:flex;gap:10px;align-items:baseline;padding:3px 8px;border-radius:8px;border:1px solid transparent}
+  #week .wd.today{border-color:color-mix(in srgb,var(--accent) 45%,transparent);background:color-mix(in srgb,var(--accent) 10%,transparent)}
+  #week .wd .wtag{flex:none;width:46px;color:var(--muted)}
+  #week .wd.today .wtag{color:var(--accent);font-weight:700}
+  #week .wd .wtx{color:#e8e1f4;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;min-width:0}
+  #week .wd.leer .wtx{color:var(--muted);opacity:.4}
+  #week .wsep{color:var(--muted)} #week .wmehr{color:var(--accent)}
+  /* frei verschiebbare Bausteine (Uhr/Ticker/Kalender): greifbar, wenn /wall im Fenster offen ist */
+  .drag{cursor:grab} .drag.dragging{cursor:grabbing;user-select:none}
   body[data-clock="off"] #clock{display:none}
   #clock .ct{font-family:var(--mono);font-size:56px;line-height:1;color:#fff;font-variant-numeric:tabular-nums;
     filter:drop-shadow(0 0 14px color-mix(in srgb,var(--accent) 45%,transparent))}
@@ -136,10 +177,11 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   .tag{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:9;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);display:flex;gap:8px;align-items:center}
   .tag .d{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:bl 2s infinite}
   @keyframes bl{50%{opacity:.4}}
-  @media (prefers-reduced-motion:reduce){.edge::before,.tx,.sh{animation:none}}
+  @media (prefers-reduced-motion:reduce){.edge::before,.tx,.sh,.bar::before{animation:none}}
 </style></head>
 <body data-mode="chat">
   <img id="bg" src="/api/bg" onerror="this.style.display='none'" alt=""/>
+  <div id="aura"></div>
   <canvas id="graph"></canvas>
   <div class="edge"></div>
   <button class="gear" id="gear" title="Desktop-Einstellungen">⚙</button>
@@ -154,9 +196,14 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
     <div class="wt" style="padding-top:8px">Aktivität</div>
     <label><input type="checkbox" id="w-ticker"/> Live-Ticker (unten links)</label>
     <label><input type="checkbox" id="w-clock"/> Uhr (unten rechts)</label>
+    <label><input type="checkbox" id="w-week"/> Wochen-Kalender</label>
+    <div class="wt" style="padding-top:8px">Layout</div>
+    <label style="cursor:default;color:var(--muted);font-size:11px">Uhr, Ticker &amp; Kalender lassen sich mit der Maus verschieben</label>
+    <label id="w-layout-reset" style="color:var(--accent)">↺ Positionen zurücksetzen</label>
   </div>
   <div id="ticker"></div>
   <div id="clock"><div class="ct">–:–</div><div class="cd"></div></div>
+  <div id="week"><div class="wkh">◈ Woche</div><div id="wkrows"></div></div>
 
   <div class="topbar">
     <div class="srow" id="srow"></div>
@@ -209,6 +256,7 @@ async function loadStats(){
   try{sys=await (await fetch("/api/system")).json();}catch(e){}
   const newsN=(news.items||news.news||[]).length;
   const lifeB=Array.isArray(life.board)?life.board:(life.board&&Array.isArray(life.board.tasks)?life.board.tasks:[]);
+  lifeTasks=lifeB;renderWeek();   // Wochen-Kalender speist sich aus demselben Life-Board
   const todosN=lifeB.filter(t=>t&&t.status&&t.status!=="done").length;
   const mailsN=(mail&&mail.count!=null)?mail.count:null;
   const pc=v=>v==null?"—":v;                       // System-Werte: „—" wenn Quelle fehlt
@@ -272,6 +320,44 @@ function tickClock(){
   $("#clock .cd").textContent=d.toLocaleDateString("de-DE",{weekday:"long"})+" · "+d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});
 }
 
+/* ---- Wochen-Kalender: Mo–So als schmale Text-Zeilen, heute im Akzent ---- */
+let lifeTasks=[];
+function isoDay(d){const p=n=>(""+n).padStart(2,"0");return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate());}
+function renderWeek(){
+  document.body.dataset.week=(WALL.week!==false)?"on":"off";
+  if(WALL.week===false)return;
+  const now=new Date(),mon=new Date(now);mon.setDate(now.getDate()-((now.getDay()+6)%7));
+  const names=["Mo","Di","Mi","Do","Fr","Sa","So"];let html="";
+  for(let i=0;i<7;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);const iso=isoDay(d);
+    const es=lifeTasks.filter(t=>t&&t.due_date===iso&&t.status!=="done");
+    const txt=es.slice(0,3).map(t=>esc((""+(t.description||"")).slice(0,46))).join('<span class="wsep"> · </span>')
+      +(es.length>3?' <span class="wmehr">+'+(es.length-3)+'</span>':"");
+    html+='<div class="wd'+(iso===isoDay(now)?" today":"")+(es.length?"":" leer")+'">'
+      +'<span class="wtag">'+names[i]+' '+d.getDate()+'.</span><span class="wtx">'+(txt||"frei")+'</span></div>';}
+  $("#wkrows").innerHTML=html;
+}
+
+/* ---- Bausteine frei verschieben (Uhr/Ticker/Kalender): Position in % des Bildschirms,
+   gespeichert in WALL.layout -> ueberlebt Reloads und synct wie alles andere ueber den
+   Server (Einstellung im Browser-Tab aendern, das Lively-Wallpaper zieht nach). ---- */
+function applyLayout(){const L=WALL.layout||{};
+  for(const k of ["clock","ticker","week"]){const el=$("#"+k);if(!el)continue;
+    if(Array.isArray(L[k])){el.style.left=L[k][0]+"%";el.style.top=L[k][1]+"%";el.style.right="auto";el.style.bottom="auto";}
+    else{el.style.left=el.style.top=el.style.right=el.style.bottom="";}}}
+function makeDrag(el){if(!el)return;el.classList.add("drag");el.style.pointerEvents="auto";
+  el.addEventListener("pointerdown",e=>{
+    if(e.target.closest("a,button,input,select"))return;   // Bedienelemente nicht kapern
+    const r=el.getBoundingClientRect(),ox=e.clientX-r.left,oy=e.clientY-r.top;let moved=false;
+    const mv=ev=>{moved=true;el.classList.add("dragging");
+      const x=Math.max(0,Math.min(innerWidth-r.width,ev.clientX-ox)),
+            y=Math.max(0,Math.min(innerHeight-r.height,ev.clientY-oy));
+      el.style.left=(x/innerWidth*100).toFixed(2)+"%";el.style.top=(y/innerHeight*100).toFixed(2)+"%";
+      el.style.right="auto";el.style.bottom="auto";};
+    const up=()=>{removeEventListener("pointermove",mv);removeEventListener("pointerup",up);
+      el.classList.remove("dragging");if(!moved)return;
+      WALL.layout=WALL.layout||{};WALL.layout[el.id]=[parseFloat(el.style.left),parseFloat(el.style.top)];saveWall();};
+    addEventListener("pointermove",mv);addEventListener("pointerup",up);e.preventDefault();});}
+
 /* ---- Live-Vault-Graph ---- */
 let ns=[],ls=[],cv,ctx,W,H,DPR=Math.min(2,devicePixelRatio||1),reduce=matchMedia('(prefers-reduced-motion:reduce)').matches,settle=0,drag=null,graphVault=null,dragStart=null,dragMoved=false,GX={},GMAIN="·",lastFloat=0;
 /* Wallpaper-Einstellungen (Zahnrad) — leben im localStorage, das offene Wallpaper hoert per
@@ -290,7 +376,7 @@ const POSX={links:0.32,mitte:0.5,rechts:0.68},POSY={oben:0.32,mitte:0.46,unten:0
 let curG=null;   // zuletzt geladener Graph (fuer Re-Layout bei Groesse/Position)
 // Standard-Layout nach Sergens Desktop-Plan: Graph oben RECHTS, Live-Feed oben links,
 // Mitte bleibt frei fuers Artwork. Standbild default (0% Last); stats=null -> alle.
-let WALL={labels:true,motion:false,color:"vault",pos:"rechts",posy:"oben",size:"gross",stats:null,colors:null,ticker:true,clock:true};
+let WALL={labels:true,motion:false,color:"vault",pos:"rechts",posy:"oben",size:"gross",stats:null,colors:null,ticker:true,clock:true,week:true,layout:null};
 function loadWall(){try{const s=JSON.parse(localStorage.getItem("kira_wall")||"{}");
   if(!("posy" in s)&&s.pos==="mitte")delete s.pos;   // Migration 3-Zonen-Layout: altes Default faellt, bewusste Wahl bleibt
   Object.assign(WALL,s);}catch(e){}}
@@ -460,8 +546,12 @@ document.querySelectorAll('#seg button').forEach(b=>b.addEventListener('click',(
   mode=b.dataset.m;document.body.dataset.mode=mode;document.documentElement.style.setProperty('--accent',COL[mode]);kick();
 }));
 
-/* ---- ephemerer Chat ueber /ws/chat (frische Session je Aufruf) ---- */
-let ws,thinkTimer=null,running=false,reasonBuf="";
+/* ---- ephemerer Chat ueber /ws/chat (frische Session je Aufruf) ----
+   Traegheits-Fixes (Sergens Fund): 1) Nachricht bei getrennter Verbindung NICHT mehr
+   stumm wegwerfen, sondern vormerken + beim Reconnect senden; 2) running wird beim
+   Verbindungsabriss zurueckgesetzt (vorher blockierte ein haengender Lauf den Chat
+   dauerhaft); 3) getrennte Leiste ist sichtbar gedimmt (.bar.off). ---- */
+let ws,thinkTimer=null,running=false,reasonBuf="",pending=null;
 function stopPhrase(){if(thinkTimer){clearInterval(thinkTimer);thinkTimer=null;}}
 function setThink(on){const el=$("#t-think");stopPhrase();
   if(on){const put=()=>el.innerHTML='<span class="sh"></span><span class="tx">'+esc(rndPhrase())+' …</span>';put();thinkTimer=setInterval(put,2600);}
@@ -469,6 +559,8 @@ function setThink(on){const el=$("#t-think");stopPhrase();
 function connect(){const proto=location.protocol==="https:"?"wss":"ws";
   const sid="desktop-"+Math.random().toString(16).slice(2,10);   // ephemer: neu je Seitenaufruf
   ws=new WebSocket(proto+"://"+location.host+"/ws/chat?sid="+encodeURIComponent(sid));
+  ws.onopen=()=>{$("#bar").classList.remove("off");
+    if(pending){ws.send(pending);pending=null;}};   // vorgemerkte Nachricht geht jetzt raus
   ws.onmessage=ev=>{const m=JSON.parse(ev.data);
     if(m.done){setThink(false);running=false;return;}
     if(m.kind==="think"){stopPhrase();reasonBuf=(reasonBuf+" "+(m.text||"")).slice(-260);   // echtes Reasoning
@@ -477,13 +569,19 @@ function connect(){const proto=location.protocol==="https:"?"wss":"ws";
       $("#t-think").innerHTML='<span class="sh"></span><span class="tx">▷ '+esc(m.name||"werkzeug")+' …</span>';return;}
     if(m.kind==="final"||m.kind==="answer"){setThink(false);reasonBuf="";pushTurn("k",(m.text||"").slice(0,600));}
   };
-  ws.onclose=()=>{setTimeout(connect,1500);};
+  ws.onclose=()=>{$("#bar").classList.add("off");
+    if(running){running=false;setThink(false);}    // haengender Lauf blockiert den Chat nicht mehr
+    setTimeout(connect,1500);};
 }
 $("#bar").addEventListener('submit',e=>{e.preventDefault();const raw=$("#cin").value.trim();if(!raw||running)return;
-  if(!ws||ws.readyState!==1)return;
   const t=mode==="work"?("work: "+raw):mode==="coding"?("code: "+raw):raw;
-  pushTurn("me",raw);$("#cin").value="";growCin();reasonBuf="";running=true;setThink(true);ws.send(t);
+  pushTurn("me",raw);$("#cin").value="";growCin();reasonBuf="";running=true;setThink(true);
+  if(ws&&ws.readyState===1)ws.send(t);else pending=t;   // getrennt -> vormerken statt verlieren
+  $("#cin").focus();
 });
+/* Klick irgendwo auf die Leiste fokussiert das Eingabefeld (weniger Zielen noetig) */
+$("#bar").addEventListener('click',e=>{
+  if(!e.target.closest("button,select,label,.model,.mpop"))$("#cin").focus();});
 /* Gespraechsverlauf in der Mitte: die letzten Runden, aeltere gedimmt */
 let convo=[];
 function pushTurn(who,text){convo.push({who:who,text:text});convo=convo.slice(-6);
@@ -522,7 +620,7 @@ function applyAnim(){document.body.dataset.anim=WALL.motion?"on":"off";}   // LE
 function applyColors(){const c=WALL.colors||{},d=document.documentElement;   // Modus-Akzente aus dem Desktop-Editor
   if(c.chat)d.style.setProperty('--chat',c.chat);if(c.work)d.style.setProperty('--work',c.work);if(c.coding)d.style.setProperty('--coding',c.coding);
   d.style.setProperty('--accent',COL[mode]||'var(--chat)');}
-function syncWallUI(){$("#w-labels").checked=WALL.labels;$("#w-motion").checked=WALL.motion;$("#w-color").value=WALL.color;$("#w-pos").value=WALL.pos;$("#w-posy").value=WALL.posy||"oben";$("#w-size").value=WALL.size;$("#w-ticker").checked=WALL.ticker!==false;$("#w-clock").checked=WALL.clock!==false;applyAnim();tickClock();}
+function syncWallUI(){$("#w-labels").checked=WALL.labels;$("#w-motion").checked=WALL.motion;$("#w-color").value=WALL.color;$("#w-pos").value=WALL.pos;$("#w-posy").value=WALL.posy||"oben";$("#w-size").value=WALL.size;$("#w-ticker").checked=WALL.ticker!==false;$("#w-clock").checked=WALL.clock!==false;$("#w-week").checked=WALL.week!==false;applyAnim();tickClock();renderWeek();applyLayout();}
 $("#gear").addEventListener('click',()=>{const p=$("#wpop");p.classList.toggle('on');if(p.classList.contains('on'))syncWallUI();});
 $("#w-labels").addEventListener('change',e=>{WALL.labels=e.target.checked;saveWall();kick();});
 $("#w-motion").addEventListener('change',e=>{WALL.motion=e.target.checked;saveWall();applyAnim();kick();});
@@ -532,6 +630,8 @@ $("#w-posy").addEventListener('change',e=>{WALL.posy=e.target.value;saveWall();r
 $("#w-size").addEventListener('change',e=>{WALL.size=e.target.value;saveWall();relayout();});
 $("#w-ticker").addEventListener('change',e=>{WALL.ticker=e.target.checked;saveWall();loadTicker();});
 $("#w-clock").addEventListener('change',e=>{WALL.clock=e.target.checked;saveWall();tickClock();});
+$("#w-week").addEventListener('change',e=>{WALL.week=e.target.checked;saveWall();renderWeek();});
+$("#w-layout-reset").addEventListener('click',()=>{WALL.layout=null;saveWall();applyLayout();});
 window.addEventListener('storage',e=>{if(e.key==="kira_wall"){loadWall();syncWallUI();relayout();}});   // aus einem Browser-Tab geaendert -> Wallpaper zieht live nach
 document.addEventListener('click',e=>{if(!e.target.closest('#gear')&&!e.target.closest('#wpop')){const p=$("#wpop");if(p)p.classList.remove('on');}});
 
@@ -543,6 +643,9 @@ document.addEventListener('click',e=>{if(!e.target.closest('#gear')&&!e.target.c
   setInterval(pollWall,3000);                // Einstellungen serverseitig -> Lively-Wallpaper zieht nach
   loadTicker();setInterval(loadTicker,10000); // Aktivitaets-Ticker: 1 leichter Poll alle 10 s, keine Animation
   tickClock();setInterval(tickClock,10000);   // Uhr: minutengenau, DOM nur bei Minutenwechsel
+  renderWeek();applyLayout();                 // Wochen-Kalender + gespeicherte Positionen
+  makeDrag($("#clock"));makeDrag($("#ticker"));makeDrag($("#week"));   // frei verschiebbar
+  $("#cin").focus();                          // Schreibmarke direkt bereit (im Fenster/Tab)
 })();
 </script>
 </body></html>"""
