@@ -404,9 +404,10 @@ def test_subtab_leiste_lila():
 
 
 def test_kira_zwei_ebenen_navi():
-    # Gruppen-Zeile im Markup — seit Werkbank PR 3 ohne 'technik' (eigener Einstellungen-Tab)
+    # S12 "4 klare Reiter": Puls · Kopf · Automatik · Maschinenraum (Klartext statt
+    # Geist/Gewissen/Zustand). 'technik' bleibt tabu (lebt seit PR 3 im Einstellungen-Tab).
     assert 'id="kira-groups"' in VIEWS
-    for g in ("geist", "gewissen", "automatik", "zustand"):
+    for g in ("puls", "kopf", "automatik", "maschine"):
         assert f'data-g="{g}"' in VIEWS
     assert 'data-g="technik"' not in VIEWS
     # JS: Gruppen filtern die Sub-Tabs; subnav fuehrt die aktive Gruppe mit
