@@ -121,6 +121,14 @@ def test_wall_seite_wird_ausgeliefert():
     assert 'rel="icon" href="/api/icon"' in body
     # PHRASES wurden injiziert (Platzhalter ist ersetzt)
     assert "/*__PHRASES__*/" not in body
+    # Sparmodus (Werkstatt-Fund 11.07.): stoppt ALLE Endlos-Animationen (LED-Sweep,
+    # Chat-Ring, Atmen) + Graph-Loop — GPU/VRAM bleibt fuer lokale Modell-Laeufe frei.
+    assert 'body[data-spar="on"] .edge::before{animation:none !important' in body
+    assert 'body[data-spar="on"] .bar::before{animation:none !important' in body
+    assert 'body[data-spar="on"] .seg button.on{animation:none !important' in body
+    assert 'id="w-spar"' in body and "spar:false" in body        # Schalter + Default AUS
+    assert "dataset.spar=WALL.spar" in body                      # applyAnim setzt das Body-Flag
+    assert "||WALL.spar){render();raf=0" in body                 # Graph-Loop steht im Sparmodus
 
 
 def test_api_wall_settings_roundtrip(tmp_path, monkeypatch):
