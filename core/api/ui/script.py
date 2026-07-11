@@ -56,7 +56,7 @@ const SUBTABS={
                     keys:()=>loadKeys(),cockpit:()=>loadDesktop(),wall:()=>loadWallEditor()}},
  me:      {bar:"#me-tabs", cur:"tag",   /* Werkbank PR 7: erster Blick = DEIN Tag */
            loaders:{tag:()=>{loadTag();loadWidgets("serc","#widgets-serc");},todos:()=>loadLeben(),freigaben:()=>{loadInbox();loadTodoSecrets();},
-                    routinen:()=>loadMeCrons(),post:()=>{},metriken:()=>loadZiele()}}};
+                    routinen:()=>loadMeCrons(),post:()=>loadMails(),metriken:()=>loadZiele()}}};
 const _SETTINGS_SUBS=["models","bench","steuer","keys","cockpit","wall"];
 
 /* ---- Desktop-Pflege (S8.5) ---- */
@@ -193,6 +193,15 @@ applyIcons();
 
 /* ---- Me (S7a/S8.4/S9.4): beide Todo-Richtungen + Zugangs-Anfragen + Mails + Routinen ---- */
 function loadMe(){loadInbox();loadTodoSecrets();loadLeben();loadMeCrons();}
+/* Phase 3: echter Posteingang im Serc->Post-Tab (rein lesend; antworten macht der Chat) */
+async function loadMails(){const el=$("#me-mails");if(!el)return;
+ el.innerHTML='<span class="muted">… hole Post</span>';
+ try{const d=await (await fetch("/api/mails")).json();const ms=d.mails||[];
+  if(!ms.length){el.innerHTML='<div class="emptybox" style="min-height:80px;font-size:12px">'+esc(d.hint||"Posteingang ist leer.")+'</div>';return;}
+  el.innerHTML=(d.unread?('<div class="muted" style="font-size:11px;margin-bottom:6px">'+d.unread+' ungelesen</div>'):'')
+   +ms.map(m=>'<div class="memrow" style="font-size:12.5px"><div class="mh"><b>'+esc(m.from||"?")+'</b><span style="flex:1"></span><span class="muted">'+esc((m.date||"").slice(0,22))+'</span></div>'
+    +'<div><b>'+esc(m.subject||"(kein Betreff)")+'</b></div><div class="muted">'+esc((m.snippet||"").slice(0,180))+'</div></div>').join("");
+ }catch(e){el.innerHTML='<span class="muted">Post nicht ladbar.</span>';}}
 /* S9.4: Todo direkt anlegen (Enter oder +) */
 async function meTodoAdd(){const i=$("#me-todo-in");const t=(i.value||"").trim();if(!t)return;
  await fetch("/api/life/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({description:t})});

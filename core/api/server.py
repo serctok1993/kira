@@ -776,6 +776,17 @@ def api_direktive() -> dict:
     return fokus.get()
 
 
+# ---------- Post (Phase 3): Posteingang fuers Cockpit (rein lesend, IMAP) ----------
+@app.get("/api/mails")
+def api_mails(limit: int = 10) -> dict:
+    from core.agency.connectors import mail
+
+    res = mail.check(max(1, min(30, limit)))
+    if isinstance(res, str):  # nicht eingerichtet / Fehler -> Hinweis statt Liste
+        return {"mails": [], "hint": res}
+    return {"mails": res, "unread": mail.unread_count()}
+
+
 # ---------- Termine (Phase 2): Kalender lesen + loeschen (anlegen macht das termin_add-Tool) ----------
 @app.get("/api/termine")
 def api_termine(tage: int = 60) -> dict:

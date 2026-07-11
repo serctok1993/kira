@@ -700,6 +700,16 @@ def run_forever(interval: int | None = None) -> None:
                     for _r in _reports.rollup():
                         _notify(f"📒 {_r['art']} {_r['label']} liegt im Vault (reports/).",
                                 kurz=f"{_r['art']} {_r['label']} geschrieben")
+                if maintenance.maybe_run("bluesky_stats", interval_s=86400):
+                    # Phase 3: Follower-Zeitreihe (0 Token, oeffentliche API, kein Login) —
+                    # sichtbar als metric-Widget/Ziele-Dashboard ("bluesky_follower").
+                    from core.agency.connectors import bluesky as _bsky
+                    from core.agency.missions import metrics as _metrics
+
+                    stats = _bsky.profile_stats()
+                    if stats:
+                        _metrics.log("bluesky_follower", stats["followers"])
+                        events.emit("bluesky_stats", stats)
                 if maintenance.maybe_run("calibration_report", interval_s=7 * 86400):
                     # B-025: Nudge-/Fehler-/Fallback-Raten pro Modell -> Vorschlag in die
                     # Inbox (nur bei genug Daten), damit Sergen Rollen datenbasiert nachzieht.
