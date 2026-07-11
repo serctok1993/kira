@@ -692,6 +692,14 @@ def run_forever(interval: int | None = None) -> None:
                     lessons = _ins.weekly_lessons()  # Outcome-Muster -> Lektionen (S6.2)
                     if lessons:
                         events.emit("insights_lessons", {"count": len(lessons)})
+                if maintenance.maybe_run("report_rollup", interval_s=6 * 3600):
+                    # Phase 2: Wochen-/Monatsreport in den Vault (deterministisch, 0 Token);
+                    # die Funktionen pruefen Faelligkeit selbst (Montag / Monatserster).
+                    from core.agency import reports as _reports
+
+                    for _r in _reports.rollup():
+                        _notify(f"📒 {_r['art']} {_r['label']} liegt im Vault (reports/).",
+                                kurz=f"{_r['art']} {_r['label']} geschrieben")
                 if maintenance.maybe_run("calibration_report", interval_s=7 * 86400):
                     # B-025: Nudge-/Fehler-/Fallback-Raten pro Modell -> Vorschlag in die
                     # Inbox (nur bei genug Daten), damit Sergen Rollen datenbasiert nachzieht.

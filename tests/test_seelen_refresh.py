@@ -86,7 +86,8 @@ def test_radar_haengt_im_briefing(monkeypatch, tmp_path):
     _stammbaum(monkeypatch, tmp_path, {"sandra.md": "- geburtstag: 10.07.\n"})
     monkeypatch.setattr(standup, "_news_block", lambda max_items=8: "")
     monkeypatch.setattr(standup, "_stammbaum_question", lambda heute="": "")
-    monkeypatch.setattr(standup, "_termin_radar",
+    # Phase 2: das Briefing baut den Block ueber _termin_block (Stammbaum + Kalender gemergt)
+    monkeypatch.setattr(standup, "_termin_block",
                         lambda heute=None, vorlauf_tage=8: "TERMIN-RADAR (Stub):\n- Sandra")
     text = standup.build_context()
     assert "TERMIN-RADAR" in text and "Sandra" in text
