@@ -45,8 +45,9 @@ def knowledge_list() -> str:
 
 
 @tool("knowledge_note",
-      "Legt eine Notiz/Wissen dauerhaft in Sergens Archiv ab (fuer Groesseres — kleine Fakten "
-      "gehoeren in remember_fact).",
+      "Legt eine Notiz/Wissen dauerhaft in Sergens durchsuchbares ARCHIV ab (Datenbank, "
+      "fuer Groesseres — kleine Fakten gehoeren in remember_fact). Soll Sergen den Text "
+      "als Datei in Obsidian SEHEN, nimm stattdessen vault_note.",
       {"title": "kurzer Titel", "text": "der Inhalt"})
 def knowledge_note(title: str, text: str) -> str:
     from core.mind import knowledge

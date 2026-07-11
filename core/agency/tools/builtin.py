@@ -858,3 +858,6 @@ from core.agency.tools import widget_tools  # noqa: E402,F401
 # Computer-Use (Macht-Schritt 1): Bildschirm sehen + Maus/Tastatur/Fenster. Standard AUS,
 # Freigabe im Steuerpult, Not-Aus/Testmodus blocken, jede Aktion auditiert.
 from core.agency import computer as _computer_tools  # noqa: E402,F401
+# Alltags-Kern (Phase 2): Kalender + aktiver Obsidian-Schreibpfad + Stammbaum-Pflege.
+from core.agency.tools import termin_tools  # noqa: E402,F401
+from core.agency.tools import vault_tools  # noqa: E402,F401
