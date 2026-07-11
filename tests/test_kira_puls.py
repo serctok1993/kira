@@ -26,6 +26,9 @@ def test_puls_loader_und_inhalte():
         assert marker in html, f"fehlt: {marker}"
 
 
-def test_puls_in_geist_gruppe():
+def test_puls_ist_eigener_reiter():
+    # S12 "4 klare Reiter": Puls ist der Erst-Blick mit EIGENEM Reiter (ohne Sub-Leiste);
+    # Charakter/Gedaechtnis/Wissen/Playbooks buendeln sich unter 'kopf'.
     html = _html()
-    assert '{key:"geist",   subs:["puls","files","mem","wissen"]}' in html
+    assert '{key:"puls",     subs:["puls"]}' in html
+    assert '{key:"kopf",     subs:["files","mem","wissen","playbooks"]}' in html
