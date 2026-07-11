@@ -47,17 +47,39 @@ def is_stranger(to: str) -> bool:
     return (to or "").strip().lower() not in own
 
 
-def send(to: str, subject: str, body: str) -> str:
+def send(to: str, subject: str, body: str, headers: dict | None = None) -> str:
     """Mail senden. Fehlende Zugaenge -> klarer Hinweis-String (nie Exception)."""
     if not enabled():
         return ("Email ist noch nicht eingerichtet (channels.email.enabled=false). "
                 "Sergen legt das Postfach an; Zugaenge via request_secret anfragen.")
     if provider() == "resend":
-        return _send_resend(to, subject, body)
-    return _send_smtp(to, subject, body)
+        return _send_resend(to, subject, body, headers)
+    return _send_smtp(to, subject, body, headers)
 
 
-def _send_resend(to: str, subject: str, body: str) -> str:
+def reply_subject(subject: str) -> str:
+    """'Re: '-Praefix ergaenzen, falls er fehlt (idempotent — 'Re: Re:' entsteht nie)."""
+    s = (subject or "").strip()
+    return s if s.lower().startswith("re:") else f"Re: {s}"
+
+
+def _thread_headers(in_reply_to: str) -> dict:
+    """In-Reply-To/References aus einer Message-ID — haelt die Antwort im Gespraechsfaden.
+    Spitzklammern werden normalisiert (Mail-Clients verlangen <...>)."""
+    mid = (in_reply_to or "").strip()
+    if not mid:
+        return {}
+    mid = f"<{mid.strip('<>')}>"
+    return {"In-Reply-To": mid, "References": mid}
+
+
+def reply(to: str, subject: str, body: str, in_reply_to: str = "") -> str:
+    """Antwort im selben Gespraechsfaden (Phase 3): 'Re: '-Betreff + Threading-Header.
+    Ohne in_reply_to faellt sie auf eine normale Mail mit 'Re: '-Betreff zurueck."""
+    return send(to, reply_subject(subject), body, headers=_thread_headers(in_reply_to))
+
+
+def _send_resend(to: str, subject: str, body: str, headers: dict | None = None) -> str:
     key = os.getenv("RESEND_API_KEY")
     if not key:
         return "RESEND_API_KEY fehlt — mit request_secret('RESEND_API_KEY', ...) anfragen."
@@ -66,9 +88,12 @@ def _send_resend(to: str, subject: str, body: str) -> str:
         return "channels.email.from_address fehlt in config.yaml."
     import httpx
 
+    payload: dict = {"from": sender, "to": [to], "subject": subject, "text": body}
+    if headers:
+        payload["headers"] = dict(headers)
     r = httpx.post("https://api.resend.com/emails",
                    headers={"Authorization": f"Bearer {key}"},
-                   json={"from": sender, "to": [to], "subject": subject, "text": body},
+                   json=payload,
                    timeout=20)
     if r.status_code >= 400:
         return f"Resend-Fehler {r.status_code}: {r.text[:200]}"
@@ -94,7 +119,19 @@ def _preset() -> tuple | None:
     return _HOST_PRESETS.get(addr.rsplit("@", 1)[-1]) if "@" in addr else None
 
 
-def _send_smtp(to: str, subject: str, body: str) -> str:
+def build_message(sender: str, to: str, subject: str, body: str,
+                  headers: dict | None = None) -> EmailMessage:
+    """EmailMessage bauen (pur, offline testbar) — Threading-Header kommen als dict."""
+    msg = EmailMessage()
+    msg["From"], msg["To"], msg["Subject"] = sender, to, subject
+    for k, v in (headers or {}).items():
+        if v:
+            msg[k] = v
+    msg.set_content(body)
+    return msg
+
+
+def _send_smtp(to: str, subject: str, body: str, headers: dict | None = None) -> str:
     cfg = _cfg()
     host, port = cfg.get("smtp_host") or "", int(cfg.get("smtp_port") or 587)
     user, pw = os.getenv("SMTP_USER"), os.getenv("SMTP_PASS")
@@ -107,9 +144,7 @@ def _send_smtp(to: str, subject: str, body: str) -> str:
         return ("SMTP-Zugaenge fehlen — SMTP_USER (deine Adresse) + SMTP_PASS (App-Passwort) "
                 "via request_secret anfragen; bei Gmail/Outlook/GMX/web.de sind die Hosts "
                 "automatisch, sonst smtp_host in config.yaml setzen.")
-    msg = EmailMessage()
-    msg["From"], msg["To"], msg["Subject"] = sender, to, subject
-    msg.set_content(body)
+    msg = build_message(sender, to, subject, body, headers)
     with smtplib.SMTP(host, port, timeout=30) as s:
         s.starttls()
         s.login(user, pw)
@@ -128,7 +163,8 @@ def _decode(value: str | None) -> str:
 
 
 def _parse_message(raw: bytes, snippet_chars: int = 400) -> dict:
-    """Rohe Mail -> {from, subject, date, snippet}. Pur und offline testbar."""
+    """Rohe Mail -> {from, to, subject, date, snippet, message_id}. Pur und offline testbar.
+    message_id ist der Threading-Anker fuer email_reply (In-Reply-To/References)."""
     msg = _email.message_from_bytes(raw)
     snippet = ""
     if msg.is_multipart():
@@ -142,9 +178,11 @@ def _parse_message(raw: bytes, snippet_chars: int = 400) -> dict:
         snippet = payload.decode(msg.get_content_charset() or "utf-8", errors="replace")
     return {
         "from": _decode(msg.get("From")),
+        "to": _decode(msg.get("To")),
         "subject": _decode(msg.get("Subject")),
         "date": msg.get("Date") or "",
         "snippet": " ".join(snippet.split())[:snippet_chars],
+        "message_id": (msg.get("Message-ID") or "").strip(),
     }
 
 
