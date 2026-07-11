@@ -364,18 +364,20 @@ VIEWS = r"""</head><body>
 
   <!-- ================= KIRA (Persoenlichkeit & Specs) ================= -->
   <div class="view" id="v-kira">
-    <!-- 2-Ebenen-Navi: 5 Gruppen (oben) filtern die Sub-Tabs (unten). Views/Loader unveraendert. -->
-    <div class="seg" id="kira-groups">
-      <a data-g="geist" class="on">Geist</a><a data-g="gewissen">Gewissen</a><a data-g="automatik">Automatik</a><a data-g="zustand">Zustand &amp; Lernen</a>
+    <!-- S12 "4 klare Reiter" (Sergens Entscheid 11.07.): EINE Gruppen-Leiste in Klartext.
+         Die Sub-Leiste erscheint NUR, wenn die Gruppe mehr als einen Unterpunkt hat.
+         Views/Loader unveraendert — nur Navigation und Benennung sind neu. -->
+    <div class="seg" id="kira-groups" style="margin-bottom:12px">
+      <a data-g="puls" class="on" title="Was Kira heute tut und lernt — der erste Blick">⚡ Puls</a><a data-g="kopf" title="Was in ihr steckt: Charakter, Gedaechtnis, Wissen, Playbooks">🧠 Kopf</a><a data-g="automatik" title="Was von allein laeuft: Routinen, Monitor, Freigabe-Regeln">⏰ Automatik</a><a data-g="maschine" title="Technik-Details fuer selten: Diagnose, Anatomie, Statistik, Protokoll">🔧 Maschinenraum</a>
     </div>
     <div class="seg" id="kira-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="puls" class="on">⚡ Puls</a><a data-s="files">✦ Seele &amp; Dateien</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="gov">Gewissen</a><a data-s="cron">Cron</a><a data-s="monitor">Monitor</a><a data-s="playbooks">Playbooks</a><a data-s="checkliste">Checkliste</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a><a data-s="evolution">Evolution</a><a data-s="log">Protokoll</a>
+      <a data-s="puls" class="on">⚡ Puls</a><a data-s="files">Charakter</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="playbooks">Playbooks</a><a data-s="cron">Routinen</a><a data-s="monitor">Monitor</a><a data-s="gov">Autonomie</a><a data-s="checkliste">Checkliste</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a><a data-s="evolution">Evolution</a><a data-s="log">Protokoll</a>
     </div>
 
     <div class="subview on" id="v-puls">
       <div class="card"><h3>⚡ Puls — was Kira heute tut und lernt</h3>
-        <div class="muted">Erster Blick auf SIE: heute getan, zuletzt gelernt, Skills, Evolution.
-        Tiefer: Checkliste (Zustand) · Gedaechtnis (Geist) · Statistik.</div>
+        <div class="muted">Erster Blick auf SIE: heute getan, zuletzt gelernt, Skills.
+        Tiefer: 🧠 Kopf (Gedaechtnis, Wissen) · 🔧 Maschinenraum (Checkliste, Statistik).</div>
         <div id="puls-body" style="margin-top:10px"><span class="muted">…</span></div>
       </div>
     </div>

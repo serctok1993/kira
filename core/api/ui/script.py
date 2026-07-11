@@ -168,16 +168,19 @@ function subnav(tab,s){
 (function(){const vs=$("#v-settings");if(!vs)return;
  _SETTINGS_SUBS.forEach(s2=>{const el=$("#v-"+s2);if(el){el.classList.remove("on");vs.appendChild(el);}});})();
 Object.keys(SUBTABS).forEach(t=>$$(SUBTABS[t].bar+" a").forEach(a=>a.onclick=()=>subnav(t,a.dataset.s)));
-/* Kira-Tab: 2 Ebenen — 5 Gruppen filtern die Sub-Tabs. Views/Loader bleiben unveraendert;
-   nur sichtbar ist immer NUR die aktive Gruppe -> 16 flache Reiter werden zu 5 klaren Gruppen. */
+/* Kira-Tab "4 klare Reiter" (S12, Sergens Entscheid 11.07.): Puls · Kopf · Automatik ·
+   Maschinenraum. Views/Loader bleiben unveraendert — nur Navigation/Benennung. Die
+   Sub-Leiste zeigt sich NUR, wenn die aktive Gruppe mehr als einen Unterpunkt hat
+   (Puls = ein Blick, keine zweite Leiste). */
 const KIRA_GROUPS=[
- {key:"geist",   subs:["puls","files","mem","wissen"]},
- {key:"gewissen",subs:["gov"]},
- {key:"automatik",subs:["cron","monitor","playbooks"]},
- {key:"zustand", subs:["checkliste","anatomie","stats","evolution","log"]}];
-function _kiraGroupOf(s){const g=KIRA_GROUPS.find(x=>x.subs.includes(s));return g?g.key:"geist";}
+ {key:"puls",     subs:["puls"]},
+ {key:"kopf",     subs:["files","mem","wissen","playbooks"]},
+ {key:"automatik",subs:["cron","monitor","gov"]},
+ {key:"maschine", subs:["checkliste","anatomie","stats","evolution","log"]}];
+function _kiraGroupOf(s){const g=KIRA_GROUPS.find(x=>x.subs.includes(s));return g?g.key:"puls";}
 function syncKiraGroup(s){const gk=_kiraGroupOf(s);const grp=KIRA_GROUPS.find(x=>x.key===gk);
  $$("#kira-groups a").forEach(a=>a.classList.toggle("on",a.dataset.g===gk));
+ const bar=$("#kira-tabs");if(bar)bar.style.display=grp.subs.length>1?"inline-flex":"none";
  $$("#kira-tabs a").forEach(a=>{a.style.display=grp.subs.includes(a.dataset.s)?"":"none";});}
 function kiraGroup(gk){const grp=KIRA_GROUPS.find(x=>x.key===gk);if(!grp)return;
  if(grp.subs.includes(SUBTABS.kira.cur))syncKiraGroup(SUBTABS.kira.cur);  /* schon in der Gruppe -> nur filtern */
@@ -185,7 +188,7 @@ function kiraGroup(gk){const grp=KIRA_GROUPS.find(x=>x.key===gk);if(!grp)return;
 $$("#kira-groups a").forEach(a=>a.onclick=()=>kiraGroup(a.dataset.g));
 /* ⚙ Einstellungen-Shortcut in der Topbar: springt in den eigenen Einstellungen-Tab (PR 3). */
 $("#gear")&&($("#gear").onclick=()=>nav("settings"));
-syncKiraGroup(SUBTABS.kira.cur||"files");  /* Startzustand: Gruppe 'geist' aktiv */
+syncKiraGroup(SUBTABS.kira.cur||"puls");  /* Startzustand: Reiter 'Puls' aktiv */
 /* Icons pro Tab anpassbar (localStorage kira_icons: {"home":"◈",...}) — Pflege in Kira->Cockpit */
 function applyIcons(){try{const ic=JSON.parse(localStorage.getItem("kira_icons")||"{}");
  $$("#side a .ti").forEach(i=>{const v=i.closest("a").dataset.v;if(ic[v])i.textContent=ic[v];});}catch(e){}}
