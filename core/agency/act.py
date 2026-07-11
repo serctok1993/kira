@@ -111,6 +111,10 @@ def _identity() -> str:
             lernen += "# DEINE SKILLS (nutze sie, wenn passend)\n" + "\n".join(f"- {s}" for s in skills) + "\n\n"
     except Exception:  # noqa: BLE001
         lernen = ""
+    try:
+        from core.mind.agent import ANTRIEB_DIREKTIVE as _antrieb
+    except Exception:  # noqa: BLE001
+        _antrieb = ""
     return (
         f"{jetzt_zeile()}\n\n"
         f"# DEINE VERFASSUNG\n{_read('constitution.md')}\n\n"
@@ -119,6 +123,7 @@ def _identity() -> str:
         + (f"# DEIN KOERPER (Details: read_file(\"core/mind/BODY.md\"))\n{koerper}\n\n" if koerper else "")
         + (f"{pb}\n\n" if pb else "")
         + lernen
+        + (f"{_antrieb}\n\n" if _antrieb else "")
         + f"{persona_text()}"
     )
 

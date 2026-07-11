@@ -2,6 +2,9 @@
 
 Ein Aggregator, zwei Anzeigen: das Cockpit (/api/tagewerk, Zentrale + Checkliste)
 und Telegram (/tagewerk) lesen dieselben Zahlen — Malen nach Zahlen, ueberall gleich.
+Phase 2: zeitraum() verallgemeinert dieselbe Schleife auf beliebige Fenster —
+die Wochen-/Monatsreports (core/agency/reports.py) lesen daraus; heute() delegiert,
+seine Vertraege (API/Telegram) bleiben byte-identisch.
 """
 from __future__ import annotations
 
@@ -11,8 +14,11 @@ from core.kernel import events
 from core.kernel.llm_router import today_spend_usd
 
 
-def heute() -> dict:
-    mitternacht = _dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+def zeitraum(start_ts: float, ende_ts: float | None = None, max_events: int = 6000) -> dict:
+    """Event-Aggregat fuer ein Zeitfenster [start_ts, ende_ts). ende_ts None = jetzt.
+
+    Bewusst OHNE Momentaufnahmen (offene Freigaben, Tageskosten) — die gehoeren
+    nur zu heute() und waeren fuer vergangene Fenster schlicht falsch."""
     mails: list[str] = []
     skills: list[str] = []
     crons: list[str] = []
@@ -23,8 +29,10 @@ def heute() -> dict:
     scores: list[int] = []
     self_ticks = 0
     lektionen = 0
-    for ev in events.recent(900):
-        if ev["ts"] < mitternacht:
+    for ev in events.recent(max_events):
+        if ende_ts is not None and ev["ts"] >= ende_ts:
+            continue
+        if ev["ts"] < start_ts:
             break
         t, p = ev["type"], ev.get("payload") or {}
         if t == "audit" and p.get("action") == "email_send":
@@ -50,8 +58,6 @@ def heute() -> dict:
             self_ticks += 1
         elif t == "memory_add" and p.get("kind") == "lesson":
             lektionen += 1
-    from core.agency import approvals as _appr
-
     return {
         "mails": {"anzahl": len(mails), "an": mails[:5]},
         "skills": {"anzahl": len(skills), "namen": skills[:5]},
@@ -61,6 +67,14 @@ def heute() -> dict:
         "tasks": {"done": tasks_done, "failed": tasks_fail,
                   "avg_score": round(sum(scores) / len(scores), 1) if scores else None},
         "lektionen": lektionen,
-        "freigaben_offen": len(_appr.pending()),
-        "kosten_heute_usd": round(today_spend_usd(), 4),
     }
+
+
+def heute() -> dict:
+    mitternacht = _dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+    out = zeitraum(mitternacht, max_events=900)
+    from core.agency import approvals as _appr
+
+    out["freigaben_offen"] = len(_appr.pending())
+    out["kosten_heute_usd"] = round(today_spend_usd(), 4)
+    return out

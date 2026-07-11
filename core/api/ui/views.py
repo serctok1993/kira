@@ -280,6 +280,11 @@ VIEWS = r"""</head><body>
         <div class="panel"><div class="panel-h">◈ KIRA HEUTE <span class="sp"></span><a id="tag-go-puls" class="muted" style="cursor:pointer;font-size:10px">→ Kira · Puls</a></div>
           <div id="tag-digest" class="panel-b"><span class="muted">…</span></div></div>
       </div>
+      <!-- Phase 2: Kalender (im Chat eintragen — termin_add; ✕ hier loescht) -->
+      <div class="panel" style="margin-top:12px">
+        <div class="panel-h">◈ TERMINE <span class="sp"></span><span class="muted" style="font-size:10px">im Chat: „trag ein: Zahnarzt am 15.08.“</span></div>
+        <div id="tag-termine" class="panel-b me-scroll" style="max-height:26vh"><span class="muted">…</span></div>
+      </div>
       <div id="widgets-serc" class="wslot" style="margin-top:12px"></div>
     </div>
 

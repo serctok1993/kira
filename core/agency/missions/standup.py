@@ -86,7 +86,7 @@ def _stammbaum_question(heute: str = "") -> str:
         base = ROOT / "gedaechtnis" / "stammbaum"
         if not base.exists():
             return ""
-        luecken: list[tuple[str, str]] = []  # (datei-relativ, feldzeile)
+        luecken: list[tuple[str, str, str]] = []  # (datei-relativ, feld, blatt-name)
         for p in sorted(base.rglob("*.md")):
             if "_VORLAGE" in p.name:
                 continue
@@ -94,17 +94,22 @@ def _stammbaum_question(heute: str = "") -> str:
                 for zeile in p.read_text(encoding="utf-8").splitlines():
                     z = zeile.strip()
                     if z.startswith("-") and z.endswith("???"):
-                        luecken.append((str(p.relative_to(ROOT)), z.lstrip("- ").rstrip(": ?").strip()))
+                        luecken.append((str(p.relative_to(ROOT)),
+                                        z.lstrip("- ").rstrip(": ?").strip(),
+                                        p.stem.replace("-", " ").replace("_", " ").title()))
             except Exception:  # noqa: BLE001
                 continue
         if not luecken:
             return ""
         heute = heute or time.strftime("%Y-%m-%d")
         idx = int(hashlib.md5(heute.encode()).hexdigest(), 16) % len(luecken)
-        datei, feld = luecken[idx]
+        datei, feld, name = luecken[idx]
+        # Phase 2: person_fakt statt edit_datei — deterministischer Upsert, den auch
+        # kleine Modelle sicher treffen (ersetzt die ???-Zeile selbst).
         return ("LOGBUCH-FRAGE (stelle Sergen GENAU EINE Frage, beilaeufig und warm — "
-                f"kein Verhoer): Frag nach '{feld}' und trage die Antwort mit edit_datei "
-                f"in {datei} ein (??? ersetzen). Insgesamt noch {len(luecken)} Luecken offen.")
+                f"kein Verhoer): Frag nach '{feld}' und trage die Antwort so ein: "
+                f'ACT person_fakt {{"name": "{name}", "feld": "{feld}", "wert": "..."}} '
+                f"(Blatt: {datei}). Insgesamt noch {len(luecken)} Luecken offen.")
     except Exception:  # noqa: BLE001 — das Briefing darf daran nie scheitern
         return ""
 
@@ -112,13 +117,15 @@ def _stammbaum_question(heute: str = "") -> str:
 _TERMIN_FELDER = ("geburtstag", "jahrestag", "hochzeitstag", "jubilaeum", "jubiläum")
 
 
-def _termin_radar(heute: datetime.date | None = None, vorlauf_tage: int = 8) -> str:
+def _termin_radar_funde(heute: datetime.date | None = None,
+                        vorlauf_tage: int = 8) -> list[tuple[int, str]]:
     """Sergens Kernwunsch (08.07.): Erinnerungen ANWENDEN statt nur ablegen.
 
     Liest Datums-Felder aus dem Stammbaum (kein LLM, 0 EUR):
       - Jahrestage ('- geburtstag: 01.07.[1993]') -> naechstes Vorkommen im Vorlauf
       - einmalige Termine mit vollem Datum ('- vertrag endet: 15.07.2026') -> im Vorlauf
-    Faellige landen im Briefing mit klarer Anweisung, sie VON SELBST anzusprechen."""
+    Liefert (tage_bis, zeile)-Funde — build_context mergt sie mit dem Kalender
+    (termine.naechste) zu EINEM TERMIN-RADAR-Block."""
     import re as _re
 
     try:
@@ -161,14 +168,38 @@ def _termin_radar(heute: datetime.date | None = None, vorlauf_tage: int = 8) -> 
                         funde.append((diff, f"- {wer}: {feld} am {naechster.strftime('%d.%m.')} — {wann}{extra}"))
                 except (ValueError, TypeError):
                     continue
-        if not funde:
-            return ""
-        funde.sort()
-        return ("TERMIN-RADAR (aus dem Stammbaum — sprich es VON DIR AUS an, warm und "
-                "rechtzeitig; nicht warten, bis Sergen fragt):\n"
-                + "\n".join(z for _, z in funde[:6]))
+        return funde
     except Exception:  # noqa: BLE001 — das Briefing darf daran nie scheitern
+        return []
+
+
+def _termin_radar(heute: datetime.date | None = None, vorlauf_tage: int = 8) -> str:
+    """Nur-Stammbaum-Sicht (Bestandsvertrag, Tests). Das Briefing nutzt _termin_block."""
+    funde = _termin_radar_funde(heute, vorlauf_tage)
+    if not funde:
         return ""
+    funde.sort()
+    return ("TERMIN-RADAR (aus dem Stammbaum — sprich es VON DIR AUS an, warm und "
+            "rechtzeitig; nicht warten, bis Sergen fragt):\n"
+            + "\n".join(z for _, z in funde[:6]))
+
+
+def _termin_block(heute: datetime.date | None = None, vorlauf_tage: int = 8) -> str:
+    """EIN TERMIN-RADAR fuer das Briefing: Stammbaum-Jahrestage + Kalender-Eintraege
+    (data/kalender.json), nach Naehe sortiert — zwei Quellen, ein Block (Phase 2)."""
+    funde = _termin_radar_funde(heute, vorlauf_tage)
+    try:
+        from core.agency import termine as _termine
+
+        funde = funde + _termine.naechste(vorlauf_tage=vorlauf_tage, heute=heute)
+    except Exception:  # noqa: BLE001 — Kalenderfehler darf das Briefing nie brechen
+        pass
+    if not funde:
+        return ""
+    funde.sort(key=lambda x: x[0])
+    return ("TERMIN-RADAR (Stammbaum + Kalender — sprich es VON DIR AUS an, warm und "
+            "rechtzeitig; nicht warten, bis Sergen fragt):\n"
+            + "\n".join(z for _, z in funde[:8]))
 
 
 def build_context(scope: str = "morgen") -> str:
@@ -257,8 +288,9 @@ def build_context(scope: str = "morgen") -> str:
     news = _news_block()
     if news:
         text = f"{text}\n\n{news}"
-    # Termin-Radar: faellige Geburtstage/Termine aus dem Stammbaum (post-cap, nie beschnitten).
-    termine = _termin_radar()
+    # Termin-Radar: faellige Geburtstage (Stammbaum) + Kalender-Termine, EIN Block
+    # (post-cap, nie beschnitten).
+    termine = _termin_block()
     if termine:
         text = f"{text}\n\n{termine}"
     # Das hungrige Logbuch: EINE Stammbaum-Luecke pro Tag erfragen (ebenfalls post-cap).
