@@ -75,6 +75,23 @@ def _news_block(max_items: int = 8) -> str:
         return ""
 
 
+def _mail_block() -> str:
+    """Deterministischer Post-Hinweis (0 Token, Phase 3): nur wenn das Postfach an ist
+    und wirklich Ungelesenes wartet — sonst still (kein Rauschen im Briefing)."""
+    try:
+        from core.agency.connectors import mail
+
+        if not mail.enabled():
+            return ""
+        n = mail.unread_count()
+        if not n:
+            return ""
+        return (f"POST: {n} ungelesene Mail(s) im Postfach — Wichtiges kurz ansprechen "
+                "(email_check zeigt Details, email_reply antwortet im Faden).")
+    except Exception:  # noqa: BLE001 — das Briefing darf daran nie scheitern
+        return ""
+
+
 def _stammbaum_question(heute: str = "") -> str:
     """EINE Logbuch-Frage pro Tag: sucht ???-Luecken im Stammbaum und rotiert per Datum.
 
@@ -288,6 +305,10 @@ def build_context(scope: str = "morgen") -> str:
     news = _news_block()
     if news:
         text = f"{text}\n\n{news}"
+    # Post-Hinweis (Phase 3): ungelesene Mails, ebenfalls post-cap.
+    post = _mail_block()
+    if post:
+        text = f"{text}\n\n{post}"
     # Termin-Radar: faellige Geburtstage (Stammbaum) + Kalender-Termine, EIN Block
     # (post-cap, nie beschnitten).
     termine = _termin_block()
