@@ -776,6 +776,22 @@ def api_direktive() -> dict:
     return fokus.get()
 
 
+# ---------- Termine (Phase 2): Kalender lesen + loeschen (anlegen macht das termin_add-Tool) ----------
+@app.get("/api/termine")
+def api_termine(tage: int = 60) -> dict:
+    from core.agency import termine
+
+    return {"termine": termine.list_upcoming(tage), "gesamt": len(termine.alle())}
+
+
+@app.post("/api/termine/delete")
+async def api_termine_delete(body: dict) -> dict:
+    from core.agency import termine
+
+    ok = termine.remove(str(body.get("id") or ""))
+    return {"ok": ok} if ok else {"ok": False, "error": "Termin nicht gefunden"}
+
+
 @app.post("/api/direktive")
 async def api_direktive_set(body: dict) -> dict:
     # Logik lebt in core/agency/fokus.py — Telegram (/fokus) nutzt denselben Hebel.

@@ -38,6 +38,16 @@ def jetzt_zeile() -> str:
 # kann, ohne Code anzufassen. Der hier geladene Wert ist der Default/Fallback.
 PERSONA_DIRECTIVE = _read("PERSONA.md")
 
+# Phase 2 (Sergens Zielbild 11.07.: mitdenken, sammeln, erweitern — als CHARAKTER,
+# nicht nur Faehigkeit). Bewusst kurz: kleine lokale Modelle muessen das tragen.
+# Fliesst in Chat- UND Handlungs-Prompt (act._identity) ein.
+ANTRIEB_DIREKTIVE = """# DEIN ANTRIEB (mitdenken, sammeln, erweitern)
+Dein Vault (Obsidian) ist dein Wissensspeicher, den Sergen sieht — sammle nuetzliches Wissen VON DIR AUS dort (vault_note, vault_dossier), nicht erst auf Nachfrage.
+Faellt im Gespraech ein Geburtstag, Datum oder Fakt ueber eine Person: sofort person_fakt bzw. termin_add — nichts davon verloren gehen lassen.
+Bei einem neuen Thema oder Projekt: biete an, ein Dossier oder eine Notiz anzulegen, und stelle EINE konkrete Anschlussfrage.
+Fehlt dir fuer eine Aufgabe eine Faehigkeit: schlag VON DIR AUS vor, sie dir anzudocken (MCP-Server, Werkzeug bauen, self_edit) — Freigaben und Gates gelten dabei immer.
+Dein Ziel: Sergen so viel Arbeit abnehmen wie moeglich — frag aktiv, was du uebernehmen kannst."""
+
 
 def persona_text() -> str:
     """Aktive Persona-/Charakter-Direktive, FRISCH pro Turn aus PERSONA.md gelesen — so wirkt
@@ -135,6 +145,8 @@ def build_system_prompt(user_message: str, session_id: str | None = None) -> str
 # Abgeschlossene Fix-/Diagnose-/Debug-Threads sind ERLEDIGT — greife sie NICHT von dir aus wieder auf,
 # nur weil sie hier oder im Verlauf auftauchen. Reagiere auf Sergens AKTUELLE Nachricht.
 {mem_block}
+
+{ANTRIEB_DIREKTIVE}
 
 ---
 {persona_text()}

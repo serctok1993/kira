@@ -61,10 +61,11 @@ def test_toggle_reaktiviert_ohne_neustart(monkeypatch, tmp_path):
 
 
 def test_manifest_ist_getrimmt():
-    # ~80 registrierte, ~62 aktive Werkzeuge. MCP-Tools (Praefix mcp_) rausrechnen,
-    # damit parallel laufende Bridge-Tests die Zaehlung nicht kippen.
+    # Phase 1: 79 registrierte -> 61 aktive; Phase 2 legt 5 Alltags-Tools drauf (= 66).
+    # MCP-Tools (Praefix mcp_) rausrechnen, damit parallel laufende Bridge-Tests die
+    # Zaehlung nicht kippen. Obergrenze = Wachstums-Wache gegen schleichende Aufblaehung.
     schemas = [s for s in registry.tool_schemas() if not s["function"]["name"].startswith("mcp_")]
-    assert len(schemas) < 65
+    assert len(schemas) < 70
     zeilen = [z for z in registry.manifest().splitlines()
               if z.startswith("- ") and not z.startswith("- mcp_")]
     assert len(zeilen) == len(schemas)  # Prompt-Manifest und Schemata sehen dieselbe Flotte

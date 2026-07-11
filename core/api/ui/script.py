@@ -246,10 +246,11 @@ async function renderWidget(w){
    Routinen des Tages, Freigaben-Zaehler + Kiras Kurz-Digest. Nur vorhandene
    Endpunkte (life/board, digest, cron) — jede Zahl lebt weiter an ihrem Ort. ---- */
 async function loadTag(){const el=$("#tag-heute");if(!el)return;try{
- const [lb,dg,cr]=await Promise.all([
+ const [lb,dg,cr,tm]=await Promise.all([
   fetch("/api/life/board").then(r=>r.json()).catch(()=>({})),
   fetch("/api/digest").then(r=>r.json()).catch(()=>null),
-  fetch("/api/cron").then(r=>r.json()).catch(()=>({}))]);
+  fetch("/api/cron").then(r=>r.json()).catch(()=>({})),
+  fetch("/api/termine").then(r=>r.json()).catch(()=>({}))]);
  const b=(lb&&lb.board)||{};
  const t0=new Date();t0.setHours(0,0,0,0);const start=t0.getTime()/1000;
  const row=t=>{const due=t.due_date?(' <span class="muted">&#9200;'+esc(t.due_date)+'</span>'):'';
@@ -279,6 +280,16 @@ async function loadTag(){const el=$("#tag-heute");if(!el)return;try{
     +(dg.errors?(' · <b style="color:var(--warn)">'+dg.errors+'</b> Fehler'):'')
     +' · '+(+dg.spend_usd||0).toFixed(2)+' $</div>')
   :'<span class="muted">Digest nicht ladbar.</span>';
+ /* Phase 2: TERMINE-Panel — kommende Kalender-Eintraege, ✕ loescht (anlegen: Chat/termin_add) */
+ const te=$("#tag-termine");if(te){const ts=(tm&&tm.termine)||[];
+  te.innerHTML=ts.length?ts.map(t=>{const wann=t.tage_bis===0?'HEUTE':(t.tage_bis===1?'morgen':('in '+t.tage_bis+' Tagen'));
+   return '<div class="memrow" style="font-size:12.5px"><b>'+esc(t.datum)+(t.zeit?(' '+esc(t.zeit)):'')+'</b> '+esc(t.titel)
+    +(t.jaehrlich?' <span class="muted" title="jaehrlich">↻</span>':'')+' <span class="muted">— '+wann+'</span>'
+    +' <a data-tdel="'+esc(t.id)+'" title="Termin loeschen" style="cursor:pointer;color:var(--muted);float:right">&#10005;</a></div>';}).join("")
+   :'<div class="emptybox">Keine Termine eingetragen.<br>Sag mir im Chat: „trag ein: Zahnarzt am 15.08.“</div>';
+  $$('#tag-termine [data-tdel]').forEach(a=>a.onclick=async()=>{
+   await fetch("/api/termine/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.tdel})});
+   toast("Termin geloescht","ok");loadTag();});}
 }catch(e){el.innerHTML='<span class="muted">Tag nicht ladbar.</span>';}}
 $("#tag-go-puls")&&($("#tag-go-puls").onclick=()=>nav("kira"));
 async function loadMeCrons(){const el=$("#me-crons");if(!el)return;try{
