@@ -20,6 +20,29 @@ def configured() -> bool:
     return bool(os.getenv("BLUESKY_HANDLE") and os.getenv("BLUESKY_APP_PASSWORD"))
 
 
+def profile_stats() -> dict:
+    """Follower/Follows/Posts ueber die OEFFENTLICHE getProfile-API — kein Login noetig,
+    nur BLUESKY_HANDLE. Fehler/nicht konfiguriert -> {} (der Wartungsjob bleibt still)."""
+    from core import config as _c
+
+    handle = (os.getenv("BLUESKY_HANDLE") or "").strip()
+    if not handle or _c.outbound_blocked():
+        return {}
+    import httpx
+
+    try:
+        r = httpx.get("https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile",
+                      params={"actor": handle}, timeout=15)
+        if r.status_code >= 400:
+            return {}
+        d = r.json() or {}
+        return {"followers": int(d.get("followersCount") or 0),
+                "follows": int(d.get("followsCount") or 0),
+                "posts": int(d.get("postsCount") or 0)}
+    except Exception:  # noqa: BLE001 — Statistik darf nie etwas brechen
+        return {}
+
+
 def post(text: str) -> str:
     """Einen Post veroeffentlichen. Fehler -> klarer Hinweis-String (nie Exception)."""
     from core import config as _c

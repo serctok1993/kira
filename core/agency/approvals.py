@@ -154,12 +154,18 @@ def decide(aid: str, approved: bool, note: str | None = None) -> dict:
     if approved and entry.get("kind") == "email_stranger":
         # Audit-Fund: Freigabe war frueher ein No-Op — die Mail wurde NIE gesendet
         # (gate.guarded verwirft die execute-Lambda). Das Payload steckt komplett im
-        # detail-JSON (mail_tools.email_send) -> hier deterministisch nachziehen.
+        # detail-JSON (mail_tools.email_send/email_reply) -> hier deterministisch
+        # nachziehen. Traegt es ein in_reply_to (email_reply), bleibt beim Nachziehen
+        # das Threading erhalten (reply() setzt In-Reply-To/References + 'Re: ').
         try:
             raw = (entry.get("detail") or "").split("\n\n--- RATS-URTEIL")[0].strip()
             p = json.loads(raw)
             from core.agency.connectors import mail
-            r = mail.send(p["to"], p["subject"], p.get("body") or "")
+            if "in_reply_to" in p:
+                r = mail.reply(p["to"], p["subject"], p.get("body") or "",
+                               in_reply_to=p.get("in_reply_to") or "")
+            else:
+                r = mail.send(p["to"], p["subject"], p.get("body") or "")
             applied = {"email_sent": True, "result": str(r)[:200]}
         except Exception as e:  # noqa: BLE001
             applied = {"email_sent": False, "error": str(e)[:200]}

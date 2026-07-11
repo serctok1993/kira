@@ -340,8 +340,8 @@ VIEWS = r"""</head><body>
 
     <div class="subview" id="v-post">
       <div class="panel me-grow">
-        <div class="panel-h">◈ E-MAILS <span class="sp"></span><span class="muted" style="font-size:10px">bald</span></div>
-        <div id="me-mails" class="panel-b me-scroll"><div class="emptybox" style="min-height:80px;font-size:12px">Kein Postfach verbunden.<br>IMAP/SMTP unter Kira → Zugaenge eintragen.</div></div>
+        <div class="panel-h">◈ E-MAILS <span class="sp"></span><span class="muted" style="font-size:10px">antworten im Chat: „antworte auf die Mail von …“</span></div>
+        <div id="me-mails" class="panel-b me-scroll"><div class="emptybox" style="min-height:80px;font-size:12px">Kein Postfach verbunden.<br>SMTP_USER/SMTP_PASS unter Einstellungen → Zugaenge, dann channels.email.enabled=true.</div></div>
       </div>
     </div>
 

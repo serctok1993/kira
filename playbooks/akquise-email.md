@@ -41,6 +41,15 @@ letzte:
 > Freundliche Grüße
 > Sergen Tok
 
+## Folgemails im Gespraechsfaden (Phase 3)
+
+- Antwortet ein Lead: IMMER mit email_reply antworten (message_id aus email_check
+  mitgeben) — die Antwort haengt dann im selben Thread, nicht als neue Mail.
+- Auch Folgemails an Fremde stoppen am email_stranger-Gate: Entwurf in die
+  Freigabe-Inbox, NIE direkt senden.
+- Nachfassen ohne Antwort: fruehestens nach 5 Werktagen, maximal EINMAL, kurz und
+  ohne Druck ("wollte nur sichergehen, dass meine Mail angekommen ist").
+
 ## Fakten-Treue (bindend — gegen das Dazu-Dichten)
 
 - In der Mail steht NUR, was im Quellbericht/der Recherche als FAKT belegt ist.
