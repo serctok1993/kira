@@ -62,6 +62,14 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   body[data-anim="on"] .edge::before{opacity:1;animation-duration:7s}
   body[data-mode="coding"] .edge::before{opacity:1;animation:spin 6s linear infinite}
   @keyframes spin{to{--ang:360deg}}
+  /* SPARMODUS (Werkstatt-Fund 11.07.: Dauer-Animationen halten die GPU wach — bis ~6 GB
+     VRAM, die lokale Trainings-/Inferenz-Laeufe brauchen). Schalter im Zahnrad: stoppt
+     JEDE Endlos-Animation (LED-Sweep, Chat-Ring, Atmen, Regenbogen) — der statische
+     Glow bleibt, die Optik stirbt nicht. !important schlaegt auch die Coding-Overrides. */
+  body[data-spar="on"] .edge::before{animation:none !important;opacity:.3}
+  body[data-spar="on"] .bar::before{animation:none !important;opacity:.35}
+  body[data-spar="on"] .seg button.on{animation:none !important}
+  body[data-spar="on"] .tx{animation:none !important;-webkit-text-fill-color:var(--accent)}
 
   /* dezente Mini-Cockpit-Leiste: leichter Tint im Modus-Farbton, kaum Blur, klar lesbar (kein Zoomen noetig) */
   .topbar{position:fixed;top:0;left:0;right:0;z-index:3;display:flex;flex-direction:column;align-items:center;gap:11px;
@@ -205,6 +213,8 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
     <label>Position <select id="w-pos"><option value="links">Links</option><option value="mitte">Mitte</option><option value="rechts">Rechts</option></select></label>
     <label>Höhe <select id="w-posy"><option value="oben">Oben</option><option value="mitte">Mitte</option><option value="unten">Unten</option></select></label>
     <label>Größe <select id="w-size"><option value="klein">Klein</option><option value="mittel">Mittel</option><option value="gross">Groß</option><option value="riesig">Riesig</option></select></label>
+    <div class="wt" style="padding-top:8px">Leistung</div>
+    <label title="Für lokale Trainings-/KI-Läufe: stoppt alle Dauer-Animationen (LED-Sweep, Ring, Atmen) — GPU/VRAM bleibt fürs Modell frei"><input type="checkbox" id="w-spar"/> Sparmodus (GPU schonen)</label>
     <div class="wt" style="padding-top:8px">Aktivität</div>
     <label><input type="checkbox" id="w-ticker"/> Live-Ticker (unten links)</label>
     <label><input type="checkbox" id="w-clock"/> Uhr (unten rechts)</label>
@@ -388,7 +398,7 @@ const POSX={links:0.32,mitte:0.5,rechts:0.68},POSY={oben:0.32,mitte:0.46,unten:0
 let curG=null;   // zuletzt geladener Graph (fuer Re-Layout bei Groesse/Position)
 // Standard-Layout nach Sergens Desktop-Plan: Graph oben RECHTS, Live-Feed oben links,
 // Mitte bleibt frei fuers Artwork. Standbild default (0% Last); stats=null -> alle.
-let WALL={labels:true,motion:false,color:"vault",pos:"rechts",posy:"oben",size:"gross",stats:null,colors:null,ticker:true,clock:true,week:true,layout:null};
+let WALL={labels:true,motion:false,color:"vault",pos:"rechts",posy:"oben",size:"gross",stats:null,colors:null,ticker:true,clock:true,week:true,layout:null,spar:false};
 function loadWall(){try{const s=JSON.parse(localStorage.getItem("kira_wall")||"{}");
   if(!("posy" in s)&&s.pos==="mitte")delete s.pos;   // Migration 3-Zonen-Layout: altes Default faellt, bewusste Wahl bleibt
   Object.assign(WALL,s);}catch(e){}}
@@ -526,7 +536,7 @@ const SETTLE_MAX=280;let raf=0;
 function frame(ts){ts=ts||0;
   const active=!reduce&&(drag||settle<SETTLE_MAX);   // echte Physik: nur beim Setzen/Ziehen
   if(active){sim();settle++;if(settle>=SETTLE_MAX)setHomes();render();raf=requestAnimationFrame(frame);return;}
-  if(reduce||!WALL.motion){render();raf=0;return;}   // "Bewegung" aus -> Standbild, 0% CPU
+  if(reduce||!WALL.motion||WALL.spar){render();raf=0;return;}   // "Bewegung" aus / Sparmodus -> Standbild, 0% CPU
   if(ts-lastFloat<45){raf=requestAnimationFrame(frame);return;}   // ~22 fps: sanftes Schweben, sparsam
   lastFloat=ts;const A=3.4*Math.sqrt(SCALE());
   for(const n of ns){if(n.fx)continue;n.x=n.hx+Math.sin(ts*0.0005*n.sp+n.ph)*A;n.y=n.hy+Math.cos(ts*0.00042*n.sp+n.ph)*A*0.75;}
@@ -628,14 +638,16 @@ $("#model").addEventListener('click',async ()=>{
 document.addEventListener('click',e=>{if(!e.target.closest('#model')&&!e.target.closest('#mpop')){const p=$("#mpop");if(p)p.classList.remove('on');}});
 
 /* ---- Zahnrad: Graph-Einstellungen (Worte/Bewegung/Farbe), live ueber localStorage ---- */
-function applyAnim(){document.body.dataset.anim=WALL.motion?"on":"off";}   // LED-Sweep nur bei Bewegung -> Standard spart Last
+function applyAnim(){document.body.dataset.anim=(WALL.motion&&!WALL.spar)?"on":"off";
+  document.body.dataset.spar=WALL.spar?"on":"off";}   // Sparmodus uebersteuert alles Pulsierende (GPU/VRAM frei fuers lokale Modell)
 function applyColors(){const c=WALL.colors||{},d=document.documentElement;   // Modus-Akzente aus dem Desktop-Editor
   if(c.chat)d.style.setProperty('--chat',c.chat);if(c.work)d.style.setProperty('--work',c.work);if(c.coding)d.style.setProperty('--coding',c.coding);
   d.style.setProperty('--accent',COL[mode]||'var(--chat)');}
-function syncWallUI(){$("#w-labels").checked=WALL.labels;$("#w-motion").checked=WALL.motion;$("#w-color").value=WALL.color;$("#w-pos").value=WALL.pos;$("#w-posy").value=WALL.posy||"oben";$("#w-size").value=WALL.size;$("#w-ticker").checked=WALL.ticker!==false;$("#w-clock").checked=WALL.clock!==false;$("#w-week").checked=WALL.week!==false;applyAnim();tickClock();renderWeek();applyLayout();}
+function syncWallUI(){$("#w-labels").checked=WALL.labels;$("#w-motion").checked=WALL.motion;$("#w-spar").checked=!!WALL.spar;$("#w-color").value=WALL.color;$("#w-pos").value=WALL.pos;$("#w-posy").value=WALL.posy||"oben";$("#w-size").value=WALL.size;$("#w-ticker").checked=WALL.ticker!==false;$("#w-clock").checked=WALL.clock!==false;$("#w-week").checked=WALL.week!==false;applyAnim();tickClock();renderWeek();applyLayout();}
 $("#gear").addEventListener('click',()=>{const p=$("#wpop");p.classList.toggle('on');if(p.classList.contains('on'))syncWallUI();});
 $("#w-labels").addEventListener('change',e=>{WALL.labels=e.target.checked;saveWall();kick();});
 $("#w-motion").addEventListener('change',e=>{WALL.motion=e.target.checked;saveWall();applyAnim();kick();});
+$("#w-spar").addEventListener('change',e=>{WALL.spar=e.target.checked;saveWall();applyAnim();kick();});
 $("#w-color").addEventListener('change',e=>{WALL.color=e.target.value;saveWall();kick();});
 $("#w-pos").addEventListener('change',e=>{WALL.pos=e.target.value;saveWall();relayout();});
 $("#w-posy").addEventListener('change',e=>{WALL.posy=e.target.value;saveWall();relayout();});
