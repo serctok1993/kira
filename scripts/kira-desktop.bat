@@ -1,7 +1,7 @@
 @echo off
 REM Kira als Desktop-App: das Cockpit im eigenen Fenster + Tray-Symbol (kein Browser noetig).
 REM Beim allerersten Start werden die Desktop-Extras automatisch installiert.
-cd /d %~dp0
+cd /d %~dp0..
 set PY=.venv\Scripts\python.exe
 if not exist "%PY%" set PY=python
 

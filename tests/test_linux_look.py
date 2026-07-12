@@ -9,15 +9,15 @@ from core.config import ROOT
 
 
 def test_linux_look_skript_vorhanden_und_sicher():
-    ps1 = (ROOT / "linux-look.ps1").read_text(encoding="utf-8")
+    ps1 = (ROOT / "scripts" / "linux-look.ps1").read_text(encoding="utf-8")
     # zeichnet ein Icon selbst (kein Download) + setzt es sicher per desktop.ini je Ordner
     assert "System.Drawing" in ps1 and "New-FolderIcon" in ps1
     assert "desktop.ini" in ps1 and "IconResource=" in ps1
     assert "-Reset" in ps1 and "Reset-FolderIcon" in ps1           # reversibel
     assert "DesktopDirectory" in ps1                                # Standard: Desktop-Ordner
     # Doppelklick-Wrapper (anwenden + zurueck)
-    assert (ROOT / "linux-look.bat").exists()
-    assert (ROOT / "linux-look-zurueck.bat").exists()
+    assert (ROOT / "scripts" / "linux-look.bat").exists()
+    assert (ROOT / "scripts" / "linux-look-zurueck.bat").exists()
 
 
 def test_linux_look_doku_vollstaendig():

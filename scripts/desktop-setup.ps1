@@ -6,9 +6,9 @@
 # Rueckgaengig (Autostart weg):  .\uninstall-autostart.ps1   (die Desktop-Verknuepfung einfach loeschen)
 
 $ErrorActionPreference = "Stop"
-$root = $PSScriptRoot
+$root = Split-Path -Parent $PSScriptRoot
 $ico  = Join-Path $root "data\kira-icon.ico"
-$bat  = Join-Path $root "kira-desktop.bat"
+$bat  = Join-Path $root "scripts\kira-desktop.bat"
 
 # Logo-Quelle finden: egal ob .png, .jpg, .jpeg oder .webp (System.Drawing liest alle)
 $png = $null
