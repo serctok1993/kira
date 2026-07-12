@@ -1,10 +1,10 @@
 """Selbstmessung: ein dauerhafter Zeitreihen-Punkt pro Woche — damit DRIFT sichtbar wird.
 
 outcomes.stats(7) liefert nur das aktuelle Fenster (jetzt). Sobald der Motor 24/7 laeuft,
-braucht Sergen (und Kira selbst) den VERLAUF: wird der Harness ueber die Wochen besser oder
+braucht der Nutzer (und Kira selbst) den VERLAUF: wird der Harness ueber die Wochen besser oder
 schlechter, und was kostet er? Dieser Schnappschuss liest NUR bereits protokollierte Daten
 (Outcome-Ledger) — 0 Token, 0 EUR, kein Modell-Aufruf, deterministisch (DeepSeek-tauglich).
-Kein Benchmark-Lauf: der teure GLM-Referenz-Benchmark bleibt Sergens Knopf im Cockpit.
+Kein Benchmark-Lauf: der teure GLM-Referenz-Benchmark bleibt des Nutzers Knopf im Cockpit.
 
 Eine Zeile je Schnappschuss in data/selfmetrics.jsonl — waechst langsam, nie geloescht.
 """

@@ -509,7 +509,7 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
         if txt == state["last_render"]:
             return
         # Reine Puls-Bewegung (kein neuer Inhalt) nur gedrosselt senden -> waehrend Kira
-        # still nachdenkt flackert der Chat nicht bei jedem Takt (Sergens Kernschmerz).
+        # still nachdenkt flackert der Chat nicht bei jedem Takt (des Nutzers Kernschmerz).
         if not force and content_sig() == state.get("last_sig") and (state["tick"] % 2 != 0):
             return
         state["last_render"] = txt
@@ -573,7 +573,7 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
             else:
                 # Transkript-/Trace-Nachricht restlos entfernen. Wichtig: Ergebnis PRUEFEN —
                 # ein still scheiterndes Loeschen laesst das Sprachmemo-Transkript stehen
-                # und sprengt den Chat (Sergens Kernschmerz). Fallback: kollabieren.
+                # und sprengt den Chat (des Nutzers Kernschmerz). Fallback: kollabieren.
                 r = client.post(f"{API}/deleteMessage",
                                 json={"chat_id": chat_id, "message_id": mid})
                 ok = False
@@ -751,7 +751,7 @@ def _resuemee_due(now_struct: time.struct_time | None = None) -> bool:
 
 
 def _maybe_melde_buendel(client: httpx.Client) -> None:
-    """Missions-Buendel (Sergens Fix): alle N Stunden EIN Sammel-Post mit Einzeilern
+    """Missions-Buendel (des Nutzers Fix): alle N Stunden EIN Sammel-Post mit Einzeilern
     statt 10 Einzelmeldungen. Details stehen im Cockpit (Log) und im Tagewerk."""
     chat = _cfg().get("allowed_chat_id")
     if not chat:
@@ -883,7 +883,7 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
             cur = fokus.get().get("focus") or ""
             _send(client, chat_id, ("🧭 Aktueller Fokus:\n<i>" + cur + "</i>\n\n" if cur
                    else "🧭 Kein Fokus gesetzt.\n\n")
-                  + "Setzen: <code>/fokus LUVEX-Leads vorbereiten</code> · "
+                  + "Setzen: <code>/fokus Steuerunterlagen vorbereiten</code> · "
                     "Loeschen: <code>/fokus -</code>")
         elif arg in ("-", "aus", "loeschen", "löschen", "clear"):
             fokus.set_focus("", via="telegram")
@@ -1058,7 +1058,7 @@ def _answer_cb(cq_id: str, text: str = "") -> None:
         pass
 
 
-# Sergens Fund (08.07.): "Freigabe noetig" stand auf ALLEM — auch auf reinen Infos.
+# Praxis-Fund (08.07.): "Freigabe noetig" stand auf ALLEM — auch auf reinen Infos.
 # Jede Karte sagt jetzt ehrlich, was der Knopf WIRKLICH tut. Drei Klassen:
 #   AKTION (🔔): dein GO fuehrt sofort etwas aus (Mail senden, posten, anwenden).
 #   ANFRAGE (💶/🌐): dein GO erlaubt nur — Kira muss die Aktion danach selbst anstossen.
@@ -1112,7 +1112,7 @@ def _send_approval_card(client: httpx.Client, chat_id: int, appr: dict) -> None:
         pass
 
 
-# Push: neue Freigaben proaktiv an Sergen schicken (statt dass er /freigaben tippt).
+# Push: neue Freigaben proaktiv an den Nutzer schicken (statt dass er /freigaben tippt).
 # Beim Start werden bestehende Pendings als "bekannt" markiert -> kein Spam alter Eintraege.
 _pushed_approvals: set = set()
 
@@ -1308,7 +1308,7 @@ def _bundle(state: dict, error: str | None) -> dict | None:
 
 
 # Das '/'-Befehlsmenue in Telegram (setMyCommands). Nur wirklich vorhandene Befehle — sonst
-# klickt Sergen ins Leere. Reihenfolge = Anzeige-Reihenfolge im Menue.
+# klickt der Nutzer ins Leere. Reihenfolge = Anzeige-Reihenfolge im Menue.
 _BOT_COMMANDS = [
     ("status", "Heartbeat, Budget & Modell auf einen Blick"),
     ("tagewerk", "Was HEUTE geschafft wurde (Tasks, Mails, Kosten)"),
@@ -1346,8 +1346,14 @@ def _register_commands(client: httpx.Client) -> None:
 
 def run() -> None:
     if not TOKEN:
-        print("TELEGRAM_BOT_TOKEN fehlt in .env — Bot via @BotFather anlegen und Token eintragen.")
-        return
+        # W3: SCHLAFEN statt beenden — sonst startet der Supervisor den Bot alle paar
+        # Sekunden neu und flutet einen frischen Klon mit service_crash-Events. Nach dem
+        # /setup-Wizard bounct der Supervisor den Bot (restart.flag) -> frischer Prozess
+        # laedt den Token aus dem Tresor.
+        print("TELEGRAM_BOT_TOKEN fehlt — Bot schlaeft (Token via /setup oder .env; danach Neustart).")
+        import time as _t
+        while True:
+            _t.sleep(3600)
     events.init_db()
     _register_commands(_ctrl())  # '/'-Menue bei Telegram anmelden (einmalig beim Start)
     _seed_pushed_approvals()     # bestehende Freigaben als bekannt markieren (kein Alt-Spam)

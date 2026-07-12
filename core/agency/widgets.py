@@ -8,9 +8,10 @@ Code. Das Cockpit rendert sie mit drei festen, sicheren Renderern:
   chart  — Balkenverlauf einer Kennzahl (Quelle: /api/metrics)
   list   — Liste aus einem WHITELISTETEN Endpunkt (z.B. digest.tasks_done)
 
-Slots: zentrale | serc. Alles wird beim Laden UND beim Speichern
-validiert; unbekannte Typen/Slots/Endpunkte fliegen raus. Kein eval, kein HTML
-aus der Config — Titel & Werte werden im Frontend esc()-gesichert.
+Slots: zentrale | me (W3: der Nutzer-Tab-Slot heisst technisch 'me', wie der Tab).
+Alles wird beim Laden UND beim Speichern validiert; unbekannte Typen/Slots/
+Endpunkte fliegen raus. Kein eval, kein HTML aus der Config — Titel & Werte
+werden im Frontend esc()-gesichert.
 """
 from __future__ import annotations
 
@@ -21,7 +22,7 @@ from core.config import DATA_DIR
 
 DIR = DATA_DIR / "widgets"
 TYPES = ("metric", "chart", "list")
-SLOTS = ("zentrale", "serc")
+SLOTS = ("zentrale", "me")
 # Nur lesende, unkritische Endpunkte — die einzige Tuer der list-Widgets.
 LIST_ENDPOINTS = ("/api/digest", "/api/tagewerk", "/api/status", "/api/evolution")
 
@@ -29,7 +30,7 @@ _ID = re.compile(r"^[a-z0-9][a-z0-9-]{1,39}$")
 _METRIC = re.compile(r"^[a-z0-9_.\-]{1,40}$")
 _KEY = re.compile(r"^[a-z0-9_]{1,40}$")
 
-# Erste Kachel zum Anfassen, solange noch nichts angelegt wurde (Sergens
+# Erste Kachel zum Anfassen, solange noch nichts angelegt wurde (des Nutzers
 # Beispiel aus dem Redesign-Auftrag). Verschwindet, sobald data/widgets existiert.
 DEMO = {"id": "demo-follower", "title": "📈 Follower", "type": "metric",
         "slot": "zentrale", "metric": "follower", "demo": True}

@@ -1,6 +1,6 @@
 """Cockpit-Markup: Sidebar-Navigation + alle View-Container.
 
-S7a — Cockpit 2.0, modulare Shell (Sergens Redesign-Auftrag):
+S7a — Cockpit 2.0, modulare Shell (des Nutzers Redesign-Auftrag):
   Zentrale (home)      fester Kommandostand: Hero, HUD, Befehl, Live-Ops, Digest, News
   Chat (chat)          Hauptdialog (Chat 2.0 folgt in S7c)
   Me (me)              beides getrennt: deine Auftraege an Kira / was Kira von dir braucht
@@ -193,7 +193,7 @@ VIEWS = r"""</head><body>
       <a data-s="tag" class="on">☀ Tag</a><a data-s="todos">✅ Todos</a><a data-s="freigaben">🔔 Freigaben</a><a data-s="routinen">⏰ Routinen</a><a data-s="post">✉ Post</a><a data-s="metriken">🎯 Ziele</a>
     </div>
 
-    <!-- Werkbank PR 7: Serc "Tag" — DEIN Erst-Blick (Kiras Erst-Blick ist der Puls).
+    <!-- Werkbank PR 7: Me "Tag" — DEIN Erst-Blick (Kiras Erst-Blick ist der Puls).
          Heute faellig + heute erledigt + Routinen des Tages + Freigaben-Zaehler. -->
     <div class="subview on" id="v-tag">
       <div class="me-grid2">
@@ -217,7 +217,7 @@ VIEWS = r"""</head><body>
         <div class="panel-h">◈ TERMINE <span class="sp"></span><span class="muted" style="font-size:10px">im Chat: „trag ein: Zahnarzt am 15.08.“</span></div>
         <div id="tag-termine" class="panel-b me-scroll" style="max-height:26vh"><span class="muted">…</span></div>
       </div>
-      <div id="widgets-serc" class="wslot" style="margin-top:12px"></div>
+      <div id="widgets-me" class="wslot" style="margin-top:12px"></div>
     </div>
 
     <div class="subview" id="v-todos">
@@ -296,7 +296,7 @@ VIEWS = r"""</head><body>
 
   <!-- ================= KIRA (Persoenlichkeit & Specs) ================= -->
   <div class="view" id="v-kira">
-    <!-- S12 "4 klare Reiter" (Sergens Entscheid 11.07.): EINE Gruppen-Leiste in Klartext.
+    <!-- S12 "4 klare Reiter" (Entscheid des Nutzers 11.07.): EINE Gruppen-Leiste in Klartext.
          Die Sub-Leiste erscheint NUR, wenn die Gruppe mehr als einen Unterpunkt hat.
          Views/Loader unveraendert — nur Navigation und Benennung sind neu. -->
     <div class="seg" id="kira-groups" style="margin-bottom:12px">
@@ -372,7 +372,7 @@ VIEWS = r"""</head><body>
       </div>
       <div class="muted" style="margin:6px 0 8px;max-width:980px">Was Kira sich merkt — 🧠 = sie selbst, 👤 = du. ✎ bearbeiten, ✕ loeschen. (Verfassung/Seele/Ziel sind Dateien und bleiben unberuehrt.)</div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:4px 0 12px;max-width:980px">
-        <!-- Gedaechtnis-Diaet (Sergens Fund): Standard = nur bewusst Gemerktes; der rohe
+        <!-- Gedaechtnis-Diaet (Praxis-Fund): Standard = nur bewusst Gemerktes; der rohe
              Chat-Verlauf liegt hinter 'chat' und flutet die Liste nicht mehr -->
         <span class="seg" id="mem-filter"><a data-mf="wichtig" class="on">★ wichtig</a><a data-mf="fact">Fakten</a><a data-mf="lesson">Lektionen</a><a data-mf="skill">Skills</a><a data-mf="episodic">chat</a><a data-mf="partner">🧠 __AGENT__</a><a data-mf="user">👤 Du</a><a data-mf="all">alles</a></span>
         <input id="mem-search" placeholder="🔍 suchen…" style="flex:1;min-width:150px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);outline:none"/>
@@ -577,7 +577,7 @@ VIEWS = r"""</head><body>
     </div>
   </div>
 
-  <!-- ============ STEUERPULT: Sergens Riegel ueber die Schwarmintelligenz ============ -->
+  <!-- ============ STEUERPULT: des Nutzers Riegel ueber die Schwarmintelligenz ============ -->
   <div class="subview" id="v-steuer">
     <div class="card"><h3>🎛 Steuerpult — dein Riegel über die Schwarmintelligenz</h3>
       <div class="muted">Kira arbeitet in <b>Rängen</b> (Reflex → Arbeiter → Denker → Richter). Hier bestimmst du,
@@ -854,8 +854,8 @@ VIEWS = r"""</head><body>
       <div class="row" style="margin-top:8px;flex-wrap:wrap" id="icon-row">
         <input data-ic="home" placeholder="Zentrale" style="max-width:110px"/>
         <input data-ic="chat" placeholder="Chat" style="max-width:110px"/>
-        <input data-ic="me" placeholder="Serc" style="max-width:110px"/>
-        <input data-ic="kira" placeholder="Kira" style="max-width:110px"/>
+        <input data-ic="me" placeholder="__USER__" style="max-width:110px"/>
+        <input data-ic="kira" placeholder="__AGENT__" style="max-width:110px"/>
         <button id="icons-save">Icons speichern</button>
         <button class="ghost" id="icons-reset">Zuruecksetzen</button>
       </div>

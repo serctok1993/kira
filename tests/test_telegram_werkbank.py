@@ -29,7 +29,7 @@ def test_karte_anfrage_money_sagt_kein_geld():
 
 
 def test_karte_info_generic():
-    """Sergens Fund: Report/Steckt-fest sind KEINE Freigaben — Karte sagt das jetzt."""
+    """Praxis-Fund: Report/Steckt-fest sind KEINE Freigaben — Karte sagt das jetzt."""
     text, kb = tb._approval_card({"id": "d4", "kind": "generic",
                                   "title": "Selbstkalibrierungs-Report (7 Tage)"})
     assert "📋" in text and "Zur Kenntnis" in text

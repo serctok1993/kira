@@ -18,7 +18,7 @@ _HAS_FTS: bool | None = None
 
 # Ephemere Sessions (Test-/Benchmark-Chats): sie werden normal gespeichert (der Test-Chat
 # erinnert sich also an SICH SELBST), lecken aber NIE in das Cross-Session-Gedaechtnis anderer
-# Sessions (recall). So kann Sergen gefahrlos testen, ohne den echten Erinnerungsstrang zu
+# Sessions (recall). So kann der Nutzer gefahrlos testen, ohne den echten Erinnerungsstrang zu
 # verfaelschen. reset_episodic raeumt sie ohnehin mit weg. 'desktop-' ist bewusst NICHT dabei —
 # die PC-Chats sind echte Gespraeche und sollen erinnert werden.
 # desktop- = Wallpaper-Chat: die UI erzeugt je Seitenaufruf eine frische Zufalls-Session
@@ -101,7 +101,7 @@ def remember(
 
 def find_duplicate(text: str, kind: str = "fact") -> str | None:
     """Gibt die id eines textgleichen Eintrags zurueck (case-/whitespace-tolerant) —
-    damit remember_fact denselben Fakt nicht zehnmal ansammelt (Sergens Fund 09.07.)."""
+    damit remember_fact denselben Fakt nicht zehnmal ansammelt (Praxis-Fund 09.07.)."""
     norm = " ".join((text or "").split()).lower()
     if not norm:
         return None

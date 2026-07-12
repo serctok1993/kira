@@ -168,24 +168,28 @@ def _attempt_prompt(task: dict, criteria: list[dict], attempt: int) -> str:
             parts.append("\nBehebe die Kritikpunkte gezielt.")
     # Melde-Regel (08.07.): die Telegram-Meldung zeigt NUR diesen Block —
     # er muss allein verstaendlich sein. Der Volltext bleibt im Cockpit.
-    parts.append("\nBeende dein Ergebnis IMMER mit dem Block 'KURZ FUER SERGEN:' — 3-5 Saetze "
+    parts.append(f"\nBeende dein Ergebnis IMMER mit dem Block 'KURZ FUER {_id.user_name().upper()}:' — 3-5 Saetze "
                  "in einfacher Sprache (kurze Saetze, Fachbegriffe in Klammern erklaert): "
                  "was rausgekommen ist, was es fuer das Projekt bedeutet, was der naechste "
                  "Schritt ist. Kein Behoerdendeutsch.")
     return "\n".join(parts)
 
 
-_KURZ_RE = re.compile(r"KURZ\s+F(?:UE|Ü)R\s+SERGEN\s*:?", re.IGNORECASE)
+def _kurz_re() -> re.Pattern:
+    """'KURZ FUER <Nutzer>'-Marker — der Name kommt live aus identity (W3),
+    fuer den Werksnutzer byte-identisch zu vorher."""
+    return re.compile(rf"KURZ\s+F(?:UE|Ü)R\s+{re.escape(_id.user_name().upper())}\s*:?",
+                      re.IGNORECASE)
 
 
 def _report(desc: str, text: str, label: str = "") -> str:
     """Telegram-Meldung fuer einen erledigten Task: Klartext-Block statt Roh-Dump.
 
     Der alte Schmerz: 1200 rohe Zeichen, mitten im Satz abgerissen, Hochdeutsch ohne
-    Einordnung. Jetzt: NUR der 'KURZ FUER SERGEN'-Block (das Modell schreibt ihn per
+    Einordnung. Jetzt: NUR der 'KURZ FUER <Nutzer>'-Block (das Modell schreibt ihn per
     Melde-Regel); fehlt er, ein Anriss mit sauberem Satzende. Volltext -> Cockpit."""
     head = f"🤖 Mission-Schritt erledigt{label}:\n{desc[:180]}"
-    m = _KURZ_RE.search(text or "")
+    m = _kurz_re().search(text or "")
     kurz = (text or "")[m.end():].strip().lstrip("*# \n") if m else ""
     if kurz:
         body = kurz[:900]
@@ -531,7 +535,7 @@ def run_forever(interval: int | None = None) -> None:
             # Immer (unabhaengig vom Missions-Toggle): Monitor + geplante Aufgaben.
             # Der Monitor MERKT sich Neues nur (Puffer) und pingt NICHT mehr spontan;
             # die News liefert das Briefing (08:00/20:00) in Kiras Stimme. Spontanes
-            # Melden nur, wenn Sergen es ueber config monitor.spontaneous_notify anschaltet.
+            # Melden nur, wenn der Nutzer es ueber config monitor.spontaneous_notify anschaltet.
             try:
                 from core.agency.connectors import news_monitor
 

@@ -1,24 +1,24 @@
 # Kira — Zentrale Konfiguration
 identity:
   harness_name: Kira
-  partner_name: Kira         # vom Agenten selbst frei gewaehlt (siehe SOUL.md)
-  user: Sergen
+  partner_name: ""           # Wunschname aus dem /setup-Wizard (leer = harness_name)
+  user: ""                   # Name des Menschen — setzt der /setup-Wizard
 
 # LOKAL-FIRST: Der 24/7-Dauerbetrieb laeuft komplett lokal (0 EUR).
 # Cloud-Modelle nutzt der Agent nur GEZIELT pro Aufgabe (escalate=True), wenn er
 # sie fuer wuerdig haelt -- und nur solange das Tagesbudget (governance) reicht.
 # (Fuer ein reines Cloud-Setup laesst sich 'default' voruebergehend umstellen.)
-# RANG-TABELLE / 5 STUFEN (Sergens Modell-Oekonomie, Stand 2026-07):
+# RANG-TABELLE / 5 STUFEN (Modell-Oekonomie, Stand 2026-07):
 # Der Harness denkt in RAENGEN, nicht in Modellnamen — Modellwechsel = EINE Zeile.
 #   STUFE 1  LOKAL    = classify + local_fallback (0 EUR)  Alltag/Reflexe (Wetter, Klassifikation)
-#   STUFE 2  CHAT     = chat/default (Flash, Cents)        Dialog mit Sergen
+#   STUFE 2  CHAT     = chat/default (Flash, Cents)        Dialog mit dem Nutzer
 #   STUFE 3  ARBEITER = worker/bulk (Flash, Cents)         Schwarm, Masse, 24/7-Grind
 #   STUFE 4  DENKER   = reason (GLM 5.2)                   Coding, harte Tasks, laengere Schritte
 #   STUFE 5  RICHTER  = escalation_model (GLM 5.2)         Orchestrator/Langzeitplaner, Urteile, Council
 models:
   default: openrouter/deepseek/deepseek-v4-flash   # Live-Baseline: guenstiger Flash fuer Default/Chat/Grind
   routing:
-    chat: openrouter/deepseek/deepseek-v4-flash    # STUFE 2: Dialog mit Sergen -> Flash (guenstig, schnell)
+    chat: openrouter/deepseek/deepseek-v4-flash    # STUFE 2: Dialog mit dem Nutzer -> Flash (guenstig, schnell)
     reason: openrouter/z-ai/glm-5.2                # STUFE 4 DENKER: Coding/Reasoning/laengere Schritte (GLM 5.2)
     bulk: openrouter/deepseek/deepseek-v4-flash    # STUFE 3: Massen-/24-7-Grind -> Flash (guenstig)
     classify: ollama_chat/qwen3.5:9b        # STUFE 1 REFLEX: trivial -> klein & schnell, lokal 0 EUR (passt voll in die GPU)
@@ -28,7 +28,7 @@ models:
   # Erst nach bestandenem B-012-Benchmark auf 'reason' legen — bis dahin bleibt reason Cloud.
   # VORAUSSETZUNG am PC: 'ollama pull qwen3.5:9b' VOR dem naechsten kira-update.bat!
   escalation_model: openrouter/z-ai/glm-5.2   # STUFE 5 RICHTER: GLM 5.2 (Fable RAUS — war zu teuer)
-  # Sergens Entscheidung: kein Fable in der Auto-Oekonomie. Die Spitze ist GLM 5.2 (= Denker).
+  # Bewusste Entscheidung: kein Fable in der Auto-Oekonomie. Die Spitze ist GLM 5.2 (= Denker).
   # Wer Fable dennoch bewusst will, schaltet manuell per '/model anthropic/claude-fable-5'.
   # escalate=True (reason:-Prefix, /plan-/code:-Denkschritte, Richter-Delegation) laeuft jetzt auf GLM.
   vision_model: openrouter/z-ai/glm-4.6v         # fuer Bild-Erkennung im Chat (/api/vision)
@@ -51,8 +51,7 @@ desktop:
   # Zusaetzliche Obsidian-Vault-Ordner fuer den Live-Graph. Leer = nur Kiras Gedaechtnis
   # (gedaechtnis/ + playbooks/). Trage deinen ECHTEN Obsidian-Vault-Pfad ein, damit dein
   # ganzer Graph erscheint. Windows-Pfad in Anfuehrungszeichen, mit / statt \:
-  vault_paths:
-    - "C:/Users/serge/Desktop/Kira-Brain"      # Sergens Obsidian-Vault -> voller Graph im Wallpaper
+  vault_paths: []              # z.B. ["C:/Pfad/zu/deinem/Vault"] -> voller Graph im Wallpaper
 
 # Feature-Flags (S12): Bausteine an-/abschalten ohne Code-Aenderung. AUS = Werkzeuge
 # fliegen aus dem Manifest (registry), UI-Teile verschwinden. Live togglebar via Cockpit
@@ -128,7 +127,7 @@ governance:
   kill_switch_file: data/STOP     # existiert diese Datei -> Heartbeat haelt sofort
   council_gate: ["money"]         # diese Gate-Arten bekommen VOR dem Inbox-Eintrag eine
                                   # Rats-Debatte (Visionaer/Skeptiker/Macher + Judge) —
-                                  # das Urteil liegt Sergen als Entscheidungsgrundlage bei
+                                  # das Urteil liegt dem Nutzer als Entscheidungsgrundlage bei
 
 # Ergebnis-Rueckkopplung (S2): jeder Mission-Task wird gegen selbst-geschriebene
 # Akzeptanzkriterien geprueft; scheitert er, folgt ein Retry mit ANDERER Strategie
@@ -145,13 +144,13 @@ outcomes:
 # WICHTIG (Sicherheits-Eigenschaft): der Laufzeit-Flag data/heartbeat.flag hat VORRANG
 # vor diesem Wert (scheduler.heartbeat_on). Steht der Flag auf "off", bleibt der Motor
 # aus, auch wenn hier true steht. Scharf wird der 24/7-Betrieb erst per Cockpit-Toggle
-# (schreibt "on") — nach gruenem Doctor-Check und unter Sergens Aufsicht (S6.5).
+# (schreibt "on") — nach gruenem Doctor-Check und unter Aufsicht des Nutzers (S6.5).
 heartbeat:
   enabled: true                   # Baseline an — aber inert bis der Flag "on" ist
   interval_seconds: 1800          # alle 30 min ein Mission-Schritt
 
-# Die 24/7-Mission — Zweck: Sergens Alltag tragen + dich selbst pflegen (S12: Dienst-Mission
-# ohne Geldziel; Business-Ziele sind Sergens Projekte, nicht Kiras Mission. Messbar wird die
+# Die 24/7-Mission — Zweck: den Alltag des Nutzers tragen + dich selbst pflegen (Dienst-Mission
+# ohne Geldziel; Business-Ziele sind Projekte des Nutzers, nicht die Mission. Messbar wird die
 # Mission ueber Betriebs-Metriken: erledigte Schritte, Fehlerquote, Briefing-Puenktlichkeit).
 mission:
   name: "Assistenz & Selbstpflege"
@@ -160,7 +159,7 @@ mission:
                                   # — dosiert statt 4-6 Fallstudien am Tag; Rest rueckt auf morgen
   goal: >
     Laufe 24/7 und arbeite pro Tick EINEN abgeschlossenen, gemeldeten Schritt. Prioritaet:
-    (1) SERGENS ALLTAG TRAGEN: seine offenen Auftraege/Todos und sein aktueller Fokus zuerst —
+    (1) DEN ALLTAG DEINES PARTNERS TRAGEN: seine offenen Auftraege/Todos und sein aktueller Fokus zuerst —
     organisieren, planen, charmant erinnern, recherchieren, vorbereiten (Briefe/Mails/Termine/
     Dossiers). Denk mit: Geburtstage, Fristen, was morgen ansteht. Pflege sein Wissens-Vault
     (Obsidian) aktiv, statt nur auf Fragen zu warten.
@@ -169,7 +168,7 @@ mission:
     sich an Betriebs-Metriken (erledigte Schritte, wenig Fehler, puenktliche Briefings) — nicht
     in Euro. Geld-Denken (Kasse/Meilenstein/ROI) ist NICHT deine Mission; rechne hoechstens,
     was etwas gekostet hat.
-    (3) AKTUELL BLEIBEN: gezielt KI/Tech/Hardware, nur wenn es Sergen oder einer Aufgabe dient.
+    (3) AKTUELL BLEIBEN: gezielt KI/Tech/Hardware, nur wenn es deinem Partner oder einer Aufgabe dient.
     MELDE-REGELN (bindend): jeden fertigen Schritt knapp per Telegram melden; Fehler SOFORT und
     ehrlich; NIE Erfolg behaupten ohne Beleg; nichts erfinden; bei Unsicherheit sagen, dass du
     unsicher bist. Melde in KLARTEXT: einfache Sprache, kurze Saetze, Fachbegriffe in einer
@@ -196,7 +195,7 @@ monitor:
 channels:
   telegram:
     enabled: true
-    allowed_chat_id: 7037806562   # Sergens Chat (nur er darf mit Kira reden)
+    allowed_chat_id: 0            # Chat-ID des Nutzers (setzt der /setup-Wizard; 0 = niemand)
     voice: true               # Sprachmemos lokal transkribieren
     whisper_model: base       # tiny | base | small | medium  (CPU, 0 EUR)
     tagewerk_zeit: "21:30"    # Abend-Resuemee: Tagewerk kommt von selbst (leer = aus, 0 Token)
@@ -208,15 +207,14 @@ channels:
       voice_id: ""            # ElevenLabs Voice-ID (leer = Standardstimme)
       model_id: eleven_multilingual_v2   # deutschtauglich
       max_chars: 600          # Deckel pro Sprachantwort (Volltext bleibt als Text im Chat)
-  # Kiras EIGENES Postfach (S3): Sergen legt es an, Zugaenge in den Secrets-Tresor
+  # EIGENES Postfach des Agenten: der Nutzer legt es an, Zugaenge in den Secrets-Tresor
   # (SMTP_USER/SMTP_PASS; IMAP nutzt dieselben). Mails an own_addresses laufen frei,
   # an Fremde stoppt das email_stranger-Gate an der Freigabe-Inbox.
   email:
     enabled: false            # an, sobald Postfach + Zugaenge da sind
     provider: auto            # auto | smtp | resend
     from_address: ""          # Kiras Absender-Adresse
-    own_addresses:            # Sergens Adressen -> kein Fremd-Gate
-      - serc.tok1993@gmail.com
+    own_addresses: []         # eigene Adressen des Nutzers -> kein Fremd-Gate
     smtp_host: ""            # leer = automatisch bei Gmail/Outlook/GMX/web.de (Adresse+App-Passwort reichen)
     smtp_port: 587
     imap_host: ""

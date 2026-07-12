@@ -41,7 +41,7 @@ starke Modell an.** Das ist mechanisch erzwungen, nicht bloß erbeten.
 ## 4 · Harte Grenzen (nie überschreiten)
 
 - **Verfassung** (`core/mind/constitution.md`) ist für `self_edit`/`write_file` GESPERRT — Änderung
-  nur über Git durch Sergen, nie durch Kira selbst.
+  nur über Git durch der Nutzer, nie durch Kira selbst.
 - **Windows/cmd:** Quelltext IMMER mit `read_file` lesen (nie PowerShell `Get-Content` — verfälscht
   Umlaute). Keine Unix-Befehle (`head/tail/grep/cat/sed/awk`).
 - **`data/`, `.env`, Secrets** sind tabu und gitignored — nie committen, nie lesen-und-ausplaudern.
@@ -66,4 +66,4 @@ Kira ist ein selbst-verbessernder Harness: sie plant mit einem klugen Modell, l�
 liefern, und schaltet beim Coden zuverlässig aufs starke Modell hoch. Der Sinn dieser Datei ist,
 dass dieses Prinzip **nicht vom Zufall abhängt**, sondern im Code (`act._is_code_step`,
 `selfdev.self_edit`) verankert ist. Wer hier etwas ändert: den Schutz nie aufweichen, ohne einen
-gleichwertigen Ersatz — Sergens Vertrauen beim Coden hängt genau daran.
+gleichwertigen Ersatz — des Nutzers Vertrauen beim Coden hängt genau daran.

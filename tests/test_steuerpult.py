@@ -1,4 +1,4 @@
-"""Steuerpult: Sergens Riegel ueber die Schwarmintelligenz.
+"""Steuerpult: des Nutzers Riegel ueber die Schwarmintelligenz.
 
 Deterministische Chat-Befehle /delegiere + /schwarm (kein LLM noetig),
 /api/steuer (Rang-Tafel + Regler) und die Cockpit-Marker.
@@ -16,7 +16,7 @@ def _tmp_dbs(monkeypatch, tmp_path):
     return events
 
 
-# ---- /delegiere + /schwarm: deterministisch, Rang waehlt SERGEN -----------------------
+# ---- /delegiere + /schwarm: deterministisch, Rang waehlt WURZEL -----------------------
 
 def test_swarm_command_hilfe_ohne_args():
     from core.agency import act
@@ -32,7 +32,7 @@ def test_delegiere_routet_rang_und_auftrag(monkeypatch):
                         lambda auftrag, rang, sid, schritte="": seen.update(a=auftrag, r=rang) or "ok")
     act._handle_swarm_command("/delegiere denker Fasse das Handbuch zusammen", "s1")
     assert seen == {"a": "Fasse das Handbuch zusammen", "r": "denker"}
-    act._handle_swarm_command("/delegiere Recherchiere Friseure Koblenz", "s1")
+    act._handle_swarm_command("/delegiere Recherchiere Friseure Berlin", "s1")
     assert seen["r"] == "arbeiter"  # kein Rang angegeben -> Standard
 
 

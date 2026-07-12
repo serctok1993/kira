@@ -25,7 +25,7 @@ def test_hard_gate_blocks_without_executing(monkeypatch, tmp_path):
     ran = []
     out = gate.guarded("money", "5 EUR Domain kaufen", "namecheap.com",
                        execute=lambda: ran.append(1) or "gekauft")
-    assert "Wartet auf Sergens Freigabe" in out and "NICHT ausgefuehrt" in out
+    assert "Wartet auf Partners Freigabe" in out and "NICHT ausgefuehrt" in out
     assert ran == []  # DIE Kernzusicherung: nichts ist passiert
     pend = approvals.pending()
     assert len(pend) == 1 and pend[0]["kind"] == "money"  # KINDS-Erweiterung greift
@@ -46,7 +46,7 @@ def test_chains_on_gates_everything(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path, chains_off=False)
     ran = []
     out = gate.guarded("external", "Irgendwas", "", execute=lambda: ran.append(1))
-    assert "Wartet auf Sergens Freigabe" in out and ran == []
+    assert "Wartet auf Partners Freigabe" in out and ran == []
 
 
 def test_execute_error_returns_string_no_audit(monkeypatch, tmp_path):
@@ -90,7 +90,7 @@ def test_bridge_write_path_money_blocks(monkeypatch, tmp_path):
 
     wrapper, _ = bridge._make_wrapper("stripe", "create_refund", "Refund", {})
     out = wrapper(charge="ch_1")
-    assert "Wartet auf Sergens Freigabe" in out
+    assert "Wartet auf Partners Freigabe" in out
     assert calls == []  # Server wurde NICHT beruehrt
     assert approvals.pending()[0]["kind"] == "money"
 
@@ -107,7 +107,7 @@ def test_bridge_write_path_external_runs_and_audits(monkeypatch, tmp_path):
 
 
 def test_bridge_kinds_override(monkeypatch, tmp_path):
-    """Sergens Linie: Payment-Link ANLEGEN = Zahlung annehmen = external (frei + Audit)."""
+    """des Nutzers Linie: Payment-Link ANLEGEN = Zahlung annehmen = external (frei + Audit)."""
     _setup(monkeypatch, tmp_path)
     monkeypatch.setattr(bridge, "_call_server_text", lambda s, t, kw: "Link erstellt")
 

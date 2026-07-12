@@ -62,7 +62,7 @@ def test_resolve_objective_token(monkeypatch, tmp_path):
     from core.agency import act
 
     _iso(monkeypatch, tmp_path)
-    qs = objectives.add("Projekt QS-Transporte SEO", kind="weekly")
+    qs = objectives.add("Projekt Kundenwebsite SEO", kind="weekly")
     objectives.add("Projekt Playbook schreiben", kind="weekly")
 
     text, oid = act._resolve_objective_token(f"Baue die Sitemap @ziel:{qs[:8]} fertig")
@@ -90,7 +90,7 @@ def test_book_work_result_moves_progress(monkeypatch, tmp_path):
     appended = []
     monkeypatch.setattr(ws, "append", lambda oid, line: appended.append((oid, line)))
 
-    oid = objectives.add("QS-Transporte SEO", kind="weekly")
+    oid = objectives.add("Kundenwebsite SEO", kind="weekly")
     act._book_work_result(oid, "Sitemap bauen", "Sitemap fertig: 12 Seiten\nDetails...")
 
     tasks = [t for t in queue.all_tasks("testmission") if t["objective_id"] == oid]

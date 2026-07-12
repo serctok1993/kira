@@ -148,7 +148,7 @@ def severity(etype: str) -> str:
 
 
 # ---- Klartext fuer Live-Ops & Desktop-Ticker (deterministisch, 0 Token) --------------
-# Sergen will im Feed SEHEN, was laeuft — nicht nur "aktiv". describe() liefert pro Event
+# der Nutzer will im Feed SEHEN, was laeuft — nicht nur "aktiv". describe() liefert pro Event
 # einen Menschen-Satz (text) plus den technischen Auszug (detail: Werkzeug, Datei, Label,
 # Score, Fehler). Serverseitig, damit Cockpit UND /wall dieselbe Uebersetzung nutzen.
 
@@ -245,7 +245,8 @@ def describe(etype: str, payload: dict | None) -> dict:
         if t == "partner_message":
             return {"text": "💬 Kira hat geantwortet", "detail": str(p.get("preview") or p.get("text") or "")[:90]}
         if t in ("user_message", "telegram_in"):
-            return {"text": "👂 Nachricht von Sergen", "detail": str(p.get("preview") or p.get("text") or "")[:90]}
+            from core import identity as _id
+            return {"text": f"👂 Nachricht von {_id.user_name()}", "detail": str(p.get("preview") or p.get("text") or "")[:90]}
         if t == "reflection":
             return {"text": "🪞 Denkt ueber sich nach", "detail": ""}
         if t == "self_tick":

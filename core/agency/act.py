@@ -692,7 +692,7 @@ def _make_plan(task: str, session_id: str | None, escalate: bool = True) -> list
         "'denker' (Urteil/Analyse noetig). Nenne im Schritt konkrete Dateipfade, wenn etwas "
         "erzeugt werden soll. Antworte AUSSCHLIESSLICH mit einem JSON-Array, sonst nichts. "
         'Beispiel: [{"schritt": "Lies leads.csv", "rang": "reflex"}, '
-        '{"schritt": "Schreibe die Mail nach ~/Desktop/luvex/mail1.md", "rang": "arbeiter"}]'
+        '{"schritt": "Schreibe die Mail nach ~/Desktop/projekt/mail1.md", "rang": "arbeiter"}]'
     )
     res = llm_router.complete([{"role": "user", "content": task}], system=system,
                               task_type="reason", session_id=session_id, escalate=escalate)
@@ -1407,7 +1407,7 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
 
 Brauchst du ein Werkzeug, antworte mit GENAU einer Zeile (sonst nichts):
 ACT <werkzeug_name> {{"argument": "wert"}}
-Beispiel: ACT web_search {{"query": "Wetter Koblenz heute"}}
+Beispiel: ACT web_search {{"query": "Wetter Berlin heute"}}
 Danach bekommst du das ERGEBNIS und kannst weiter ein Werkzeug nutzen oder normal antworten.
 Wenn du etwas Aktuelles nicht sicher weisst (Wetter, Preise, News, Webinhalte): NICHT raten,
 sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und vollstaendig."""

@@ -152,7 +152,7 @@ def _run_agent(workdir: Path, task: dict, allow_llm: bool = True, timeout: int =
                             cwd=str(_kira_repo()), env=env,
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                             stderr=subprocess.DEVNULL, text=True, bufsize=1)
-    # Lebenszeichen + harter Timeout (Sergens 'haengt er oder denkt er?'-Problem):
+    # Lebenszeichen + harter Timeout (des Nutzers 'haengt er oder denkt er?'-Problem):
     # ein Reader-Thread fuettert eine Queue; bleibt sie ~25s still, melden wir
     # 'arbeitet noch' statt Funkstille, und nach 'timeout' wird hart abgebrochen.
     import queue as _q

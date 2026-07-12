@@ -43,7 +43,7 @@ def test_settings_bar_hat_alle_sechs():
 
 
 def test_settings_bar_gegen_gedaechtnis_falle():
-    """Sergens Fund 09.07.: grosser Subview (Modelle/Benchmark) quetschte die
+    """Praxis-Fund 09.07.: grosser Subview (Modelle/Benchmark) quetschte die
     Einstellungen-Leiste auf 2px — man kam nicht mehr aus dem Tab raus."""
     from core.api.ui.css import HEAD_AND_CSS as css
     # die Schutzregel enthaelt settings-tabs UND me-tabs

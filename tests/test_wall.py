@@ -16,22 +16,22 @@ from core.api.server import app
 def test_graph_liest_notizen_und_wikilinks(tmp_path):
     ged = tmp_path / "gedaechtnis" / "stammbaum"
     ged.mkdir(parents=True)
-    (ged / "sergen.md").write_text("Wurzel. Siehe [[luvex]] und [[qs-transporte]].", encoding="utf-8")
-    (ged / "luvex.md").write_text("Business. Gehoert zu [[sergen]].", encoding="utf-8")
+    (ged / "wurzel.md").write_text("Wurzel. Siehe [[projekt-a]] und [[projekt-b]].", encoding="utf-8")
+    (ged / "projekt-a.md").write_text("Business. Gehoert zu [[wurzel]].", encoding="utf-8")
     pb = tmp_path / "playbooks"
     pb.mkdir()
     (pb / "akquise.md").write_text("kein Link hier", encoding="utf-8")
 
     g = vault_graph.build_graph([tmp_path / "gedaechtnis", tmp_path / "playbooks"])
     ids = {n["id"].lower() for n in g["nodes"]}
-    assert {"sergen", "luvex", "qs-transporte", "akquise"} <= ids   # Notizen + unaufgeloestes Ziel
+    assert {"wurzel", "projekt-a", "projekt-b", "akquise"} <= ids   # Notizen + unaufgeloestes Ziel
     assert g["counts"]["notes"] == 3                                # 3 echte .md-Dateien
-    # Kanten: sergen->luvex, sergen->qs-transporte, luvex->sergen
+    # Kanten: nutzer->beispiel-projekt, nutzer->kundenprojekt, beispiel-projekt->nutzer
     edges = {(l["source"].lower(), l["target"].lower()) for l in g["links"]}
-    assert ("sergen", "luvex") in edges and ("luvex", "sergen") in edges
+    assert ("wurzel", "projekt-a") in edges and ("projekt-a", "wurzel") in edges
     # Gruppe/Farbe je Bereich (stammbaum = Lila, playbooks = Gruen)
     grp = {n["id"].lower(): n["group"] for n in g["nodes"]}
-    assert grp["sergen"] == "stammbaum" and grp["akquise"] == "playbooks"
+    assert grp["wurzel"] == "stammbaum" and grp["akquise"] == "playbooks"
 
 
 def test_graph_leerer_ordner_raist_nicht(tmp_path):

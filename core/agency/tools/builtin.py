@@ -216,7 +216,7 @@ def _env_hinweis(p: Path) -> str:
     """Zusatz-Hinweis, wenn ein Platzhalter im Pfad NICHT aufgeloest werden konnte."""
     s = str(p)
     if "%" in s or "$" in s:
-        return " — Hinweis: Platzhalter im Pfad unbekannt; nutze den vollen Pfad (z.B. C:/Users/serge/...)."
+        return " — Hinweis: Platzhalter im Pfad unbekannt; nutze den vollen Pfad (z.B. C:/Users/Name/...)."
     return ""
 
 
@@ -237,7 +237,7 @@ def _lehr_fehler(tool_name: str, falsche_args: dict, erwartet: str, beispiel: st
 def read_file(path: str = "", max_chars: int = 40000, offset: int = 0, **falsche_args) -> str:
     if falsche_args or not str(path).strip():
         return _lehr_fehler("read_file", falsche_args, "'path' (Dateipfad), optional 'offset'",
-                            'read_file(path="C:/Users/serge/Desktop/notiz.txt")')
+                            'read_file(path="C:/Users/Name/Desktop/notiz.txt")')
     p = _pfad(path)
     if not p.exists():
         return f"(Datei nicht gefunden: {p}){_env_hinweis(p)}"
@@ -267,7 +267,7 @@ def write_file(path: str = "", content: str | None = None, **falsche_args) -> st
 
     if falsche_args or not str(path).strip() or content is None:
         return _lehr_fehler("write_file", falsche_args, "'path' und 'content'",
-                            'write_file(path="C:/Users/serge/Desktop/notiz.md", content="Hallo")')
+                            'write_file(path="C:/Users/Name/Desktop/notiz.md", content="Hallo")')
     p = _pfad(path)
     blocked = _write_guard(p, "write_file")
     if blocked:
@@ -283,7 +283,7 @@ def write_file(path: str = "", content: str | None = None, **falsche_args) -> st
 def append_file(path: str = "", content: str | None = None, **falsche_args) -> str:
     if falsche_args or not str(path).strip() or content is None:
         return _lehr_fehler("append_file", falsche_args, "'path' und 'content'",
-                            'append_file(path="C:/Users/serge/Desktop/log.md", content="Zeile")')
+                            'append_file(path="C:/Users/Name/Desktop/log.md", content="Zeile")')
     p = _pfad(path)
     blocked = _write_guard(p, "append_file")
     if blocked:
@@ -298,7 +298,7 @@ def append_file(path: str = "", content: str | None = None, **falsche_args) -> s
 def list_dir(path: str = ".", **falsche_args) -> str:
     if falsche_args:
         return _lehr_fehler("list_dir", falsche_args, "'path' (Verzeichnis, optional)",
-                            'list_dir(path="C:/Users/serge/Desktop")')
+                            'list_dir(path="C:/Users/Name/Desktop")')
     p = _pfad(path or ".")
     if not p.exists():
         return f"(Verzeichnis nicht gefunden: {p}){_env_hinweis(p)}"
@@ -313,7 +313,7 @@ def list_dir(path: str = ".", **falsche_args) -> str:
 def make_dir(path: str = "", **falsche_args) -> str:
     if falsche_args or not str(path).strip():
         return _lehr_fehler("make_dir", falsche_args, "'path' (Ordnerpfad)",
-                            'make_dir(path="C:/Users/serge/Desktop/neuer-ordner")')
+                            'make_dir(path="C:/Users/Name/Desktop/neuer-ordner")')
     p = _pfad(path)
     p.mkdir(parents=True, exist_ok=True)
     return f"OK, Ordner angelegt: {p}"

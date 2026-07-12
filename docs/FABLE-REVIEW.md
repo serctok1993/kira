@@ -1,6 +1,6 @@
 # FABLE-REVIEW — To-dos für die große Analyse
 
-> Stichpunkt-Sammlung (kein fertiger Prompt). Sergen schreibt den eigentlichen Prompt selbst;
+> Stichpunkt-Sammlung (kein fertiger Prompt). der Nutzer schreibt den eigentlichen Prompt selbst;
 > das hier ist die Übersicht der Punkte, die wir an ein Fable-Agententeam übergeben wollen.
 > Ziel: EIN gründlicher Durchgang durch Code + Struktur + Modell-Nutzung → Bewertung + Empfehlung.
 
@@ -45,7 +45,7 @@
 
 ---
 
-## Sergens Entscheidungen zum Review (07.07.2026)
+## bewusste Entscheidungen zum Review (07.07.2026)
 1. **Eskalation bleibt frei wählbar** (Cockpit-Buttons; kein Modell festgenagelt — GLM 5.3 & Co.
    sollen jederzeit einsetzbar sein). Stattdessen: **Doctor-Warnung**, wenn die Spitze das
    Massen-/Lokal-Modell ist. ✔ umgesetzt
@@ -60,7 +60,7 @@
 6. **Handy:** aktuell Telegram; später PWA (Cockpit als installierbare App via Tailscale) —
    Token-Middleware kommt dann VORHER.
 7. **Maximale Freiheit, aber nie selbst zerschießen:** Dirty-Check statt reset --hard auf
-   Sergens Arbeit (code:-Lauf startet live nur auf sauberem Baum). ✔ umgesetzt — keine neuen
+   des Nutzers Arbeit (code:-Lauf startet live nur auf sauberem Baum). ✔ umgesetzt — keine neuen
    Genehmigungs-Zäune darüber hinaus.
 8. **⚙ Einstellungen-Ebene:** Technik-Gruppe = Einstellungen (Modelle/Steuerpult/Zugänge/
    Cockpit/Wallpaper), Zahnrad-Shortcut in der Topbar. Nur echte Settings dort — Kira-Inhalte
@@ -78,7 +78,7 @@ Damit „Harness vorher/nachher" vergleichbar bleibt, ist **GLM 5.2 auf der Roll
 fährt. Vor und nach einem Umbau denselben Benchmark (HumanEval, Cockpit-Knopf) auf `reason` laufen
 lassen → die pass@1-Differenz misst den Harness, nicht ein gewechseltes Modell. Freie Modelle
 (DeepSeek V4 Flash: 94,5 % über 164) laufen als billiger Dauer-Check; GLM 5.2 ist der Maßstab.
-Der teure Referenz-Lauf bleibt **Sergens Knopf** — nichts benchmarkt automatisch Geld weg.
+Der teure Referenz-Lauf bleibt **des Nutzers Knopf** — nichts benchmarkt automatisch Geld weg.
 
 ## Motor-Startfreigabe (Härtung vor dem Heartbeat) — umgesetzt
 1. **write_file-Loch geschlossen:** eine bestehende Code-Datei im Repo lässt sich nicht mehr blind

@@ -3,7 +3,7 @@
 Offline: SMTP/IMAP/httpx gefakt. Prueft die drei Versprechen:
   1. Bekannter Anbieter (Gmail & Co.) -> Hosts automatisch, config gewinnt.
   2. bluesky_post laeuft IMMER durchs publish-Gate (Freigabe-Inbox).
-  3. Sergens GO fuehrt den Post deterministisch aus (approvals.decide).
+  3. des Nutzers GO fuehrt den Post deterministisch aus (approvals.decide).
 """
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def _setup(monkeypatch, tmp_path, email_cfg=None, hard_gate=None):
     events.init_db()
     approvals.init_approvals()
     cfg = {"enabled": True, "provider": "smtp", "from_address": "kira@example.de",
-           "own_addresses": ["serc.tok1993@gmail.com"], "smtp_host": "",
+           "own_addresses": ["nutzer@example.com"], "smtp_host": "",
            "smtp_port": 587, "imap_host": "", "imap_port": 993}
     cfg.update(email_cfg or {})
     monkeypatch.setitem(CONFIG, "channels", {"email": cfg})
@@ -183,7 +183,7 @@ def test_bluesky_missing_secrets_hint(monkeypatch):
 
 def test_bluesky_post_success_and_cap(monkeypatch):
     monkeypatch.delenv("KIRA_NO_OUTBOUND", raising=False)
-    monkeypatch.setenv("BLUESKY_HANDLE", "sergen.bsky.social")
+    monkeypatch.setenv("BLUESKY_HANDLE", "beispiel.bsky.social")
     monkeypatch.setenv("BLUESKY_APP_PASSWORD", "app-pw")
     assert bluesky.configured()
     calls = []
@@ -216,7 +216,7 @@ def test_bluesky_post_success_and_cap(monkeypatch):
 
 def test_bluesky_login_failure_is_string(monkeypatch):
     monkeypatch.delenv("KIRA_NO_OUTBOUND", raising=False)
-    monkeypatch.setenv("BLUESKY_HANDLE", "sergen.bsky.social")
+    monkeypatch.setenv("BLUESKY_HANDLE", "beispiel.bsky.social")
     monkeypatch.setenv("BLUESKY_APP_PASSWORD", "falsch")
 
     class FakeResp:
@@ -247,7 +247,7 @@ def test_bluesky_post_tool_waits_for_approval(monkeypatch, tmp_path):
     monkeypatch.setattr(bluesky, "post", lambda t: posted.append(t) or "ok")
 
     out = social_tools.bluesky_post("Kira ist live! #ai")
-    assert "Wartet auf Sergens Freigabe" in out
+    assert "Wartet auf Partners Freigabe" in out
     assert posted == []  # NICHT gepostet
     pend = approvals.pending()
     assert len(pend) == 1 and pend[0]["kind"] == "publish"

@@ -22,7 +22,7 @@ letzte:
 
 ## Akzeptanzkriterien
 
-- Woran der Prüfer/Sergen erkennt, dass das Ergebnis gut ist.
+- Woran der Prüfer/der Nutzer erkennt, dass das Ergebnis gut ist.
 - Messbar und konkret formulieren.
 
 ## Lektionen

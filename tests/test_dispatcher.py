@@ -173,7 +173,7 @@ def test_liefernachweis_retry_und_erfolg(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))  # Windows: expanduser nutzt USERPROFILE
     monkeypatch.setattr(act, "_make_plan", lambda task, sid, escalate=True: [
-        {"schritt": "Schreibe die Mail nach ~/Desktop/luvex/mail1.md", "rang": "arbeiter"}])
+        {"schritt": "Schreibe die Mail nach ~/Desktop/projekt/mail1.md", "rang": "arbeiter"}])
     monkeypatch.setattr(llm_router, "complete", _fake_complete("Zusammenfassung."))
 
     versuche: list = []
@@ -181,12 +181,12 @@ def test_liefernachweis_retry_und_erfolg(monkeypatch, tmp_path):
     def fake_act(task, session_id=None, max_steps=None, escalate=False, task_type="reason"):
         versuche.append(task)
         if len(versuche) == 1:  # erster Versuch: LUEGT — Datei existiert nicht
-            return {"text": "Ich habe die Mail erstellt: `~/Desktop/luvex/mail1.md`", "steps": 1}
+            return {"text": "Ich habe die Mail erstellt: `~/Desktop/projekt/mail1.md`", "steps": 1}
         # Retry: liefert WIRKLICH
-        f = tmp_path / "Desktop" / "luvex" / "mail1.md"
+        f = tmp_path / "Desktop" / "projekt" / "mail1.md"
         f.parent.mkdir(parents=True, exist_ok=True)
         f.write_text("mail", encoding="utf-8")
-        return {"text": "Jetzt wirklich erstellt: `~/Desktop/luvex/mail1.md`", "steps": 2}
+        return {"text": "Jetzt wirklich erstellt: `~/Desktop/projekt/mail1.md`", "steps": 2}
 
     monkeypatch.setattr(act, "act", fake_act)
     final = act.plan_and_execute("Mail schreiben", session_id="p3", escalate=False)

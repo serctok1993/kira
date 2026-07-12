@@ -37,8 +37,8 @@ def test_fokus_setzen_lesen_loeschen(monkeypatch, tmp_path):
     monkeypatch.setattr(queue, "init_queue", lambda: None)
     monkeypatch.setattr(queue, "clear", lambda mission: cleared.append(mission))
 
-    assert fokus.set_focus("LUVEX-Leads", via="telegram") == "LUVEX-Leads"
-    assert fokus.get()["focus"] == "LUVEX-Leads"
+    assert fokus.set_focus("MESSE-Leads", via="telegram") == "MESSE-Leads"
+    assert fokus.get()["focus"] == "MESSE-Leads"
     assert cleared  # Queue geleert -> naechster Tick plant um den Fokus herum
     assert any(e["type"] == "focus_set" and e["payload"]["via"] == "telegram"
                for e in events.recent(5))
@@ -54,11 +54,11 @@ def test_fokus_befehl(monkeypatch, tmp_path):
     sent = []
     monkeypatch.setattr(tb, "_send", lambda c, ch, txt, *a, **k: sent.append(txt))
 
-    tb._handle_command(object(), 7, "/fokus LUVEX-Landingpage fertig machen")
+    tb._handle_command(object(), 7, "/fokus MESSE-Landingpage fertig machen")
     assert "Fokus gesetzt" in sent[-1]
-    assert fokus.get()["focus"] == "LUVEX-Landingpage fertig machen"
+    assert fokus.get()["focus"] == "MESSE-Landingpage fertig machen"
     tb._handle_command(object(), 7, "/fokus")
-    assert "LUVEX-Landingpage" in sent[-1]
+    assert "MESSE-Landingpage" in sent[-1]
     tb._handle_command(object(), 7, "/fokus -")
     assert "geloescht" in sent[-1] and fokus.get()["focus"] == ""
 
@@ -88,7 +88,7 @@ def _fake_board(monkeypatch, items_today=None, items_week=None):
 def test_todo_overview_mit_knoepfen(monkeypatch):
     _fake_board(monkeypatch,
                 items_today=[{"id": "aabbccdd1122", "description": "Reifen wechseln", "due_date": "2026-07-08"}],
-                items_week=[{"id": "eeff00112233", "description": "Angebot LUVEX", "due_date": None}])
+                items_week=[{"id": "eeff00112233", "description": "Angebot MESSE", "due_date": None}])
     text, kb = tb._todo_overview()
     assert "Reifen wechseln" in text and "HEUTE" in text and "WOCHE" in text
     datas = [b["callback_data"] for row in kb["inline_keyboard"] for b in row]

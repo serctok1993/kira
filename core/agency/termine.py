@@ -1,4 +1,4 @@
-"""Termine/Kalender (Phase 2 Alltags-Kern): minimaler JSON-Kalender fuer Sergens Alltag.
+"""Termine/Kalender (Phase 2 Alltags-Kern): minimaler JSON-Kalender fuer den Nutzers Alltag.
 
 data/kalender.json haelt eine Liste von Eintraegen
   {id, datum: "TT.MM.JJJJ", zeit: "HH:MM"|"", titel, jaehrlich: bool, quelle}

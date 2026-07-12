@@ -9,7 +9,7 @@ import tempfile
 os.environ.setdefault("KIRA_TEST_MODE", "1")
 
 # W0-Fund (12.07.2026): Tests ohne eigenes DB_PATH-Monkeypatching schrieben in die LIVE
-# data/state.db — Test-Events (service-/mcp-/playbook-Fehler), Test-Fakten ("Sergen trinkt
+# data/state.db — Test-Events (service-/mcp-/playbook-Fehler), Test-Fakten ("der Nutzer trinkt
 # Kaffee schwarz") und Tuning-Exporte landeten im echten Gedaechtnis; Kira las ihr eigenes
 # Test-Rauschen als Bugs ins Backlog (B5/B6). Fix: JEDER pytest-Lauf bekommt automatisch
 # eine Wegwerf-Datenwurzel, bevor core.config importiert wird. Bewusst KIRA_TEST_DATA_DIR
@@ -18,6 +18,14 @@ os.environ.setdefault("KIRA_TEST_MODE", "1")
 if not (os.getenv("KIRA_ROOT") or os.getenv("KIRA_DATA_DIR")):
     os.environ.setdefault("KIRA_TEST_DATA_DIR",
                           tempfile.mkdtemp(prefix="kira-test-data-"))
+
+# W3: Die Testsuite gilt als EINGERICHTETE Instanz — sonst wuerde das Onboarding-Gate
+# (server.py) jeden TestClient-Aufruf nach /setup umleiten. Onboarding-Tests loeschen
+# das Flag gezielt in ihrer eigenen Wegwerf-Datenwurzel.
+_data = os.getenv("KIRA_TEST_DATA_DIR")
+if _data:
+    pathlib.Path(_data).mkdir(parents=True, exist_ok=True)
+    pathlib.Path(_data, "onboarded.flag").write_text("test", encoding="utf-8")
 
 # Projekt-Root importierbar machen (core.*), egal von wo pytest startet.
 ROOT = pathlib.Path(__file__).resolve().parent.parent

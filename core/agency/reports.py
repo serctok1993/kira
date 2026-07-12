@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import datetime
 
+from core import identity as _id
 from core.kernel import events
 
 _EINMAL = 10 * 365 * 86400  # "genau einmal je Label" via maintenance.maybe_run
@@ -49,7 +50,7 @@ def _prioritaeten_block(titel: str) -> list[str]:
     if wichtig:
         out += [f"- P{t['priority']}: {t['description'][:120]}" for t in wichtig[:8]]
     else:
-        out += ["- (keine offenen P1/P2-Todos — Prioritaeten setzt Sergen im Cockpit)"]
+        out += [f"- (keine offenen P1/P2-Todos — Prioritaeten setzt {_id.user_name()} im Cockpit)"]
     return out
 
 

@@ -29,3 +29,27 @@ transkript*
 _fix_test.py
 2026-*.md
 docs/*_neu.md
+
+# W3 Werkszustand: persoenliche Dateien leben NUR auf der Platte, nie im Repo.
+# Die gelebte Identitaet (Mind-.md) entsteht pro Instanz aus core/mind/templates/.
+core/mind/SOUL.md
+core/mind/GOAL.md
+core/mind/USER.md
+core/mind/PERSONA.md
+core/mind/BODY.md
+# Stammbaum: nur Vorlagen sind Produkt, alle Blaetter sind Privatsache
+gedaechtnis/stammbaum/**
+!gedaechtnis/stammbaum/**/
+!gedaechtnis/stammbaum/_WURZEL_VORLAGE.md
+!gedaechtnis/stammbaum/**/_VORLAGE.md
+# Nutzer-Arbeitsbereiche + Bauphasen-Journale + private Skripte
+projects/
+docs/KIRA-IST.md
+docs/cockpit-redesign.md
+docs/harness-diaet.md
+docs/radar/
+core/tools/sunrise*.py
+sunrise_simulation.py
+
+# Lokale Session-/Editor-Werkzeuge
+.claude/

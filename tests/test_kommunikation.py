@@ -23,7 +23,7 @@ def _setup(monkeypatch, tmp_path, email_cfg=None):
     events.init_db()
     approvals.init_approvals()
     cfg = {"enabled": True, "provider": "smtp", "from_address": "kira@example.de",
-           "own_addresses": ["serc.tok1993@gmail.com"], "smtp_host": "smtp.example.de",
+           "own_addresses": ["nutzer@example.com"], "smtp_host": "smtp.example.de",
            "smtp_port": 587, "imap_host": "", "imap_port": 993}
     cfg.update(email_cfg or {})
     monkeypatch.setitem(CONFIG, "channels", {"email": cfg})
@@ -124,7 +124,7 @@ def test_email_reply_freigabe_zieht_reply_nach(monkeypatch, tmp_path):
 def test_email_reply_eigene_adresse_laeuft_frei(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     monkeypatch.setattr(mail, "reply", lambda *a, **k: "gesendet")
-    out = mail_tools.email_reply(an="serc.tok1993@gmail.com", betreff="Hi", text="Hallo")
+    out = mail_tools.email_reply(an="nutzer@example.com", betreff="Hi", text="Hallo")
     assert out == "gesendet"
     assert approvals.pending() == []
 
@@ -165,7 +165,7 @@ def test_api_mails_hint_ohne_postfach(monkeypatch, tmp_path):
 def test_bluesky_profile_stats_gemockt(monkeypatch):
     import httpx
 
-    monkeypatch.setenv("BLUESKY_HANDLE", "sergen.bsky.social")
+    monkeypatch.setenv("BLUESKY_HANDLE", "beispiel.bsky.social")
 
     class _Resp:
         status_code = 200

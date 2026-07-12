@@ -213,7 +213,7 @@ def resolve_model(task_type: str = "default", escalate: bool = False) -> tuple[s
     """
     models = CONFIG["models"]
     # Benchmark-Direktwahl: KIRA_FORCE_MODEL (nur in Bench-Subprozessen gesetzt) schlaegt
-    # ALLE Rollen — so testet Sergen jedes beliebige Modell (auch kuenftige OpenRouter-IDs)
+    # ALLE Rollen — so testet der Nutzer jedes beliebige Modell (auch kuenftige OpenRouter-IDs)
     # auf dem Harness, ohne die Live-Rollen zu verstellen. Budget/Firewall greifen weiter.
     forced = os.getenv("KIRA_FORCE_MODEL")
     if forced:

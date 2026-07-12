@@ -11,7 +11,7 @@ letzte:
 # Tages-Journal schreiben
 
 > Konsolidierung Ebene 1: aus dem Tag EINE kurze Seite machen. Rohdaten bleiben
-> in der DB — hier landet das Destillat, das Sergen in Obsidian lesen kann.
+> in der DB — hier landet das Destillat, das der Nutzer in Obsidian lesen kann.
 
 ## Schritte
 

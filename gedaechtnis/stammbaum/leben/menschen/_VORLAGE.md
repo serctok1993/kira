@@ -1,4 +1,4 @@
-# VORNAME (Beziehung zu Sergen)
+# VORNAME (Beziehung zu der Nutzer)
 
 > Kopie dieser Vorlage pro Person. Lücken als ??? — Kira fragt beiläufig nach.
 
