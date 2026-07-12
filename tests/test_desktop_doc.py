@@ -15,14 +15,14 @@ def test_desktop_anleitung_vollstaendig():
 
 
 def test_taskleisten_helfer_vorhanden():
-    ps1 = (ROOT / "taskbar-autohide.ps1").read_text(encoding="utf-8")
+    ps1 = (ROOT / "scripts" / "taskbar-autohide.ps1").read_text(encoding="utf-8")
     assert "StuckRects3" in ps1 and 'param(' in ps1        # An/Aus, reversibel
     assert '"on"' in ps1 and '"off"' in ps1
 
 
 def test_taskleiste_dauerhaft_verstecken_helfer():
     # Variante 2: Taskleisten-Fenster wirklich verstecken (durchgaengiger Desktop), reversibel
-    ps1 = (ROOT / "taskbar-hide.ps1").read_text(encoding="utf-8")
+    ps1 = (ROOT / "scripts" / "taskbar-hide.ps1").read_text(encoding="utf-8")
     assert "Shell_TrayWnd" in ps1 and "ShowWindow" in ps1
     assert '"hide"' in ps1 and '"show"' in ps1
     doc = (ROOT / "docs" / "DESKTOP.md").read_text(encoding="utf-8")
@@ -46,14 +46,14 @@ def test_alle_ps1_sind_ascii():
 
 def test_desktop_setup_helfer_vorhanden():
     # Ein-Klick-Einrichtung: PNG->ICO, Desktop-Verknuepfung, Autostart der Desktop-App
-    ps1 = (ROOT / "desktop-setup.ps1").read_text(encoding="utf-8")
+    ps1 = (ROOT / "scripts" / "desktop-setup.ps1").read_text(encoding="utf-8")
     assert "kira-icon.png" in ps1 and "kira-icon.ico" in ps1          # Icon-Erzeugung
     assert "GetFolderPath(\"Desktop\")" in ps1 and "Kira.lnk" in ps1  # Desktop-Verknuepfung
     assert "GetFolderPath(\"Startup\")" in ps1 and "Kira Desktop.lnk" in ps1  # eigener Autostart
     assert "kira-desktop.bat" in ps1                                   # zeigt auf die App
-    assert (ROOT / "kira-einrichten.bat").exists()                     # Doppelklick-Wrapper
+    assert (ROOT / "scripts" / "kira-einrichten.bat").exists()                     # Doppelklick-Wrapper
     # Deinstallation raeumt den neuen Autostart-Eintrag mit weg
-    un = (ROOT / "uninstall-autostart.ps1").read_text(encoding="utf-8")
+    un = (ROOT / "scripts" / "uninstall-autostart.ps1").read_text(encoding="utf-8")
     assert "Kira Desktop.lnk" in un
     doc = (ROOT / "docs" / "DESKTOP.md").read_text(encoding="utf-8")
     assert "kira-einrichten.bat" in doc
