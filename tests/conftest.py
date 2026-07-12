@@ -19,6 +19,14 @@ if not (os.getenv("KIRA_ROOT") or os.getenv("KIRA_DATA_DIR")):
     os.environ.setdefault("KIRA_TEST_DATA_DIR",
                           tempfile.mkdtemp(prefix="kira-test-data-"))
 
+# W3: Die Testsuite gilt als EINGERICHTETE Instanz — sonst wuerde das Onboarding-Gate
+# (server.py) jeden TestClient-Aufruf nach /setup umleiten. Onboarding-Tests loeschen
+# das Flag gezielt in ihrer eigenen Wegwerf-Datenwurzel.
+_data = os.getenv("KIRA_TEST_DATA_DIR")
+if _data:
+    pathlib.Path(_data).mkdir(parents=True, exist_ok=True)
+    pathlib.Path(_data, "onboarded.flag").write_text("test", encoding="utf-8")
+
 # Projekt-Root importierbar machen (core.*), egal von wo pytest startet.
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:

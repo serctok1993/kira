@@ -1346,8 +1346,14 @@ def _register_commands(client: httpx.Client) -> None:
 
 def run() -> None:
     if not TOKEN:
-        print("TELEGRAM_BOT_TOKEN fehlt in .env — Bot via @BotFather anlegen und Token eintragen.")
-        return
+        # W3: SCHLAFEN statt beenden — sonst startet der Supervisor den Bot alle paar
+        # Sekunden neu und flutet einen frischen Klon mit service_crash-Events. Nach dem
+        # /setup-Wizard bounct der Supervisor den Bot (restart.flag) -> frischer Prozess
+        # laedt den Token aus dem Tresor.
+        print("TELEGRAM_BOT_TOKEN fehlt — Bot schlaeft (Token via /setup oder .env; danach Neustart).")
+        import time as _t
+        while True:
+            _t.sleep(3600)
     events.init_db()
     _register_commands(_ctrl())  # '/'-Menue bei Telegram anmelden (einmalig beim Start)
     _seed_pushed_approvals()     # bestehende Freigaben als bekannt markieren (kein Alt-Spam)
