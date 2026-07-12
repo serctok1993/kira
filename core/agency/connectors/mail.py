@@ -6,7 +6,7 @@ provider-agnostisch. Config: config.yaml channels.email; Zugangsdaten kommen
 aus dem Secrets-Tresor (SMTP_USER/SMTP_PASS bzw. RESEND_API_KEY, IMAP nutzt
 die SMTP-Zugangsdaten).
 
-Gate-Regel (siehe mail_tools): Mails an Sergens eigene Adressen fliessen frei,
+Gate-Regel (siehe mail_tools): Mails an die eigenen Adressen des Nutzers fliessen frei,
 Mails an FREMDE laufen als 'email_stranger' in die Freigabe-Inbox.
 """
 from __future__ import annotations
@@ -51,7 +51,7 @@ def send(to: str, subject: str, body: str, headers: dict | None = None) -> str:
     """Mail senden. Fehlende Zugaenge -> klarer Hinweis-String (nie Exception)."""
     if not enabled():
         return ("Email ist noch nicht eingerichtet (channels.email.enabled=false). "
-                "Sergen legt das Postfach an; Zugaenge via request_secret anfragen.")
+                "Der Nutzer legt das Postfach an; Zugaenge via request_secret anfragen.")
     if provider() == "resend":
         return _send_resend(to, subject, body, headers)
     return _send_smtp(to, subject, body, headers)
@@ -100,7 +100,7 @@ def _send_resend(to: str, subject: str, body: str, headers: dict | None = None) 
     return f"Gesendet an {to}: {subject}"
 
 
-# Bekannte Anbieter: Host/Port automatisch aus der Adresse — Sergen gibt nur noch
+# Bekannte Anbieter: Host/Port automatisch aus der Adresse — der Nutzer gibt nur noch
 # Adresse (SMTP_USER) + App-Passwort (SMTP_PASS) ein, die Hosts kommen von hier.
 # smtp_host/imap_host in config.yaml GEWINNEN, wenn gesetzt (Flexibilitaet bleibt).
 _HOST_PRESETS = {

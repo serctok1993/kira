@@ -35,7 +35,7 @@ def config() -> dict:
 
 
 def needs_approval(kind: str) -> bool:
-    """True, wenn diese Aktions-Art Sergens Freigabe braucht.
+    """True, wenn diese Aktions-Art die Freigabe des Nutzers braucht.
 
     kind z.B. 'money' | 'email_stranger' | 'publish' | 'external' | 'generic'.
     Bei chains_off (Default) braucht NUR das hard_gate eine Freigabe; sonst frei.

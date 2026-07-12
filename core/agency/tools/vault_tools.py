@@ -1,6 +1,6 @@
-"""Vault-Werkzeuge (Phase 2): Kiras aktiver Griff auf Sergens Obsidian.
+"""Vault-Werkzeuge (Phase 2): der aktive Griff des Agenten auf das Obsidian des Nutzers.
 
-vault_note/vault_dossier schreiben ECHTE .md-Dateien in den Vault (Sergen sieht sie
+vault_note/vault_dossier schreiben ECHTE .md-Dateien in den Vault (der Nutzer sieht sie
 sofort in Obsidian + im /wall-Graph). person_fakt pflegt den Stammbaum deterministisch.
 Abgrenzung zu knowledge_note (durchsuchbares Archiv in der DB) steht in den
 Beschreibungen — die Texte sind Trainingsmaterial fuer die LLM-Werkstatt.
@@ -11,7 +11,7 @@ from core.agency.tools.registry import tool
 
 
 @tool("vault_note",
-      "Schreibt eine Markdown-Notiz in Sergens Obsidian-Vault (er sieht sie sofort). "
+      "Schreibt eine Markdown-Notiz in {{USER_NAME_S}} Obsidian-Vault (er sieht sie sofort). "
       "Existiert die Notiz, wird ein '## Update'-Abschnitt angehaengt — nichts geht "
       "verloren. Faellt im Gespraech Nuetzliches an (Ideen, Ergebnisse, Anleitungen), "
       "leg es VON DIR AUS hier ab. Fuers durchsuchbare Archiv nimm knowledge_note.",
@@ -32,7 +32,7 @@ def vault_note(titel: str = "", text: str = "", ordner: str = "", **falsche_args
 
 
 @tool("vault_dossier",
-      "Legt ein Recherche-Dossier in Sergens Obsidian-Vault an (dossiers/<thema>.md) "
+      "Legt ein Recherche-Dossier in {{USER_NAME_S}} Obsidian-Vault an (dossiers/<thema>.md) "
       "bzw. ergaenzt es um einen '## Update'-Abschnitt. Fuer selbststaendige Recherchen: "
       "web_search -> Top-Treffer mit web_fetch lesen -> Erkenntnisse MIT Quellen-Links "
       "hier ablegen (Playbook dossier-recherche).",

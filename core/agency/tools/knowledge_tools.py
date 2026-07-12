@@ -1,15 +1,16 @@
-"""Wissens-Werkzeuge: Kiras Griff in Sergens Archiv (S5).
+"""Wissens-Werkzeuge: der Griff des Agenten ins Archiv des Nutzers (S5).
 
 Werkzeug-basierter Abruf statt Prompt-Injektion (Kontext-Diaet): Kira sucht
-gezielt, wenn eine Frage Sergens Dokumente/gefuettertes Wissen betrifft.
+gezielt, wenn eine Frage die Dokumente/das gefuetterte Wissen des Nutzers betrifft.
 """
 from __future__ import annotations
 
+from core import identity as _id
 from core.agency.tools.registry import tool
 
 
 @tool("knowledge_search",
-      "Durchsucht Sergens Wissens-Archiv (hochgeladene Dokumente, Notizen, gefuettertes Wissen). "
+      "Durchsucht {{USER_NAME_S}} Wissens-Archiv (hochgeladene Dokumente, Notizen, gefuettertes Wissen). "
       "Nutze es bei Fragen zu seinen Unterlagen, Projekten oder frueher gefuettertem Wissen.",
       {"query": "wonach suchen", "k": "optional: wie viele Treffer (Standard 5)"})
 def knowledge_search(query: str, k: str = "5") -> str:
@@ -29,13 +30,13 @@ def knowledge_search(query: str, k: str = "5") -> str:
     return "\n\n".join(out)
 
 
-@tool("knowledge_list", "Zeigt, welche Dokumente/Notizen in Sergens Wissens-Archiv liegen.", {})
+@tool("knowledge_list", "Zeigt, welche Dokumente/Notizen in {{USER_NAME_S}} Wissens-Archiv liegen.", {})
 def knowledge_list() -> str:
     from core.mind import knowledge
 
     docs = knowledge.list_docs(limit=40)
     if not docs:
-        return "Archiv ist noch leer. Sergen kann im Cockpit (Wissen) hochladen oder dir Dateien per Telegram schicken."
+        return f"Archiv ist noch leer. {_id.user_name()} kann im Cockpit (Wissen) hochladen oder dir Dateien per Telegram schicken."
     total = sum(d.get("chunks") or 0 for d in docs)
     lines = [f"{len(docs)} Dokumente, {total} Abschnitte:"]
     for d in docs:
@@ -45,8 +46,8 @@ def knowledge_list() -> str:
 
 
 @tool("knowledge_note",
-      "Legt eine Notiz/Wissen dauerhaft in Sergens durchsuchbares ARCHIV ab (Datenbank, "
-      "fuer Groesseres — kleine Fakten gehoeren in remember_fact). Soll Sergen den Text "
+      "Legt eine Notiz/Wissen dauerhaft in {{USER_NAME_S}} durchsuchbares ARCHIV ab (Datenbank, "
+      "fuer Groesseres — kleine Fakten gehoeren in remember_fact). Soll {{USER_NAME}} den Text "
       "als Datei in Obsidian SEHEN, nimm stattdessen vault_note.",
       {"title": "kurzer Titel", "text": "der Inhalt"})
 def knowledge_note(title: str, text: str) -> str:
