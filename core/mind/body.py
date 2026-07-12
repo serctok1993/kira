@@ -27,11 +27,19 @@ _COMPACT_CAP = 1500
 
 
 def compact() -> str:
-    """Der Kompakt-Kopf fuer die System-Prompt-Injektion ('' wenn Datei fehlt)."""
+    """Der Kompakt-Kopf fuer die System-Prompt-Injektion.
+
+    W3: fehlt die gelebte BODY.md (frischer Klon — sie ist Privatsache und nicht im
+    Repo), springt das neutrale Template ein, in-memory gerendert wie agent._read."""
     try:
         text = _PATH.read_text(encoding="utf-8")
     except Exception:  # noqa: BLE001
-        return ""
+        try:
+            from core import identity
+            text = identity.render(
+                (_PATH.parent / "templates" / "BODY.md").read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            return ""
     head = text.split(_REF_MARK, 1)[0].strip()
     return head[:_COMPACT_CAP]
 

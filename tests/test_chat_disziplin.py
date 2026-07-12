@@ -149,8 +149,9 @@ def test_claim_stamp_relative_pfade_gegen_root(monkeypatch, tmp_path):
     from core.agency import act
     _tmp_dbs(monkeypatch, tmp_path)
     monkeypatch.setattr(act, "_CLAIM_CHECK", True)
-    # relative Behauptung, Datei existiert im ROOT -> kein Stempel (README.md existiert)
-    text = "Ich habe die Notiz in `docs/KIRA-IST.md` gespeichert."
+    # relative Behauptung, Datei existiert im ROOT -> kein Stempel (HANDBUCH ist getrackt;
+    # W3: das alte Uebergabe-Dossier ist Privatsache und fehlt auf frischen Klonen)
+    text = "Ich habe die Notiz in `docs/HANDBUCH.md` gespeichert."
     assert "BEWEISPFLICHT" not in act._claim_stamp(text, session_id="s")
 
 

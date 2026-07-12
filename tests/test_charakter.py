@@ -6,8 +6,10 @@ from __future__ import annotations
 
 
 def test_persona_datei_existiert_mit_markern():
-    from core.config import MIND_DIR
-    t = (MIND_DIR / "PERSONA.md").read_text(encoding="utf-8")
+    # W3: die gelebte PERSONA.md ist Privatsache — _read faellt auf frischen Klonen
+    # aufs Template zurueck; beide Fassungen muessen die Marker tragen.
+    from core.mind import agent
+    t = agent._read("PERSONA.md")
     for m in ("WER DU BIST", "WIE DU MITDENKST", "WO DU NACHSCHAUST", "WIE DU SPRICHST"):
         assert m in t, m
 
