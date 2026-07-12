@@ -251,7 +251,7 @@ if(!a.includes("<b>fett</b>"))throw new Error("bold fehlt: "+a);
 if(!a.includes("<code>code</code>"))throw new Error("code fehlt");
 if(!a.includes("<ul><li>eins</li>"))throw new Error("liste fehlt: "+a);
 if(!a.includes('rel="noopener"'))throw new Error("link unsicher");
-if(!a.includes('class="mdh"'))throw new Error("ueberschrift fehlt");
+if(!a.includes('class="mdh'))throw new Error("ueberschrift fehlt");   // mdh mdh1|mdh2 (2 Groessen)
 const b=md("vorher <script>alert(1)</script> nachher");
 if(b.includes("<script>"))throw new Error("XSS! script nicht escaped");
 if(!b.includes("&lt;script&gt;"))throw new Error("escaping fehlt");
