@@ -1,5 +1,6 @@
-"""S8.1: Re-Zentrierung — Assistenz>Selbst>Geld, Selbst-Tick-Rhythmus, Melde-Regeln,
-entschaerfter Venture-Prompt, Evolution-Endpoint. Offline, Temp-DB/-State."""
+"""S8.1/W1: Re-Zentrierung — Assistenz>Selbst, Selbst-Tick-Rhythmus, Melde-Regeln,
+Autonomie-Schalter, Chat-Werkbank. Offline, Temp-DB/-State. (Die Venture-/Projekt-
+Tests sind mit dem Business-Strang in W1 ausgebaut worden.)"""
 from __future__ import annotations
 
 from fastapi.testclient import TestClient
@@ -15,7 +16,7 @@ def test_persona_has_purpose_hierarchy_and_reporting_rules():
     assert "Sergen dienen" in p and "Dich verbessern" in p
     assert "Geld ist NUR Mittel" in p  # Geld entwertet
     assert "SOFORT und ehrlich" in p and "ohne Beleg" in p  # Melde-Regeln
-    assert "project_note" in p  # Projekt-Daueranweisungen
+    assert "project_note" not in p  # W1: Projekt-Werkzeug ist ausgebaut
 
 
 def test_persona_hat_mitdenken_und_nachschau_blocks():
@@ -80,7 +81,7 @@ def test_self_tick_every_third(monkeypatch, tmp_path):
     calls = {"self": 0, "normal": 0}
     monkeypatch.setattr(runner, "_self_improve_tick",
                         lambda mission, esc: calls.__setitem__("self", calls["self"] + 1) or {"self_tick": True})
-    # kein aktives Ziel -> normaler Pfad endet idle; wir zaehlen nur, welcher Zweig lief
+    # nichts einplanen -> normaler Pfad endet idle; wir zaehlen nur, welcher Zweig lief
     monkeypatch.setattr(runner.planner, "generate_tasks", lambda *a, **k: [])
 
     kinds = []
@@ -117,36 +118,25 @@ def test_bump_counter_persists(monkeypatch, tmp_path):
     assert maintenance.bump_counter("y") == 1  # unabhaengiger Zaehler
 
 
-# --- Venture-Prompt entschaerft (kein Kasse/Meilenstein) ---------------------------
+# --- W1: der Heartbeat plant OHNE Business-Grind -------------------------------------
 
-def test_venture_prompt_has_no_money_framing(monkeypatch, tmp_path):
-    from core.agency import outcomes, ventures
-    from core.agency.missions import objectives, runner
+def test_run_once_plant_direkt_auf_die_mission(monkeypatch, tmp_path):
+    from core.agency.missions import maintenance, runner
     from core.config import CONFIG
-    from core.governance import treasury
 
-    db = _iso_runner(monkeypatch, tmp_path)
-    for mod in (ventures,):
-        monkeypatch.setattr(mod, "DB_PATH", db)
-    monkeypatch.setattr(treasury, "DB_PATH", db)
-    monkeypatch.setitem(CONFIG, "mission", {"name": "m", "goal": "G", "notify_telegram": False})
-    # S12: der Business-Grind haengt am Feature-Flag — hier wird die Maschinerie selbst getestet
-    monkeypatch.setitem(CONFIG["features"], "business", True)
+    _iso_runner(monkeypatch, tmp_path)
+    monkeypatch.setattr(maintenance, "_STATE_PATH", tmp_path / "maintenance.json")
+    monkeypatch.setitem(CONFIG, "mission", {"name": "m", "goal": "DIENST-MISSION",
+                                            "notify_telegram": False})
     monkeypatch.setattr(runner, "kill_switch_active", lambda: False)
     monkeypatch.setattr(runner, "_focus", lambda: "")
 
-    objectives.init_objectives()
-    ventures.init_ventures()
-    vid = ventures.add("Kaltakquise", hypothesis="KMU zahlen fuer Sichtbarkeit", milestone_eur=2000)
-    objectives.add("Erste 20 Leads", kind="weekly", venture_id=vid)
-
     captured = {}
     monkeypatch.setattr(runner.planner, "generate_tasks",
-                        lambda goal, ctx, **k: captured.setdefault("g", goal) or [])
-    runner.run_once()
-    g = captured.get("g", "")
-    assert "PROJEKT: Kaltakquise" in g
-    assert "Kasse" not in g and "Meilenstein" not in g and "ROI" not in g
+                        lambda goal, ctx, **k: captured.update({"g": goal}) or [])
+    out = runner.run_once()
+    assert out.get("idle") is True
+    assert captured["g"] == "DIENST-MISSION"        # kein Ziel-/Projekt-Kopf mehr davor
 
 
 # --- /api/evolution ----------------------------------------------------------------
@@ -155,102 +145,6 @@ def test_evolution_endpoint_shape():
     d = TestClient(s.app).get("/api/evolution").json()
     assert set(d) >= {"timeline", "skills", "lessons"}
     assert isinstance(d["timeline"], list)
-
-
-# --- Radar entschaerft --------------------------------------------------------------
-
-def test_radar_prompt_is_experimental():
-    import inspect
-
-    from core.agency import radar
-
-    src = inspect.getsource(radar)
-    assert "EXPERIMENTE" in src
-    assert "Verfassung bleibt bindend" in src
-    assert "Einkommens-Chancen" not in src  # alte reine Umsatz-Jagd raus
-
-
-# ==== S8.2: Projekt-Gedaechtnis & Projekt-Akte =====================================
-
-def _iso_ventures(monkeypatch, tmp_path):
-    from core.agency import outcomes, ventures
-    from core.agency.missions import objectives, queue
-    from core.kernel import events
-    import core.agency.ventures as vmod
-
-    db = str(tmp_path / "state.db")
-    for mod in (ventures, objectives, queue, outcomes, events):
-        monkeypatch.setattr(mod, "DB_PATH", db)
-    events.init_db()
-    queue.init_queue()
-    objectives.init_objectives()
-    ventures.init_ventures()
-    # Briefing-Dateien in die Sandbox lenken
-    monkeypatch.setattr(vmod, "_briefing_path",
-                        lambda vid: tmp_path / f"venture-{vid[:8]}-briefing.md")
-    return ventures, objectives, queue, outcomes
-
-
-def test_briefing_roundtrip_and_append(monkeypatch, tmp_path):
-    ventures, *_ = _iso_ventures(monkeypatch, tmp_path)
-    vid = ventures.add("Kaltakquise", hypothesis="KMU-Sichtbarkeit")
-    assert ventures.briefing(vid) == ""
-    ventures.set_briefing(vid, "Tonalitaet: locker, per Du.")
-    ventures.append_briefing(vid, "Immer Website-Link anhaengen.")
-    b = ventures.briefing(vid)
-    assert "Tonalitaet" in b and "Website-Link" in b
-
-
-def test_project_note_matching(monkeypatch, tmp_path):
-    ventures, *_ = _iso_ventures(monkeypatch, tmp_path)
-    from core.agency.tools import venture_tools as vt
-
-    ventures.add("Projekt Kaltakquise")
-    ventures.add("Projekt Playbooks")
-
-    out = vt.project_note("kaltakquise", "Immer Link anhaengen")
-    assert "Notiert im Projekt-Gedaechtnis" in out and "Kaltakquise" in out
-    out2 = vt.project_note("projekt", "egal")  # trifft beide -> Rueckfrage
-    assert "MEHRDEUTIG" in out2 and "Kaltakquise" in out2
-    out3 = vt.project_note("gibtsnicht", "egal")
-    assert "KEIN TREFFER" in out3
-    out4 = vt.project_note("kaltakquise", "   ")
-    assert "leer" in out4
-
-
-def test_costs_join_over_chain(monkeypatch, tmp_path):
-    ventures, objectives, queue, outcomes = _iso_ventures(monkeypatch, tmp_path)
-    vid = ventures.add("Testbein")
-    oid = objectives.add("Woche 1", kind="weekly", venture_id=vid)
-    t1 = queue.add("Task A", mission="m", objective_id=oid)
-    t2 = queue.add("Task B", mission="m", objective_id=oid)
-    tx = queue.add("fremder Task", mission="m")  # ohne Ziel -> zaehlt nicht
-    outcomes.record(t1, 1, [], [], 80, "pass", cost_usd=0.30)
-    outcomes.record(t2, 1, [], [], 70, "pass", cost_usd=0.20)
-    outcomes.record(tx, 1, [], [], 60, "pass", cost_usd=9.99)
-    assert ventures.costs(vid) == 0.50
-
-
-def test_briefing_injected_into_attempt_prompt(monkeypatch, tmp_path):
-    ventures, objectives, queue, _ = _iso_ventures(monkeypatch, tmp_path)
-    from core.agency.missions import runner
-
-    vid = ventures.add("Kaltakquise")
-    ventures.set_briefing(vid, "Immer den Website-Link anhaengen.")
-    oid = objectives.add("Erste Leads", kind="weekly", venture_id=vid)
-    tid = queue.add("Schreibe Entwurf", mission="m", objective_id=oid)
-    task = queue.get_task(tid)
-
-    prompt = runner._attempt_prompt(task, [], attempt=1)
-    assert "ANWEISUNGEN VON SERGEN ZU DIESEM PROJEKT" in prompt
-    assert "Website-Link" in prompt
-
-
-def test_akte_ui_markers():
-    html = TestClient(s.app).get("/").text
-    for marker in ('id="akte-tabs"', "ak-brief-save", "ak-note-add", "ak-file",
-                   "Kosten bislang", "api/ventures/briefing", "api/ventures/upload"):
-        assert marker in html, f"Akte-Marker fehlt: {marker}"
 
 
 # ==== S8.3: Autonomie-Schalter statt Vertrauensbarometer ===========================
@@ -286,7 +180,7 @@ def test_trust_removed_from_apis_and_ui():
         assert marker in html, f"Autonomie-Marker fehlt: {marker}"
 
 
-# ==== S8.4: IA-Verschiebung — Cron-Scopes, Zugaenge bei Kira, Morgen-Briefing =======
+# ==== S8.4: IA-Verschiebung — Cron-Scopes, Morgen-Briefing ==========================
 
 def test_cron_scope_filter_and_migration(monkeypatch, tmp_path):
     from core.agency.missions import cron
@@ -294,11 +188,9 @@ def test_cron_scope_filter_and_migration(monkeypatch, tmp_path):
     monkeypatch.setattr(cron, "JOBS", tmp_path / "cron.json")
     cron.add_job("Systemjob", "tu was", "60m")                      # Default: system
     cron.add_job("Briefing", "{{standup}}", "08:00", scope="me", enabled=False)
-    cron.add_job("Projekt-Check", "pruefe X", "2h", scope="projekt:abc123")
 
     assert [j["label"] for j in cron.list_jobs(scope="me")] == ["Briefing"]
     assert [j["label"] for j in cron.list_jobs(scope="system")] == ["Systemjob"]
-    assert [j["label"] for j in cron.list_jobs(scope="projekt:abc123")] == ["Projekt-Check"]
     # Alt-Job ohne scope-Feld gilt defensiv als system
     jobs = cron._load(); del jobs[0]["scope"]; cron._save(jobs)
     assert "Systemjob" in [j["label"] for j in cron.list_jobs(scope="system")]
@@ -307,36 +199,9 @@ def test_cron_scope_filter_and_migration(monkeypatch, tmp_path):
     assert briefing["enabled"] is False
 
 
-def test_cron_add_tool_resolves_project(monkeypatch, tmp_path):
-    from core.agency import ventures
-    from core.agency.missions import cron
-    from core.agency.tools import builtin as bt
-    from core.kernel import events
-
-    db = str(tmp_path / "state.db")
-    for mod in (ventures, events):
-        monkeypatch.setattr(mod, "DB_PATH", db)
-    events.init_db()
-    ventures.init_ventures()
-    monkeypatch.setattr(cron, "JOBS", tmp_path / "cron.json")
-
-    vid = ventures.add("Kaltakquise")
-    out = bt.cron_add("Status-Check", "pruefe Fortschritt", "2h", project="kaltakquise")
-    assert "Projekt-Akte" in out
-    assert cron.list_jobs(scope=f"projekt:{vid}")
-    out2 = bt.cron_add("X", "y", "2h", project="gibtsnicht")
-    assert "nicht eindeutig" in out2
-
-
 def test_ia_shift_ui_markers():
     html = TestClient(s.app).get("/").text
-    # Zugaenge leben jetzt unter Kira, nicht mehr unter Config
-    kira_block = html[html.find('id="v-kira"'):html.find('id="v-config"')]
-    assert 'id="v-keys"' in kira_block, "Zugaenge nicht im Kira-Tab"
-    config_block = html[html.find('id="v-config"'):]
-    assert 'data-s="keys"' not in config_block[:config_block.find("</div>\n")] or True
-    for marker in ('id="me-crons"', 'id="auto-panel"', "Morgen-Briefing",
-                   'data-at="rout"', "loadMeCrons"):
+    for marker in ('id="me-crons"', 'id="auto-panel"', "Morgen-Briefing", "loadMeCrons"):
         assert marker in html, f"S8.4-Marker fehlt: {marker}"
 
 

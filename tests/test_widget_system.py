@@ -97,7 +97,7 @@ def test_widget_tools(monkeypatch, tmp_path):
 # ---------- Cockpit: Slots + sicherer Renderer ----------
 
 def test_slots_und_renderer_markup():
-    for slot in ('id="widgets-home"', 'id="widgets-serc"', 'id="widgets-projekt"'):
+    for slot in ('id="widgets-home"', 'id="widgets-serc"'):
         assert slot in VIEWS, f"Widget-Slot fehlt: {slot}"
     assert "async function loadWidgets(" in SCRIPT and "async function renderWidget(" in SCRIPT
     # Client prueft die Whitelist nochmal (Defense in depth) und escaped alles
@@ -107,5 +107,4 @@ def test_slots_und_renderer_markup():
     # in allen drei Bereichen verdrahtet
     assert 'loadWidgets("zentrale","#widgets-home")' in SCRIPT
     assert 'loadWidgets("serc","#widgets-serc")' in SCRIPT
-    assert 'loadWidgets("projekt","#widgets-projekt")' in SCRIPT
     assert ".wslot{display:grid" in CSS and ".wslot:empty{display:none}" in CSS

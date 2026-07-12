@@ -8,7 +8,7 @@ Code. Das Cockpit rendert sie mit drei festen, sicheren Renderern:
   chart  — Balkenverlauf einer Kennzahl (Quelle: /api/metrics)
   list   — Liste aus einem WHITELISTETEN Endpunkt (z.B. digest.tasks_done)
 
-Slots: zentrale | projekt | serc. Alles wird beim Laden UND beim Speichern
+Slots: zentrale | serc. Alles wird beim Laden UND beim Speichern
 validiert; unbekannte Typen/Slots/Endpunkte fliegen raus. Kein eval, kein HTML
 aus der Config — Titel & Werte werden im Frontend esc()-gesichert.
 """
@@ -21,7 +21,7 @@ from core.config import DATA_DIR
 
 DIR = DATA_DIR / "widgets"
 TYPES = ("metric", "chart", "list")
-SLOTS = ("zentrale", "projekt", "serc")
+SLOTS = ("zentrale", "serc")
 # Nur lesende, unkritische Endpunkte — die einzige Tuer der list-Widgets.
 LIST_ENDPOINTS = ("/api/digest", "/api/tagewerk", "/api/status", "/api/evolution")
 

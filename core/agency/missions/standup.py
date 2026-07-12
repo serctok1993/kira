@@ -1,7 +1,7 @@
 """Standup-Kontext: der strukturierte Lagebericht fuer Briefings und Coach (S5).
 
 build_context() ist ein reiner Daten-Read (KEIN LLM-Call, ~2500 Zeichen Cap):
-Leben-Board, Ziele nach Domaene, Ventures-Kasse, offene Freigaben, Tagesstand,
+Leben-Board, Ziele, offene Freigaben, Tagesstand,
 Metriken, Fokus. Cron-Prompts nutzen den Platzhalter {{standup}} (cron.run_job
 expandiert ihn) — so lesen Morgen-Briefing, Abend-Review und Coach-Check echte
 Boards statt zu raten.
@@ -12,7 +12,7 @@ import datetime
 import json
 import time
 
-from core.config import ROOT, feature_on
+from core.config import ROOT
 from core.kernel import events
 
 _CAP = 3000  # S6.2: +500 fuer die ERKENNTNISSE-Sektion (Outcome-Rueckkopplung)
@@ -245,25 +245,6 @@ def build_context(scope: str = "morgen") -> str:
     if leben_ziele:
         parts.append("LEBEN — Missionen/Ziele:")
         parts.extend(_fmt_obj(o) for o in leben_ziele[:6])
-
-    # Business: Ziele-Kopf + Ventures — nur wenn das Feature an ist (S12), sonst
-    # briefed Kira ueber abgeschaltete Bausteine.
-    if feature_on("business"):
-        biz = objectives.list_active(domain="business")
-        if biz:
-            parts.append("BUSINESS — aktive Ziele:")
-            parts.extend(_fmt_obj(o) for o in biz[:4])
-        try:
-            from core.agency import ventures
-
-            vs = ventures.summary()
-            if vs:
-                parts.append("VENTURES:")
-                for v in vs[:5]:
-                    ms = f", Meilenstein {v['milestone_progress']}%" if v.get("milestone_progress") is not None else ""
-                    parts.append(f"- {v['name']} [{v['status']}]: Kasse {v['balance_eur']:.2f} EUR{ms}")
-        except Exception:  # noqa: BLE001
-            pass
 
     # Offen fuer Sergen + Tagesstand
     try:

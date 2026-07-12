@@ -3,7 +3,6 @@
 S7a — Cockpit 2.0, modulare Shell (Sergens Redesign-Auftrag):
   Zentrale (home)      fester Kommandostand: Hero, HUD, Befehl, Live-Ops, Digest, News
   Chat (chat)          Hauptdialog (Chat 2.0 folgt in S7c)
-  Projekte (projekte)  Subtabs: Standbeine (Ventures) / Ziele & Aufgaben / Radar
   Me (me)              beides getrennt: deine Auftraege an Kira / was Kira von dir braucht
                        + Zugangs-Anfragen, E-Mail-Bereich (Empty-State bis Postfach), Metriken
   Kira (kira)          Subtabs: Seele & Dateien / Gedaechtnis / Wissen / Anatomie / Statistik
@@ -19,7 +18,6 @@ VIEWS = r"""</head><body>
   <h1 id="brand"><span class="txt">KIRA</span></h1>
   <a data-v="home" class="on" title="Kommandostand: Status, Befehl, Live-Ops, Digest"><i class="ti">◈</i> Zentrale</a>
   <a data-v="chat" title="Mit mir reden"><i class="ti">›</i> Chat</a>
-  <a data-v="projekte" title="Projekte, Ziele, Radar-Chancen"><i class="ti">◈</i> Projekte</a>
   <a data-v="me" title="Dein Bereich: Todos, Freigaben, was Kira von dir braucht, deine Routinen"><i class="ti">☰</i> Serc <b id="side-frei" class="frei-badge" style="display:none"></b></a>
   <a data-v="kira" title="Wer ich bin: Seele, Gedaechtnis, Wissen, Gewissen, Automatik, Lernen"><i class="ti">✦</i> Kira</a>
   <a data-v="settings" title="Einstellungen: Modelle, Benchmark, Steuerpult, Zugaenge, Cockpit, Wallpaper"><i class="ti">⚙</i> Einstellungen</a>
@@ -145,11 +143,6 @@ VIEWS = r"""</head><body>
       </div>
       <div id="chat-main">
         <div id="chatbar" style="display:flex;gap:8px;align-items:center;padding:0 0 8px;flex-wrap:wrap">
-          <label class="muted" style="font-size:12px;display:inline-flex;align-items:center;gap:6px">Projekt
-            <select id="chat-project" title="Eigener Chat je Projekt — Kira bekommt das Projekt-Briefing als Kontext" style="background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:7px;font-size:12px;padding:4px 7px;max-width:180px">
-              <option value="">— keins (allgemein) —</option>
-            </select>
-          </label>
           <span style="flex:1"></span>
           <button type="button" class="ghost" id="sess-toggle" title="Drueberfahren = Gespraeche auf · Klick = angepinnt (bleibt offen)" style="padding:5px 12px;font-size:12px">Chats</button>
         </div>
@@ -191,67 +184,6 @@ VIEWS = r"""</head><body>
           <button id="sendbtn">Senden</button>
         </form>
       </div>
-    </div>
-  </div>
-
-  <!-- ================= PROJEKTE (S9.3: eine Uebersicht, kein Subtab-Umweg) ================= -->
-  <div class="view" id="v-projekte">
-    <div class="panel" id="proj-top">
-      <div class="panel-h">◈ PROJEKTE <span class="sp"></span><span class="muted" id="vent-sum" style="font-size:11px"></span>
-        <a id="obj-new-btn" class="muted" style="cursor:pointer;font-size:11px;margin-left:10px">+ Ziel</a></div>
-      <div id="vent-list" class="panel-b"><span class="muted">…</span></div>
-      <div class="panel-b" id="obj-form" style="display:none;border-top:1px solid var(--line)">
-        <div class="row" style="flex-wrap:wrap">
-          <input id="obj-title" placeholder="Ziel/Projekt-Titel" style="flex:1;min-width:180px"/>
-          <select id="obj-kind"><option value="big">Big Project</option><option value="monthly">Monatsziel</option><option value="weekly" selected>Wochenziel</option></select>
-          <input id="obj-date" type="date" title="Zieldatum"/>
-          <button id="obj-add">Anlegen</button>
-        </div>
-      </div>
-    </div>
-    <div class="panel" id="vent-detail" style="display:none;padding:12px 14px"></div>
-    <div class="proj-cols">
-      <div class="panel">
-        <div class="panel-h">◈ ZIELE / PROJEKTE</div>
-        <div id="obj-list" class="panel-b"><span class="muted">…</span></div>
-      </div>
-      <div class="panel">
-        <div class="panel-h">◈ BACKLOG <span class="sp"></span><a id="todo-new-btn" class="muted" style="cursor:pointer;font-size:11px">+ Aufgabe</a></div>
-        <div class="panel-b" id="todo-form" style="display:none">
-          <div class="row" style="flex-wrap:wrap">
-            <input id="todo-desc" placeholder="Was zu tun ist" style="flex:1;min-width:150px"/>
-            <select id="todo-prio"><option value="1">P1</option><option value="2">P2</option><option value="3" selected>P3</option><option value="4">P4</option></select>
-            <input id="todo-due" type="date" title="faellig"/>
-            <button id="todo-add">+</button>
-          </div>
-          <div class="muted" style="margin-top:5px;font-size:11px">Ziel zuordnen: <select id="todo-obj"><option value="">— keins —</option></select></div>
-        </div>
-        <div id="todo-board" class="panel-b"><span class="muted">…</span></div>
-      </div>
-      <div class="panel">
-        <div class="panel-h">◈ RADAR · IDEEN <span class="sp"></span>
-          <a id="rd-focus-edit" class="muted" style="cursor:pointer;font-size:11px" title="Wonach soll Kira suchen?">🔧 Fokus</a>
-          <a id="rd-scan" class="muted" style="cursor:pointer;font-size:11px;margin-left:8px">⚡ scannen</a>
-          <a id="rd-purge" class="muted" style="cursor:pointer;font-size:11px;margin-left:8px" title="verworfene Ideen aelter 30 Tage loeschen">🧹 aufraeumen</a></div>
-        <div id="rd-focus-box" class="panel-b" style="display:none;border-bottom:1px solid var(--line)">
-          <div class="muted" style="font-size:10px;letter-spacing:1px;margin-bottom:4px">WONACH KIRA SUCHT (Themen mit „;“ trennen)</div>
-          <textarea id="rd-focus" class="k" style="min-height:56px;font-size:12px" placeholder="z.B. KI-Tools fuer Handwerker; Social-Media-Automatisierung fuer lokale Laeden"></textarea>
-          <div class="row" style="margin-top:5px"><button class="ghost" id="rd-focus-save" style="font-size:12px">Fokus speichern</button>
-            <span class="muted" id="rd-focus-hint" style="font-size:11px;align-self:center"></span></div>
-          <div class="muted" style="font-size:10px;letter-spacing:1px;margin:10px 0 4px">TAKT — WIE OFT UND WIE VIELE IDEEN</div>
-          <div class="row" style="gap:8px;align-items:center;flex-wrap:wrap">
-            <span class="muted" style="font-size:12px">Bericht alle</span>
-            <input id="rd-takt-tage" type="number" min="1" max="30" style="width:56px;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)"/>
-            <span class="muted" style="font-size:12px">Tage mit</span>
-            <input id="rd-takt-ideen" type="number" min="1" max="6" style="width:56px;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink)"/>
-            <span class="muted" style="font-size:12px">Idee(n)</span>
-            <button class="ghost" id="rd-takt-save" style="font-size:12px">Takt speichern</button>
-            <span class="muted" id="rd-takt-hint" style="font-size:11px"></span>
-          </div>
-        </div>
-        <div id="rd-list" class="panel-b"><span class="muted" id="rd-hint">Ideen kommen im eingestellten Takt (🔧 Fokus). „→ Projekt“ macht aus einer Idee ein Projekt.</span></div>
-      </div>
-      <div id="widgets-projekt" class="wslot"></div>
     </div>
   </div>
 
@@ -922,7 +854,6 @@ VIEWS = r"""</head><body>
       <div class="row" style="margin-top:8px;flex-wrap:wrap" id="icon-row">
         <input data-ic="home" placeholder="Zentrale" style="max-width:110px"/>
         <input data-ic="chat" placeholder="Chat" style="max-width:110px"/>
-        <input data-ic="projekte" placeholder="Projekte" style="max-width:110px"/>
         <input data-ic="me" placeholder="Serc" style="max-width:110px"/>
         <input data-ic="kira" placeholder="Kira" style="max-width:110px"/>
         <button id="icons-save">Icons speichern</button>
