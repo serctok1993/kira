@@ -15,8 +15,18 @@ from core.mind.memory import store as memory
 
 
 def _read(name: str) -> str:
+    """Mind-Datei lesen. W2-Fallback: fehlt die Live-Datei (frischer Klon vor dem
+    Onboarding), wird das neutrale Template aus core/mind/templates/ IN-MEMORY
+    gerendert (nichts geschrieben) — der Klon bleibt sofort promptfaehig."""
     p = MIND_DIR / name
-    return p.read_text(encoding="utf-8").strip() if p.exists() else ""
+    if p.exists():
+        return p.read_text(encoding="utf-8").strip()
+    tpl = MIND_DIR / "templates" / name
+    if tpl.exists():
+        from core import identity
+
+        return identity.render(tpl.read_text(encoding="utf-8")).strip()
+    return ""
 
 
 _WOCHENTAGE = ("Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag")
@@ -38,15 +48,23 @@ def jetzt_zeile() -> str:
 # kann, ohne Code anzufassen. Der hier geladene Wert ist der Default/Fallback.
 PERSONA_DIRECTIVE = _read("PERSONA.md")
 
-# Phase 2 (Sergens Zielbild 11.07.: mitdenken, sammeln, erweitern — als CHARAKTER,
-# nicht nur Faehigkeit). Bewusst kurz: kleine lokale Modelle muessen das tragen.
-# Fliesst in Chat- UND Handlungs-Prompt (act._identity) ein.
-ANTRIEB_DIREKTIVE = """# DEIN ANTRIEB (mitdenken, sammeln, erweitern)
-Dein Vault (Obsidian) ist dein Wissensspeicher, den Sergen sieht — sammle nuetzliches Wissen VON DIR AUS dort (vault_note, vault_dossier), nicht erst auf Nachfrage.
+# Antrieb (mitdenken, sammeln, erweitern — als CHARAKTER, nicht nur Faehigkeit).
+# Bewusst kurz: kleine lokale Modelle muessen das tragen. Fliesst in Chat- UND
+# Handlungs-Prompt (act._identity) ein. W2: neutral formuliert, Namen kommen aus
+# identity (die Prompt-Schicht rendert {{USER_NAME}}/{{AGENT_NAME}}).
+_ANTRIEB_TEMPLATE = """# DEIN ANTRIEB (mitdenken, sammeln, erweitern)
+Dein Vault (Obsidian) ist dein Wissensspeicher, den {{USER_NAME}} sieht — sammle nuetzliches Wissen VON DIR AUS dort (vault_note, vault_dossier), nicht erst auf Nachfrage.
 Faellt im Gespraech ein Geburtstag, Datum oder Fakt ueber eine Person: sofort person_fakt bzw. termin_add — nichts davon verloren gehen lassen.
 Bei einem neuen Thema oder Projekt: biete an, ein Dossier oder eine Notiz anzulegen, und stelle EINE konkrete Anschlussfrage.
 Fehlt dir fuer eine Aufgabe eine Faehigkeit: schlag VON DIR AUS vor, sie dir anzudocken (MCP-Server, Werkzeug bauen, self_edit) — Freigaben und Gates gelten dabei immer.
-Dein Ziel: Sergen so viel Arbeit abnehmen wie moeglich — frag aktiv, was du uebernehmen kannst."""
+Dein Ziel: {{USER_NAME}} so viel Arbeit abnehmen wie moeglich — frag aktiv, was du uebernehmen kannst."""
+
+
+def antrieb_direktive() -> str:
+    """Antrieb mit gefuellten Namen — der Werkstatt-/Prompt-Haken (W2)."""
+    from core import identity
+
+    return identity.render(_ANTRIEB_TEMPLATE)
 
 
 def persona_text() -> str:
@@ -95,7 +113,10 @@ def build_system_prompt(user_message: str, session_id: str | None = None) -> str
     skills = memory.recall_skills(limit=6)
     skills_block = "\n".join(f"- {s}" for s in skills) if skills else "(noch keine Skills)"
 
-    return f"""{jetzt_zeile()}
+    from core import identity
+
+    # W2: Platzhalter im ganzen Prompt zentral fuellen (Templates bleiben neutral).
+    return identity.render(f"""{jetzt_zeile()}
 
 # DEINE VERFASSUNG (unveraenderlich, hoechste Prioritaet)
 {constitution}
@@ -123,15 +144,15 @@ def build_system_prompt(user_message: str, session_id: str | None = None) -> str
 # FRUEHERE ERINNERUNGEN (nur Hintergrund-Kontext, teils VERALTET — NICHT abschreiben!)
 # Bei Widerspruch zu "WAS DU WIRKLICH KANNST" gilt immer dein aktuelles Selbstwissen.
 # Abgeschlossene Fix-/Diagnose-/Debug-Threads sind ERLEDIGT — greife sie NICHT von dir aus wieder auf,
-# nur weil sie hier oder im Verlauf auftauchen. Reagiere auf Sergens AKTUELLE Nachricht.
+# nur weil sie hier oder im Verlauf auftauchen. Reagiere auf die AKTUELLE Nachricht von {identity.user_name()}.
 {mem_block}
 
-{ANTRIEB_DIREKTIVE}
+{antrieb_direktive()}
 
 ---
 {persona_text()}
 
-Antworte auf Deutsch. Nutze deine Erinnerungen, wenn sie relevant sind."""
+Antworte auf Deutsch. Nutze deine Erinnerungen, wenn sie relevant sind.""")
 
 
 class Agent:

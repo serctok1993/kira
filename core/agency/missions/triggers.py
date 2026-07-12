@@ -1,6 +1,6 @@
 """Proaktive Trigger: 'wenn Ereignis X passiert -> lege Aufgabe Y an' (S4).
 
-Bisher reagierte Kira nur auf die Uhr (Cron) und auf Sergen. Trigger machen sie
+Bisher reagierte der Agent nur auf die Uhr (Cron) und auf den Nutzer. Trigger machen ihn
 ereignis-getrieben: Task endgueltig
 gescheitert -> Alternative planen; Server tot -> diagnostizieren.
 

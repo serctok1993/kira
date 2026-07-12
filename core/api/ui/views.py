@@ -15,11 +15,11 @@ sitzt als Icon+Popover in der Topbar (nicht mehr in der Nav). Panel-IDs sind sta
 
 VIEWS = r"""</head><body>
 <div id="side">
-  <h1 id="brand"><span class="txt">KIRA</span></h1>
+  <h1 id="brand"><span class="txt">__AGENT_UC__</span></h1>
   <a data-v="home" class="on" title="Kommandostand: Status, Befehl, Live-Ops, Digest"><i class="ti">◈</i> Zentrale</a>
   <a data-v="chat" title="Mit mir reden"><i class="ti">›</i> Chat</a>
-  <a data-v="me" title="Dein Bereich: Todos, Freigaben, was Kira von dir braucht, deine Routinen"><i class="ti">☰</i> Serc <b id="side-frei" class="frei-badge" style="display:none"></b></a>
-  <a data-v="kira" title="Wer ich bin: Seele, Gedaechtnis, Wissen, Gewissen, Automatik, Lernen"><i class="ti">✦</i> Kira</a>
+  <a data-v="me" title="Dein Bereich: Todos, Freigaben, was __AGENT__ von dir braucht, deine Routinen"><i class="ti">☰</i> __USER__ <b id="side-frei" class="frei-badge" style="display:none"></b></a>
+  <a data-v="kira" title="Wer ich bin: Seele, Gedaechtnis, Wissen, Gewissen, Automatik, Lernen"><i class="ti">✦</i> __AGENT__</a>
   <a data-v="settings" title="Einstellungen: Modelle, Benchmark, Steuerpult, Zugaenge, Cockpit, Wallpaper"><i class="ti">⚙</i> Einstellungen</a>
   <div class="spacer"></div>
   <div class="kill" id="kill">Not-Aus: aus</div>
@@ -90,7 +90,7 @@ VIEWS = r"""</head><body>
          hier per widget_add Kacheln ein — Follower, Kennzahlen, Listen) -->
     <div class="dir-row">
     <div class="direktive">
-      <h3>Befehl an Kira</h3>
+      <h3>Befehl an __AGENT__</h3>
       <textarea id="dir-text" class="k" placeholder="Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…"></textarea>
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
         <button type="button" class="ghost" id="dir-mic" title="Auftrag diktieren (Voice)">🎤</button>
@@ -119,7 +119,7 @@ VIEWS = r"""</head><body>
       <div class="cmd-side">
         <!-- Werkbank PR 6: EIN Erst-Blick-Panel — was Kira heute tat, was ansteht, was sie lernte -->
         <div class="panel">
-          <div class="panel-h">◈ Kira heute <span class="sp"></span><a id="go-tagewerk" class="muted" style="cursor:pointer;font-size:10px">→ Detail</a></div>
+          <div class="panel-h">◈ __AGENT__ heute <span class="sp"></span><a id="go-tagewerk" class="muted" style="cursor:pointer;font-size:10px">→ Detail</a></div>
           <div id="tagewerk" class="panel-b"><span class="muted">…</span></div>
           <div id="digest" class="panel-b" style="border-top:1px solid var(--line)"><span class="muted">…</span></div>
           <div id="z-lektionen" class="panel-b" style="display:none;border-top:1px solid var(--line)"></div>
@@ -209,7 +209,7 @@ VIEWS = r"""</head><body>
       <div class="me-grid2" style="margin-top:12px">
         <div class="panel"><div class="panel-h">◈ ROUTINEN HEUTE</div>
           <div id="tag-routinen" class="panel-b me-scroll" style="max-height:26vh"><span class="muted">…</span></div></div>
-        <div class="panel"><div class="panel-h">◈ KIRA HEUTE <span class="sp"></span><a id="tag-go-puls" class="muted" style="cursor:pointer;font-size:10px">→ Kira · Puls</a></div>
+        <div class="panel"><div class="panel-h">◈ __AGENT_UC__ HEUTE <span class="sp"></span><a id="tag-go-puls" class="muted" style="cursor:pointer;font-size:10px">→ __AGENT__ · Puls</a></div>
           <div id="tag-digest" class="panel-b"><span class="muted">…</span></div></div>
       </div>
       <!-- Phase 2: Kalender (im Chat eintragen — termin_add; ✕ hier loescht) -->
@@ -253,7 +253,7 @@ VIEWS = r"""</head><body>
         <div id="me-crons" class="panel-b me-scroll" style="max-height:38vh"><span class="muted">…</span></div>
         <div class="panel-b" id="auto-panel" style="border-top:1px solid var(--line)">
           <div class="muted" style="font-size:11px;letter-spacing:1px;margin-bottom:6px">+ AUTOMATISIEREN</div>
-          <input id="au-what" placeholder="Was soll Kira regelmaessig tun? (z.B. Follower zaehlen und ins Ziele-Dashboard eintragen)" style="width:100%"/>
+          <input id="au-what" placeholder="Was soll __AGENT__ regelmaessig tun? (z.B. Follower zaehlen und ins Ziele-Dashboard eintragen)" style="width:100%"/>
           <div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center">
             <input id="au-time" type="time" value="08:00" title="taeglich um dieser Uhrzeit" style="width:110px"/>
             <span class="muted" style="font-size:11px">taeglich — oder alle</span>
@@ -300,14 +300,14 @@ VIEWS = r"""</head><body>
          Die Sub-Leiste erscheint NUR, wenn die Gruppe mehr als einen Unterpunkt hat.
          Views/Loader unveraendert — nur Navigation und Benennung sind neu. -->
     <div class="seg" id="kira-groups" style="margin-bottom:12px">
-      <a data-g="puls" class="on" title="Was Kira heute tut und lernt — der erste Blick">⚡ Puls</a><a data-g="kopf" title="Was in ihr steckt: Charakter, Gedaechtnis, Wissen, Playbooks">🧠 Kopf</a><a data-g="automatik" title="Was von allein laeuft: Routinen, Monitor, Freigabe-Regeln">⏰ Automatik</a><a data-g="maschine" title="Technik-Details fuer selten: Diagnose, Anatomie, Statistik, Protokoll">🔧 Maschinenraum</a>
+      <a data-g="puls" class="on" title="Was __AGENT__ heute tut und lernt — der erste Blick">⚡ Puls</a><a data-g="kopf" title="Was in ihr steckt: Charakter, Gedaechtnis, Wissen, Playbooks">🧠 Kopf</a><a data-g="automatik" title="Was von allein laeuft: Routinen, Monitor, Freigabe-Regeln">⏰ Automatik</a><a data-g="maschine" title="Technik-Details fuer selten: Diagnose, Anatomie, Statistik, Protokoll">🔧 Maschinenraum</a>
     </div>
     <div class="seg" id="kira-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
       <a data-s="puls" class="on">⚡ Puls</a><a data-s="files">Charakter</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="playbooks">Playbooks</a><a data-s="cron">Routinen</a><a data-s="monitor">Monitor</a><a data-s="gov">Autonomie</a><a data-s="checkliste">Checkliste</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a><a data-s="evolution">Evolution</a><a data-s="log">Protokoll</a>
     </div>
 
     <div class="subview on" id="v-puls">
-      <div class="card"><h3>⚡ Puls — was Kira heute tut und lernt</h3>
+      <div class="card"><h3>⚡ Puls — was __AGENT__ heute tut und lernt</h3>
         <div class="muted">Erster Blick auf SIE: heute getan, zuletzt gelernt, Skills.
         Tiefer: 🧠 Kopf (Gedaechtnis, Wissen) · 🔧 Maschinenraum (Checkliste, Statistik).</div>
         <div id="puls-body" style="margin-top:10px"><span class="muted">…</span></div>
@@ -343,7 +343,7 @@ VIEWS = r"""</head><body>
           <span class="muted" id="remote-hint" style="font-size:12px"></span>
         </div>
       </div>
-      <div class="card"><h3>Von Kira angefordert</h3><div id="k-pending" class="muted">…</div></div>
+      <div class="card"><h3>Von __AGENT__ angefordert</h3><div id="k-pending" class="muted">…</div></div>
       <div class="card"><h3>Zugang eintragen / aktualisieren</h3>
         <div class="muted">Werte sind write-only — werden nie angezeigt oder protokolliert. NIEMALS im Chat eingeben.</div>
         <div class="row"><input id="k-name" placeholder="Name, z.B. OPENROUTER_API_KEY"/>
@@ -367,14 +367,14 @@ VIEWS = r"""</head><body>
     <div class="subview" id="v-mem">
       <div class="card"><h3>Erinnerung hinzufuegen</h3>
         <div class="muted">Gib mir gezielt Wissen mit (semantisch = dauerhaftes Faktenwissen).</div>
-        <textarea id="mem-new" class="k" style="margin-top:8px" placeholder="z.B. Sergen bevorzugt kurze, direkte Antworten."></textarea>
+        <textarea id="mem-new" class="k" style="margin-top:8px" placeholder="z.B. __USER__ bevorzugt kurze, direkte Antworten."></textarea>
         <div class="row" style="margin-top:8px"><button id="mem-add">+ Merken</button><span class="muted" id="mem-hint" style="align-self:center"></span></div>
       </div>
       <div class="muted" style="margin:6px 0 8px;max-width:980px">Was Kira sich merkt — 🧠 = sie selbst, 👤 = du. ✎ bearbeiten, ✕ loeschen. (Verfassung/Seele/Ziel sind Dateien und bleiben unberuehrt.)</div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:4px 0 12px;max-width:980px">
         <!-- Gedaechtnis-Diaet (Sergens Fund): Standard = nur bewusst Gemerktes; der rohe
              Chat-Verlauf liegt hinter 'chat' und flutet die Liste nicht mehr -->
-        <span class="seg" id="mem-filter"><a data-mf="wichtig" class="on">★ wichtig</a><a data-mf="fact">Fakten</a><a data-mf="lesson">Lektionen</a><a data-mf="skill">Skills</a><a data-mf="episodic">chat</a><a data-mf="partner">🧠 Kira</a><a data-mf="user">👤 Du</a><a data-mf="all">alles</a></span>
+        <span class="seg" id="mem-filter"><a data-mf="wichtig" class="on">★ wichtig</a><a data-mf="fact">Fakten</a><a data-mf="lesson">Lektionen</a><a data-mf="skill">Skills</a><a data-mf="episodic">chat</a><a data-mf="partner">🧠 __AGENT__</a><a data-mf="user">👤 Du</a><a data-mf="all">alles</a></span>
         <input id="mem-search" placeholder="🔍 suchen…" style="flex:1;min-width:150px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);outline:none"/>
       </div>
       <div id="mem-selbar" style="display:none;gap:10px;align-items:center;margin:0 0 10px;max-width:980px;

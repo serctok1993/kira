@@ -21,6 +21,8 @@ const PHRASES=[/*__PHRASES__*/];
    ist ok — das Werkzeug-Gating sitzt serverseitig in der Registry). Checks daher immer
    explizit gegen ===false, nie truthy. */
 const FEATURES={/*__FEATURES__*/};
+/* W2: Identitaet (beim Ausliefern injiziert) — Fallback = Werksnamen. */
+const IDENTITY={agent:"Kira",user:"Partner",/*__IDENTITY__*/};
 let _lastPhrase="";
 function rndPhrase(){if(PHRASES.length<2)return PHRASES[0]||"ich denke kurz nach";
  let p=PHRASES[Math.floor(Math.random()*PHRASES.length)],g=0;
@@ -1018,7 +1020,9 @@ function stopLive(){if(liveTimer){clearInterval(liveTimer);liveTimer=null;}}
 let ttsOn=localStorage.getItem("kira_tts")==="1";      /* 🔊 Antworten vorlesen */
 let handsFree=false;                                    /* 🎙️ Assistenz: Kira hoert freihaendig zu */
 let curAudio=null;
-const WAKE=/\bk[iy]e?ra\b/i;                             /* Weckwort "Kira" (mit Whisper-Varianten) */
+/* W2: Weckwort = Agenten-Name; fuer den Werksnamen bleiben die Whisper-Varianten (kiera/kyra). */
+const WAKE=(IDENTITY.agent||"Kira").toLowerCase()==="kira"?/\bk[iy]e?ra\b/i
+ :new RegExp("\\b"+(IDENTITY.agent||"").replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","i");
 $("#tts-on")&&($("#tts-on").checked=ttsOn,$("#chip-tts")&&$("#chip-tts").classList.toggle("on",ttsOn),
  $("#tts-on").onchange=()=>{ttsOn=$("#tts-on").checked;localStorage.setItem("kira_tts",ttsOn?"1":"0");
   $("#chip-tts")&&$("#chip-tts").classList.toggle("on",ttsOn);});

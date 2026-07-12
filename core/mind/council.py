@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import sys
 
+from core import identity as _id
 from core.kernel import events, llm_router
 from core.mind.agent import _read
 
@@ -36,7 +37,7 @@ def deliberate(
     positions: list[tuple[str, str]] = []
     for name, persona in personas:
         sys_prompt = (
-            f"{base}\nDu bist '{name}' in einem Beraterrat fuer Sergen und seinen Agenten. "
+            f"{base}\nDu bist '{name}' in einem Beraterrat fuer {_id.user_name()} und seinen Agenten. "
             f"{persona}\nAntworte in hoechstens 6 Saetzen, klar und begruendet."
         )
         res = llm_router.complete(

@@ -30,6 +30,12 @@ def _council_kinds() -> set[str]:
         return {"money"}
 
 
+def _ident_name() -> str:
+    from core import identity
+
+    return identity.user_name()
+
+
 def guarded(kind: str, title: str, detail: str, execute: Callable[[], Any],
             target: str = "", reversible: bool = False, action: str = "") -> str:
     from core.agency import approvals
@@ -51,7 +57,7 @@ def guarded(kind: str, title: str, detail: str, execute: Callable[[], Any],
             detail_full = (detail or "")[:4000]
             if kind in _council_kinds():
                 # Council-als-Gate (S4): Kira debattiert den Zug ERST mit sich selbst
-                # (Visionaer/Skeptiker/Macher + Judge) und legt Sergen das Urteil als
+                # (Visionaer/Skeptiker/Macher + Judge) und legt dem Nutzer das Urteil als
                 # Entscheidungsgrundlage in die Inbox. Debatten-Ausfall blockiert nie
                 # die Anfrage selbst.
                 try:
@@ -66,7 +72,7 @@ def guarded(kind: str, title: str, detail: str, execute: Callable[[], Any],
                 except Exception as e:  # noqa: BLE001
                     detail_full = (detail_full + f"\n\n(Rats-Debatte fehlgeschlagen: {e})")[:4000]
             aid = approvals.create(title=title, kind=kind, detail=detail_full, source="kira")
-            return (f"⏸️ Wartet auf Sergens Freigabe (id {aid[:8]}, Art '{kind}'): {title}. "
+            return (f"⏸️ Wartet auf {_ident_name()}s Freigabe (id {aid[:8]}, Art '{kind}'): {title}. "
                     f"NICHT ausgefuehrt — der Inbox-Eintrag ist die Anfrage.")
     except Exception as e:  # noqa: BLE001 — Gate kaputt: fail-closed, nie blind ausfuehren
         return f"Gate-Fehler bei '{title}' — Aktion sicherheitshalber NICHT ausgefuehrt: {e}"

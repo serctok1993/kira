@@ -195,7 +195,7 @@ def pop_next(mission: str | None = None) -> dict | None:
 
 def done_today(objective_id: str) -> int:
     """Wie viele Tasks dieses Ziels HEUTE schon erledigt wurden — Werktakt-Bremse
-    (Sergens Regel: nicht 4-6 Fallstudien am Tag, sondern dosierte Schritte)."""
+    (Regel: nicht 4-6 Fallstudien am Tag, sondern dosierte Schritte)."""
     import datetime as _dt
 
     since = _dt.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()

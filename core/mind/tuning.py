@@ -1,10 +1,10 @@
 """Tuning-Werkbank: Kiras eigenes LLM-Trainingsmaterial (Phase 1 der Unschlagbar-Kombi).
 
-Sergens Plan: das Lokalmodell (Qwen) auf Kiras STRUKTUR finetunen — Werkzeug-Protokoll,
+Plan: das Lokalmodell (Qwen) auf die STRUKTUR des Harness finetunen — Werkzeug-Protokoll,
 Arbeitsdisziplin, Ton — und spaeter mit Wochen echter Nutzung nachschaerfen. Dieses Modul
 liefert beide Zutaten und mischt sie zu einem trainingsfertigen Datensatz.
 
-WICHTIG (Sergens Bedingung): Kira selbst trainiert NICHTS und haengt an KEINEM Modell.
+WICHTIG (Bedingung des Betreibers): der Agent selbst trainiert NICHTS und haengt an KEINEM Modell.
 Dieses Modul ist rein passiv — es sammelt und exportiert nur Textdateien. Der Modell-
 Router, der Cloud-Pfad und die Chat-Logik bleiben unberuehrt; das eigentliche GPU-
 Training laeuft AUSSERHALB von Kira (Runbook: docs/TUNING.md), und das Ergebnis ist
@@ -27,6 +27,7 @@ import json
 import time
 from pathlib import Path
 
+from core import identity as _id
 from core.config import DATA_DIR, test_mode
 
 _DIR = Path(DATA_DIR) / "tuning"
@@ -35,17 +36,25 @@ _EPISODES = _DIR / "episodes.jsonl"
 # Sessions, die NIE ins Trainingsmaterial fliessen (wie beim Cross-Session-Recall).
 _EPHEMERAL = ("test-", "bench-", "desktop-")
 
-# Kompakter Trainings-System-Prompt: die Essenz von Kiras Kopf. Der echte Prompt ist lang
+# Kompakter Trainings-System-Prompt: die Essenz des Agenten-Kopfs. Der echte Prompt ist lang
 # und aendert sich staendig — die Essenz ist stabil und genau das, was das Modell lernen soll.
-_SYSTEM_STUB = (
-    "Du bist Kira — Sergens KI-Partnerin: weiblich, direkt, per du, warm im Ton, aber ohne "
-    "Sternchen-Theater und Floskeln. Du arbeitest autonom in deinem Cockpit mit Werkzeugen. "
-    "Zwei Modi in einer Person: bei Auftraegen handelst du sofort und diszipliniert (kein "
-    "Ankuendigen, kein Rueckfragen, wenn der Auftrag klar ist), beim Reden bist du ein guter, "
-    "kreativer Gespraechspartner zum Brainstormen. Brauchst du ein Werkzeug, antwortest du mit "
-    "GENAU einer Zeile: ACT <werkzeug> {\"arg\": \"wert\"} — sonst nichts. Danach kommt das "
-    "Ergebnis, und du machst weiter oder gibst die finale Antwort."
-)
+# W2: system_stub(agent, user) ist DER Haken fuer Identitaets-Variation im kommerziellen
+# Training (Datensatz mit vielen Namen -> das Modell lernt die ROLLE, nicht den Namen).
+# Ohne Argumente kommen die Namen aus der Live-Identitaet -> byte-identisch zum alten Stub.
+def system_stub(agent: str | None = None, user: str | None = None) -> str:
+    from core import identity
+
+    a = (agent or identity.agent_name()).strip()
+    u = identity.genitiv(user or identity.user_name())
+    return (
+        f"Du bist {a} — {u} KI-Partnerin: weiblich, direkt, per du, warm im Ton, aber ohne "
+        "Sternchen-Theater und Floskeln. Du arbeitest autonom in deinem Cockpit mit Werkzeugen. "
+        "Zwei Modi in einer Person: bei Auftraegen handelst du sofort und diszipliniert (kein "
+        "Ankuendigen, kein Rueckfragen, wenn der Auftrag klar ist), beim Reden bist du ein guter, "
+        "kreativer Gespraechspartner zum Brainstormen. Brauchst du ein Werkzeug, antwortest du mit "
+        "GENAU einer Zeile: ACT <werkzeug> {\"arg\": \"wert\"} — sonst nichts. Danach kommt das "
+        "Ergebnis, und du machst weiter oder gibst die finale Antwort."
+    )
 
 
 def _is_ephemeral(session_id: str | None) -> bool:
@@ -108,7 +117,7 @@ def _example_arg(desc: str) -> str:
     if any(w in d for w in ("titel", "title", "bezeichnung")):
         return "Kurznotiz"
     if any(w in d for w in ("text", "inhalt", "nachricht", "fakt", "information")):
-        return "Sergen bevorzugt knappe, direkte Antworten."
+        return f"{_id.user_name()} bevorzugt knappe, direkte Antworten."
     if "x-pixel" in d:
         return "640"
     if "y-pixel" in d:
@@ -130,7 +139,7 @@ def _tool_examples() -> list[dict]:
             arg_obj = {}
         act = f"ACT {t.name} {json.dumps(arg_obj, ensure_ascii=False)}"
         user = f"Bitte nutze das Werkzeug '{t.name}' ({t.description.split('.')[0][:80]})."
-        out.append({"system": _SYSTEM_STUB, "user": user, "assistant": act, "source": "synth_tool"})
+        out.append({"system": system_stub(), "user": user, "assistant": act, "source": "synth_tool"})
     return out
 
 
@@ -141,7 +150,7 @@ _DISCIPLINE = [
     ("Leg bitte eine Notiz an: Termin beim Steuerberater am 14.",
      'ACT knowledge_note {"title": "Termin Steuerberater", "text": "Steuerberater am 14."}'),
     ("Merk dir, dass ich morgens am produktivsten bin.",
-     'ACT remember_fact {"fact": "Sergen ist morgens am produktivsten."}'),
+     'ACT remember_fact {"fact": "{{USER_NAME}} ist morgens am produktivsten."}'),
 ]
 
 # Ton & Kreativitaet: strikte Arbeit UND guter Talk in EINER Person.
@@ -195,7 +204,7 @@ _SEED_PLAN = [
      ("assistant", 'ACT request_approval {"title": "Absage-Mail", "detail": "Hallo, danke für die '
       'Anfrage — leider passt es aktuell zeitlich nicht. Melde mich, wenn sich das ändert. Beste '
       'Grüße", "kind": "email"}'),
-     ("tool", "Zur Freigabe in Sergens Inbox gelegt."),
+     ("tool", "Zur Freigabe in die Inbox gelegt."),
      ("assistant", "Entwurf liegt in deiner Freigabe-Inbox — sag GO, dann geht sie raus.")],
 ]
 
@@ -221,7 +230,7 @@ _SEED_STIL = [
       "Wichtiges fehlt; du liest lieber das Ergebnis als Füllwörter. Womit soll ich anfangen?")],
 ]
 
-# WER Sergen ist (stabile Identitaet & Werte, gehoert in die Gewichte — anders als
+# WER der Nutzer ist (stabile Identitaet & Werte, gehoert in die Gewichte — anders als
 # veraenderliche Fakten): Systemdenker, will echte positive Wirkung, ein Unternehmen mit
 # Kunden und finanzielle Unabhaengigkeit. So weiss Kira, fuer WEN und WOFUER sie arbeitet.
 _SEED_MISSION = [
@@ -250,7 +259,7 @@ _SEED_GROUPS = [
 
 
 def _style_from_user_md() -> list[dict]:
-    """STIL-Layer aus core/mind/USER.md — lehrt WIE Sergen angesprochen wird (stabil), nicht
+    """STIL-Layer aus core/mind/USER.md — lehrt WIE der Nutzer angesprochen wird (stabil), nicht
     WAS gerade gilt (Fakten bleiben im Gedaechtnis). Fehlt die Datei, leer -> kein Fehler."""
     try:
         from pathlib import Path
@@ -262,7 +271,7 @@ def _style_from_user_md() -> list[dict]:
         if len(text) < 40:
             return []
         # EIN Beispiel: "Wie soll ich mit dir umgehen?" -> die stabile Kurz-Essenz.
-        return [{"system": _SYSTEM_STUB,
+        return [{"system": system_stub(),
                  "messages": [("user", "Worauf soll ich bei dir achten, wie gehe ich mit dir um?"),
                               ("assistant", "Knapp, direkt und ehrlich, per du, ohne Floskeln oder "
                                "Schönfärberei — lieber das Ergebnis zuerst, Details danach. Bei "
@@ -284,14 +293,14 @@ def synth_examples() -> list[dict]:
         ex.append({"system": e["system"], "source": e["source"],
                    "messages": [("user", e["user"]), ("assistant", e["assistant"])]})
     for u, a in _DISCIPLINE:
-        ex.append({"system": _SYSTEM_STUB, "source": "synth_discipline",
+        ex.append({"system": system_stub(), "source": "synth_discipline",
                    "messages": [("user", u), ("assistant", a)]})
     for u, a in _PERSONA:
-        ex.append({"system": _SYSTEM_STUB, "source": "synth_persona",
+        ex.append({"system": system_stub(), "source": "synth_persona",
                    "messages": [("user", u), ("assistant", a)]})
     for src, group in _SEED_GROUPS:
         for turns in group:
-            ex.append({"system": _SYSTEM_STUB, "source": src, "messages": list(turns)})
+            ex.append({"system": system_stub(), "source": src, "messages": list(turns)})
     ex.extend(_style_from_user_md())
     return ex
 
@@ -344,6 +353,6 @@ def export(path: str | None = None, include_episodes: bool = True) -> dict:
                 u, a = e.get("user"), e.get("assistant")
                 if u and a:
                     f.write(json.dumps(_chatml_from_turns(
-                        _SYSTEM_STUB, [("user", u), ("assistant", a)]), ensure_ascii=False) + "\n")
+                        system_stub(), [("user", u), ("assistant", a)]), ensure_ascii=False) + "\n")
                     n += 1
     return {"ok": True, "path": str(out_path), "count": n}

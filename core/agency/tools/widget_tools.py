@@ -1,12 +1,13 @@
 """Widget-Werkzeuge (Werkbank PR 8): Kira blendet Cockpit-Kacheln ein — per CONFIG.
 
-Sergens Wunsch aus dem Redesign: "modular — Kira kann Add-ons einblenden,
+Wunsch aus dem Redesign: "modular — Kira kann Add-ons einblenden,
 z.B. Follower-Statistik". Diese Werkzeuge schreiben NUR validierte JSON-Configs
 nach data/widgets/ — gerendert wird mit drei festen, sicheren Bausteinen
 (metric/chart/list). Kira liefert nie Code, nur Config.
 """
 from __future__ import annotations
 
+from core import identity as _id
 from core.agency.tools.registry import tool
 
 
@@ -40,7 +41,7 @@ def widget_add(id: str, titel: str, typ: str, slot: str,
         return f"Widget abgelehnt: {res.get('error')}"
     events.emit("widget_saved", {"id": res["id"], "slot": cfg["slot"], "via": "tool"})
     return (f"Widget '{res['id']}' eingeblendet ({cfg['type']}, Slot {cfg['slot']}). "
-            "Sergen sieht es beim naechsten Laden des Cockpits.")
+            f"{_id.user_name()} sieht es beim naechsten Laden des Cockpits.")
 
 
 @tool("widget_weg",

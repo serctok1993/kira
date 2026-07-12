@@ -3,7 +3,7 @@
 Speicher: data/secrets.json (gitignored). Beim Start werden die Werte in die
 Umgebung (os.environ) geladen — so sieht der LLM-Router/Connector sie als Env-Var.
 NIE im Chat eingeben (landet sonst im Gedaechtnis/Log) — Eingabe ist write-only
-ueber das Dashboard. Kira kann fehlende Zugaenge ANFORDERN; Sergen fuellt sie aus.
+ueber das Dashboard. Der Agent kann fehlende Zugaenge ANFORDERN; der Nutzer fuellt sie aus.
 """
 from __future__ import annotations
 

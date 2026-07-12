@@ -1,8 +1,8 @@
-"""Wissens-Archiv: Sergens 'fertiger Schreibtisch' (S5).
+"""Wissens-Archiv: der 'fertige Schreibtisch' des Nutzers (S5).
 
 Dokumente/Notizen werden hier abgelegt (Original in data/knowledge/) und in
 Chunks mit lokalen Embeddings + Volltext-Index durchsuchbar gemacht — damit
-JEDE kuenftige KI in diesem Harness sofort auf Sergens Wissen zugreifen kann.
+JEDE kuenftige KI in diesem Harness sofort auf das Wissen des Nutzers zugreifen kann.
 
 Bewusst getrennt vom Gedaechtnis (memory = Erlebtes/Fakten, klein) und von den
 Secrets (write-only Credentials): das Archiv ist INHALT, beliebig gross,
@@ -172,7 +172,7 @@ def _extract(data: bytes, filename: str) -> tuple[str | None, str]:
 
             from pypdf import PdfReader
         except ImportError:
-            return None, "pypdf fehlt — Sergen: einmal 'uv add pypdf' (steht auf der Neustart-Checkliste)."
+            return None, "pypdf fehlt — bitte einmal 'uv add pypdf' ausfuehren (steht auf der Neustart-Checkliste)."
         try:
             reader = PdfReader(io.BytesIO(data))
             text = "\n\n".join((page.extract_text() or "") for page in reader.pages)
