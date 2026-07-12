@@ -746,7 +746,7 @@ _CONFIG_WHITELIST = {
     # Computer-Use (Macht-Schritt 1): Rechner-Steuerung ein/aus — Standard AUS, bewusste Freigabe
     "agency.computer_use.enabled",
     # Feature-Flags (S12 Rezentrierung): Bausteine togglen — Werkzeuge/Loop live, UI beim Reload
-    "features.business", "features.radar", "features.desktop_low_level", "features.linkedin",
+    "features.desktop_low_level", "features.linkedin",
 }
 _MODEL_LIVE = {"models.temperature": "temperature", "models.max_tokens": "max_tokens",
                "models.num_ctx": "num_ctx", "models.keep_alive": "keep_alive"}  # live, kein Neustart
@@ -819,12 +819,8 @@ async def api_direktive_now(body: dict) -> dict:
     prompt = (body.get("prompt") or "").strip()
     if not prompt:
         return {"ok": False, "error": "leer"}
-    # Werkbank PR 2: 'An Kira zu diesem Projekt' — venture_id schaltet die Projekt-Session
-    # ein (session venture-<id> injiziert Briefing/Kontext, siehe agent._project_block).
-    vid = str(body.get("venture_id") or "").strip()
-    sid = f"venture-{vid}" if vid else "direktive"
-    events.emit("direktive_now", {"prompt": prompt[:200], "via": "dashboard",
-                                  **({"venture_id": vid} if vid else {})})
+    sid = "direktive"
+    events.emit("direktive_now", {"prompt": prompt[:200], "via": "dashboard"})
     from core.kernel import runstate
     runstate.enter_turn(sid)  # aktiver Cockpit-Zug -> Neustart wartet bis danach
     try:
@@ -956,7 +952,7 @@ async def api_objectives_update(body: dict) -> dict:
 
     oid = body.get("id", "")
     fields = {k: body[k] for k in ("title", "kind", "status", "progress", "target_date",
-                                   "notes", "parent_id", "domain", "venture_id") if k in body}
+                                   "notes", "parent_id", "domain") if k in body}
     if "progress" in fields and fields["progress"] is not None:
         try:
             fields["progress"] = max(0, min(100, int(fields["progress"])))
@@ -1072,154 +1068,6 @@ async def api_metrics_log(body: dict) -> dict:
     return {"ok": True}
 
 
-# ---------- Ventures: Standbeine mit eigenem Konto-Buch (S3) ----------
-@app.get("/api/ventures")
-def api_ventures() -> dict:
-    from core.agency import ventures
-
-    return {"ventures": ventures.summary()}
-
-
-@app.post("/api/ventures")
-async def api_ventures_add(body: dict) -> dict:
-    from core.agency import ventures
-
-    name = (body.get("name") or "").strip()
-    if not name:
-        return {"ok": False, "error": "leer"}
-    ms = body.get("milestone_eur")
-    try:
-        ms = float(ms) if ms not in (None, "") else None
-    except (TypeError, ValueError):
-        ms = None
-    vid = ventures.add(name, hypothesis=body.get("hypothesis") or "",
-                       milestone_eur=ms, notes=body.get("notes") or None)
-    ventures.ensure_vault_leaf(name, vid)  # neues Business -> Stammbaum-Ast automatisch anlegen
-    return {"ok": True, "id": vid}
-
-
-@app.post("/api/ventures/update")
-async def api_ventures_update(body: dict) -> dict:
-    from core.agency import ventures
-
-    vid = body.get("id", "")
-    fields = {k: body[k] for k in ("name", "status", "hypothesis", "milestone_eur", "notes") if k in body}
-    return {"ok": ventures.update(vid, **fields)}
-
-
-@app.get("/api/ventures/ledger")
-def api_ventures_ledger(id: str) -> dict:
-    from core.agency import ventures
-
-    return {"ledger": ventures.ledger(id), "balance": ventures.balance(id)}
-
-
-@app.post("/api/ventures/book")
-async def api_ventures_book(body: dict) -> dict:
-    """Buchung via Dashboard — gleiche Regel wie das ledger_book-Werkzeug:
-    Ausgaben ueber record_spend (Budget + Ledger), Einnahmen direkt."""
-    from core.agency import ventures
-    from core.governance import treasury
-
-    vid = body.get("id", "")
-    direction = body.get("direction", "")
-    try:
-        amount = float(body.get("amount_eur", 0))
-    except (TypeError, ValueError):
-        return {"ok": False, "error": "amount_eur braucht eine Zahl"}
-    if amount <= 0 or direction not in ("in", "out") or not ventures.get(vid):
-        return {"ok": False, "error": "id/direction/amount pruefen"}
-    note = body.get("note") or ""
-    if direction == "out":
-        ok, why = treasury.can_spend(amount)
-        if not ok:
-            return {"ok": False, "error": why}
-        treasury.record_spend(amount, note or "Ausgabe via Dashboard", category="venture", venture_id=vid)
-    else:
-        ventures.book(vid, "in", amount, category="venture", note=note)
-    return {"ok": True, "balance": ventures.balance(vid)}
-
-
-# ---------- Business-Radar (S5.5) ----------
-@app.get("/api/opportunities")
-def api_opportunities(status: str = "") -> dict:
-    from core.agency import radar
-
-    return {"opportunities": radar.list_all(status)}
-
-
-@app.post("/api/opportunities/decide")
-async def api_opportunities_decide(body: dict) -> dict:
-    from core.agency import radar
-
-    return {"ok": radar.decide(body.get("id", ""), body.get("status", ""),
-                               note=body.get("note", ""))}
-
-
-@app.post("/api/opportunities/convert")
-async def api_opportunities_convert(body: dict) -> dict:
-    from core.agency import radar
-
-    return await anyio.to_thread.run_sync(lambda: radar.convert(body.get("id", "")))
-
-
-@app.post("/api/opportunities/delete")
-async def api_opportunities_delete(body: dict) -> dict:
-    from core.agency import radar
-
-    return {"ok": radar.delete(body.get("id", ""))}
-
-
-@app.post("/api/opportunities/purge")
-async def api_opportunities_purge(body: dict) -> dict:
-    """Abgelehnte Ideen aelter N Tage (Default 30) aufraeumen."""
-    from core.agency import radar
-
-    try:
-        days = int(body.get("days", 30) or 30)
-    except (TypeError, ValueError):
-        days = 30
-    return {"ok": True, "purged": radar.purge_rejected(days)}
-
-
-@app.post("/api/radar/scan")
-async def api_radar_scan() -> dict:
-    from core.agency import radar
-
-    return await anyio.to_thread.run_sync(lambda: radar.scan(notify=False))
-
-
-@app.get("/api/radar/focus")
-def api_radar_focus_get() -> dict:
-    from core.agency import radar
-
-    focus = radar.get_focus()
-    return {"themes": focus, "default": not focus}
-
-
-@app.post("/api/radar/focus")
-async def api_radar_focus_set(body: dict) -> dict:
-    from core.agency import radar
-
-    themes = body.get("themes", "")
-    return {"ok": True, "themes": radar.set_focus(themes)}
-
-
-@app.get("/api/radar/takt")
-def api_radar_takt_get() -> dict:
-    from core.agency import radar
-
-    return radar.get_takt()
-
-
-@app.post("/api/radar/takt")
-async def api_radar_takt_set(body: dict) -> dict:
-    # Sergens Wochenaufgabe: wie oft und wie viele Ideen der Radar-Bericht bringt.
-    from core.agency import radar
-
-    return {"ok": True, **radar.set_takt(body.get("intervall_tage"), body.get("max_ideen"))}
-
-
 # ---------- Wissens-Archiv (S5.4) ----------
 @app.get("/api/knowledge")
 def api_knowledge() -> dict:
@@ -1288,7 +1136,7 @@ _ORGANS = {
     "Council": ("council_verdict", "council_argument", "council_opening"),
     "Curator": ("skills_curated", "lessons_curated"),
     "Reflexion": ("reflection",),
-    "Radar/Monitor": ("monitor_new", "opportunity_found"),
+    "Monitor": ("monitor_new",),
     "Trigger": ("trigger_fired",),
     "Selbst-Check": ("doctor_report",),
 }
@@ -1427,80 +1275,6 @@ async def api_mcp_remove(body: dict) -> dict:
     from core.agency.mcp import registry_bridge
 
     return registry_bridge.remove_server((body.get("name") or "").strip())
-
-
-@app.get("/api/venture/trace")
-def api_venture_trace(id: str) -> dict:
-    """Projekt-Drilldown: Ziel-Baum + Tasks (mit Scores) + Arbeitsstand je Ziel."""
-    from core.agency import ventures
-    from core.agency.missions import objectives, queue as mqueue, workingset
-
-    v = ventures.get(id)
-    if not v:
-        return {"error": "unbekanntes Venture"}
-    objs = [o for o in objectives.list_all() if o.get("venture_id") == id]
-    all_t = mqueue.all_tasks(None, limit=500)
-    out_objs = []
-    for o in objs:
-        tasks = [t for t in all_t if t.get("objective_id") == o["id"]]
-        out_objs.append({**o, "tasks": tasks[:20],
-                         "workingset": workingset.render(o["id"], max_chars=1000)})
-    return {"venture": v, "balance": ventures.balance(id),
-            "ledger": ventures.ledger(id, limit=15), "objectives": out_objs,
-            # S8.2: Projekt-Akte — Briefing, Kosten bislang, Dateien
-            "briefing": ventures.briefing(id, max_chars=4000),
-            "costs": ventures.costs(id),
-            "files": ventures.list_files(id)}
-
-
-@app.post("/api/ventures/briefing")
-async def api_venture_briefing(body: dict) -> dict:
-    """S8.2: Briefing (Sergens Daueranweisungen) komplett setzen ODER Notiz anhaengen."""
-    from core.agency import ventures
-
-    vid = str(body.get("id", "")).strip()
-    if not ventures.get(vid):
-        return {"ok": False, "error": "unbekanntes Venture"}
-    if body.get("note"):
-        ventures.append_briefing(vid, str(body["note"]))
-    else:
-        ventures.set_briefing(vid, str(body.get("text", "")))
-    return {"ok": True, "briefing": ventures.briefing(vid, max_chars=4000)}
-
-
-@app.post("/api/ventures/upload")
-async def api_venture_upload(id: str = Form(...), file: UploadFile = File(...)) -> dict:
-    """S8.2: Datei in die Projekt-Akte legen (Bilder/Anhaenge fuer spaetere Mails etc.)."""
-    from core.agency import ventures
-
-    if not ventures.get(id):
-        return {"ok": False, "error": "unbekanntes Venture"}
-    raw = await file.read()
-    if len(raw) > 15 * 1024 * 1024:
-        return {"ok": False, "error": "Datei zu gross (max 15 MB)"}
-    import re as _re
-
-    safe = _re.sub(r"[^A-Za-z0-9._ -]", "_", file.filename or "datei")[:120] or "datei"
-    dest = ventures.files_dir(id) / safe
-    dest.write_bytes(raw)
-    events.emit("venture_file_added", {"venture_id": id, "name": safe, "bytes": len(raw)})
-    return {"ok": True, "files": ventures.list_files(id)}
-
-
-@app.post("/api/ventures/archive")
-async def api_venture_archive(body: dict) -> dict:
-    """Projekt archivieren (Soft-Delete: status='dead') — verschwindet aus allen Listen."""
-    from core.agency import ventures
-
-    return {"ok": ventures.archive(body.get("id", ""))}
-
-
-@app.post("/api/ventures/file-delete")
-async def api_venture_file_delete(body: dict) -> dict:
-    from core.agency import ventures
-
-    ok = ventures.delete_file(body.get("id", ""), body.get("name", ""))
-    return {"ok": ok, "files": ventures.list_files(body.get("id", "")) if ok else None}
 
 
 @app.post("/api/metrics/delete")

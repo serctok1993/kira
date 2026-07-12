@@ -474,33 +474,22 @@ def set_context(num_ctx: int = 0, max_tokens: int = 0) -> str:
 @tool("cron_add",
       "Plant eine WIEDERKEHRENDE Aufgabe. Zeitplan: '30m'/'2h' (Intervall) ODER '08:00' "
       "(taeglich). scope ordnet sie ein: 'me' = Sergens Routine (z.B. Morgen-Briefing, "
-      "erscheint in seinem Me-Bereich), project = Projekt-Name -> Routine der Projekt-Akte, "
-      "sonst 'system'. Sergen kann dir Routinen per Telegram diktieren — lege sie damit an.",
+      "erscheint in seinem Me-Bereich), sonst 'system'. Sergen kann dir Routinen per "
+      "Telegram diktieren — lege sie damit an.",
       {"label": "kurzer Name", "prompt": "was du dann jeweils tun sollst",
        "schedule": "z.B. '30m', '2h' oder '08:00'",
-       "scope": "optional: 'me' | 'system' (Default system)",
-       "project": "optional: Projekt-Name/Id -> Routine gehoert zu diesem Projekt"})
-def cron_add(label: str, prompt: str, schedule: str, scope: str = "system", project: str = "") -> str:
+       "scope": "optional: 'me' | 'system' (Default system)"})
+def cron_add(label: str, prompt: str, schedule: str, scope: str = "system") -> str:
     import datetime as _dt
 
     from core.agency.missions import cron
 
     scope = (scope or "system").strip().lower()
-    if (project or "").strip():
-        from core.agency import ventures
-
-        token = project.strip().lower()
-        hits = [v for v in ventures.list_all() if v["id"].startswith(project.strip())
-                or token in (v.get("name") or "").lower()]
-        if len(hits) != 1:
-            names = ", ".join(v["name"] for v in ventures.list_all()[:6]) or "(keine Projekte)"
-            return f"Projekt '{project}' nicht eindeutig. Vorhandene: {names}. Bitte praezisieren."
-        scope = f"projekt:{hits[0]['id']}"
-    if scope not in ("me", "system") and not scope.startswith("projekt:"):
+    if scope not in ("me", "system"):
         scope = "system"
     j = cron.add_job(label, prompt, schedule, scope=scope)
     nxt = _dt.datetime.fromtimestamp(j["next_run"]).strftime("%d.%m. %H:%M")
-    where = {"me": "Sergens Routinen (Me)", "system": "System"}.get(scope, "Projekt-Akte")
+    where = {"me": "Sergens Routinen (Me)", "system": "System"}[scope]
     return f"Geplant: {j['label']} ({j['schedule_text']}, {where}) — naechster Lauf {nxt}."
 
 
@@ -832,8 +821,6 @@ def harness_report(window: str = "today") -> str:
         f"- Neustart-Signale: restart_deferred_fired={restart_def} | turn_timeout={turn_to} | tool_calls_recovered={tool_rec}"
     )
 
-# Venture-Werkzeuge (S3) registrieren — Import genuegt (Decorator-Registry).
-from core.agency.tools import venture_tools  # noqa: E402,F401
 # Email-Werkzeuge (S3): senden hinterm Autonomie-Gate, lesen frei.
 from core.agency.tools import mail_tools  # noqa: E402,F401
 from core.agency.tools import social_tools  # noqa: E402,F401
@@ -845,8 +832,6 @@ from core.agency.tools import trigger_tools  # noqa: E402,F401
 from core.agency.tools import life_tools  # noqa: E402,F401
 # Wissens-Archiv (S5): suchen/ablegen im Schreibtisch.
 from core.agency.tools import knowledge_tools  # noqa: E402,F401
-# Business-Radar (S5): Chancen-Pipeline.
-from core.agency.tools import radar_tools  # noqa: E402,F401
 # Playbooks (S11): feste Prozeduren mit Reifegrad + Lernschleife.
 from core.agency.tools import playbook_tools  # noqa: E402,F401
 # Delegation: Unteragenten nach Rang (reflex/arbeiter/denker/richter) + Schwarm.

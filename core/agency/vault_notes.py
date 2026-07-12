@@ -21,7 +21,7 @@ from core.config import CONFIG, ROOT
 from core.kernel import events
 from core.kernel.fs import atomic_write
 
-# Slug-Konvention wie im Stammbaum (ventures._slug): umlaute -> ascii, rest -> '-'
+# Slug-Konvention wie im Stammbaum: umlaute -> ascii, rest -> '-'
 
 
 def _slug(name: str) -> str:

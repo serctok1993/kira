@@ -1,7 +1,7 @@
 """Proaktive Trigger: 'wenn Ereignis X passiert -> lege Aufgabe Y an' (S4).
 
 Bisher reagierte Kira nur auf die Uhr (Cron) und auf Sergen. Trigger machen sie
-ereignis-getrieben: neue Stripe-Einnahme -> Skalierung pruefen; Task endgueltig
+ereignis-getrieben: Task endgueltig
 gescheitert -> Alternative planen; Server tot -> diagnostizieren.
 
 Die ausgeloeste Aufgabe geht als normaler Task in die Queue (Prioritaet 3, vor

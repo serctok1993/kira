@@ -1,14 +1,13 @@
 """S5.1: Standup-Lagebericht + Cron-Platzhalter — offline, kein LLM."""
 from __future__ import annotations
 
-from core.agency import ventures
 from core.agency.missions import cron, metrics, objectives, queue, standup
 from core.kernel import events
 
 
 def _use_tmp_db(monkeypatch, tmp_path):
     db = str(tmp_path / "state.db")
-    for mod in (objectives, queue, metrics, events, ventures):
+    for mod in (objectives, queue, metrics, events):
         monkeypatch.setattr(mod, "DB_PATH", db)
     # Post-Cap-Bloecke (Termin-Radar, Logbuch-Frage, Fokus) lesen sonst Sergens ECHTEN
     # Vault (ROOT/gedaechtnis) -> Testlaenge/-inhalt haengt an Live-Daten. Isolieren.
@@ -19,18 +18,11 @@ def _use_tmp_db(monkeypatch, tmp_path):
 
 
 def test_build_context_sections_and_cap(monkeypatch, tmp_path):
-    from core.config import CONFIG
-
     _use_tmp_db(monkeypatch, tmp_path)
-    # S12: BUSINESS/VENTURES-Bloecke haengen am Feature-Flag — hier werden sie selbst getestet
-    monkeypatch.setitem(CONFIG["features"], "business", True)
     # News-Block liest den Live-Monitor (Netz/Zustand) -> fuer den Cap-Check stummschalten
     monkeypatch.setattr(standup, "_news_block", lambda *a, **k: "")
     queue.add("Zahnarzt anrufen", mission="leben", due_date=__import__("datetime").date.today().isoformat())
     objectives.add("Abnehmen auf 85kg", kind="big", domain="leben")
-    objectives.add("QS-SEO ausbauen", domain="business", target_date="2026-08-01")
-    vid = ventures.add("Shop", milestone_eur=100)
-    ventures.book(vid, "in", 25.0)
     metrics.log("gewicht", 92.0)
     metrics.log("gewicht", 91.4)
     events.emit("mission_task_done", {"id": "x"})
@@ -39,8 +31,6 @@ def test_build_context_sections_and_cap(monkeypatch, tmp_path):
     assert "LAGEBERICHT" in ctx
     assert "Zahnarzt" in ctx and "HEUTE:" in ctx
     assert "Abnehmen" in ctx and "LEBEN" in ctx
-    assert "QS-SEO" in ctx and "BUSINESS" in ctx
-    assert "Shop" in ctx and "25.00 EUR" in ctx
     assert "gewicht: 91.4" in ctx and "-0.6" in ctx
     assert "1 Aufgaben erledigt" in ctx
     assert len(ctx) <= 2500  # Kap haelt (Kontext-Diaet)
@@ -54,13 +44,11 @@ def test_build_context_empty_db_is_calm(monkeypatch, tmp_path):
     assert "LAGEBERICHT" in ctx and "0 Aufgaben erledigt" in ctx
 
 
-def test_build_context_business_flag_aus_briefed_nicht(monkeypatch, tmp_path):
-    # S12 Default (business aus): kein BUSINESS-/VENTURES-Block, auch wenn Daten da sind —
-    # sonst erzaehlt das Briefing von abgeschalteten Features.
+def test_build_context_kennt_kein_business_mehr(monkeypatch, tmp_path):
+    # W1: der Business-/Ventures-Block ist AUSGEBAUT — auch mit business-Zielen in der DB
+    # erzaehlt das Briefing nichts mehr davon (alte Daten bleiben stumm liegen).
     _use_tmp_db(monkeypatch, tmp_path)
     objectives.add("QS-SEO ausbauen", domain="business", target_date="2026-08-01")
-    vid = ventures.add("Shop", milestone_eur=100)
-    ventures.book(vid, "in", 25.0)
     ctx = standup.build_context("morgen")
     assert "BUSINESS" not in ctx and "VENTURES" not in ctx
 
