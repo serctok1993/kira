@@ -28,6 +28,28 @@ app = FastAPI(title="Kira Cockpit")
 events.init_db()
 memory.init_memory()
 
+# W3: Bestands-Instanz beim Boot still stempeln (Lockout-Schutz) — eine gelebte
+# Instanz (USER.md + gesetzter Nutzer-Name) sieht den Setup-Wizard NIEMALS.
+from core.kernel import onboarding as _onboarding  # noqa: E402
+_onboarding.auto_migrate()
+
+# Onboarding-Gate: VOR _remote_guard registriert -> laeuft als INNERE Middleware
+# NACH dem Fernzugriff-Schutz (Token-Pruefung zuerst, dann Setup-Umleitung).
+_SETUP_FREI = ("/setup", "/api/setup", "/health", "/api/icon")
+
+
+@app.middleware("http")
+async def _onboarding_gate(request, call_next):
+    """Frischer Klon (kein onboarded.flag): HTML -> /setup, API -> 503 setup_required."""
+    path = request.url.path
+    if _onboarding.is_onboarded() or any(path == p or path.startswith(p + "/") for p in _SETUP_FREI):
+        return await call_next(request)
+    if request.method == "GET" and "text/html" in (request.headers.get("accept") or ""):
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse("/setup", status_code=302)
+    return JSONResponse({"error": "setup_required", "hint": "Erst-Einrichtung unter /setup"},
+                        status_code=503)
+
 
 @app.middleware("http")
 async def _remote_guard(request, call_next):
@@ -2056,6 +2078,53 @@ def index() -> str:
     feats = json.dumps(CONFIG.get("features") or {}, ensure_ascii=False)[1:-1]
     return _ident_tokens(DASHBOARD_HTML.replace("/*__PHRASES__*/", inner)
                          .replace("/*__FEATURES__*/", feats))
+
+
+@app.get("/setup", response_class=HTMLResponse)
+def setup_page() -> str:
+    # Erst-Einrichtung (W3). Eingerichtete Instanzen sehen den Wizard nie wieder.
+    if _onboarding.is_onboarded():
+        return '<meta http-equiv="refresh" content="0; url=/">'
+    from core.api.ui.setup import SETUP_HTML
+    return SETUP_HTML
+
+
+@app.post("/api/setup")
+def api_setup(body: dict) -> dict:
+    """Wizard-Abschluss: Namen -> Overrides, Zugaenge -> Tresor, Mind-Seed +
+    Stammbaum-Wurzel, Flag, Bot+Runner-Bounce. Nur EINMAL moeglich (Flag-Guard)."""
+    if _onboarding.is_onboarded():
+        return {"ok": False, "error": "Diese Instanz ist schon eingerichtet."}
+    agent = str(body.get("agent") or "Kira").strip()[:40] or "Kira"
+    user = str(body.get("user") or "").strip()[:40]
+    if not user:
+        return {"ok": False, "error": "Nutzer-Name fehlt."}
+    from core.config import set_override
+    set_override("identity.partner_name", agent)
+    set_override("identity.user", user)
+    chat = str(body.get("telegram_chat_id") or "").strip()
+    if chat.isdigit():
+        set_override("channels.telegram.allowed_chat_id", int(chat))
+    for feld, secret_name in (("telegram_token", "TELEGRAM_BOT_TOKEN"),
+                              ("openrouter_key", "OPENROUTER_API_KEY")):
+        wert = str(body.get(feld) or "").strip()
+        if wert:
+            secrets.set_secret(secret_name, wert)
+    from core import identity as _idm
+    from core.mind import seed
+    seed.render_mind(agent, user, force=True)
+    wurzel = ROOT / "gedaechtnis" / "stammbaum" / f"{user.upper()}.md"
+    vorlage = ROOT / "gedaechtnis" / "stammbaum" / "_WURZEL_VORLAGE.md"
+    if not wurzel.exists() and vorlage.exists():
+        from core.kernel.fs import atomic_write
+        atomic_write(wurzel, _idm.render(vorlage.read_text(encoding="utf-8")))
+    _onboarding.complete("wizard")
+    # Bot + Runner neu starten lassen: frische Prozesse laden Token/Key aus dem Tresor
+    flag = ROOT / "data" / "restart.flag"
+    flag.parent.mkdir(parents=True, exist_ok=True)
+    flag.write_text("bot,runner", encoding="utf-8")
+    events.emit("onboarding_complete", {"agent": agent, "user": user})
+    return {"ok": True}
 
 
 @app.get("/wall", response_class=HTMLResponse)
