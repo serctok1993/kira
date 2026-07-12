@@ -1,7 +1,7 @@
 """Browser-Aktor: Kira kann klicken, ausfuellen, einloggen (S3).
 
 Ein Aufruf = EINE kurze Aktionsliste in EINER Playwright-Session (Chromium,
-frisches Profil — nie Sergens Browser). Logins ueberleben zwischen Aufrufen
+frisches Profil — nie der Browser des Nutzers). Logins ueberleben zwischen Aufrufen
 via storage_state in data/browser/<session>.json (gitignored).
 
 Sicherheits-Schichten:
@@ -21,6 +21,7 @@ import re
 import time
 
 from core.config import DATA_DIR
+from core import identity as _id
 from core.agency.tools.registry import tool
 
 ACTIONS = ("goto", "click", "fill", "press", "wait", "read", "screenshot")
@@ -221,7 +222,7 @@ def browser_act(actions: str | list | dict = "", session: str = "default", **fal
 
             aid = approvals.create(title="Browser-Aktion", kind="external",
                                    detail=actions_text[:2000], source="kira")
-            return f"⏸️ Wartet auf Sergens Freigabe (id {aid[:8]}): Browser-Aktionsliste."
+            return f"⏸️ Wartet auf {_id.user_name()}s Freigabe (id {aid[:8]}): Browser-Aktionsliste."
     except Exception as e:  # noqa: BLE001 — Gate kaputt: fail-closed
         return f"Gate-Fehler — Browser-Lauf sicherheitshalber NICHT gestartet: {e}"
 

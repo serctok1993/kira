@@ -1,6 +1,6 @@
 """Audit: append-only Protokoll aller nach AUSSEN wirkenden Aktionen.
 
-Geld, E-Mails, Posts, Vertraege — mit Reversibilitaets-Info. Schuetzt Sergen:
+Geld, E-Mails, Posts, Vertraege — mit Reversibilitaets-Info. Schuetzt den Nutzer:
 saubere Buecher, jederzeit pruefbar, und (wo moeglich) rueckrollbar. Sobald echte
 Connectors (Mail/Social/Geld) live gehen, laufen ihre Aktionen hier durch.
 """

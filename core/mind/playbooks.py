@@ -1,6 +1,6 @@
 """Playbooks: strukturierte Prozeduren im Vault (playbooks/*.md) — S11.
 
-Sergens Idee: der Harness soll nicht jedes Mal nachdenken muessen, weil alles
+Idee: der Harness soll nicht jedes Mal nachdenken muessen, weil alles
 strukturell hinterlegt ist ("Gesetzestext"). Jedes Playbook ist eine Markdown-
 Datei mit Frontmatter (wann/reifegrad/zaehler) und nummerierten Schritten.
 Drei Schichten:
@@ -10,7 +10,7 @@ Drei Schichten:
      (playbook_read). Progressive Disclosure statt Alles-im-Prompt.
   2. Reifegrade: entwurf -> begleitet -> autonom. Rueckstufung bei Fehlschlag
      SOFORT (eine Stufe runter); Befoerderung NUR ueber die Freigabe-Inbox
-     (PROMOTE_AFTER Erfolge in Serie -> Vorschlag an Sergen). Autonomie
+     (PROMOTE_AFTER Erfolge in Serie -> Vorschlag an den Nutzer). Autonomie
      verdient man sich pro Prozedur, nicht global.
   3. Lernschleife: record_result()/add_lesson() schreiben Zaehler und Lektionen
      in die DATEI zurueck — das Playbook wird durch Benutzung besser. Lernen
@@ -277,7 +277,7 @@ def add_lesson(name: str, text: str) -> dict:
 
 _INDEX_DEFAULT = """# INDEX — Kiras Vault
 
-> Einstiegspunkt fuer jedes Modell in diesem Harness und fuer Sergen in Obsidian.
+> Einstiegspunkt fuer jedes Modell in diesem Harness und fuer den Nutzer in Obsidian.
 > Lies von oben nach unten: erst Identitaet, dann Prozeduren, dann laufende Arbeit.
 
 1. **Identitaet & Regeln** -> `core/mind/` (constitution, SOUL, GOAL, USER, BODY)

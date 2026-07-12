@@ -5,7 +5,7 @@ Ein Tick (run_once):
 2. Queue leer? -> Planner erzeugt die naechsten Aufgaben.
 3. Naechste Aufgabe ziehen und mit der Handlungs-Schleife (act) bearbeiten
    (Werkzeuge: Web etc.) -> Ergebnis protokollieren.
-4. Optional Sergen per Telegram benachrichtigen.
+4. Optional den Nutzer per Telegram benachrichtigen.
 
 Sicher als erster Dauerlauf: nur lesende Recherche/Reflexion, keine Aussen-Aktionen.
 Start:  uv run python -m core.agency.missions.runner            (ein Tick zum Testen: --once)
@@ -22,6 +22,7 @@ import time
 from core.agency import outcomes, verifier
 from core.agency.act import act
 from core.agency.missions import planner, queue, workingset
+from core import identity as _id
 from core.config import CONFIG, feature_on
 from core.kernel import events
 from core.kernel.scheduler import heartbeat_on, kill_switch_active
@@ -33,7 +34,7 @@ def _mission() -> dict:
 
 
 def _focus() -> str:
-    """Sergens aktueller Fokus (Direktive) — live pro Tick gelesen, wirkt ohne Neustart."""
+    """Aktueller Fokus des Nutzers (Direktive) — live pro Tick gelesen, wirkt ohne Neustart."""
     try:
         import json
 
@@ -60,7 +61,7 @@ def _context(limit: int = 12) -> str:
 
 
 def _notify(text: str, wichtig: bool = False, kurz: str | None = None) -> None:
-    """Missions-Meldung. Sergens Fix (09.07.): Standard ist BUENDELN (mission.notify_mode
+    """Missions-Meldung. Fix vom 09.07.: Standard ist BUENDELN (mission.notify_mode
     'gebuendelt') — der Einzeiler `kurz` wandert in den Melde-Puffer, der Bot schickt alle
     N Stunden EIN Buendel. wichtig=True (Gescheitertes, Freigabe-Bedarf) geht sofort raus;
     notify_mode 'sofort' = Alt-Verhalten, 'aus' = still."""
@@ -165,7 +166,7 @@ def _attempt_prompt(task: dict, criteria: list[dict], attempt: int) -> str:
                          "Quellen/Werkzeuge als zuvor. Benenne deine neue Strategie im ersten Satz.")
         else:
             parts.append("\nBehebe die Kritikpunkte gezielt.")
-    # Sergens Melde-Regel (08.07.): die Telegram-Meldung zeigt NUR diesen Block —
+    # Melde-Regel (08.07.): die Telegram-Meldung zeigt NUR diesen Block —
     # er muss allein verstaendlich sein. Der Volltext bleibt im Cockpit.
     parts.append("\nBeende dein Ergebnis IMMER mit dem Block 'KURZ FUER SERGEN:' — 3-5 Saetze "
                  "in einfacher Sprache (kurze Saetze, Fachbegriffe in Klammern erklaert): "
@@ -180,7 +181,7 @@ _KURZ_RE = re.compile(r"KURZ\s+F(?:UE|Ü)R\s+SERGEN\s*:?", re.IGNORECASE)
 def _report(desc: str, text: str, label: str = "") -> str:
     """Telegram-Meldung fuer einen erledigten Task: Klartext-Block statt Roh-Dump.
 
-    Sergens Schmerz: 1200 rohe Zeichen, mitten im Satz abgerissen, Hochdeutsch ohne
+    Der alte Schmerz: 1200 rohe Zeichen, mitten im Satz abgerissen, Hochdeutsch ohne
     Einordnung. Jetzt: NUR der 'KURZ FUER SERGEN'-Block (das Modell schreibt ihn per
     Melde-Regel); fehlt er, ein Anriss mit sauberem Satzende. Volltext -> Cockpit."""
     head = f"🤖 Mission-Schritt erledigt{label}:\n{desc[:180]}"
@@ -354,7 +355,7 @@ def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
 
 def _werktakt() -> int:
     """Tagespensum pro Ziel (mission.steps_per_objective_daily, 0 = unbegrenzt).
-    Sergens Regel (08.07.): lieber 2-3 dosierte, vielversprechende Schritte als
+    Regel vom 08.07.: lieber 2-3 dosierte, vielversprechende Schritte als
     4-6 Fallstudien am Tag durch den 30-Minuten-Takt."""
     try:
         return max(0, int(_mission().get("steps_per_objective_daily", 3)))
@@ -394,11 +395,11 @@ def run_once(escalate: bool = False) -> dict:
     goal = m.get("goal") or _read("GOAL.md")
     focus = _focus()
     if focus:
-        goal = f"AKTUELLER FOKUS von Sergen (hat Vorrang vor dem Dauer-Ziel): {focus}\n\n{goal}"
+        goal = f"AKTUELLER FOKUS von {_id.user_name()} (hat Vorrang vor dem Dauer-Ziel): {focus}\n\n{goal}"
     queue.init_queue()
 
     # S8.1: jeder N-te Tick (mission.self_every) gehoert der Selbstoptimierung —
-    # NUR wenn keine offene Arbeit wartet und Sergen keinen Fokus gesetzt hat.
+    # NUR wenn keine offene Arbeit wartet und der Nutzer keinen Fokus gesetzt hat.
     self_every = int(m.get("self_every") or 0)
     if self_every > 1 and not focus and not queue.pending(mission):
         try:
@@ -605,7 +606,7 @@ def run_forever(interval: int | None = None) -> None:
                         events.emit("bluesky_stats", stats)
                 if maintenance.maybe_run("calibration_report", interval_s=7 * 86400):
                     # B-025: Nudge-/Fehler-/Fallback-Raten pro Modell -> Vorschlag in die
-                    # Inbox (nur bei genug Daten), damit Sergen Rollen datenbasiert nachzieht.
+                    # Inbox (nur bei genug Daten), damit der Nutzer Rollen datenbasiert nachzieht.
                     from core.agency import calibration as _cal
 
                     _cal.propose()

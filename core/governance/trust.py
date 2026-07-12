@@ -1,7 +1,7 @@
 """Trust-Level: wieviel darf Kira allein entscheiden.
 
 Stufen 0-3 (Start aus config.yaml: governance.trust_level). Die Policy
-`requires_approval(kind)` sagt, ob eine Aktionsart ein Go von Sergen braucht.
+`requires_approval(kind)` sagt, ob eine Aktionsart ein Go des Nutzers braucht.
 Erfolge/Fehlschlaege werden protokolliert (Grundlage fuer spaeteres Lernen).
 """
 from __future__ import annotations
@@ -39,7 +39,7 @@ def record_outcome(ok: bool, action: str = "") -> str:
 def requires_approval(kind: str, amount: float = 0.0) -> bool:
     """kind: 'reversible' | 'irreversible' | 'money' | 'public'.
 
-    True => braucht Sergens Go. Bei voller Autonomie (Level 3) begrenzt nur das
+    True => braucht das Go des Nutzers. Bei voller Autonomie (Level 3) begrenzt nur das
     Budget (das die Treasury prueft), daher hier False.
     """
     lv = level()

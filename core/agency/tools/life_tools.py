@@ -34,8 +34,8 @@ def _parse_due(due: str) -> str | None:
 
 
 @tool("todo_add",
-      "Legt ein persoenliches Todo fuer Sergen an (Lebens-Board, NICHT die Business-Queue). "
-      "Nutze es, wenn Sergen etwas erledigen will/soll — auch aus Sprachmemos heraus.",
+      "Legt ein persoenliches Todo fuer {{USER_NAME}} an (Lebens-Board). "
+      "Nutze es, wenn {{USER_NAME}} etwas erledigen will/soll — auch aus Sprachmemos heraus.",
       {"text": "das Todo, kurz und konkret",
        "due": "optional: heute | morgen | woche | YYYY-MM-DD",
        "prio": "optional: 1 (hoch) bis 5 (niedrig), Standard 3"})
@@ -54,7 +54,7 @@ def todo_add(text: str, due: str = "", prio: str = "3") -> str:
 
 
 @tool("todo_list",
-      "Zeigt Sergens persoenliche Todos vom Lebens-Board, gruppiert nach heute/Woche/spaeter.",
+      "Zeigt {{USER_NAME_S}} persoenliche Todos vom Lebens-Board, gruppiert nach heute/Woche/spaeter.",
       {"scope": "optional: offen (Standard) | alle"})
 def todo_list(scope: str = "offen") -> str:
     from core.agency.missions import queue
@@ -138,7 +138,7 @@ def objective_list(domain: str = "", nur_aktiv: str = "") -> str:
 
 
 @tool("metric_log",
-      "Loggt einen Messwert fuer Sergens Lebens-Metriken (Gewicht, Training, Schlaf ...). "
+      "Loggt einen Messwert fuer {{USER_NAME_S}} Lebens-Metriken (Gewicht, Training, Schlaf ...). "
       "Beispiel: metric_log('gewicht', '91.4').",
       {"name": "Name der Metrik (z.B. gewicht)",
        "value": "der Zahlenwert",
@@ -160,7 +160,7 @@ def metric_log(name: str, value: str, note: str = "") -> str:
 
 
 @tool("metric_list",
-      "Zeigt Sergens Metriken: letzter Wert, Trend, Anzahl Eintraege.",
+      "Zeigt {{USER_NAME_S}} Metriken: letzter Wert, Trend, Anzahl Eintraege.",
       {"name": "optional: nur diese Metrik (mit Verlauf)",
        "days": "optional: Zeitraum in Tagen (Standard 30)"})
 def metric_list(name: str = "", days: str = "30") -> str:

@@ -1,7 +1,7 @@
 """Social-Werkzeuge: Posten nach draussen — IMMER durchs Gate (Aussenwirkung).
 
 Bluesky war der Inventur-Fund ('kein Post-Kanal existiert'): jetzt gibt es einen.
-Das publish-Gate legt den Post in die Freigabe-Inbox; Sergens GO fuehrt ihn
+Das publish-Gate legt den Post in die Freigabe-Inbox; das GO des Nutzers fuehrt ihn
 deterministisch aus (approvals.decide re-dispatcht, wie bei Fremd-Mails).
 """
 from __future__ import annotations
@@ -13,7 +13,7 @@ from core.agency.tools.registry import tool
 
 @tool("bluesky_post",
       "Postet einen Text auf Bluesky (max 300 Zeichen). Aussenwirkung: wartet in der "
-      "Freigabe-Inbox auf Sergens GO — die Freigabe sendet dann wirklich.",
+      "Freigabe-Inbox auf {{USER_NAME_S}} GO — die Freigabe sendet dann wirklich.",
       {"text": "der Post-Text (max 300 Zeichen, Hashtags erlaubt)"})
 def bluesky_post(text: str) -> str:
     from core.agency.connectors import bluesky

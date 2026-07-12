@@ -1,7 +1,7 @@
 """Email-Werkzeuge: Kiras Draht in die Postfach-Welt (S3).
 
 Gate-Regel ('Ketten ab'): email_check ist rein lesend und laeuft frei.
-email_send an Sergens eigene Adressen (own_addresses) = external -> laeuft
+email_send an die eigenen Adressen des Nutzers (own_addresses) = external -> laeuft
 frei + Audit; an FREMDE = email_stranger -> stoppt an der Freigabe-Inbox.
 """
 from __future__ import annotations
@@ -40,7 +40,7 @@ def email_check(limit: str = "10") -> str:
 
 
 @tool("email_send",
-      "Sendet eine Email von Kiras eigenem Postfach. An Sergens eigene Adressen laeuft sie direkt "
+      "Sendet eine Email vom eigenen Postfach des Agenten. An {{USER_NAME_S}} eigene Adressen laeuft sie direkt "
       "(+ Audit); an fremde Empfaenger wartet sie in der Freigabe-Inbox (hard_gate email_stranger).",
       {"to": "Empfaenger-Adresse", "subject": "Betreff", "body": "Nachrichtentext"})
 def email_send(to: str, subject: str, body: str) -> str:

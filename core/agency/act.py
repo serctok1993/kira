@@ -10,6 +10,7 @@ Aufruf laeuft durch den Executor (Kill-Switch, Retry, Circuit-Breaker, Log).
 """
 from __future__ import annotations
 
+from core import identity as _id
 import json
 import re
 
@@ -112,10 +113,15 @@ def _identity() -> str:
     except Exception:  # noqa: BLE001
         lernen = ""
     try:
-        from core.mind.agent import ANTRIEB_DIREKTIVE as _antrieb
+        from core.mind.agent import antrieb_direktive
+        _antrieb = antrieb_direktive()
     except Exception:  # noqa: BLE001
         _antrieb = ""
-    return (
+    from core import identity as _ident
+
+    # W2: Platzhalter ({{AGENT_NAME}}/{{USER_NAME}}) im GANZEN Prompt zentral fuellen —
+    # Templates/Direktiven duerfen neutral bleiben, die Instanz spricht ihre Namen.
+    return _ident.render(
         f"{jetzt_zeile()}\n\n"
         f"# DEINE VERFASSUNG\n{_read('constitution.md')}\n\n"
         f"# DEINE SEELE\n{_read('SOUL.md')}\n\n"
@@ -154,7 +160,7 @@ Funktionen. Du laeufst auf WINDOWS (PowerShell/cmd) — zum Erkunden/Lesen von D
 list_dir/read_file (NICHT shell-Befehle wie find/grep/ls) und KEINE Linux-Pfade wie /workspace
 oder $HOME. Wenn du etwas Aktuelles nicht sicher weisst (Wetter/News/Preise/Webinhalte) oder
 Dateiinhalte brauchst: RATE NICHT — hol es dir mit dem passenden Werkzeug. Wenn du genug weisst,
-antworte normal, natuerlich und vollstaendig fuer Sergen (ohne weiteren Werkzeug-Aufruf).
+antworte normal, natuerlich und vollstaendig fuer deinen Partner (ohne weiteren Werkzeug-Aufruf).
 WICHTIG: Kuendige Aktionen NICHT nur an, um dann aufzuhoeren. Wenn du etwas nachsehen oder tun
 willst, RUF die Werkzeuge SOFORT in DIESEM Zug auf und antworte erst mit dem Ergebnis. Eine
 Antwort wie "lass mich kurz schauen ..." OHNE einen Werkzeug-Aufruf ist verboten."""
@@ -287,7 +293,7 @@ def _dialog_prefix(history: list[dict]) -> str:
         txt = (h.get("text") or "").strip()
         if not txt:
             continue
-        wer = "Sergen" if h.get("role") == "user" else "Kira"
+        wer = _id.user_name() if h.get("role") == "user" else _id.agent_name()
         zeilen.append(f"{wer}: {txt}")
     if not zeilen:
         return ""
@@ -414,11 +420,17 @@ def _edit_fail_clear(session_id: str | None) -> None:
 
 
 def _run_tool_guarded(name: str, tool, args: dict, session_id: str | None) -> str:
-    """Zentraler Werkzeug-Runner aller Loops: Guard davor, Buchhaltung danach."""
+    """Zentraler Werkzeug-Runner aller Loops: Guard davor, Buchhaltung danach.
+    W2: {{AGENT_NAME}}/{{USER_NAME}}-Platzhalter in Werkzeug-AUSGABEN werden hier
+    zentral gefuellt — eine Stelle statt sechzig."""
     block = _rbe_block(session_id, name, args)
     if block:
         return block
     obs = str(executor.run_tool(name, tool.func, **args))
+    if "{{" in obs:
+        from core import identity as _ident
+
+        obs = _ident.render(obs)
     _rbe_record(session_id, name, args, obs)
     _edit_fail_record(session_id, name, obs)
     return obs
@@ -441,7 +453,7 @@ def _complete_resilient(*args, **kwargs):
 def _degrade_text(messages: list[dict], err: Exception) -> str:
     """Graceful Degrade OHNE weiteren LLM-Call: kurzer Bericht ueber die bisher gemachten
     Werkzeug-Schritte + der Fehler. So verwirft ein transienter Modellausfall nicht den
-    ganzen Task (und Kiras Arbeit) — Sergen kann mit 'weiter' den Faden aufnehmen."""
+    ganzen Task (und die bisherige Arbeit) — der Nutzer kann mit 'weiter' den Faden aufnehmen."""
     used: list[str] = []
     for m in messages:
         for tc in (m.get("tool_calls") or []):
@@ -559,7 +571,7 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
             messages.append({"role": "tool", "tool_call_id": cid, "content": obs[:obs_cap]})
     try:
         res = _complete_resilient(
-            messages + [{"role": "user", "content": "Fasse jetzt final fuer Sergen zusammen — ohne weitere Werkzeuge."}],
+            messages + [{"role": "user", "content": f"Fasse jetzt final fuer {_id.user_name()} zusammen — ohne weitere Werkzeuge."}],
             system=system, task_type=task_type, session_id=session_id, escalate=escalate, reasoning=reasoning)
     except Exception as e:  # noqa: BLE001
         events.emit("act_degraded", {"step": "final", "error": str(e)[:300]}, session_id=session_id)
@@ -594,7 +606,7 @@ Beispiel: ACT web_fetch {{"url": "https://example.com"}}
 
 Du bekommst danach das ERGEBNIS und kannst ein weiteres Werkzeug nutzen oder,
 wenn du genug weisst, normal antworten (ohne ACT) — das ist dann dein Endergebnis
-fuer Sergen. Nutze Werkzeuge nur, wenn noetig.
+fuer deinen Partner. Nutze Werkzeuge nur, wenn noetig.
 
 Denke vor jedem Schritt gruendlich Schritt fuer Schritt nach, was der beste
 naechste Zug ist, bevor du handelst.
@@ -640,7 +652,7 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
     messages.append({
         "role": "user",
         "content": "Du hast genug recherchiert. Fasse JETZT deine Erkenntnisse als finale, "
-                   "konkrete Antwort fuer Sergen zusammen — ohne weitere Werkzeuge (kein ACT).",
+                   "konkrete Antwort fuer deinen Partner zusammen — ohne weitere Werkzeuge (kein ACT).",
     })
     res = llm_router.complete(messages, system=system, task_type="reason", session_id=session_id, escalate=escalate)
     events.emit("act_truncated_summary", {"steps": max_steps}, session_id=session_id)
@@ -882,7 +894,7 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
     events.emit("plan_start", {"task": task}, session_id=session_id)
     # Sichtbarkeits-Check: laeuft das starke Modell (reason/GLM) gerade gar nicht (kein Key /
     # Budget-Bremse), wuerde Coding STILL auf lokalem qwen 9b landen. Einmal pro Lauf laut sagen —
-    # so weiss Sergen, dass gerade schwaches Modell schreibt, statt es hinterher zu merken.
+    # so weiss der Nutzer, dass gerade ein schwaches Modell schreibt, statt es hinterher zu merken.
     if code_review:
         _mdl, _fb = llm_router.resolve_model("reason", escalate=escalate)
         if _fb:
@@ -890,9 +902,9 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
             emit({"kind": "obs", "name": "⚠ Modell", "text":
                   f"Starkes Modell nicht verfuegbar — Coding laeuft LOKAL auf {_mdl}. "
                   "Ergebnis kann schwaecher sein."})
-    # Dirty-Check (Fable-Review, Sergens Regel: Freiheit ja — aber nie SEINE Arbeit fressen):
+    # Dirty-Check (Fable-Review, Regel: Freiheit ja — aber nie die Arbeit des Nutzers fressen):
     # eine rote Endabnahme rollt per reset --hard auf head0 zurueck und wuerde ungesicherte
-    # Aenderungen von Sergen mit verwerfen. Deshalb startet ein code:-Lauf am LIVE-System nur
+    # Aenderungen des Nutzers mit verwerfen. Deshalb startet ein code:-Lauf am LIVE-System nur
     # auf sauberem Arbeitsbaum. In Sandbox/Tests (test_mode) entfaellt der Check — dort ist der
     # Worktree ohnehin Wegwerf-Material.
     if code_review:
@@ -1029,7 +1041,7 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
         [{"role": "user", "content":
           f"Aufgabe war: {task}\n\nDu hast diese Schritte ausgefuehrt:\n"
           + "\n".join(f"{i}. {d}" for i, d in enumerate(done, 1))
-          + "\n\nFasse fuer Sergen knapp und konkret zusammen, was du erreicht hast (Ergebnis, nicht der Prozess)."}],
+          + f"\n\nFasse fuer {_id.user_name()} knapp und konkret zusammen, was du erreicht hast (Ergebnis, nicht der Prozess)."}],
         system=_identity(), task_type="reason", session_id=session_id, escalate=escalate,
     )
     final = synth["text"].strip()
@@ -1130,7 +1142,7 @@ _CODING_REGELN = (
 
 _VOICE_STYLE = (
     "\n\n# SPRICH-MODUS (deine Antwort wird VORGELESEN)\n"
-    "Sergen redet ueber den Assistenz-Knopf mit dir. Fuehre die Aufgabe vollstaendig aus, "
+    "Dein Partner redet ueber den Assistenz-Knopf mit dir. Fuehre die Aufgabe vollstaendig aus, "
     "aber antworte in SEHR KURZEN Saetzen: hoechstens 5-8 Woerter pro Satz, dann Punkt oder "
     "Komma. KEINE langen Schachtelsaetze — die verlieren Ton und Emotion beim Vorlesen. "
     "Insgesamt hoechstens 2-3 solcher Kurzsaetze. Kein Markdown, keine Aufzaehlungen, keine "
@@ -1142,7 +1154,7 @@ def _handle_model_command(text: str) -> str:
     """Deterministischer Modell-Wechsel OHNE LLM (fuer /model bzw. /switch im Web-Chat).
 
     Spiegelt den Telegram-Handler + Kurzbefehle. Liefert IMMER einen String, raist nie —
-    so kann auch ein schwaches lokales Modell (oder Sergen) jederzeit umschalten, ohne dass
+    so kann auch ein schwaches lokales Modell (oder der Nutzer) jederzeit umschalten, ohne dass
     ein Tool-Call gelingen muss. Nutzt die bestehenden Setter aus core.kernel.models."""
     try:
         from core.kernel import llm_router, models
@@ -1201,7 +1213,7 @@ def _handle_model_command(text: str) -> str:
 def _handle_swarm_command(text: str, session_id: str | None) -> str:
     """Direkter Draht zur Schwarmintelligenz OHNE LLM (/delegiere, /schwarm).
 
-    Sergens Riegel: ER waehlt den Rang (und damit die Modell-Klasse laut Rang-Tafel),
+    Riegel des Nutzers: ER waehlt den Rang (und damit die Modell-Klasse laut Rang-Tafel),
     der Befehl geht deterministisch an die Delegations-Werkzeuge — kein Modell muss
     mitspielen oder darf umdeuten. Liefert IMMER einen String, raist nie."""
     try:
@@ -1279,7 +1291,7 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
         user_message = re.sub(r"^\s*sprich:\s*", "", user_message, flags=re.IGNORECASE)
 
     # Deterministischer Modell-Wechsel: /model bzw. /switch umgeht die LLM komplett.
-    # So kann auch ein schwaches lokales Modell (oder Sergen) IMMER umschalten — der
+    # So kann auch ein schwaches lokales Modell (oder der Nutzer) IMMER umschalten — der
     # Wechsel haengt NIE davon ab, dass das aktuelle Modell einen Tool-Call absetzt.
     # Vor memory.remember/user_message, damit Steuerbefehle den Dialog nicht verschmutzen.
     # Modus-Praefixe (Coding/Research haengen code:/plan://work an) werden fuer die
@@ -1293,7 +1305,7 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
         emit({"kind": "final", "text": reply})
         return reply
 
-    # Sergens Riegel: /delegiere und /schwarm gehen deterministisch an die
+    # Riegel des Nutzers: /delegiere und /schwarm gehen deterministisch an die
     # Schwarmintelligenz — Rang (= Modell-Klasse) waehlt ER, kein LLM deutet um.
     # Ergebnis wandert ins Gedaechtnis, damit der Dialog danach darauf aufbauen kann.
     if _mc_first in ("/delegiere", "/delegate", "/schwarm"):
@@ -1312,7 +1324,7 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     # "code:" (Coding-Chat im Cockpit) laeuft identisch, haengt aber die CODING-REGELN an —
     # der Verify-Reflex erreicht so JEDEN Teilschritt (via 'Gesamtziel' im Step-Prompt).
     # 5-Stufen-Oekonomie: Planen/Arbeiten/Coden laeuft auf dem DENKER (GLM 5.2) — Fable
-    # (Eskalation) nur, wenn Sergen explizit will (reason:-Prefix / 🧠-Toggle). Sowohl code:
+    # (Eskalation) nur, wenn der Nutzer explizit will (reason:-Prefix / 🧠-Toggle). Sowohl code:
     # als auch plan: fahren also standardmaessig GLM, nicht das teure Fable.
     _s = user_message.strip()
     code_mode = _s.lower().startswith("code:")
@@ -1416,7 +1428,7 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
         call = _parse_act(text)
         if not call:
             # Lokale Modelle sind die schlimmsten Ankuendiger/Rueckfrager: einmal pro Turn
-            # deterministisch nachstupsen statt das Pingpong an Sergen weiterzureichen.
+            # deterministisch nachstupsen statt das Pingpong an den Nutzer weiterzureichen.
             if not used_tools and not nudged and _looks_like_promise(text):
                 nudged = True
                 try:  # Kalibrierung: Stups zaehlen (lokale Modelle sind die Haupt-Ankuendiger)
@@ -1446,7 +1458,7 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
         messages.append({"role": "assistant", "content": text})
         messages.append({"role": "user", "content": f"ERGEBNIS von {name}:\n{obs}\n\nMach weiter oder gib die finale Antwort."})
 
-    messages.append({"role": "user", "content": "Fasse jetzt final fuer Sergen zusammen — ohne weiteres ACT."})
+    messages.append({"role": "user", "content": f"Fasse jetzt final fuer {_id.user_name()} zusammen — ohne weiteres ACT."})
     res = llm_router.complete(messages, system=system, task_type=_tt, session_id=session_id,
                               escalate=escalate, reasoning=reasoning_level)
     return _finalize(res["text"].strip())

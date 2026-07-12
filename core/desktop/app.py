@@ -19,7 +19,11 @@ import sys
 import time
 import webbrowser
 
+from core import identity as _identity
 from core.config import ROOT
+
+# W2: sichtbarer Agenten-Name fuer Fenster/Tray (AppUserModelID bleibt statisch 'Kira.Desktop').
+_AGENT = _identity.agent_name()
 
 # Muss zum Supervisor passen (core/kernel/supervisor.py -> COMPONENTS["cockpit"]).
 COCKPIT_HOST = "127.0.0.1"
@@ -168,10 +172,10 @@ def _start_tray(window) -> None:
         pystray.MenuItem("Cockpit öffnen", _open, default=True),
         pystray.MenuItem("Im Browser öffnen", _browser),
         pystray.MenuItem("Wallpaper-Vorschau", _wall),
-        pystray.MenuItem("Kira neu starten", _restart),
+        pystray.MenuItem(f"{_AGENT} neu starten", _restart),
         pystray.MenuItem("Beenden", _quit),
     )
-    icon = pystray.Icon("kira", _load_icon(), "Kira · Cockpit", menu)
+    icon = pystray.Icon("kira", _load_icon(), f"{_AGENT} · Cockpit", menu)
     threading.Thread(target=icon.run, daemon=True).start()
 
 
@@ -240,10 +244,10 @@ def run() -> None:
     # verhindert den weissen Blitz, bevor die Seite gerendert ist.
     win_kwargs = dict(width=1280, height=860, min_size=(900, 600), background_color="#0a0a0d")
     if is_cockpit_up():
-        window = webview.create_window("Kira · Cockpit", cockpit_url(), **win_kwargs)
+        window = webview.create_window(f"{_AGENT} · Cockpit", cockpit_url(), **win_kwargs)
         boot = None
     else:
-        window = webview.create_window("Kira · Cockpit", html=SPLASH_HTML, **win_kwargs)
+        window = webview.create_window(f"{_AGENT} · Cockpit", html=SPLASH_HTML, **win_kwargs)
         boot = _boot_into_cockpit
     _start_tray(window)
     _start_hotkeys(window)

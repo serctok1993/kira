@@ -1,6 +1,6 @@
 """BODY: Kiras Anatomie-Selbstwissen — generiert aus der Wirklichkeit (S5).
 
-Sergens Idee: eine Datei, die JEDEM LLM im Harness sofort sagt, welchen Koerper
+Idee: eine Datei, die JEDEM LLM im Harness sofort sagt, welchen Koerper
 es bewohnt — modell-agnostisch, zukunftssicher. Zwei Schichten in core/mind/BODY.md:
 
   1. Kompakt-Kopf (bis <!-- REFERENZ -->): wird in JEDEN System-Prompt injiziert

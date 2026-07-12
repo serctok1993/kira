@@ -1,4 +1,4 @@
-"""Telegram-Connector: Kiras Draht zu Sergen (Text + Sprachmemo), 24/7 erreichbar.
+"""Telegram-Connector: der Draht des Agenten zu seinem Menschen (Text + Sprachmemo), 24/7 erreichbar.
 
 - Long-Polling (kein oeffentlicher Webhook noetig) ueber die Telegram-Bot-API.
 - Sprachmemos werden lokal transkribiert (siehe transcribe.py).
@@ -19,11 +19,15 @@ from collections import deque
 
 import httpx
 
+from core import identity as _identity
 from core.config import CONFIG, DATA_DIR
 from core.kernel import events
 from core.kernel.phrases import next_phrase
 from core.kernel.scheduler import kill_switch_active, kill_switch_path
 from core.mind.agent import Agent
+
+# W2: sichtbarer Agenten-Name (Werksname 'Kira', beim Onboarding umbenennbar).
+_AGENT = _identity.agent_name()
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 API = f"https://api.telegram.org/bot{TOKEN}"
@@ -594,7 +598,7 @@ def _agentic_reply(client: httpx.Client, chat_id: int, session_id: str, text: st
 
 def _status_text() -> str:
     """Kurzer Status (Heartbeat, Modell, Budget, Offenes, Not-Aus). Jeder Teil best effort."""
-    lines = ["📊 <b>Kira-Status</b>"]
+    lines = [f"📊 <b>{_AGENT}-Status</b>"]
     try:
         from core.kernel.scheduler import heartbeat_on
         lines.append("💓 Heartbeat: " + ("laeuft" if heartbeat_on() else "aus"))
@@ -764,7 +768,7 @@ def _maybe_melde_buendel(client: httpx.Client) -> None:
             return
         _send(client, chat, "🧺 **Missions-Bündel** (" + str(len(zeilen)) + " Schritte):\n"
               + "\n".join("• " + z for z in zeilen[-15:])
-              + "\n\nDetails: /tagewerk oder Cockpit → Kira → Puls.")
+              + "\n\nDetails: /tagewerk oder Cockpit → Puls.")
         events.emit("melde_buendel", {"zeilen": len(zeilen)})
     except Exception:  # noqa: BLE001
         pass
@@ -835,7 +839,7 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
 
     if cmd in ("start", "help"):
         _send(client, chat_id,
-              "Ich bin Kira. Schreib oder sprich mir einfach — oder tippe „/“ fuer das Menue.\n"
+              f"Ich bin {_AGENT}. Schreib oder sprich mir einfach — oder tippe „/“ fuer das Menue.\n"
               "Befehle:\n"
               "/status – Heartbeat, Budget & Modell auf einen Blick\n"
               "/tagewerk – was ich HEUTE geschafft habe (Tasks, Mails, Skills, Kosten)\n"
@@ -845,7 +849,7 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
               "/steuer – Steuerpult mit Knoepfen (Heartbeat, Aufgaben, Freigaben, Tagewerk)\n"
               "/freigaben – offene Eintraege entscheiden (🔔 Aktion · 💶 Anfrage · 📋 Info)\n"
               "/plan <große aufgabe> – ich erstelle einen Plan und arbeite ihn Schritt fuer Schritt ab\n"
-              "/code <coding-auftrag> – Coding-Modus (an Kira selbst schrauben; erbt den Chat davor)\n"
+              f"/code <coding-auftrag> – Coding-Modus (an {_AGENT} selbst schrauben; erbt den Chat davor)\n"
               "/work <auftrag> – voller Werkzeug-Modus fuer laengere Aufgaben\n"
               "/denken an|aus – Gedankenstrom sichtbar machen (laeuft dann auf dem Denker GLM)\n"
               "/emoji – deine animierten Emoji als Neon-Glow im Denk-Status lernen\n"
@@ -912,7 +916,7 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
         return
     if cmd == "code":
         if not rest:
-            _send(client, chat_id, "Nutzung: /code <coding-auftrag an Kira, z.B. einen Bug fixen>")
+            _send(client, chat_id, f"Nutzung: /code <coding-auftrag an {_AGENT}, z.B. einen Bug fixen>")
             return
         # Coding-Modus wie im Cockpit — erbt den Verlauf DIESER Telegram-Session (geteiltes Gedaechtnis).
         _agentic_reply(client, chat_id, f"telegram-{chat_id}", "code: " + rest)
@@ -1071,9 +1075,9 @@ _KIND_CARDS = {
     "playbook": ("🔔 Freigabe noetig", "✅ befoerdert das Playbook eine Stufe.",
                  "✅ Befoerdern", "❌ Ablehnen"),
     "money": ("💶 Geld-Anfrage", "Nur eine Erlaubnis — durch den Klick fliesst KEIN Geld; "
-              "Kira muss die Aktion danach selbst anstossen.",
+              "Der Agent muss die Aktion danach selbst anstossen.",
               "✅ Erlauben", "❌ Ablehnen"),
-    "external": ("🌐 Anfrage", "Nur eine Erlaubnis — Kira muss die Aktion danach selbst anstossen.",
+    "external": ("🌐 Anfrage", "Nur eine Erlaubnis — der Agent muss die Aktion danach selbst anstossen.",
                  "✅ Erlauben", "❌ Ablehnen"),
 }
 _INFO_CARD = ("📋 Zur Kenntnis / Entscheidung", "Info-Eintrag: der Knopf aendert nichts "
@@ -1307,13 +1311,13 @@ def _bundle(state: dict, error: str | None) -> dict | None:
 # klickt Sergen ins Leere. Reihenfolge = Anzeige-Reihenfolge im Menue.
 _BOT_COMMANDS = [
     ("status", "Heartbeat, Budget & Modell auf einen Blick"),
-    ("tagewerk", "Was Kira HEUTE geschafft hat (Tasks, Mails, Kosten)"),
+    ("tagewerk", "Was HEUTE geschafft wurde (Tasks, Mails, Kosten)"),
     ("todo", "Todos: Liste mit Abhak-Knöpfen · /todo <text> legt an"),
-    ("fokus", "Tagesfokus setzen/löschen – Kira plant darum herum"),
+    ("fokus", "Tagesfokus setzen/löschen – der Plan richtet sich danach"),
     ("steuer", "Steuerpult – Heartbeat, Aufgaben, Freigaben per Knopf"),
     ("freigaben", "Offene Einträge entscheiden (Aktion/Anfrage/Info)"),
     ("kalibrierung", "Modell-Report: Fehler, Kosten, Empfehlungen (7 Tage)"),
-    ("code", "Coding-Modus: an Kira selbst schrauben"),
+    ("code", "Coding-Modus: am Agenten selbst schrauben"),
     ("plan", "Große Aufgabe planen und Schritt für Schritt abarbeiten"),
     ("work", "Längerer Auftrag mit vollem Werkzeug-Budget"),
     ("denken", "Gedankenstrom an/aus – zeigt, wie ich denke (läuft auf GLM)"),

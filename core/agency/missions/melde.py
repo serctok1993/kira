@@ -1,4 +1,4 @@
-"""Melde-Puffer (Sergens Fix 09.07.): Missions-Meldungen buendeln statt fluten.
+"""Melde-Puffer (Fix 09.07.): Missions-Meldungen buendeln statt fluten.
 
 10 Einzelmeldungen in 3 Stunden sind nicht verarbeitbar — jetzt sammeln sich
 Schritt-Meldungen als Einzeiler in data/melde_puffer.json und der Telegram-Bot

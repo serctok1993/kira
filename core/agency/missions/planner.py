@@ -7,6 +7,7 @@ from __future__ import annotations
 import datetime
 import re
 
+from core import identity as _id
 from core.kernel import llm_router
 from core.mind.agent import _read
 
@@ -25,7 +26,7 @@ def generate_tasks(goal: str, context: str, n: int = 3, escalate: bool = False,
     )
     if insights:  # S6.2: Outcome-Muster fliessen in die Planung zurueck
         user += insights + "\n\n"
-    if budget:  # S8.1: KEINE Budget-Kalkulation mehr (das macht Sergen) — nur die
+    if budget:  # S8.1: KEINE Budget-Kalkulation mehr (das macht der Nutzer) — nur die
         dl, dr = budget.get("day_limit"), budget.get("day_remaining")  # Schutz-Warnung bei knapp.
         if dl and dr is not None and dr < 0.2 * float(dl):
             user += ("HINWEIS: Tagesbudget fast erschoepft — plane NUR billige lokale "
@@ -36,10 +37,10 @@ def generate_tasks(goal: str, context: str, n: int = 3, escalate: bool = False,
         f"konkreter Rechercheschritt (z.B. 'Suche und lies 3 Quellen zur Nachfrage nach "
         f"Micro-SaaS X'), NICHT mehrere Themen in einer Aufgabe. Jede als eine Zeile mit '- '. "
         f"Nur Recherche/Analyse/Reflexion.\n"
-        f"RECHERCHE-DISZIPLIN (Sergens Regel): Fallstudien/Markt-Analysen nur, wenn sie "
+        f"RECHERCHE-DISZIPLIN (bindend): Fallstudien/Markt-Analysen nur, wenn sie "
         f"VIELVERSPRECHEND sind und eine konkrete Entscheidung vorbereiten — Klasse statt "
         f"Masse, maximal EINE Fallstudie pro Planung. Jede Analyse-Aufgabe muss mit einer "
-        f"direkten Empfehlung enden, wie Sergen das konkret nutzen/umsetzen kann."
+        f"direkten Empfehlung enden, wie {_id.user_name()} das konkret nutzen/umsetzen kann."
     )
     # Grind-Sparsamkeit: Task-Zerlegung braucht nicht die teure 'reason'-Stufe (pro),
     # 'bulk' (flash/lokal) genuegt fuer atomare Rechercheschritte. escalate=True hebt weiter an.
