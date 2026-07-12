@@ -232,7 +232,10 @@ def _lehr_fehler(tool_name: str, falsche_args: dict, erwartet: str, beispiel: st
 @tool("read_file",
       "Liest eine Datei vom PC (UTF-8-korrekt) und gibt den Textinhalt zurueck. Bei langen Dateien "
       "wird gestueckelt — nutze dann 'offset', um den naechsten Teil zu lesen. IMMER dieses Werkzeug "
-      "fuer Quelltext nutzen, NIE PowerShell Get-Content (das verfaelscht Emojis/Umlaute).",
+      # W4b: der Anti-Pattern-Nachsatz ist plattformabhaengig (Windows-Wortlaut byte-identisch).
+      + ("fuer Quelltext nutzen, NIE PowerShell Get-Content (das verfaelscht Emojis/Umlaute)."
+         if os.name == "nt" else
+         "fuer Quelltext nutzen statt roher cat/sed-Umwege (sauberes Encoding + Stueckelung)."),
       {"path": "Dateipfad", "offset": "optional: ab welchem Zeichen lesen (Standard 0)"})
 def read_file(path: str = "", max_chars: int = 40000, offset: int = 0, **falsche_args) -> str:
     if falsche_args or not str(path).strip():
@@ -698,8 +701,11 @@ def browse(url: str) -> str:
       "Startet Kira SICHER neu (sauberer Bounce ueber den Supervisor via data/restart.flag) — nutze dies, "
       "wenn Code-/Config-Aenderungen aktiv werden sollen oder ein Dienst haengt. Laeuft gerade eine Antwort, "
       "wird der Neustart AUTOMATISCH bis nach dem aktuellen Zug aufgeschoben (kein Selbst-Abschuss mitten in "
-      "der Arbeit). Prozesse per taskkill / Stop-Process zu killen ist verboten und gefaehrlich (du wuerdest "
-      "dich SELBST beenden); dieses Werkzeug ist der EINZIGE sichere Weg.",
+      # W4b: Prozess-Killer-Warnung plattformabhaengig (Windows-Wortlaut byte-identisch).
+      + ("der Arbeit). Prozesse per taskkill / Stop-Process zu killen ist verboten und gefaehrlich (du wuerdest "
+         if os.name == "nt" else
+         "der Arbeit). Prozesse per kill / pkill zu beenden ist verboten und gefaehrlich (du wuerdest ")
+      + "dich SELBST beenden); dieses Werkzeug ist der EINZIGE sichere Weg.",
       {"which": "optional: 'all' (Standard) oder Dienste kommagetrennt: bot,cockpit,runner"})
 def restart_self(which: str = "all") -> str:
     from core.kernel import runstate

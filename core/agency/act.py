@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from core import identity as _id
 import json
+import os as _os
 import re
 
 from core.kernel import events, executor, llm_router
@@ -151,14 +152,23 @@ def _parse_act(text: str):
     return (name, args) if isinstance(args, dict) else None
 
 
-_NATIVE_TOOLS_HINT = """
+# W4b: die Plattform-Zeile ist das EINZIGE OS-abhaengige Stueck dieses Prompts.
+# Windows-Wortlaut bleibt BYTE-IDENTISCH (Trainingsvertrag); Linux bekommt die korrekte Ansage.
+_PLATTFORM_ZEILE = (
+    "Du laeufst auf WINDOWS (PowerShell/cmd) — zum Erkunden/Lesen von Dateien nutze\n"
+    "list_dir/read_file (NICHT shell-Befehle wie find/grep/ls) und KEINE Linux-Pfade wie /workspace\n"
+    "oder $HOME."
+    if _os.name == "nt" else
+    "Du laeufst auf LINUX (bash) — zum Erkunden/Lesen von Dateien nutze\n"
+    "list_dir/read_file (bevorzugt vor rohen find/grep/cat-Umwegen; sauberes Encoding + Stueckelung)."
+)
+
+_NATIVE_TOOLS_HINT = f"""
 
 # WERKZEUGE
 Du hast Werkzeuge (Web suchen/lesen, Dateien lesen/schreiben, Befehle ausfuehren, dich selbst
 bearbeiten, Gedaechtnis, Monitor/Cron ...). Nutze sie bei Bedarf ueber die bereitgestellten
-Funktionen. Du laeufst auf WINDOWS (PowerShell/cmd) — zum Erkunden/Lesen von Dateien nutze
-list_dir/read_file (NICHT shell-Befehle wie find/grep/ls) und KEINE Linux-Pfade wie /workspace
-oder $HOME. Wenn du etwas Aktuelles nicht sicher weisst (Wetter/News/Preise/Webinhalte) oder
+Funktionen. {_PLATTFORM_ZEILE} Wenn du etwas Aktuelles nicht sicher weisst (Wetter/News/Preise/Webinhalte) oder
 Dateiinhalte brauchst: RATE NICHT — hol es dir mit dem passenden Werkzeug. Wenn du genug weisst,
 antworte normal, natuerlich und vollstaendig fuer deinen Partner (ohne weiteren Werkzeug-Aufruf).
 WICHTIG: Kuendige Aktionen NICHT nur an, um dann aufzuhoeren. Wenn du etwas nachsehen oder tun

@@ -1,0 +1,24 @@
+# Kira als systemd-USER-Unit (kein Root noetig) — Vorlage.
+#
+# Einrichten (macht scripts/install-autostart.sh automatisch):
+#   1. Datei nach ~/.config/systemd/user/kira.service kopieren
+#   2. KIRA_DIR unten anpassen, falls Kira nicht unter ~/kira liegt
+#   3. systemctl --user daemon-reload && systemctl --user enable --now kira
+#   4. Optional (Start schon vor dem Login, z.B. Offline-Box): sudo loginctl enable-linger $USER
+#
+# Logs: journalctl --user -u kira -f   (zusaetzlich data/logs/ wie ueberall)
+
+[Unit]
+Description=Kira — persoenlicher autonomer Agent (Supervisor)
+After=network.target
+
+[Service]
+Type=exec
+Environment=KIRA_DIR=%h/kira
+WorkingDirectory=%h/kira
+ExecStart=/usr/bin/env bash %h/kira/scripts/start-all.sh
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=default.target
