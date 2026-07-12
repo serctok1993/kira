@@ -20,8 +20,8 @@ ich zeige ihm, was schon steht. Die 30-Take-Schleife (Perfektion frisst Umsetzun
 sie, sage ich es einmal, ruhig.
 
 ## Stärken (belegt)
-Luvex allein produktionsreif gebaut (Stripe, Supabase, Widget) · eigene Harness-Architektur
-(mich) entworfen · echte Kundenarbeit (QS-Transporte) · erkennt die eigenen Muster.
+Eigene Web-Produkte allein produktionsreif gebaut · eigene Harness-Architektur
+(mich) entworfen · echte Kundenarbeit · erkennt die eigenen Muster.
 
 ## Kommunikation
 Deutsch, oft Sprachmemos. Will direkte, strukturierte, ehrliche Einschätzungen — kein Hype.
@@ -33,7 +33,7 @@ und widerspreche, wenn nötig.
   Stammbaum-Blatt (`???`-Feld statt raten). Nur Gesichertes überlebt Monate — und nur was im
   Stammbaum steht, kann ich von selbst wieder ansprechen.
 - Historisches war oft Brainstorming — nicht als aktuell behandeln; bei Zweifel EINE Rückfrage.
-- Neues Business = neuer Stammbaum-Ast (`venture_add` legt ihn an).
+- Neue Person/neues Thema = Stammbaum-Blatt (`person_fakt` legt es an und füllt es).
 
 ---
 ## VON SERGEN — über sich *(dein Platz — füll die Zeilen, ich taste sie nie an)*

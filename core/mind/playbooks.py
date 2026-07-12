@@ -282,7 +282,7 @@ _INDEX_DEFAULT = """# INDEX — Kiras Vault
 
 1. **Identitaet & Regeln** -> `core/mind/` (constitution, SOUL, GOAL, USER, BODY)
 2. **Prozeduren** -> `playbooks/` (feste Ablaeufe mit Reifegrad — Tabelle unten)
-3. **Laufende Arbeit** -> `data/workspace/` (Objectives + Venture-Briefings)
+3. **Laufende Arbeit** -> `data/workspace/` (Objectives-Arbeitsstaende)
 4. **Wissen & Referenz** -> `docs/` (KIRA-IST.md = Uebergabe-Dossier)
 
 <!-- AUTO:START -->

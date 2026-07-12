@@ -64,7 +64,7 @@ def check(test_call: bool = False) -> dict:
     rep["node"] = bool(shutil.which("node"))
     rep["npx"] = bool(shutil.which("npx"))
     if not rep["npx"]:
-        prob("npx fehlt — MCP-Server (GitHub/Supabase/Stripe) koennen nicht starten.")
+        prob("npx fehlt — MCP-Server (GitHub/Supabase & Co.) koennen nicht starten.")
 
     try:
         du = shutil.disk_usage(ROOT)

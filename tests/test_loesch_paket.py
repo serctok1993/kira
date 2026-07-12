@@ -1,97 +1,22 @@
-"""Werkbank PR 1 — Loesch-Grundausstattung: Projekte archivieren, Bench-/Radar-/
-Datei-/Skill-/Metrik-Loeschen. Rein additiv, alles offline."""
+"""Werkbank PR 1 — Loesch-Grundausstattung: Bench-/Skill-/Metrik-Loeschen.
+Rein additiv, alles offline. (W1: Venture-/Radar-Loesch-Tests sind mit dem
+Business-Strang ausgebaut worden.)"""
 from __future__ import annotations
 
 import json
-import time
 
 from fastapi.testclient import TestClient
 
 import core.api.server as s
-from core.agency import radar, ventures
 from core.agency.missions import metrics
 from core.kernel import events
 
 
 def _db(monkeypatch, tmp_path):
     db = str(tmp_path / "state.db")
-    for mod in (ventures, radar, metrics, events):
+    for mod in (metrics, events):
         monkeypatch.setattr(mod, "DB_PATH", db)
     events.init_db()
-
-
-# ---------- Projekte: archivieren + Datei loeschen ----------
-
-def test_venture_archive_verschwindet_aus_listen(monkeypatch, tmp_path):
-    _db(monkeypatch, tmp_path)
-    vid = ventures.add("Testprojekt", hypothesis="h")
-    assert any(v["id"] == vid for v in ventures.summary())
-    assert ventures.archive(vid)
-    assert not any(v["id"] == vid for v in ventures.list_all())
-    assert not any(v["id"] == vid for v in ventures.summary())      # Cockpit-Pfad
-    assert ventures.get(vid)["status"] == "dead"                    # Spur bleibt
-    assert not ventures.archive("gibtsnicht")
-
-
-def test_venture_datei_loeschen_mit_guard(monkeypatch, tmp_path):
-    _db(monkeypatch, tmp_path)
-    import core.config as _c
-    monkeypatch.setattr(_c, "DATA_DIR", tmp_path / "data")
-    vid = ventures.add("P")
-    (ventures.files_dir(vid) / "angebot.pdf").write_bytes(b"x")
-    assert ventures.delete_file(vid, "angebot.pdf")
-    assert ventures.list_files(vid) == []
-    for bad in ("../../.env", "..\\x", ".versteckt", ""):
-        assert not ventures.delete_file(vid, bad)
-
-
-def test_api_ventures_archive_und_file_delete(monkeypatch, tmp_path):
-    _db(monkeypatch, tmp_path)
-    import core.config as _c
-    monkeypatch.setattr(_c, "DATA_DIR", tmp_path / "data")
-    vid = ventures.add("P2")
-    (ventures.files_dir(vid) / "a.txt").write_bytes(b"1")
-    cl = TestClient(s.app)
-    r = cl.post("/api/ventures/file-delete", json={"id": vid, "name": "a.txt"}).json()
-    assert r["ok"] and r["files"] == []
-    assert cl.post("/api/ventures/archive", json={"id": vid}).json()["ok"]
-
-
-# ---------- Radar: loeschen + aufraeumen ----------
-
-def _idee(title: str, status: str = "new", ts: float | None = None) -> str:
-    import uuid
-    oid = uuid.uuid4().hex
-    with radar._conn() as c:
-        c.execute("INSERT INTO opportunities (id, ts, title, status, hash, updated_ts) "
-                  "VALUES (?,?,?,?,?,?)", (oid, ts or time.time(), title, status, oid[:8], time.time()))
-    return oid
-
-
-def test_radar_delete_und_purge(monkeypatch, tmp_path):
-    _db(monkeypatch, tmp_path)
-    radar.init_radar()
-    oid = _idee("Idee A")
-    alt = _idee("Idee B alt", status="rejected", ts=time.time() - 40 * 86400)
-    frisch = _idee("Idee C frisch", status="rejected")
-
-    assert radar.delete(oid[:8])                       # Kurz-Id erlaubt
-    assert not any(o["id"] == oid for o in radar.list_all())
-    assert not radar.delete("ffffffff")
-
-    assert radar.purge_rejected(days=30) == 1          # nur die alte fliegt
-    ids = [o["id"] for o in radar.list_all()]
-    assert frisch in ids and alt not in ids
-
-
-def test_api_opportunities_delete_purge(monkeypatch, tmp_path):
-    _db(monkeypatch, tmp_path)
-    radar.init_radar()
-    oid = _idee("Web-Idee")
-    cl = TestClient(s.app)
-    assert cl.post("/api/opportunities/delete", json={"id": oid}).json()["ok"]
-    _idee("alt", status="rejected", ts=time.time() - 99 * 86400)
-    assert cl.post("/api/opportunities/purge", json={}).json()["purged"] == 1
 
 
 # ---------- Metriken ----------
@@ -148,6 +73,5 @@ def test_evolution_liefert_loeschbare_lektionen(monkeypatch, tmp_path):
 
 def test_cockpit_hat_loesch_knoepfe():
     html = TestClient(s.app).get("/").text
-    for marker in ("ak-archive", "data-fdel", "/api/ventures/archive", "/api/bench/delete",
-                   "data-odel", "rd-purge", "data-zdel", "/api/metrics/delete", "data-mdel"):
+    for marker in ("/api/bench/delete", "data-zdel", "/api/metrics/delete", "data-mdel"):
         assert marker in html, f"fehlt im Cockpit: {marker}"

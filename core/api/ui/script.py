@@ -34,9 +34,8 @@ function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle(
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");};
  if(document.startViewTransition&&!matchMedia("(prefers-reduced-motion: reduce)").matches){document.startViewTransition(go);}else{go();}
  if(v==="home")loadCommand();
- if(v==="chat"){loadChatModels();loadChatSessions();loadChatProjects();}
+ if(v==="chat"){loadChatModels();loadChatSessions();}
  if(v==="me")loadMe();
- if(v==="projekte"&&FEATURES.business!==false)loadProjekte();  /* S9.3: eine Uebersicht statt Subtabs */
  if(SUBTABS[v])subnav(v,SUBTABS[v].cur);}
 
 /* ==== S7a: modulare Shell — EINE Subtab-Mechanik fuer alle Bereiche ====
@@ -629,72 +628,9 @@ function bindNewsSeed(){const s=$("#news-seed");if(!s)return;s.onclick=async()=>
 function bindOpsFilter(){$$("#ops-filter a").forEach(a=>a.onclick=()=>{opsFilter=a.dataset.of;$$("#ops-filter a").forEach(x=>x.classList.toggle("on",x===a));renderOps();});}
 function loadCommand(){loadHud();loadOps();loadTagewerk();loadNews();loadHome();loadDigest();bindNewsSeed();bindOpsFilter();loadWidgets("zentrale","#widgets-home");}
 
-/* ---- Projekte (S9.3): eine Uebersicht — Standbeine + Ziele/Backlog + Radar zusammen ---- */
-let _openVent=null;
-function closeVent(){const vd=$("#vent-detail");if(vd)vd.style.display="none";
- const pv=$("#v-projekte");if(pv)pv.classList.remove("drill");_openVent=null;}
-function loadProjekte(){closeVent();loadVentures();loadMission();loadRadar();loadWidgets("projekt","#widgets-projekt");}
-
-/* ---- Mission-Workspace (Ziele + To-Do-Board) ---- */
+/* Konstanten fuers Lebens-Board (loadLeben) */
 const KIND_LABEL={big:"BIG",monthly:"MONAT",weekly:"WOCHE"};
-let missionObjs=[];
-async function loadMission(){
- loadVentures();
- const d=await (await fetch("/api/mission/board")).json();
- missionObjs=d.objectives||[];
- const ol=$("#obj-list");
- if(!missionObjs.length){ol.innerHTML='<div class="emptybox">▸ Noch keine Ziele<br>Oben „+ ZIEL" klicken</div>';}
- else ol.innerHTML=missionObjs.map(o=>{
-   const due=o.target_date?('⏰ '+o.target_date):'';
-   return '<div class="memrow"><div class="mh"><span class="badge kind">'+(KIND_LABEL[o.kind]||o.kind)+'</span>'
-    +'<b style="color:var(--ink)">'+(o.title||"").replace(/</g,"&lt;")+'</b>'
-    +'<span style="flex:1"></span><span class="muted">'+o.progress+'% · '+o.tasks_done+'/'+o.tasks_total+' '+due+'</span> '
-    +'<a data-plan="'+o.id+'" title="in To-Dos zerlegen" style="cursor:pointer;color:var(--hud)">⚙ zerlegen</a> '
-    +'<a data-odel="'+o.id+'" title="loeschen" style="cursor:pointer;color:var(--muted)">✕</a></div>'
-    +'<div class="mini-bar" style="min-width:140px"><i style="width:'+(o.progress||0)+'%"></i></div>'
-    +'<div class="row" style="margin-top:6px;align-items:center"><input type="range" min="0" max="100" value="'+(o.progress||0)+'" data-oprog="'+o.id+'" style="flex:1"><span class="muted" style="font-size:11px;margin-left:8px">Fortschritt</span></div></div>';
- }).join("");
- const sel=$("#todo-obj");if(sel)sel.innerHTML='<option value="">— keins —</option>'+missionObjs.map(o=>'<option value="'+o.id+'">'+(o.title||"").replace(/</g,"&lt;").slice(0,40)+'</option>').join("");
- renderBoard(d.board||{});
- bindMissionForms();
- loadInbox();loadDigest();
- $$('#obj-list [data-plan]').forEach(a=>a.onclick=async()=>{a.textContent="⚙ zerlege…";await fetch("/api/objectives/plan",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.plan})});loadMission();});
- $$('#obj-list [data-odel]').forEach(a=>a.onclick=async()=>{if(!confirm("Ziel loeschen? (To-Dos bleiben, werden entkoppelt)"))return;await fetch("/api/objectives/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.odel})});loadMission();});
- $$('#obj-list [data-oprog]').forEach(r=>r.onchange=async()=>{await fetch("/api/objectives/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:r.dataset.oprog,progress:r.value})});loadMission();});
-}
 const BOARD_GROUPS=[["running","▶ laeuft"],["today","⏰ heute / ueberfaellig"],["week","diese Woche"],["later","spaeter"],["deferred","aufgeschoben"],["done","erledigt"]];
-function taskRow(t){
- const objT=(missionObjs.find(o=>o.id===t.objective_id)||{}).title;
- const due=t.due_date?('⏰'+t.due_date):'';
- const p='P'+(t.priority||3);
- let act="";
- if(t.status==="pending")act='<a data-done="'+t.id+'" title="erledigt" style="cursor:pointer;color:var(--ok)">✓</a> '
-   +'<a data-defer="'+t.id+'" title="+7 Tage aufschieben" style="cursor:pointer;color:var(--muted)">⏭</a> '
-   +'<a data-tdel="'+t.id+'" title="loeschen" style="cursor:pointer;color:var(--muted)">✕</a>';
- return '<div class="op" style="border-radius:8px;margin-bottom:3px"><span class="od"></span>'
-  +'<span class="opx"><b>'+p+'</b> '+(t.description||"").replace(/</g,"&lt;").slice(0,150)
-  +' <span class="muted">'+due+(objT?(' · '+objT.replace(/</g,"&lt;").slice(0,24)):"")+'</span></span>'+act+'</div>';
-}
-function renderBoard(b){
- const el=$("#todo-board");let h="";
- BOARD_GROUPS.forEach(([k,label])=>{const arr=b[k]||[];if(!arr.length)return;
-  h+='<div style="margin:9px 0 4px;font-size:11px;letter-spacing:1px;color:var(--hud);text-transform:uppercase">'+label+' ('+arr.length+')</div>'+arr.map(taskRow).join("");});
- el.innerHTML=h||'<div class="emptybox">Keine Aufgaben<br>„+ TO-DO" — oder ein Ziel „zerlegen"</div>';
- $$('#todo-board [data-done]').forEach(a=>a.onclick=async()=>{await fetch("/api/mission/task/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.done,status:"done"})});loadMission();});
- $$('#todo-board [data-defer]').forEach(a=>a.onclick=async()=>{const d=new Date();d.setDate(d.getDate()+7);await fetch("/api/mission/task/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.defer,deferred_until:d.toISOString().slice(0,10)})});loadMission();});
- $$('#todo-board [data-tdel]').forEach(a=>a.onclick=async()=>{await fetch("/api/mission/queue/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.tdel})});loadMission();});
-}
-function bindMissionForms(){
- const tog=id=>{const f=$(id);if(f)f.style.display=(getComputedStyle(f).display==="none")?"block":"none";};
- $("#obj-new-btn")&&($("#obj-new-btn").onclick=e=>{e.preventDefault();tog("#obj-form");});
- $("#todo-new-btn")&&($("#todo-new-btn").onclick=e=>{e.preventDefault();tog("#todo-form");});
- $("#obj-add")&&($("#obj-add").onclick=async()=>{const t=$("#obj-title").value.trim();if(!t)return;
-   await fetch("/api/objectives",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:t,kind:$("#obj-kind").value,target_date:$("#obj-date").value||null})});
-   $("#obj-title").value="";loadMission();});
- $("#todo-add")&&($("#todo-add").onclick=async()=>{const t=$("#todo-desc").value.trim();if(!t)return;
-   await fetch("/api/mission/queue/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({description:t,priority:$("#todo-prio").value,due_date:$("#todo-due").value||null,objective_id:$("#todo-obj").value||null})});
-   $("#todo-desc").value="";loadMission();});
-}
 async function loadInbox(){const el=$("#inbox-list");if(!el)return;
  try{const d=await (await fetch("/api/approvals")).json();const p=d.pending||[];
   const cnt=$("#inbox-count");if(cnt)cnt.textContent=p.length?(p.length+" warten"):"leer";
@@ -953,23 +889,12 @@ async function loadChatSessions(){const box=$("#sess-items");if(!box)return;
 async function openSession(sid){curSid=sid;log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;
  try{const h=await (await fetch("/api/chat/history?sid="+encodeURIComponent(sid))).json();
   (h.messages||[]).forEach(m=>msgEl(m.text||"",m.role==="user"?"me":"bot",m.ts));}catch(e){}
- syncChatProject(sid);markActiveSession();reconnect();}
-function newSession(){curSid="cockpit-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;const cp=$("#chat-project");if(cp)cp.value="";markActiveSession();reconnect();}
+ markActiveSession();reconnect();}
+function newSession(){curSid="cockpit-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;markActiveSession();reconnect();}
 $("#sess-new")&&($("#sess-new").onclick=()=>newSession());
 /* Test-Chat: sid mit 'test-'-Praefix -> gefahrloses Ausprobieren, leckt NICHT ins Langzeit-Gedaechtnis */
-function newTestSession(){curSid="test-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;const cp=$("#chat-project");if(cp)cp.value="";markActiveSession();reconnect();try{toast("🧪 Test-Chat — dieser Verlauf bleibt aussen vor (kein Langzeit-Gedaechtnis)");}catch(e){}}
+function newTestSession(){curSid="test-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;markActiveSession();reconnect();try{toast("🧪 Test-Chat — dieser Verlauf bleibt aussen vor (kein Langzeit-Gedaechtnis)");}catch(e){}}
 $("#sess-test")&&($("#sess-test").onclick=()=>newTestSession());
-/* Projekt-Chats (#15): je Projekt eine eigene Session (sid 'venture-<id>') — Kira bekommt das
-   Briefing als Kontext (serverseitig in build_system_prompt). Wahl schaltet die Session um. */
-async function loadChatProjects(){const sel=$("#chat-project");if(!sel)return;
- try{const d=await (await fetch("/api/ventures")).json();const vs=d.ventures||[];
-  const keep=sel.value;
-  sel.innerHTML='<option value="">— keins (allgemein) —</option>'+vs.map(v=>'<option value="'+esc(v.id)+'">'+esc(v.name||v.id)+'</option>').join("");
-  sel.value=keep;}catch(e){}}
-function syncChatProject(sid){const sel=$("#chat-project");if(!sel)return;
- sel.value=(sid&&sid.indexOf("venture-")===0)?sid.slice(8):"";}
-$("#chat-project")&&($("#chat-project").onchange=e=>{const id=e.target.value;
- openSession(id?("venture-"+id):dailySid());});
 /* Gespraeche: Hover-Intent — Drueberfahren oeffnet, Klick PINNT (bleibt offen bis zum
    naechsten Klick). Bleibt offen solange die Maus ueber Button ODER Panel ist; schliesst
    erst 400ms nach Verlassen beider -> keine Zuschnapp-Macke beim diagonalen Rueberziehen.
@@ -1016,24 +941,11 @@ const CMDS=[
  ["/mission","Missions- & Ziel-Lage abfragen",true],
  ["grp","Steuerung"],
  ["/model ","Modell anzeigen oder wechseln",false],
- ["@ziel:","Arbeit einem Ziel zuordnen",false],
  ["/schwarm arbeiter Vorlage | A | B","Schwarm-Auftrag an die Armee",false],
  ["/delegiere ","An einen einzelnen Sub-Agenten delegieren",false],
 ];
-/* S12 Feature-Flags: abgeschaltete Bausteine aus der Oberflaeche nehmen. Endpoints
-   bleiben aktiv — Flag aus heisst UI+Werkzeuge+Loop weg, nicht API. */
-function applyFeatures(){
- const hide=el=>{if(el)el.style.display="none";};
- if(FEATURES.business===false){
-  hide($('#side a[data-v="projekte"]'));                       /* Sidebar-Tab Projekte */
-  const cp=$("#chat-project");if(cp)hide(cp.closest("label")); /* Chat-Projekt-Dropdown */
-  const lg=$("#life-goals");if(lg)hide(lg.closest(".panel"));  /* me/todos: Missionen & Ziele */
-  hide($("#z-ziele-panel"));                                   /* Zentrale: Kennzahlen-Panel */
-  const zi=CMDS.findIndex(c=>c[0]==="@ziel:");if(zi>=0)CMDS.splice(zi,1);
- }
- if(FEATURES.radar===false){const rd=$("#rd-list");if(rd)hide(rd.closest(".panel"));}
-}
-applyFeatures();
+/* W1: der Business-Strang ist komplett ausgebaut — kein UI-Feature-Gating mehr noetig
+   (FEATURES bleibt injiziert fuer kuenftige Flags wie desktop_low_level/linkedin). */
 function renderCmdPop(){const el=$("#cmd-pop");if(!el)return;
  el.innerHTML=CMDS.map(c=>c[0]==="grp"?('<div class="cmd-grp">'+esc(c[1])+'</div>')
   :('<div class="cmd-row" data-cmd="'+esc(c[0])+'" data-send="'+(c[2]?1:0)+'"><span class="cmd-k">'+esc(c[0])+'</span><span class="cmd-d">'+esc(c[1])+'</span></div>')).join("");
@@ -1717,7 +1629,6 @@ $("#zm-add")&&($("#zm-add").onclick=async()=>{
  toast("eingetragen","ok");loadZiele();loadZielePinned();});
 /* Angeheftete Kennzahlen in der Zentrale (nur wenn welche angeheftet sind). */
 async function loadZielePinned(){const el=$("#z-ziele");if(!el)return;
- if(FEATURES.business===false)return;  /* S12: Panel bleibt versteckt, Loader zeigt es sonst wieder */
  try{const m=await (await fetch("/api/metrics?days=90")).json();const ps=m.pinned||[];
   const wrap=$("#z-ziele-panel");
   if(!ps.length){if(wrap)wrap.style.display="none";return;}
@@ -1735,7 +1646,7 @@ function toolGroups(names){
  const groups={};
  (names||[]).forEach(n=>{
   const m=n.match(/^mcp_([a-z0-9]+)_/);
-  const p=m?("mcp "+m[1]):((n.match(/^(venture|todo|metric|knowledge|trigger|watch|cron|opportunity|email)_/)||[])[1]||null);
+  const p=m?("mcp "+m[1]):((n.match(/^(todo|metric|knowledge|trigger|watch|cron|email|termin|vault)_/)||[])[1]||null);
   const key=p||n;(groups[key]=groups[key]||[]).push(n);});
  return Object.keys(groups).sort().map(k=>{const g=groups[k];
   return g.length>1?'<span class="pill" title="'+esc(g.join(", "))+'">'+esc(k)+' ×'+g.length+'</span>'
@@ -1840,112 +1751,6 @@ $("#mcp-add-custom")&&($("#mcp-add-custom").onclick=async()=>{
  $("#mcp-hint").textContent=r.ok?(r.error?("angelegt, aber: "+r.error):("✓ "+(r.tools||0)+" Werkzeuge registriert")):("Fehler: "+(r.error||"?"));
  if(r.ok&&!r.error){$("#mcp-name").value=$("#mcp-cmd").value=$("#mcp-args").value=$("#mcp-env").value=$("#mcp-tools").value="";}loadMcp();});
 
-/* ---- Projekte (S5.3b): Projekt-Karten + Drilldown ---- */
-async function loadVentures(){const el=$("#vent-list");if(!el)return;try{
- const d=await (await fetch("/api/ventures")).json();const vs=d.ventures||[];
- const vc=$("#vent-sum");if(vc)vc.textContent=vs.length?(vs.length+" Projekte"):"";
- el.innerHTML=vs.length?vs.map(v=>{
-  const ms=(v.milestone_progress!=null)?('<div style="height:4px;background:var(--line);border-radius:2px;margin-top:5px"><div style="height:4px;border-radius:2px;background:var(--hud);width:'+v.milestone_progress+'%"></div></div>'):'';
-  return '<div class="memrow" data-vent="'+v.id+'" style="cursor:pointer"><div class="mh"><span class="badge kind">'+v.status+'</span><b>'+(v.name||"").replace(/</g,"&lt;")+'</b><span style="flex:1"></span><span class="muted">+'+v.income_eur.toFixed(2)+' / -'+v.expenses_eur.toFixed(2)+' = <b>'+v.balance_eur.toFixed(2)+' &euro;</b></span></div>'+ms+'</div>';}).join("")
-  :'<div class="emptybox">Noch keine Projekte<br>Kira, leg ein Projekt an: &hellip;</div>';
- $$('#vent-list [data-vent]').forEach(r=>r.onclick=()=>{const id=r.dataset.vent;
-  /* nochmal auf dasselbe offene Projekt -> wieder zuklappen (zurueck zu Ziele/Backlog/Radar) */
-  if(_openVent===id&&$("#v-projekte").classList.contains("drill"))closeVent();
-  else loadVentureTrace(id);});
-}catch(e){}}
-/* S8.2: Projekt-AKTE — Unterreiter Uebersicht/Ziele/Aktivitaet/Finanzen je Projekt */
-async function loadVentureTrace(id){const el=$("#vent-detail");try{
- const d=await (await fetch("/api/venture/trace?id="+encodeURIComponent(id))).json();
- if(d.error){el.style.display="none";return;}
- const v=d.venture;
- let goals='',act='';
- if(!(d.objectives||[]).length)goals='<div class="muted">Noch keine Ziele an diesem Projekt.</div>';
- (d.objectives||[]).forEach(o=>{
-  goals+='<div style="margin-top:8px"><span class="badge kind">'+(KIND_LABEL[o.kind]||o.kind)+'</span> <b>'+esc(o.title||"")+'</b> <span class="muted">'+o.progress+'%</span></div>';
-  (o.tasks||[]).slice(0,6).forEach(t=>{goals+='<div class="muted" style="font-size:12px;margin-left:12px">'+(t.status==="done"?"&#10003;":"&middot;")+' '+esc((t.description||"").slice(0,110))+(t.score!=null?(' <span style="color:var(--hud)">['+t.score+']</span>'):'')+'</div>';});
-  if(o.workingset)act+='<div style="margin-top:6px"><b style="font-size:12px">'+esc(o.title||"")+'</b><div class="muted" style="font-size:11px;white-space:pre-wrap;border-left:2px solid var(--line);padding-left:8px;margin-top:3px">'+esc(o.workingset.slice(-700))+'</div></div>';});
- if((d.objectives||[]).length)goals+='<div class="row" style="margin-top:10px"><input id="ak-task" placeholder="+ Aufgabe fuer dieses Projekt" style="flex:1;min-width:180px"/>'
-  +'<select id="ak-task-obj">'+(d.objectives||[]).map(o=>'<option value="'+o.id+'">'+esc((o.title||"").slice(0,44))+'</option>').join("")+'</select>'
-  +'<button id="ak-task-add">+</button></div>';
- if(!act)act='<div class="muted">Noch kein Arbeitsstand aufgezeichnet.</div>';
- const files=(d.files||[]).map(f=>'<div class="muted" style="font-size:12px">📎 '+esc(f.name)+' <span style="opacity:.6">('+Math.round(f.bytes/1024)+' KB)</span> <a data-fdel="'+esc(f.name)+'" style="cursor:pointer;color:var(--muted)" title="Datei loeschen">&#10005;</a></div>').join("")||'<div class="muted" style="font-size:12px">(keine Dateien)</div>';
- /* Auf-einen-Blick: was fuer dieses Projekt schon getan wurde */
- const allTasks=(d.objectives||[]).reduce((a,o)=>a.concat(o.tasks||[]),[]);
- const doneTasks=allTasks.filter(t=>t.status==="done");
- const gstat=(lbl,val)=>'<div class="pg-cell"><div class="muted" style="font-size:10px;letter-spacing:.5px">'+lbl+'</div><b>'+val+'</b></div>';
- const glance='<div class="proj-glance">'
-   +gstat("Ziele",(d.objectives||[]).length)
-   +gstat("Aufgaben",doneTasks.length+'/'+allTasks.length+' erledigt')
-   +gstat("Kosten",(d.costs||0).toFixed(2)+' €')
-   +gstat("Kasse",(d.balance||0).toFixed(2)+' €')
-   +'</div>';
- const lastDone=doneTasks.slice(-6).reverse().map(t=>'<div class="muted" style="font-size:12px">&#10003; '+esc((t.description||"").slice(0,120))+(t.score!=null?(' <span style="color:var(--hud)">['+t.score+']</span>'):'')+'</div>').join("");
- const doneBlock=lastDone?('<div class="muted" style="font-size:11px;letter-spacing:1px;margin:10px 0 4px">ZULETZT ERLEDIGT</div>'+lastDone):'';
- const ueb='<div class="muted" style="margin-bottom:6px">'+esc(v.hypothesis||"(keine Hypothese)")+' · Status: <b>'+esc(v.status||"?")+'</b></div>'
-  +glance+doneBlock
-  +'<div class="muted" style="font-size:11px;letter-spacing:1px;margin:8px 0 4px">ANWEISUNGEN AN KIRA (fliessen in jeden Projekt-Task)</div>'
-  +'<textarea id="ak-brief" class="k" style="min-height:90px"></textarea>'
-  +'<div class="row" style="margin-top:6px"><button class="ghost" id="ak-brief-save">Briefing speichern</button>'
-  +'<input id="ak-note" placeholder="Neue Daueranweisung (eine Zeile)…" style="flex:1;min-width:200px"/><button id="ak-note-add">+ Notiz</button></div>'
-  +'<div class="muted" style="font-size:11px;letter-spacing:1px;margin:12px 0 4px">AN KIRA ZU DIESEM PROJEKT</div>'
-  +'<div class="row"><input id="ak-cmd" placeholder="Auftrag nur fuer dieses Projekt — Briefing &amp; Kontext fliessen automatisch mit ein…" style="flex:1;min-width:220px"/><button id="ak-cmd-go">⚡ Ausfuehren</button></div>'
-  +'<div class="muted" id="ak-cmd-out" style="font-size:12px;margin-top:5px;white-space:pre-wrap"></div>'
-  +'<div class="muted" style="font-size:11px;letter-spacing:1px;margin:12px 0 4px">DATEIEN</div>'+files
-  +'<div class="row" style="margin-top:6px"><label class="ghost" style="display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border:1px solid var(--line);border-radius:8px;cursor:pointer">📎 Datei hochladen<input id="ak-file" type="file" style="display:none"/></label><span class="muted" id="ak-hint" style="align-self:center;font-size:12px"></span></div>';
- const fin='<div style="font-size:13px"><b>Kosten bislang:</b> '+(d.costs||0).toFixed(2)+' € <span class="muted">(LLM-Arbeit an diesem Projekt)</span></div>'
-  +'<div class="muted" style="font-size:12px;margin-top:4px">Einnahmen/Ausgaben: Kasse '+d.balance.toFixed(2)+' €</div>'
-  +((d.ledger||[]).slice(0,8).map(l=>'<div class="muted" style="font-size:12px">'+(l.direction==="in"?"+":"−")+(l.amount_eur||0).toFixed(2)+' € · '+esc((l.note||l.category||"").slice(0,60))+'</div>').join("")||'');
- /* S8.4: Projekt-Routinen (Crons mit scope projekt:<id>) */
- let rout='<div class="muted">Keine Projekt-Routinen. Sag mir z.B. per Telegram: "richte fuer '+esc(v.name||"")+' woechentlich einen Status-Check ein".</div>';
- try{const cj=await (await fetch("/api/cron")).json();
-  const mine=(cj.jobs||[]).filter(j=>(j.scope||"")==="projekt:"+v.id);
-  if(mine.length)rout=mine.map(j=>'<div class="memrow"><div class="mh"><span class="badge kind">'+(j.enabled?"AN":"aus")+'</span><b>'+esc(j.label||"")+'</b><span class="muted" style="font-size:11px">'+esc(j.schedule_text||"")+'</span></div></div>').join("");
- }catch(e2){}
- el.innerHTML='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><b>'+esc(v.name||"")+'</b>'
-  +'<span class="seg" id="akte-tabs"><a data-at="ueb" class="on">Uebersicht</a><a data-at="ziele">Ziele &amp; Tasks</a><a data-at="akt">Aktivitaet</a><a data-at="fin">Finanzen</a><a data-at="rout">Routinen</a></span>'
-  +'<span style="flex:1"></span><a id="ak-archive" style="cursor:pointer;color:var(--muted);font-size:12px;margin-right:12px" title="Projekt archivieren (verschwindet aus den Listen; Spuren bleiben)">🗄 archivieren</a>'
-  +'<a id="vent-close" style="cursor:pointer;color:var(--muted)">&#10005;</a></div>'
-  +'<div class="at" id="at-ueb">'+ueb+'</div><div class="at" id="at-ziele" style="display:none">'+goals+'</div>'
-  +'<div class="at" id="at-akt" style="display:none">'+act+'</div><div class="at" id="at-fin" style="display:none">'+fin+'</div>'
-  +'<div class="at" id="at-rout" style="display:none">'+rout+'</div>';
- el.style.display="block";
- const pv=$("#v-projekte");if(pv)pv.classList.add("drill");   /* Akte in den Vordergrund, 3 Spalten weichen */
- _openVent=id;
- $("#ak-brief").value=d.briefing||"";
- $$("#akte-tabs a").forEach(a=>a.onclick=()=>{$$("#akte-tabs a").forEach(x=>x.classList.toggle("on",x===a));
-  el.querySelectorAll(".at").forEach(x=>x.style.display="none");$("#at-"+a.dataset.at).style.display="block";});
- $("#ak-brief-save").onclick=async()=>{await fetch("/api/ventures/briefing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:v.id,text:$("#ak-brief").value})});toast("Briefing gespeichert","ok");};
- $("#ak-note-add").onclick=async()=>{const n=$("#ak-note").value.trim();if(!n)return;
-  await fetch("/api/ventures/briefing",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:v.id,note:n})});
-  toast("Notiert — gilt ab jetzt fuer jeden Projekt-Task","ok");loadVentureTrace(v.id);};
- $("#ak-file").onchange=async e2=>{const f=e2.target.files[0];if(!f)return;
-  $("#ak-hint").textContent="… lade "+f.name;
-  const fd=new FormData();fd.append("id",v.id);fd.append("file",f);
-  const r=await (await fetch("/api/ventures/upload",{method:"POST",body:fd})).json();
-  $("#ak-hint").textContent=r.ok?"✓ "+f.name:"Fehler: "+(r.error||"?");if(r.ok)loadVentureTrace(v.id);};
- const cg=$("#ak-cmd-go");if(cg)cg.onclick=async()=>{const p=$("#ak-cmd").value.trim();if(!p)return;
-  $("#ak-cmd-out").textContent="… Kira arbeitet an deinem Projekt-Auftrag (Ergebnis kommt auch per Telegram) …";
-  try{const r=await (await fetch("/api/direktive/now",{method:"POST",headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({prompt:p,venture_id:v.id})})).json();
-   $("#ak-cmd-out").textContent=(r.result||r.error||"?").slice(0,900);$("#ak-cmd").value="";}
-  catch(e3){$("#ak-cmd-out").textContent="Fehler: "+e3;}};
- const ta=$("#ak-task-add");if(ta)ta.onclick=async()=>{const t=$("#ak-task").value.trim();if(!t)return;
-  await fetch("/api/mission/queue/add",{method:"POST",headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({description:t,priority:3,objective_id:$("#ak-task-obj").value||null})});
-  toast("Aufgabe im Projekt eingeplant","ok");loadVentureTrace(v.id);};
- $$("#vent-detail [data-fdel]").forEach(a=>a.onclick=async()=>{
-  if(!confirm('Datei "'+a.dataset.fdel+'" loeschen?'))return;
-  await fetch("/api/ventures/file-delete",{method:"POST",headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({id:v.id,name:a.dataset.fdel})});
-  loadVentureTrace(v.id);});
- const arch=$("#ak-archive");if(arch)arch.onclick=async()=>{
-  if(!confirm('Projekt "'+(v.name||"?")+'" archivieren?\n\nEs verschwindet aus allen Listen (Ledger/Briefing/Dateien bleiben als Spur). Kein Hard-Delete.'))return;
-  const r=await (await fetch("/api/ventures/archive",{method:"POST",headers:{"Content-Type":"application/json"},
-   body:JSON.stringify({id:v.id})})).json();
-  if(r.ok){toast("Projekt archiviert","ok");closeVent();loadVentures();}else toast("Archivieren fehlgeschlagen","warn");};
- const cl=$("#vent-close");if(cl)cl.onclick=()=>closeVent();
-}catch(e){}}
-
 /* ---- To-Do (S6.6a): Zugangs-Anfragen — was Kira an Keys/Zugaengen braucht ---- */
 async function loadTodoSecrets(){const el=$("#todo-secrets");if(!el)return;try{
  const k=await (await fetch("/api/secrets")).json();
@@ -1980,52 +1785,6 @@ $("#kn-q")&&($("#kn-q").oninput=()=>{clearTimeout(knTimer);knTimer=setTimeout(as
  const d=await (await fetch("/api/knowledge/search?q="+encodeURIComponent(q))).json();
  el.innerHTML=(d.hits||[]).length?d.hits.map(h=>'<div class="memrow"><div class="mh"><b>'+(h.title||"").replace(/</g,"&lt;").slice(0,60)+'</b><span class="muted"> &middot; Abschnitt '+(h.chunk_no+1)+(h.score!=null?(' &middot; '+h.score):'')+'</span></div><div class="muted" style="font-size:12px;margin-top:3px">'+(h.text||"").replace(/</g,"&lt;").slice(0,260)+'&hellip;</div></div>').join("")
   :'<span class="muted">nichts gefunden</span>';},350);});
-
-/* ---- Radar (S5.5): Chancen-Pipeline ---- */
-const OPP_BADGE={new:"var(--hud)",shortlist:"var(--ok)",converted:"var(--accent)",rejected:"var(--muted)"};
-async function loadRadar(){try{const d=await (await fetch("/api/opportunities")).json();const os=d.opportunities||[];
- $("#rd-list").innerHTML=os.length?os.map(o=>{
-  let act="";
-  if(o.status==="new"||o.status==="shortlist")act=' <a data-oconv="'+o.id+'" style="cursor:pointer;color:var(--ok)" title="als Projekt uebernehmen">&rarr; Projekt</a>'
-   +(o.status==="new"?' <a data-oshort="'+o.id+'" style="cursor:pointer;color:var(--hud)" title="merken">&#9733;</a>':'')
-   +' <a data-orej="'+o.id+'" style="cursor:pointer;color:var(--muted)" title="verwerfen">&#10005;</a>';
-  act+=' <a data-odel="'+o.id+'" style="cursor:pointer;color:var(--danger)" title="endgueltig loeschen">🗑</a>';
-  return '<div class="memrow"><div class="mh"><span class="badge kind" style="color:'+(OPP_BADGE[o.status]||"var(--muted)")+'">'+o.status+'</span><b>['+o.score+']</b> <b>'+(o.title||"").replace(/</g,"&lt;").slice(0,90)+'</b><span style="flex:1"></span>'+act+'</div>'
-   +(o.hypothesis?('<div class="muted" style="font-size:12px;margin-top:3px">'+(o.hypothesis||"").replace(/</g,"&lt;").slice(0,200)+'</div>'):'')+'</div>';}).join("")
-  :'<div class="emptybox">Pipeline leer<br>&bdquo;jetzt scannen&ldquo; klicken oder auf den Wochen-Scan warten.</div>';
- const wire=(sel,fn)=>$$(sel).forEach(a=>a.onclick=fn(a));
- wire('#rd-list [data-oconv]',a=>async()=>{await fetch("/api/opportunities/convert",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.oconv})});loadRadar();});
- wire('#rd-list [data-oshort]',a=>async()=>{await fetch("/api/opportunities/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.oshort,status:"shortlist"})});loadRadar();});
- wire('#rd-list [data-orej]',a=>async()=>{await fetch("/api/opportunities/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.orej,status:"rejected"})});loadRadar();});
- wire('#rd-list [data-odel]',a=>async()=>{if(!confirm("Idee endgueltig loeschen?"))return;
-  await fetch("/api/opportunities/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.odel})});loadRadar();});
-}catch(e){}}
-$("#rd-purge")&&($("#rd-purge").onclick=async()=>{
- const r=await (await fetch("/api/opportunities/purge",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({days:30})})).json();
- toast((r.purged||0)+" aussortierte Idee(n) aufgeraeumt","ok");loadRadar();});
-$("#rd-scan")&&($("#rd-scan").onclick=async()=>{$("#rd-hint").textContent="… scanne (kann ~1 min dauern) …";
- const r=await (await fetch("/api/radar/scan",{method:"POST"})).json();
- $("#rd-hint").textContent=r.error?("Fehler: "+r.error):("Scan fertig — "+(r.found||0)+" neue Chance(n).");loadRadar();});
-/* Radar-Fokus: Sergen sagt, wonach gesucht wird (persistent, deckt sich mit Kiras radar_fokus). */
-$("#rd-focus-edit")&&($("#rd-focus-edit").onclick=async()=>{
- const box=$("#rd-focus-box");if(!box)return;
- const show=box.style.display==="none";box.style.display=show?"block":"none";
- if(show){try{const d=await (await fetch("/api/radar/focus")).json();
-  $("#rd-focus").value=(d.themes||[]).join(";\n");
-  $("#rd-focus-hint").textContent=d.default?"(noch kein eigener Fokus — Standardthemen)":"";}catch(e){}
-  try{const t=await (await fetch("/api/radar/takt")).json();
-   $("#rd-takt-tage")&&($("#rd-takt-tage").value=t.intervall_tage);
-   $("#rd-takt-ideen")&&($("#rd-takt-ideen").value=t.max_ideen);}catch(e){}}});
-$("#rd-takt-save")&&($("#rd-takt-save").onclick=async()=>{
- const r=await (await fetch("/api/radar/takt",{method:"POST",headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({intervall_tage:parseInt($("#rd-takt-tage").value)||7,
-                       max_ideen:parseInt($("#rd-takt-ideen").value)||2})})).json();
- $("#rd-takt-hint").textContent=r.ok?("✓ alle "+r.intervall_tage+" Tage, "+r.max_ideen+" Idee(n)"):"Fehler";});
-$("#rd-focus-save")&&($("#rd-focus-save").onclick=async()=>{
- const r=await (await fetch("/api/radar/focus",{method:"POST",headers:{"Content-Type":"application/json"},
-  body:JSON.stringify({themes:$("#rd-focus").value})})).json();
- const n=(r.themes||[]).length;
- $("#rd-focus-hint").textContent=r.ok?("✓ gespeichert — "+n+" Thema/Themen"):"Fehler";});
 
 /* ---- S6.6a: neue Quer-Verdrahtungen ---- */
 $("#m-or-add")&&($("#m-or-add").onclick=async()=>{const id=$("#m-or").value.trim();if(!id)return;

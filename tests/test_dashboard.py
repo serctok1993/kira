@@ -11,13 +11,13 @@ def _page() -> str:
 
 
 def test_page_boots_with_new_ia():
-    """5-Tab-Zuschnitt nach Config-Auflösung (Zentrale/Chat/Projekte/Serc/Kira) + modulare Shell."""
+    """W1-Zuschnitt (Zentrale/Chat/Serc/Kira/Einstellungen) + modulare Shell."""
     html = _page()
     assert "KIRA" in html
-    for vid in ("v-home", "v-chat", "v-projekte", "v-me", "v-kira", "v-settings"):
+    for vid in ("v-home", "v-chat", "v-me", "v-kira", "v-settings"):
         assert f'id="{vid}"' in html, f"View fehlt: {vid}"
-    # Alt-Views bleiben tot (v-settings ist seit Werkbank PR 3 der NEUE Einstellungen-Tab)
-    for gone in ("v-work", "v-todo", "v-config"):
+    # Alt-Views bleiben tot (W1: der Projekte-Tab ist mit dem Business-Strang ausgebaut)
+    for gone in ("v-work", "v-todo", "v-config", "v-projekte"):
         assert f'id="{gone}"' not in html, f"Alt-View lebt noch: {gone}"
     assert 'id="sys-tabs"' not in html and 'data-v="config"' not in html
     # Die Technik-Subviews existieren weiter (ziehen beim Boot per DOM-Move nach v-settings)
@@ -26,9 +26,9 @@ def test_page_boots_with_new_ia():
         assert f'id="{sub}"' in html, f"Subview fehlt: {sub}"
     assert 'id="kira-tabs"' in html
     assert "const SUBTABS=" in html and "function subnav(" in html  # generische Shell
-    # S9.3: Projekte ist EINE Uebersicht (keine Subtabs mehr) -> Radar-Einbahn-Bug weg
-    assert 'id="proj-tabs"' not in html and "loadProjekte" in html
-    assert 'class="proj-cols"' in html and 'id="rd-list"' in html and 'id="vent-list"' in html
+    # W1: der komplette Projekte-Strang (Ventures/Radar) ist ausgebaut — nichts lebt weiter
+    for gone in ("proj-tabs", "proj-cols", "rd-list", "vent-list", "loadProjekte"):
+        assert gone not in html, f"Projekte-Rest lebt noch: {gone}"
 
 
 def test_s7a_shell_features():
@@ -109,11 +109,11 @@ def test_new_panes_have_containers():
     for el in ("life-board", "life-goals", "life-metrics",       # To-Do (Leben)
                "inbox-list", "todo-secrets",                       # To-Do (braucht dich)
                "ag-organs", "ag-infra",                            # Kira (Anatomie)
-               "vent-list", "vent-detail", "rd-list", "kn-docs",   # Workspace
+               "kn-docs",                                          # Wissen
                "digest", "hud-strip", "ops-feed",                  # Zentrale
                "m-or"):                                            # Config (S6.6a: UI wiederhergestellt)
         assert f'id="{el}"' in html, f"Container fehlt: {el}"
-    for fn in ("loadLeben", "loadAgenten", "loadVentures", "loadVentureTrace",
+    for fn in ("loadLeben", "loadAgenten",
                "loadTodoSecrets", "loadDigest", "kirat(", "function spark"):
         assert fn in html, f"Loader fehlt: {fn}"
     # Die alten Dopplungen sind wirklich raus (Zentrale zeigte Freigaben ohne Buttons)
@@ -130,11 +130,14 @@ def test_agents_endpoint_shape():
     assert "mcp" in d and "skills_total" in d
 
 
-def test_venture_trace_unknown_id():
+def test_venture_api_ist_ausgebaut():
+    # W1: alle Venture-/Radar-Endpoints sind weg — 404 statt Geister-API
     from fastapi.testclient import TestClient as TC
 
-    d = TC(s.app).get("/api/venture/trace?id=gibtsnicht").json()
-    assert d.get("error")  # sauberer Fehler statt Crash
+    c = TC(s.app)
+    assert c.get("/api/ventures").status_code == 404
+    assert c.get("/api/venture/trace?id=x").status_code == 404
+    assert c.get("/api/opportunities").status_code == 404
 
 
 def test_ws_contract_markers_present():

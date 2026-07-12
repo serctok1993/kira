@@ -11,14 +11,14 @@ from core.agency.tools.registry import tool
 
 
 @tool("widget_add",
-      "Blendet eine Zusatz-Kachel im Cockpit ein (Zentrale, Projekt-Tab oder Serc-Tab). "
+      "Blendet eine Zusatz-Kachel im Cockpit ein (Zentrale oder Serc-Tab). "
       "Typen: metric (aktueller Wert + Sparkline einer Kennzahl), chart (Balkenverlauf), "
       "list (Liste aus digest/tagewerk/status/evolution). "
       "Beispiel: widget_add('follower', 'Follower', 'metric', 'zentrale', metric='follower').",
       {"id": "kurzer Kachel-Name, nur a-z 0-9 und Bindestrich",
        "titel": "Ueberschrift der Kachel (max 60 Zeichen)",
        "typ": "metric | chart | list",
-       "slot": "zentrale | projekt | serc",
+       "slot": "zentrale | serc",
        "metric": "bei metric/chart: Name der Kennzahl (wie bei metric_log)",
        "endpoint": "bei list: /api/digest | /api/tagewerk | /api/status | /api/evolution",
        "key": "bei list: Feldname im Endpunkt, z.B. tasks_done"})

@@ -54,15 +54,13 @@ desktop:
   vault_paths:
     - "C:/Users/serge/Desktop/Kira-Brain"      # Sergens Obsidian-Vault -> voller Graph im Wallpaper
 
-# Feature-Flags (S12 Rezentrierung): Bausteine an-/abschalten, ohne Code oder Daten zu
-# loeschen. AUS = Werkzeuge fliegen aus dem Manifest (registry), Loop-Zweige pausieren,
-# UI-Panels verschwinden — DB-Tabellen und Endpoints bleiben. Live togglebar via Cockpit
-# (POST /api/config/set, data/overrides.json); die UI zieht beim naechsten Seiten-Reload nach.
+# Feature-Flags (S12): Bausteine an-/abschalten ohne Code-Aenderung. AUS = Werkzeuge
+# fliegen aus dem Manifest (registry), UI-Teile verschwinden. Live togglebar via Cockpit
+# (POST /api/config/set, data/overrides.json). W1: business/radar sind KEINE Flags mehr —
+# der Venture-Strang ist komplett ausgebaut.
 features:
-  business: false            # Ventures, Business-Objectives-Grind, Stripe-Sync, Projekte-UI
-  radar: false               # Ideen-Radar (Scan, Pipeline, UI-Spalte)
   desktop_low_level: false   # maus/tastatur/fenster/bildschirm-Werkzeuge (browser_act bleibt AN!)
-  linkedin: false            # vorbereitet fuer Phase 3 (nur Playbook, keine API)
+  linkedin: false            # LinkedIn-Posting (nur Playbook, keine API)
 
 # Agentische Ausdauer — wie lang Kira an EINEM Task dranbleibt (Claude-Code-artig).
 # Die Handlungs-Schleife endet automatisch frueh, sobald Kira fertig ist; diese Werte

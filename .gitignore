@@ -21,3 +21,11 @@ core/mind/history/*.bak
 
 # Obsidian-Vault-Artefakte (Editor-Zustand, maschinenspezifisch)
 .obsidian/
+
+# W1: Werkstatt-/Transkript-Streuner nie tracken
+unsloth_compiled_cache/
+transcript*
+transkript*
+_fix_test.py
+2026-*.md
+docs/*_neu.md

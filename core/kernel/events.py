@@ -159,7 +159,7 @@ _TOOL_TEXT = {
     "web_fetch": "liest Webseite", "web_search": "recherchiert", "browse": "surft",
     "screenshot_url": "macht Screenshot", "read_logs": "prueft Logs", "health": "prueft Zustand",
     "learn_skill": "lernt Faehigkeit", "jetzt": "schaut auf die Uhr", "send_mail": "sendet E-Mail",
-    "delegiere": "delegiert an die Armee", "venture_add": "legt Projekt an",
+    "delegiere": "delegiert an die Armee",
 }
 
 _ARG_KEYS = ("path", "pfad", "file", "rel_path", "url", "command", "query", "muster", "label", "name", "to")
