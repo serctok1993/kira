@@ -93,9 +93,6 @@ def _notify(text: str, wichtig: bool = False, kurz: str | None = None) -> None:
         events.emit("notify_error", {"error": str(e)})
 
 
-_KIND_RANK = {"weekly": 0, "monthly": 1, "big": 2}
-
-
 def _self_improve_tick(mission: str, escalate: bool) -> dict:
     """S8.1: Selbstoptimierungs-Tick — Kira arbeitet an SICH statt an Projekten.
 
@@ -140,30 +137,6 @@ def _self_improve_tick(mission: str, escalate: bool) -> dict:
     return {"self_tick": True, "result": text[:400]}
 
 
-def _pick_objective(actives: list[dict]) -> dict | None:
-    """Waehlt das naechste aktive Ziel (S6.3: Blaetter zuerst).
-
-    Eltern mit aktiven Kind-Zielen werden uebersprungen — gearbeitet wird an den
-    Kindern, der Eltern-Fortschritt folgt daraus. Innerhalb des Rangs (weekly <
-    monthly < big): naechste Faelligkeit zuerst, dann geringster Fortschritt."""
-    if not actives:
-        return None
-    import datetime as _dt
-
-    parents_with_children = {o["parent_id"] for o in actives if o.get("parent_id")}
-    candidates = [o for o in actives if o["id"] not in parents_with_children] or actives
-
-    def _key(o: dict):
-        td = o.get("target_date")
-        try:
-            days = (_dt.date.fromisoformat(td) - _dt.date.today()).days if td else 9999
-        except Exception:  # noqa: BLE001
-            days = 9999
-        return (_KIND_RANK.get(o.get("kind"), 1), days, o.get("progress", 0))
-
-    return sorted(candidates, key=_key)[0]
-
-
 def _outcomes_enabled() -> bool:
     o = CONFIG.get("outcomes") or {}
     return bool(o.get("enabled", True)) if isinstance(o, dict) else True
@@ -176,19 +149,6 @@ def _attempt_prompt(task: dict, criteria: list[dict], attempt: int) -> str:
     nur der Arbeits-Prompt des Versuchs traegt die Zusaetze."""
     parts = []
     if task.get("objective_id"):
-        # S8.2: Projekt-Briefing (Sergens Daueranweisungen) gilt fuer JEDEN Task des Projekts.
-        try:
-            from core.agency import ventures as _v
-            from core.agency.missions import objectives as _o
-
-            obj = next((o for o in _o.list_all() if o["id"] == task["objective_id"]), None)
-            if obj and obj.get("venture_id"):
-                brief = _v.briefing(obj["venture_id"])
-                if brief:
-                    parts.append("ANWEISUNGEN VON SERGEN ZU DIESEM PROJEKT (bindend):\n"
-                                 + brief + "\n---")
-        except Exception:  # noqa: BLE001 — Briefing ist Zusatz, nie Blocker
-            pass
         ws = workingset.render(task["objective_id"])
         if ws:
             parts.append("ARBEITSSTAND ZUM ZIEL (darauf aufbauen, nichts wiederholen):\n" + ws + "\n---")
@@ -450,76 +410,10 @@ def run_once(escalate: bool = False) -> dict:
             events.emit("self_tick_error", {"error": str(e)[:200]})
 
     if not queue.pending(mission):
-        # Ziel-gerichtet planen: existieren aktive Objectives, arbeite aufs DRINGENDSTE hin
-        # und verknuepfe die Tasks (objective_id) -> der Fortschritt fuellt sich automatisch.
-        from core.agency.missions import objectives as _obj
-        _obj.init_objectives()
-        # S5: nur Business-Ziele werden vom Heartbeat gegrindet — Lebens-Ziele
-        # (domain='leben') laufen ueber Coach/Briefings, nie automatisch.
-        # S12: Business-Flag aus -> leere Liste, der ganze Zweig kollabiert auf plan_goal=goal.
-        actives = _obj.list_active(domain="business") if feature_on("business") else []
-        cap = _werktakt()
-        if cap:  # Werktakt: Ziele mit vollem Tagespensum heute nicht weiter beplanen
-            im_takt = [o for o in actives if queue.done_today(o["id"]) < cap]
-            if im_takt != actives:
-                events.emit("objective_paced_planning",
-                            {"uebersprungen": len(actives) - len(im_takt), "cap": cap})
-            actives = im_takt
-        target = _pick_objective(actives)
-        if target and target.get("kind") in ("big", "monthly"):
-            # S6.3: ein grosses Ziel ohne aktive Wochen-Kinder wird (max. 1x pro Woche)
-            # in Wochen-Ziele zerlegt — danach arbeitet der Tick am ersten Blatt.
-            try:
-                from core.agency.missions import maintenance as _maint
-
-                if not _obj.children(target["id"]) \
-                        and _maint.maybe_run(f"decompose_{target['id']}", interval_s=7 * 86400):
-                    weeklies = planner.propose_weekly_objectives(target, _context(), escalate=escalate)
-                    for w in weeklies:
-                        _obj.add(w["title"], kind="weekly", parent_id=target["id"],
-                                 target_date=w.get("target_date"),
-                                 domain=target.get("domain") or "business",
-                                 venture_id=target.get("venture_id"))
-                    if weeklies:
-                        events.emit("objective_decomposed",
-                                    {"parent": target["title"], "children": len(weeklies)})
-                        target = _pick_objective(_obj.list_active(domain="business"))
-            except Exception as e:  # noqa: BLE001
-                events.emit("decompose_error", {"error": str(e)[:200]})
-        if target:
-            plan_goal = (f"AKTIVES ZIEL (arbeite konkret hierauf hin): {target['title']}"
-                         + (f"\n{target['notes']}" if target.get("notes") else "")
-                         + f"\n\nUEBERGEORDNETE MISSION:\n{goal}")
-            oid = target["id"]
-            if target.get("venture_id"):
-                # S8.1: Projekt-Kontext OHNE Kasse/Meilenstein/ROI — Name, Hypothese,
-                # Sergens Briefing (bindende Daueranweisungen) und was es bislang gekostet hat.
-                try:
-                    from core.agency import ventures as _ventures
-
-                    v = _ventures.get(target["venture_id"])
-                    if v:
-                        head = f"PROJEKT: {v['name']} — {v.get('hypothesis') or ''}\n"
-                        try:
-                            brief = _ventures.briefing(v["id"])
-                            if brief:
-                                head += "ANWEISUNGEN VON SERGEN (bindend):\n" + brief.strip() + "\n"
-                        except Exception:  # noqa: BLE001 — Briefing ist optional (S8.2)
-                            pass
-                        try:
-                            c = _ventures.costs(v["id"])
-                            if c:
-                                head += f"Kosten bislang: {c:.2f} EUR.\n"
-                        except Exception:  # noqa: BLE001
-                            pass
-                        plan_goal = head + plan_goal
-                except Exception as e:  # noqa: BLE001
-                    events.emit("venture_context_error", {"error": str(e)[:200]})
-            ws = workingset.render(oid)
-            if ws:  # Plaene bauen auf dem Stand auf, statt Erledigtes neu zu planen
-                plan_goal += f"\n\nARBEITSSTAND ZUM ZIEL (nichts davon wiederholen):\n{ws}"
-        else:
-            plan_goal, oid = goal, None
+        # W1: der Business-Objectives-Grind ist ausgebaut. Der Heartbeat plant direkt
+        # auf die Dienst-Mission; Lebens-Ziele (domain='leben') laufen weiter ueber
+        # Coach/Briefings, nie automatisch.
+        plan_goal, oid = goal, None
         # S6.2: Erkenntnisse aus dem Outcome-Ledger + Restbudget fliessen in die Planung.
         try:
             from core.agency import insights as _insights
@@ -534,8 +428,7 @@ def run_once(escalate: bool = False) -> dict:
                                        budget=budget, insights=brief or None)
         for t in tasks:
             queue.add(t, mission=mission, objective_id=oid)
-        events.emit("mission_planned", {"mission": mission, "tasks": tasks,
-                                        "objective": (target or {}).get("title")})
+        events.emit("mission_planned", {"mission": mission, "tasks": tasks})
 
     task = _pop_paced(mission)
     if not task:
@@ -728,22 +621,6 @@ def run_forever(interval: int | None = None) -> None:
                     from core.kernel import backup as _bk
 
                     events.emit("db_backup", _bk.backup_state_db())
-                if maintenance.maybe_run("stall_check", interval_s=86400):
-                    # S6.3: festgefahrene Ziele erkennen -> Freigabe-Eintrag statt stilles Grinden.
-                    from core.agency import insights as _ins2
-
-                    for o in _ins2.stalled_objectives(days=5):
-                        if maintenance.maybe_run(f"stall_{o['id']}", interval_s=7 * 86400):
-                            from core.agency import approvals as _appr
-
-                            _appr.create(
-                                f"Ziel steckt fest: {o['title'][:70]}",
-                                kind="generic", source="kira",
-                                detail=(f"Seit ~{o['idle_days']} Tagen kein erledigter Task "
-                                        f"(Fortschritt {o['progress']}%).\n"
-                                        "Vorschlag: Ziel teilen, Ansatz wechseln (Pivot) oder "
-                                        "pausieren — entscheide im Cockpit oder im Chat."))
-                            events.emit("objective_stalled", {"id": o["id"], "title": o["title"][:120]})
                 if maintenance.maybe_run("doctor_check", interval_s=7 * 86400):
                     from core.kernel import doctor
 
@@ -764,32 +641,6 @@ def run_forever(interval: int | None = None) -> None:
                                 "warten in der Freigabe-Inbox auf dein OK.")
             except Exception as e:  # noqa: BLE001
                 events.emit("maintenance_error", {"error": str(e)})
-            try:
-                # Stripe-Einnahmen alle 6h ins Venture-Konto-Buch ziehen (rein lesend).
-                from core.agency.missions import maintenance
-
-                if feature_on("business") and maintenance.maybe_run("stripe_sync", interval_s=6 * 3600):
-                    from core.agency.connectors import stripe_sync
-
-                    res = stripe_sync.sync()
-                    if res.get("booked"):
-                        _notify(wichtig=True, text=f"💶 Stripe: {res['booked']} neue Zahlung(en), "
-                                f"+{res['total_eur']:.2f} EUR im Konto-Buch.")
-            except Exception as e:  # noqa: BLE001
-                events.emit("stripe_sync_error", {"error": str(e)})
-            try:
-                # Ideen-Radar: Takt kommt aus Sergens Einstellung (Cockpit -> Ideen;
-                # Standard 1 Bericht mit 2 Ideen alle 7 Tage — Wochenaufgabe statt Flut).
-                from core.agency.missions import maintenance
-
-                from core.agency import radar
-
-                if feature_on("radar") and maintenance.maybe_run(
-                        "radar_scan", interval_s=radar.get_takt()["intervall_tage"] * 86400):
-                    res = radar.scan(notify=True)
-                    events.emit("radar_scan_done", res)
-            except Exception as e:  # noqa: BLE001
-                events.emit("radar_error", {"error": str(e)})
 
             if heartbeat_on():
                 out = _run_tick_timeboxed()

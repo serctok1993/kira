@@ -578,32 +578,9 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
 /* ===== S9.3/S9.5 · Kein-Scroll-Disziplin: Seite scrollt nicht, Panels scrollen innen ===== */
 /* Basis (schmal, gestapelt) MUSS vor der Media-Query stehen — sonst ueberstimmt die
    spaetere 1fr-Regel bei gleicher Spezifitaet die 3-Spalten in der @media (Quell-Reihenfolge). */
-.proj-cols{display:grid;grid-template-columns:1fr;gap:14px}
 .me-grid{display:grid;grid-template-columns:1fr;gap:14px}
 /* Auf-einen-Blick-Kennzahlen in der Projekt-Uebersicht (Luvex & Co.) */
-.proj-glance{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 2px}
-.proj-glance .pg-cell{flex:1;min-width:96px;border:1px solid var(--line);border-radius:9px;padding:7px 11px;background:var(--panel2)}
-.proj-glance .pg-cell b{font-size:15px}
 @media(min-width:1050px){
- /* Projekte: Standbeine oben, darunter 3 Spalten (Ziele/Backlog/Radar) — alles auf einem Screen */
- #v-projekte.on{overflow:hidden;gap:14px}
- #proj-top{flex-shrink:0;max-height:38%;display:flex;flex-direction:column;min-height:0;margin:0}
- #proj-top #vent-list{overflow:auto}
- /* Projekt-AKTE: eigener Vollbreiten-Kasten (nicht mehr in proj-top gequetscht), scrollt intern */
- #vent-detail{flex:1;min-height:0;overflow:auto;margin:0}
- .proj-cols{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
- .proj-cols>.panel{min-height:0;display:flex;flex-direction:column;margin:0}
- /* jede Spalten-Liste scrollt intern — #rd-list (Radar) war vergessen -> Liste lief unten aus dem Bild */
- .proj-cols>.panel>[class*="-list"],.proj-cols>.panel>#todo-board,.proj-cols>.panel>#obj-list,.proj-cols>.panel>#rd-list{flex:1;overflow:auto}
- /* Drilldown: sobald ein Projekt offen ist, tritt die Akte in den Vordergrund, die 3 Spalten weichen */
- #v-projekte.drill .proj-cols{display:none}
- #v-projekte:not(.drill) #vent-detail{display:none!important}
- /* Werkbank PR 2b — Master-Detail: im Drill steht die Projektliste SCHMAL LINKS neben
-    der Akte (Projekt-Wechsel ohne Zurueck-Klick), statt als Band drueber. */
- #v-projekte.drill{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px;align-items:stretch}
- #v-projekte.drill #proj-top{max-height:none;grid-column:1;min-width:0}
- #v-projekte.drill #vent-detail{grid-column:2;min-width:0}
- #v-projekte.drill #proj-top .row,#v-projekte.drill #obj-form{flex-wrap:wrap}
  /* Me: 3 App-Style-Spalten, jede stapelt schlanke Panels mit internem Scroll — kein Seiten-Scroll */
  #v-me.on{overflow:hidden}
  .me-grid{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}

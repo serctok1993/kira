@@ -186,25 +186,6 @@ def test_chat_politur():
 
 # ---- Projekte-Tab entzerrt: Akte als eigener Kasten, Radar scrollt, kein "Venture" mehr ----
 
-def test_projekte_entzerrt():
-    # die Projekt-Akte ist ein eigener Vollbreiten-Kasten, NICHT mehr in proj-top gequetscht
-    top_start = VIEWS.index('id="proj-top"')
-    top_end = VIEWS.index('id="vent-detail"')
-    assert 'id="vent-detail"' not in VIEWS[top_start:top_end]   # detail liegt hinter proj-top
-    assert 'class="panel" id="vent-detail"' in VIEWS            # eigener Panel-Kasten
-    # Radar-Liste scrollt jetzt intern (der vergessene #rd-list ist in der Overflow-Regel)
-    assert ".proj-cols>.panel>#rd-list{flex:1;overflow:auto}" in CSS \
-        or "#rd-list{flex:1;overflow:auto}" in CSS
-    assert ".proj-cols>.panel>#rd-list" in CSS
-    # Drilldown-Mechanik: offenes Projekt schiebt die 3 Spalten weg
-    assert "#v-projekte.drill .proj-cols{display:none}" in CSS
-    assert 'classList.add("drill")' in SCRIPT and 'classList.remove("drill")' in SCRIPT
-    # das Wort "Venture" ist aus der Oberflaeche verschwunden (IDs/API bleiben)
-    assert "&rarr; Venture</a>" not in SCRIPT
-    assert "&rarr; Projekt</a>" in SCRIPT
-    assert "Noch keine Ventures" not in SCRIPT
-
-
 # ---- Ziele-Dashboard: Kennzahlen mit Ziel/Fortschritt, Kira schreibt selbst, Zentrale-Karte ----
 
 def test_ziele_dashboard():
@@ -243,28 +224,7 @@ def test_automatisierungspanel():
 
 # ---- Radar konfigurierbar: Sergen sagt, wonach gesucht wird ----------------------------
 
-def test_radar_fokus_ui():
-    # Fokus-Editor im Radar-Panel + Umbenennung ins "Ideen"-Framing
-    assert "◈ RADAR · IDEEN" in VIEWS
-    for m in ('id="rd-focus-edit"', 'id="rd-focus-box"', 'id="rd-focus"', 'id="rd-focus-save"'):
-        assert m in VIEWS, f"Radar-Fokus-Element fehlt: {m}"
-    # JS spricht die Fokus-Endpoints an
-    assert '"/api/radar/focus"' in SCRIPT
-    assert '$("#rd-focus-save")' in SCRIPT and '$("#rd-focus-edit")' in SCRIPT
-
-
 # ---- Pro-Projekt-Uebersicht: auf einen Blick, was fuer Luvex getan wurde ----------------
-
-def test_projekt_uebersicht_auf_einen_blick():
-    # Kennzahlen-Kaertchen in der Projekt-Uebersicht + "zuletzt erledigt"
-    assert ".proj-glance{display:flex" in CSS
-    assert 'class="proj-glance"' in SCRIPT
-    assert "ZULETZT ERLEDIGT" in SCRIPT
-    # aus den Tasks der Ziele wird die Erledigt-Quote berechnet
-    assert 'doneTasks=allTasks.filter(t=>t.status==="done")' in SCRIPT
-    for lbl in ('gstat("Ziele"', 'gstat("Aufgaben"', 'gstat("Kosten"', 'gstat("Kasse"'):
-        assert lbl in SCRIPT, f"Kennzahl fehlt: {lbl}"
-
 
 # ---- Chat/Projekte-UX-Runde: 🗂 rechts, Befehls-Palette, Projekt klickt sich zu ----
 
@@ -279,15 +239,8 @@ def test_chatbutton_rechts_und_palette():
     assert ".cmd-pop{position:absolute" in CSS
     assert "const CMDS=[" in SCRIPT and "function renderCmdPop(" in SCRIPT
     # /work & code: sind jetzt Modi (oben) — die Palette listet die uebrigen echten Befehle
-    for cmd in ('"/plan ",', '"reason: ",', '"/model ",', '"/schwarm arbeiter', '"@ziel:",'):
+    for cmd in ('"/plan ",', '"reason: ",', '"/model ",', '"/schwarm arbeiter'):
         assert cmd in SCRIPT, f"Befehl fehlt in der Palette: {cmd}"
-
-
-def test_projekt_klickt_sich_zu():
-    # zweiter Klick auf dasselbe offene Projekt klappt es wieder zu
-    assert "function closeVent(" in SCRIPT
-    assert 'if(_openVent===id&&$("#v-projekte").classList.contains("drill"))closeVent()' in SCRIPT
-    assert "_openVent=id;" in SCRIPT          # beim OEffnen gemerkt
 
 
 # ---- Zentrale: Epicness statt grosser Emojis ----

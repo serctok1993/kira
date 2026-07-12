@@ -1,6 +1,6 @@
 """Trigger-Werkzeuge: Kira verdrahtet sich eigene Wenn-Dann-Reflexe (S4).
 
-Beispiele: 'wenn stripe_income -> pruefe Skalierung', 'wenn task_failed_final ->
+Beispiele: 'wenn task_failed_final ->
 plane einen anderen Ansatz', 'wenn mcp_server_died -> diagnostiziere'.
 """
 from __future__ import annotations
@@ -11,7 +11,7 @@ from core.agency.tools.registry import tool
 @tool("trigger_add",
       "Legt einen proaktiven Trigger an: WENN ein Event dieses Typs auftritt, DANN wird die "
       "Aufgabe in die Missions-Queue gelegt (laeuft durch die normale Ergebnis-Pruefung). "
-      "Event-Typen siehe db_query auf events (z.B. stripe_income, task_failed_final, mcp_server_died).",
+      "Event-Typen siehe db_query auf events (z.B. task_failed_final, mcp_server_died).",
       {"label": "kurzer Name des Reflexes",
        "event_type": "exakter Event-Typ, der ausloest",
        "task": "die Aufgabe, die dann in die Queue soll",

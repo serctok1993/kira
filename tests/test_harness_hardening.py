@@ -23,10 +23,10 @@ def test_busy_timeout_auf_allen_verbindungen(monkeypatch, tmp_path):
     from core.kernel import events
     from core.mind import knowledge
     from core.mind.memory import store
-    from core.agency import ventures, outcomes, radar, approvals, insights
+    from core.agency import outcomes, approvals, insights
     from core.agency.missions import queue, metrics, objectives
     db = str(tmp_path / "state.db")
-    mods = (events, store, queue, knowledge, ventures, outcomes, radar,
+    mods = (events, store, queue, knowledge, outcomes,
             approvals, insights, metrics, objectives)
     for mod in mods:
         monkeypatch.setattr(mod, "DB_PATH", db)

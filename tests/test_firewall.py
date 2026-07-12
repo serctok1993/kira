@@ -87,9 +87,7 @@ def test_llm_escape_mit_allow(monkeypatch):
 
 def test_bezahlte_konnektoren_still(monkeypatch):
     monkeypatch.setenv("KIRA_NO_OUTBOUND", "1")
-    from core.agency.connectors import stripe_sync, tts
-    r = stripe_sync.sync()
-    assert r["booked"] == 0 and "TESTMODUS" in r["note"]
+    from core.agency.connectors import tts
     assert tts.enabled() is False
     from core.agency.mcp import registry_bridge
     registry_bridge.init_background()  # spawnt keinen npx-Prozess, wirft nicht

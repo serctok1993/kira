@@ -201,7 +201,7 @@ def run_job(job: dict, notify: bool = True) -> dict:
     except Exception:  # noqa: BLE001
         pass
     if "{{standup}}" in prompt:
-        # S5: Briefings/Coach lesen echte Boards (Leben, Ziele, Ventures, Metriken)
+        # S5: Briefings/Coach lesen echte Boards (Leben, Ziele, Metriken)
         # statt zu raten — der Platzhalter wird pro Lauf frisch expandiert.
         try:
             from core.agency.missions import standup

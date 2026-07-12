@@ -76,26 +76,6 @@ def _playbooks_block() -> str:
         return ""
 
 
-def _project_block(session_id: str | None) -> str:
-    """Projekt-Chat (Task #15): ist die Session ein 'venture-<id>', stellt Kira das Projekt-Briefing
-    als Kontext voran -> sie weiss, um welches Projekt (Luvex, QS-Transporte, ...) es geht."""
-    if not session_id or not session_id.startswith("venture-"):
-        return ""
-    vid = session_id[len("venture-"):]
-    try:
-        from core.agency import ventures
-        v = ventures.get(vid)
-        if not v:
-            return ""
-        name = v.get("name") or vid
-        brief = ventures.briefing(vid, max_chars=1500) or "(noch kein Briefing hinterlegt)"
-        return (f"\n# AKTUELLES PROJEKT: {name}\n"
-                f"Dieser Chat gehoert zum Projekt \"{name}\" — beziehe deine Antworten darauf, "
-                f"sofern Sergen nichts anderes sagt.\nPROJEKT-BRIEFING:\n{brief}\n")
-    except Exception:  # noqa: BLE001
-        return ""
-
-
 def build_system_prompt(user_message: str, session_id: str | None = None) -> str:
     constitution = _read("constitution.md")
     soul = _read("SOUL.md")
@@ -128,7 +108,7 @@ def build_system_prompt(user_message: str, session_id: str | None = None) -> str
 
 # DEIN PARTNER (mit wem du arbeitest)
 {user}
-{_project_block(session_id)}
+
 # DEIN KOERPER (Anatomie dieses Harness — Details: read_file("core/mind/BODY.md"))
 {koerper}
 

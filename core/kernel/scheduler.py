@@ -1,16 +1,15 @@
-"""Heartbeat — der autonome Takt.
+"""Heartbeat-Schalter + Not-Aus (Kill-Switch) — die Wahrheit fuers ganze System.
 
-Phase 1: nur ein Stub und standardmaessig deaktiviert (config.yaml).
-Die volle Mission-Schleife (Queue abarbeiten, nachts laufen) kommt in Phase 4.
-Der Kill-Switch wird hier bereits respektiert.
+W1: der alte Stub-Loop (tick/run) ist raus — die echte Mission-Schleife lebt in
+core/agency/missions/runner.py. Hier wohnen nur noch die Schalter, die ueberall
+gelesen werden: heartbeat_on/set_heartbeat (Laufzeit-Flag vor config.yaml) und
+kill_switch_active (data/STOP).
 """
 from __future__ import annotations
 
-import time
 from pathlib import Path
 
 from core.config import CONFIG, ROOT
-from core.kernel import events
 
 
 def kill_switch_path() -> Path:
@@ -38,33 +37,3 @@ def set_heartbeat(on: bool) -> None:
     p = heartbeat_path()
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text("on" if on else "off", encoding="utf-8")
-
-
-def tick() -> None:
-    if kill_switch_active():
-        events.emit("heartbeat_halted", {"reason": "kill_switch"})
-        return
-    events.emit("heartbeat", {"note": "stub — noch keine Missionen"})
-
-
-def run() -> None:
-    hb = CONFIG.get("heartbeat", {})
-    if not hb.get("enabled"):
-        print("Heartbeat ist deaktiviert (config.yaml: heartbeat.enabled=false).")
-        return
-    interval = hb.get("interval_seconds", 900)
-    print(f"Heartbeat laeuft alle {interval}s. Strg+C zum Stoppen.")
-    events.init_db()
-    try:
-        while True:
-            if kill_switch_active():
-                print("KILL-SWITCH aktiv — Heartbeat haelt an.")
-                break
-            tick()
-            time.sleep(interval)
-    except KeyboardInterrupt:
-        print("\nHeartbeat gestoppt.")
-
-
-if __name__ == "__main__":
-    run()
