@@ -3,7 +3,7 @@
 Ziel: die Seite **`/wall`** läuft als lebendiges Wallpaper **hinter den Icons**, die
 Taskleiste ist ausgeblendet — Kira wird Teil des Hintergrunds.
 
-**Voraussetzung:** Kira läuft (Supervisor / `start-all.ps1`), das Cockpit ist erreichbar
+**Voraussetzung:** Kira läuft (Supervisor / `scripts\start-all.ps1`), das Cockpit ist erreichbar
 unter `http://127.0.0.1:8000`. Test im Browser: `http://127.0.0.1:8000/wall`.
 
 ---
@@ -21,7 +21,7 @@ Open Source (MIT), läuft lokal, kein Cloud-Zwang — passt zum Prinzip „alles
 4. **Mehrere Monitore:** in den Lively-Einstellungen pro Monitor wählbar.
 
 > Kira muss laufen, sonst zeigt Lively eine leere Seite. Der Autostart regelt das
-> (`install-autostart.ps1` / `start-all.ps1`).
+> (`scripts\install-autostart.ps1` / `scripts\start-all.ps1`).
 
 ---
 
@@ -43,15 +43,15 @@ Nur falls du sie wirklich WEG willst (nicht durchsichtig):
 
 **Variante 1 — Auto-Ausblenden** (Windows-Bordmittel, kommt bei Mausberührung unten kurz zurück):
 - Manuell: Rechtsklick auf die Taskleiste → *Taskleisteneinstellungen* → **„Taskleiste automatisch ausblenden"**.
-- Oder: `powershell -ExecutionPolicy Bypass -File taskbar-autohide.ps1 on`  (rückgängig: `... off`).
+- Oder: `powershell -ExecutionPolicy Bypass -File scripts\taskbar-autohide.ps1 on`  (rückgängig: `... off`).
 
 **Variante 2 — dauerhaft weg (durchgängiger Desktop, empfohlen):** versteckt das Taskleisten-Fenster
 komplett, poppt **nicht** bei Mausberührung auf. Deine Desktop-Icons bleiben sichtbar.
-- **Am einfachsten:** Doppelklick auf **`taskleiste-weg.bat`** (zurück: **`taskleiste-an.bat`**).
-- Oder von Hand: `powershell -ExecutionPolicy Bypass -File taskbar-hide.ps1 hide` / `... show`.
+- **Am einfachsten:** Doppelklick auf **`scripts\taskleiste-weg.bat`** (zurück: **`scripts\taskleiste-an.bat`**).
+- Oder von Hand: `powershell -ExecutionPolicy Bypass -File scripts\taskbar-hide.ps1 hide` / `... show`.
 - Start-Menü geht weiter über die **Windows-Taste**.
 - **Für „immer weg" (auch nach Neustart):** die Verknüpfung mit `hide` in den Autostart legen
-  (`Win+R` → `shell:startup` → Verknüpfung auf `taskbar-hide.ps1` mit Argument `hide`).
+  (`Win+R` → `shell:startup` → Verknüpfung auf `scripts\taskbar-hide.ps1` mit Argument `hide`).
 
 ---
 
@@ -66,7 +66,7 @@ Deshalb holt ein **globaler Hotkey** das echte Chatfenster nach vorne (aus jeder
 - Beide Tasten sind in `config.yaml` unter `desktop.hotkey` / `desktop.ptt_key` änderbar
   (Syntax des `keyboard`-Pakets, z.B. `"ctrl+alt+k"`).
 
-Voraussetzungen: die **Desktop-App läuft** (`kira-desktop.bat`) und die Desktop-Extras sind
+Voraussetzungen: die **Desktop-App läuft** (`scripts\kira-desktop.bat`) und die Desktop-Extras sind
 aktuell (`uv pip install -r requirements-desktop.txt` — einmalig, holt das `keyboard`-Paket).
 Hinweis: `Alt+Space` überlagert das Windows-Fenstermenü; wenn dich das stört, einfach in
 `config.yaml` eine andere Kombi eintragen.
@@ -92,19 +92,19 @@ Alternativ von Hand: das Bild als **`data/kira-icon.png`** (oder `.jpg`/`.webp`)
 
 > Fehlt ein Logo, zeigt der Cockpit-Kopf den Neon-„KIRA"-Schriftzug — nichts bricht.
 > Die Desktop-App startet **immer**, auch ohne Logo (das Fenster-/Taskleisten-Symbol nutzt nur ein
-> `.ico`, das `kira-einrichten.bat` erzeugt; fehlt es, läuft die App einfach ohne eigenes Fenstersymbol).
+> `.ico`, das `scripts\kira-einrichten.bat` erzeugt; fehlt es, läuft die App einfach ohne eigenes Fenstersymbol).
 
 ## Ein-Klick-Einrichtung (Icon + Desktop-Verknüpfung + Autostart)
 
-Wenn `data/kira-icon.png` liegt: **Doppelklick auf `kira-einrichten.bat`** (oder
-`powershell -ExecutionPolicy Bypass -File desktop-setup.ps1`). Das macht in einem Rutsch:
+Wenn `data/kira-icon.png` liegt: **Doppelklick auf `scripts\kira-einrichten.bat`** (oder
+`powershell -ExecutionPolicy Bypass -File scripts\desktop-setup.ps1`). Das macht in einem Rutsch:
 
 1. **PNG → `.ico`** (`data/kira-icon.ico`) — Windows-Verknüpfungen brauchen ein Icon-Format.
 2. Eine **schöne Verknüpfung `Kira` auf dem Desktop** mit deinem Logo — Doppelklick startet die App.
 3. **Autostart der Desktop-App** (eigener Eintrag „Kira Desktop") → beim Anmelden kommen
    Tray-Symbol + Cockpit von selbst hoch (der Supervisor wird dabei mitgestartet).
 
-Rückgängig: **`uninstall-autostart.ps1`** (entfernt beide Autostart-Einträge); das Desktop-Icon
+Rückgängig: **`scripts\uninstall-autostart.ps1`** (entfernt beide Autostart-Einträge); das Desktop-Icon
 einfach löschen.
 
 ## Node-Klick → Notiz in Obsidian

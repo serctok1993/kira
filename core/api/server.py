@@ -1560,9 +1560,9 @@ async def api_desktop_shortcut(body: dict) -> dict:
 
     if not sys.platform.startswith("win"):
         return {"ok": False, "error": "nur unter Windows"}
-    ps1 = ROOT / "desktop-setup.ps1"
+    ps1 = ROOT / "scripts" / "desktop-setup.ps1"
     if not ps1.exists():
-        return {"ok": False, "error": "desktop-setup.ps1 fehlt"}
+        return {"ok": False, "error": "scripts/desktop-setup.ps1 fehlt"}
 
     def _run() -> dict:
         import subprocess

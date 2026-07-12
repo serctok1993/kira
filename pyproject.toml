@@ -1,7 +1,10 @@
 [project]
-name = "prometheus"
-version = "0.1.0"
-description = "Persönlicher autonomer Agent-Harness — ein Partner, kein Werkzeug."
+name = "kira"
+version = "1.0.0"
+description = "Persönlicher autonomer Agent-Harness — ein Partner, kein Werkzeug. Lokal-first, umbenennbar, mit eigenem Cockpit."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "The Kira Authors" }]
 requires-python = ">=3.11"
 dependencies = [
     "litellm>=1.55",

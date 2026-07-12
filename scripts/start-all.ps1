@@ -1,7 +1,8 @@
 # Startet das ganze Kira-Oekosystem: Ollama + Cockpit + Telegram-Bot + Mission-Loop.
 # Wird vom Autostart aufgerufen (oder manuell). Mission-Loop laeuft nur, wenn
 # heartbeat.enabled in config.yaml = true gesetzt ist.
-Set-Location -Path $PSScriptRoot
+$root = Split-Path -Parent $PSScriptRoot
+Set-Location -Path $root
 
 # 0) Ollama (Modell-Backend) sicherstellen
 $ollamaUp = $false
@@ -16,11 +17,11 @@ if (-not $ollamaUp) {
 }
 
 # 1) Kira ueber den Supervisor (haelt Cockpit/Bot/Runner am Leben; auto-restart; Singleton ueber Port 8000)
-$py = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
+$py = Join-Path $root ".venv\Scripts\python.exe"
 if (-not (Test-Path $py)) { $py = "python" }
-$logs = Join-Path $PSScriptRoot "data\logs"
+$logs = Join-Path $root "data\logs"
 New-Item -ItemType Directory -Force -Path $logs | Out-Null
 # stderr/stdout des Supervisors mitschreiben -> ein Crash beim Start (z.B. kaputte config) ist sichtbar
 # Hidden statt Minimized: KEIN Konsolen-Fenster mehr in der Taskleiste - Diagnose laeuft ueber die Logs
-Start-Process -WindowStyle Hidden -FilePath $py -ArgumentList "-m","core.kernel.supervisor" -WorkingDirectory $PSScriptRoot -RedirectStandardError (Join-Path $logs "supervisor.err.log") -RedirectStandardOutput (Join-Path $logs "supervisor.out.log")
+Start-Process -WindowStyle Hidden -FilePath $py -ArgumentList "-m","core.kernel.supervisor" -WorkingDirectory $root -RedirectStandardError (Join-Path $logs "supervisor.err.log") -RedirectStandardOutput (Join-Path $logs "supervisor.out.log")
 Write-Host "Kira (Supervisor) gestartet -> Cockpit: http://127.0.0.1:8000"
