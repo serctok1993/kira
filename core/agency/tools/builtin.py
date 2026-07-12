@@ -13,6 +13,7 @@ from pathlib import Path
 
 import httpx
 
+from core import identity as _id
 from core.agency.tools.registry import tool
 from core.config import MIND_DIR, ROOT
 from core.kernel import events
@@ -46,7 +47,7 @@ def _write_guard(p: Path, tool_name: str) -> str | None:
         except Exception:  # noqa: BLE001
             pass
         return ("BLOCKIERT: constitution.md ist unantastbar (Verfassung). "
-                "Aenderungen daran macht nur Sergen selbst via Git.")
+                f"Aenderungen daran macht nur {_id.user_name()} selbst via Git.")
     # Loch geschlossen: bestehende Code-Datei im Repo nicht blind komplett ueberschreiben.
     if rp.suffix.lower() in _CODE_EXT and rp.exists():
         try:
@@ -319,17 +320,17 @@ def make_dir(path: str = "", **falsche_args) -> str:
 
 
 @tool("request_secret",
-      "Fordert einen Zugang/Key an, den du brauchst. Sergen traegt ihn sicher im Dashboard "
+      "Fordert einen Zugang/Key an, den du brauchst. {{USER_NAME}} traegt ihn sicher im Dashboard "
       "(Zugaenge) ein. NICHT im Chat nach Passwoertern/Keys fragen.",
       {"name": "Env-Name, z.B. OPENROUTER_API_KEY", "reason": "wofuer du ihn brauchst"})
 def request_secret(name: str, reason: str = "") -> str:
     from core.governance import secrets
 
     secrets.request(name, reason)
-    return f"Zugang '{name}' angefordert. Sergen traegt ihn im Dashboard unter 'Zugaenge' ein."
+    return f"Zugang '{name}' angefordert. {_id.user_name()} traegt ihn im Dashboard unter 'Zugaenge' ein."
 
 
-# Gedaechtnis-Diaet (Sergens Fund 09.07.): "okay, super." landete als Dauer-Fakt im
+# Gedaechtnis-Diaet (Fund 09.07.): "okay, super." landete als Dauer-Fakt im
 # Langzeit-Gedaechtnis. Deterministischer Waechter: Smalltalk/Bestaetigungen und
 # Duplikate kommen NICHT mehr rein — der Chat-Verlauf (episodic) bleibt unberuehrt.
 _SMALLTALK = {"ok", "okay", "oki", "super", "nice", "top", "cool", "mega", "geil", "perfekt",
@@ -352,7 +353,7 @@ def _zu_banal(fact: str) -> bool:
 
 
 @tool("remember_fact",
-      "Speichere eine wichtige DAUER-Erinnerung (Fakt ueber Sergen, ein Projekt, eine "
+      "Speichere eine wichtige DAUER-Erinnerung (Fakt ueber {{USER_NAME}}, ein Projekt, eine "
       "Entscheidung, eine Praeferenz). Wird spaeter bevorzugt wieder erinnert. "
       "NUR fuer Informationen mit Langzeit-Wert — KEIN Smalltalk, keine Bestaetigungen, "
       "kein Gespraechsverlauf (der wird ohnehin erinnert).",
@@ -374,7 +375,7 @@ def remember_fact(fact: str) -> str:
 @tool("request_approval",
       "Lege eine Aussen-Aktion / oeffentliche oder irreversible Handlung (Post, Mail, "
       "Veroeffentlichung) oder einen fertigen Entwurf zur FREIGABE vor. Sie wird NICHT "
-      "sofort ausgefuehrt, sondern wartet in Sergens Freigabe-Inbox auf sein GO. Nutze "
+      "sofort ausgefuehrt, sondern wartet in {{USER_NAME_S}} Freigabe-Inbox auf sein GO. Nutze "
       "das IMMER, bevor etwas nach aussen geht.",
       {"title": "kurze Bezeichnung, z.B. 'Blogartikel posten'",
        "detail": "der Entwurf / Volltext / was genau passieren soll",
@@ -383,7 +384,7 @@ def request_approval(title: str, detail: str = "", kind: str = "generic") -> str
     from core.agency import approvals
 
     aid = approvals.create(title, kind=kind, detail=detail, source="kira")
-    return (f"Zur Freigabe vorgelegt: '{title}'. Ich fuehre es aus, sobald Sergen es in der "
+    return (f"Zur Freigabe vorgelegt: '{title}'. Ich fuehre es aus, sobald {_id.user_name()} es in der "
             f"Inbox freigibt (id {aid[:8]}). Bis dahin geht nichts nach aussen.")
 
 
@@ -473,8 +474,8 @@ def set_context(num_ctx: int = 0, max_tokens: int = 0) -> str:
 
 @tool("cron_add",
       "Plant eine WIEDERKEHRENDE Aufgabe. Zeitplan: '30m'/'2h' (Intervall) ODER '08:00' "
-      "(taeglich). scope ordnet sie ein: 'me' = Sergens Routine (z.B. Morgen-Briefing, "
-      "erscheint in seinem Me-Bereich), sonst 'system'. Sergen kann dir Routinen per "
+      "(taeglich). scope ordnet sie ein: 'me' = {{USER_NAME_S}} Routine (z.B. Morgen-Briefing, "
+      "erscheint in seinem Me-Bereich), sonst 'system'. {{USER_NAME}} kann dir Routinen per "
       "Telegram diktieren — lege sie damit an.",
       {"label": "kurzer Name", "prompt": "was du dann jeweils tun sollst",
        "schedule": "z.B. '30m', '2h' oder '08:00'",
@@ -489,7 +490,7 @@ def cron_add(label: str, prompt: str, schedule: str, scope: str = "system") -> s
         scope = "system"
     j = cron.add_job(label, prompt, schedule, scope=scope)
     nxt = _dt.datetime.fromtimestamp(j["next_run"]).strftime("%d.%m. %H:%M")
-    where = {"me": "Sergens Routinen (Me)", "system": "System"}[scope]
+    where = {"me": f"{_id.user_name()}s Routinen (Me)", "system": "System"}[scope]
     return f"Geplant: {j['label']} ({j['schedule_text']}, {where}) — naechster Lauf {nxt}."
 
 

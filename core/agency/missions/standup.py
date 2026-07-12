@@ -12,6 +12,7 @@ import datetime
 import json
 import time
 
+from core import identity as _id
 from core.config import ROOT
 from core.kernel import events
 
@@ -123,7 +124,7 @@ def _stammbaum_question(heute: str = "") -> str:
         datei, feld, name = luecken[idx]
         # Phase 2: person_fakt statt edit_datei — deterministischer Upsert, den auch
         # kleine Modelle sicher treffen (ersetzt die ???-Zeile selbst).
-        return ("LOGBUCH-FRAGE (stelle Sergen GENAU EINE Frage, beilaeufig und warm — "
+        return (f"LOGBUCH-FRAGE (stelle {_id.user_name()} GENAU EINE Frage, beilaeufig und warm — "
                 f"kein Verhoer): Frag nach '{feld}' und trage die Antwort so ein: "
                 f'ACT person_fakt {{"name": "{name}", "feld": "{feld}", "wert": "..."}} '
                 f"(Blatt: {datei}). Insgesamt noch {len(luecken)} Luecken offen.")
@@ -136,7 +137,7 @@ _TERMIN_FELDER = ("geburtstag", "jahrestag", "hochzeitstag", "jubilaeum", "jubil
 
 def _termin_radar_funde(heute: datetime.date | None = None,
                         vorlauf_tage: int = 8) -> list[tuple[int, str]]:
-    """Sergens Kernwunsch (08.07.): Erinnerungen ANWENDEN statt nur ablegen.
+    """Kernwunsch des Nutzers (08.07.): Erinnerungen ANWENDEN statt nur ablegen.
 
     Liest Datums-Felder aus dem Stammbaum (kein LLM, 0 EUR):
       - Jahrestage ('- geburtstag: 01.07.[1993]') -> naechstes Vorkommen im Vorlauf
@@ -197,7 +198,7 @@ def _termin_radar(heute: datetime.date | None = None, vorlauf_tage: int = 8) -> 
         return ""
     funde.sort()
     return ("TERMIN-RADAR (aus dem Stammbaum — sprich es VON DIR AUS an, warm und "
-            "rechtzeitig; nicht warten, bis Sergen fragt):\n"
+            f"rechtzeitig; nicht warten, bis {_id.user_name()} fragt):\n"
             + "\n".join(z for _, z in funde[:6]))
 
 
@@ -215,7 +216,7 @@ def _termin_block(heute: datetime.date | None = None, vorlauf_tage: int = 8) -> 
         return ""
     funde.sort(key=lambda x: x[0])
     return ("TERMIN-RADAR (Stammbaum + Kalender — sprich es VON DIR AUS an, warm und "
-            "rechtzeitig; nicht warten, bis Sergen fragt):\n"
+            f"rechtzeitig; nicht warten, bis {_id.user_name()} fragt):\n"
             + "\n".join(z for _, z in funde[:8]))
 
 
@@ -229,7 +230,7 @@ def build_context(scope: str = "morgen") -> str:
 
     focus = _focus()
     if focus:
-        parts.append(f"FOKUS von Sergen: {focus}")
+        parts.append(f"FOKUS von {_id.user_name()}: {focus}")
 
     # Leben: Todos heute/Woche + Ziele
     board = queue.board("leben")
@@ -246,13 +247,13 @@ def build_context(scope: str = "morgen") -> str:
         parts.append("LEBEN — Missionen/Ziele:")
         parts.extend(_fmt_obj(o) for o in leben_ziele[:6])
 
-    # Offen fuer Sergen + Tagesstand
+    # Offen fuer den Nutzer + Tagesstand
     try:
         from core.agency import approvals
 
         pend = approvals.pending()
         if pend:
-            parts.append(f"WARTET AUF SERGEN ({len(pend)}):")
+            parts.append(f"WARTET AUF {_id.user_name().upper()} ({len(pend)}):")
             parts.extend(f"- {p['title'][:90]}" for p in pend[:3])
     except Exception:  # noqa: BLE001
         pass

@@ -64,7 +64,7 @@ def test_cockpit_kopf_ist_wortmarke_nicht_logo():
     # kein /api/icon-Bild. Das Logo bleibt fuer Fenster-/Taskleisten-Symbol + /wall-Favicon.
     from core.api.ui.views import VIEWS
     from core.api.ui.script import SCRIPT
-    assert '<h1 id="brand"><span class="txt">KIRA</span></h1>' in VIEWS   # nur Wortmarke im Kopf
+    assert '<h1 id="brand"><span class="txt">__AGENT_UC__</span></h1>' in VIEWS  # Wortmarke (W2: Token, Server injiziert Namen)
     assert 'id="brand"><img' not in VIEWS                                # kein Logo-Bild im Kopf
     # refreshLogo frischt nur Vorschau + Favicon, injiziert NICHTS mehr in den Kopf (#brand)
     assert "function refreshLogo(" in SCRIPT and "b.insertBefore(im" not in SCRIPT

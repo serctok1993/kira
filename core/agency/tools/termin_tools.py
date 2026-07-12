@@ -1,7 +1,7 @@
 """Termin-Werkzeuge (Phase 2): der kleinste nuetzliche Kalender.
 
 Bewusst NUR 2 Werkzeuge (Manifest-Diaet fuer kleine Modelle): eintragen + ansehen.
-Loeschen macht Sergen im Cockpit (Serc -> Tag -> TERMINE). Fehler lehren mit
+Loeschen macht der Nutzer im Cockpit (Tag -> TERMINE). Fehler lehren mit
 Beispiel-ACT-Zeile — die Texte sind Trainingsmaterial fuer die LLM-Werkstatt.
 """
 from __future__ import annotations
@@ -10,7 +10,7 @@ from core.agency.tools.registry import tool
 
 
 @tool("termin_add",
-      "Traegt einen Termin in Sergens Kalender ein — er erscheint im TERMIN-RADAR der "
+      "Traegt einen Termin in {{USER_NAME_S}} Kalender ein — er erscheint im TERMIN-RADAR der "
       "Briefings und im Cockpit (Serc -> Tag). Faellt im Gespraech ein Datum (Zahnarzt, "
       "Geburtstag, Frist), trag es VON DIR AUS ein. Geburtstage/Jahrestage: jaehrlich=ja.",
       {"datum": "TT.MM.JJJJ, z.B. 15.08.2026",
@@ -35,7 +35,7 @@ def termin_add(datum: str = "", titel: str = "", zeit: str = "", jaehrlich: str 
 
 
 @tool("termin_list",
-      "Zeigt Sergens kommende Kalender-Termine mit id. Geburtstage aus dem Stammbaum "
+      "Zeigt {{USER_NAME_S}} kommende Kalender-Termine mit id. Geburtstage aus dem Stammbaum "
       "stehen zusaetzlich automatisch im TERMIN-RADAR des Briefings.",
       {"tage": "optional: Vorschau-Fenster in Tagen, Standard 14"})
 def termin_list(tage: str = "", **falsche_args) -> str:

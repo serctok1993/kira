@@ -13,7 +13,7 @@ from __future__ import annotations
 WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <link rel="icon" href="/api/icon"/>
-<title>Kira · Desktop</title>
+<title>__AGENT__ · Desktop</title>
 <style>
   @property --ang{syntax:'<angle>';inherits:false;initial-value:0deg}
   :root{
@@ -321,7 +321,7 @@ function esc(s){return (s==null?"":""+s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"
 async function loadTicker(){const el=$("#ticker");if(!el)return;
   if(!WALL.ticker){el.innerHTML="";return;}
   try{const es=await (await fetch("/api/events?limit=8")).json();
-    el.innerHTML=(es&&es.length?'<div class="tkh">◈ Live · was Kira gerade tut</div>':"")
+    el.innerHTML=(es&&es.length?'<div class="tkh">◈ Live · was __AGENT__ gerade tut</div>':"")
      +(es||[]).map((e,i)=>{
       const t=new Date(e.ts*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});
       const txt=esc((e.text||e.type||"").slice(0,64));

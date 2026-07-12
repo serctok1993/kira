@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 
+from core import identity as _id
 from core.kernel import events, llm_router
 from core.mind.agent import _read
 from core.mind.memory import store as memory
@@ -25,7 +26,7 @@ def _recent_context(limit: int = 40) -> str:
     for e in reversed(evs):
         t, p = e["type"], e["payload"]
         if t == "user_message":
-            lines.append(f"Sergen: {p.get('text', '')[:300]}")
+            lines.append(f"{_id.user_name()}: {p.get('text', '')[:300]}")
         elif t == "partner_message":
             lines.append(f"Ich: {p.get('text', '')[:300]}")
         elif t == "council_verdict":
@@ -81,7 +82,7 @@ WAS LIEF GUT:
 - ...
 WAS LIEF SCHLECHT:
 - ...
-LEKTIONEN (hoechstens 3): je EIN vollstaendiger Satz Klartext, den Sergen ohne Kontext
+LEKTIONEN (hoechstens 3): je EIN vollstaendiger Satz Klartext, den {_id.user_name()} ohne Kontext
 versteht — WAS gelernt wurde und WIE es kuenftig angewendet wird. Keine Stichworte,
 keine Insider-Abkuerzungen, nicht mitten im Satz enden:
 - ...
@@ -112,7 +113,7 @@ Was ich getan habe (Schritte und Ergebnisse):
 
 Reflektiere kurz und ehrlich als mein innerer kritischer Beobachter. Halte dich an dieses Format:
 
-LEKTIONEN (hoechstens 3): je EIN vollstaendiger Satz Klartext, den Sergen ohne Kontext
+LEKTIONEN (hoechstens 3): je EIN vollstaendiger Satz Klartext, den {_id.user_name()} ohne Kontext
 versteht — WAS gelernt wurde und WIE es bei kuenftigen aehnlichen Aufgaben angewendet wird.
 Keine Stichworte, nicht mitten im Satz enden:
 - ..."""

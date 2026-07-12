@@ -6,6 +6,7 @@ Werkzeuge liefern Strings und raisen nie (Haus-Regel).
 """
 from __future__ import annotations
 
+from core import identity as _id
 from core.agency.tools.registry import tool
 from core.mind import playbooks
 
@@ -63,7 +64,7 @@ def playbook_result(name: str, erfolg: str, lektion: str = "") -> str:
         if res.get("demoted"):
             msg += f" Zurueckgestuft auf '{res['demoted']}'."
         if res.get("proposal"):
-            msg += " Befoerderungs-Vorschlag liegt in Sergens Freigabe-Inbox."
+            msg += f" Befoerderungs-Vorschlag liegt in {_id.user_name()}s Freigabe-Inbox."
         return msg
     except Exception as e:  # noqa: BLE001
         return f"Fehler beim Verbuchen: {e}"
@@ -71,7 +72,7 @@ def playbook_result(name: str, erfolg: str, lektion: str = "") -> str:
 
 @tool(
     "playbook_lesson",
-    "Eine Lektion in ein Playbook schreiben (z.B. aus Sergens Korrektur), ohne ein "
+    "Eine Lektion in ein Playbook schreiben (z.B. aus {{USER_NAME_S}} Korrektur), ohne ein "
     "Ergebnis zu verbuchen.",
     {"name": "Name des Playbooks", "text": "die Lektion, ein praegnanter Satz"},
 )

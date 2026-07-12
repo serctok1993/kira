@@ -55,21 +55,42 @@ try:  # MCP-Bruecke im Hintergrund anschliessen (Ausfall darf den Boot nie brick
 except Exception:  # noqa: BLE001
     pass
 
+def _stammbaum_wurzel_name() -> str:
+    """Dateiname der Stammbaum-Wurzel — traegt den NUTZER-Namen (W2, z.B. SERGEN.md)."""
+    from core import identity as _id
+
+    return f"{_id.user_name().upper()}.md"
+
+
+def _stammbaum_wurzel_pfad():
+    return ROOT / "gedaechtnis" / "stammbaum" / _stammbaum_wurzel_name()
+
+
+def _ident_tokens(html: str) -> str:
+    """W2: __AGENT__/__AGENT_UC__/__USER__-Token + IDENTITY-Objekt beim Ausliefern
+    fuellen — Umbenennen wirkt nach Reload, ohne dass Markup Namen hart traegt."""
+    from core import identity as _id
+
+    a, u = _id.agent_name(), _id.user_name()
+    return (html.replace("/*__IDENTITY__*/", json.dumps({"agent": a, "user": u}, ensure_ascii=False)[1:-1])
+            .replace("__AGENT_UC__", a.upper()).replace("__AGENT__", a).replace("__USER__", u))
+
+
 # Im Dashboard sichtbare/bearbeitbare Dateien.
-# Die Verfassung ist ueberall nur lesend (Cockpit, Kira-Tools, Evolution) — Aenderungen
-# macht Sergen bewusst via Git/Editor. Grund: am 02.07. wurde sie ueber genau diesen
+# Die Verfassung ist ueberall nur lesend (Cockpit, Tools, Evolution) — Aenderungen
+# macht der Mensch bewusst via Git/Editor. Grund: am 02.07. wurde sie ueber genau diesen
 # Endpoint abgeschwaecht, ohne dass es jemandem auffiel.
 FILES: dict[str, dict] = {
     "constitution.md": {"path": MIND_DIR / "constitution.md", "editable": True, "label": "⚠ Verfassung — Kiras Kern-Regeln. Aenderung greift sofort; Backup vor jedem Speichern (core/mind/history)"},
     "SOUL.md": {"path": MIND_DIR / "SOUL.md", "editable": True, "label": "Seele — wer Kira ist (Identitaet, Haltung; Aenderung wirkt sofort, Backup automatisch)"},
     "GOAL.md": {"path": MIND_DIR / "GOAL.md", "editable": True, "label": "Ziel — wofuer sie da ist (Nordstern; die Meilensteine gehoeren Dir)"},
-    "USER.md": {"path": MIND_DIR / "USER.md", "editable": True, "label": "Ueber Dich (Sergen) — Kira baut ihr Bild von Dir daraus; kurz halten"},
+    "USER.md": {"path": MIND_DIR / "USER.md", "editable": True, "label": "Ueber Dich — dein Agent baut sein Bild von Dir daraus; kurz halten"},
     "PERSONA.md": {"path": MIND_DIR / "PERSONA.md", "editable": True, "label": "Verhalten & Ton — der Verhaltens-Kern (schlank halten, ~4200 Zeichen; wirkt sofort)"},
     "config.yaml": {"path": ROOT / "config.yaml", "editable": True, "label": "Konfiguration (Vorsicht: YAML)"},
     # Gedaechtnis + Handbuch (frei editierbar — nie im Prompt, siehe HANDBUCH §7)
-    "HANDBUCH.md": {"path": ROOT / "docs" / "HANDBUCH.md", "editable": True, "label": "HANDBUCH (Bedienbuch fuer Sergen)"},
+    "HANDBUCH.md": {"path": ROOT / "docs" / "HANDBUCH.md", "editable": True, "label": "HANDBUCH (Bedienbuch)"},
     "INDEX.md": {"path": ROOT / "INDEX.md", "editable": True, "label": "INDEX (Vault-Einstieg; AUTO-Block nicht anfassen)"},
-    "SERGEN.md": {"path": ROOT / "gedaechtnis" / "stammbaum" / "SERGEN.md", "editable": True, "label": "Stammbaum-Wurzel (Sergen)"},
+    _stammbaum_wurzel_name(): {"path": _stammbaum_wurzel_pfad(), "editable": True, "label": "Stammbaum-Wurzel"},
     "gedaechtnis-regeln.md": {"path": ROOT / "gedaechtnis" / "LIES-MICH.md", "editable": True, "label": "Gedaechtnis-Regeln"},
 }
 
@@ -2033,7 +2054,8 @@ def index() -> str:
     # Feature-Flags fuers UI-Gating (gleiche [1:-1]-Technik, Fallback {} = alles sichtbar —
     # UI ist fail-open ok, das Werkzeug-Gating sitzt serverseitig in der Registry).
     feats = json.dumps(CONFIG.get("features") or {}, ensure_ascii=False)[1:-1]
-    return DASHBOARD_HTML.replace("/*__PHRASES__*/", inner).replace("/*__FEATURES__*/", feats)
+    return _ident_tokens(DASHBOARD_HTML.replace("/*__PHRASES__*/", inner)
+                         .replace("/*__FEATURES__*/", feats))
 
 
 @app.get("/wall", response_class=HTMLResponse)
@@ -2041,7 +2063,7 @@ def wall() -> str:
     # Desktop-Wallpaper-Seite (rahmenlos): Stats + Live-Vault-Graph + ephemerer Chat.
     # Gleiche PHRASES-Injektion wie index() -> das Thinking im Wallpaper-Chat nutzt echte Sprueche.
     inner = json.dumps(THINKING_PHRASES, ensure_ascii=False)[1:-1]
-    return WALL_HTML.replace("/*__PHRASES__*/", inner)
+    return _ident_tokens(WALL_HTML.replace("/*__PHRASES__*/", inner))
 
 
 @app.get("/api/vault/graph")

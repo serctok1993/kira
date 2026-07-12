@@ -56,8 +56,9 @@ def test_farbwaehler_vorhanden():
 # ---- Me -> Serc (Label geändert, data-v bleibt) -----------------------------------------
 
 def test_me_heisst_serc():
-    # seit Werkbank PR 7 haengt der Freigaben-Badge hinter dem Namen
-    assert '> Serc <b id="side-frei"' in VIEWS
+    # seit Werkbank PR 7 haengt der Freigaben-Badge hinter dem Namen;
+    # seit W2 traegt der Tab das __USER__-Token (Server injiziert den echten Namen)
+    assert '> __USER__ <b id="side-frei"' in VIEWS
     assert 'data-v="me"' in VIEWS        # Hooks/Loader bleiben unangetastet
     assert "> Me</a>" not in VIEWS
 
@@ -247,8 +248,8 @@ def test_chatbutton_rechts_und_palette():
 
 def test_zentrale_epicness_ohne_grosse_emojis():
     # der Befehl-Header traegt keinen grossen Emoji mehr, sondern Glow/Typo
-    assert "<h3>🎯 Befehl an Kira</h3>" not in VIEWS
-    assert "<h3>Befehl an Kira</h3>" in VIEWS
+    assert "<h3>🎯 Befehl an __AGENT__</h3>" not in VIEWS
+    assert "<h3>Befehl an __AGENT__</h3>" in VIEWS   # W2: Server injiziert den Agenten-Namen
     assert ".direktive h3{margin:0 0 10px;color:var(--hud);text-transform:uppercase" in CSS
     # muted etwas heller fuer bessere Lesbarkeit (Inhalte verschwinden nicht mehr)
     assert "--muted:#9b97b0" in CSS

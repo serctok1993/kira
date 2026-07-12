@@ -93,7 +93,7 @@ def _public(j: dict) -> dict:
 
 
 def list_jobs(scope: str | None = None) -> list[dict]:
-    """Alle Jobs; scope filtert (S8.4): 'me' (Sergens Routinen) | 'projekt:<vid>' |
+    """Alle Jobs; scope filtert (S8.4): 'me' (Routinen des Nutzers) | 'projekt:<vid>' |
     'system'. Alt-Jobs ohne scope-Feld gelten defensiv als 'system'."""
     out = []
     for j in _load():
@@ -193,7 +193,7 @@ def run_job(job: dict, notify: bool = True) -> dict:
 
     prompt = job["prompt"]
     try:
-        # Zeitsinn (Sergens Fund): Cron-Prompts behaupten gern feste Uhrzeiten
+        # Zeitsinn (Fund): Cron-Prompts behaupten gern feste Uhrzeiten
         # ("Es ist 05:55 Uhr") — die ECHTE Zeit steht ab jetzt immer davor.
         from core.mind.agent import jetzt_zeile
 
@@ -226,7 +226,7 @@ def run_job(job: dict, notify: bool = True) -> dict:
     return {"ok": ok, "summary": summary}
 
 
-# Verfallsfenster fuer Tages-Crons (Sergens Fund: Sunrise-Job von 05:55 lief um 17:28
+# Verfallsfenster fuer Tages-Crons (Fund: Sunrise-Job von 05:55 lief um 17:28
 # nach PC-Neustart): mehr als N Sekunden ueberfaellig -> NICHT nachholen, sondern als
 # 'verpasst' protokollieren und auf den naechsten regulaeren Termin legen.
 # Intervall-Jobs sind davon ausgenommen — die laufen einfach einmal und takten neu ab jetzt.
