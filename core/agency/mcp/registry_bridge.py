@@ -534,7 +534,7 @@ def server_status() -> dict[str, dict]:
 
 # ---------------------------------------------------------------------------
 # Macht-Schritt 2: MCP-Universum — Server zur Laufzeit per Config einstoepseln.
-# Damit kann Sergen (oder Kira) beliebige MCP-Server ohne Code-Aenderung hinzufuegen.
+# Damit kann der Nutzer (oder Kira) beliebige MCP-Server ohne Code-Aenderung hinzufuegen.
 # ---------------------------------------------------------------------------
 
 # W0-Fix: absolut (DATA_DIR) statt relativ — CWD-unabhaengig, und die Test-Sandbox

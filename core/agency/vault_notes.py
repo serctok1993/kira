@@ -1,12 +1,12 @@
-"""Vault-Schreibpfad (Phase 2): Kira pflegt Sergens Obsidian AKTIV.
+"""Vault-Schreibpfad (Phase 2): Kira pflegt des Nutzers Obsidian AKTIV.
 
-Ziel-Wurzel ist der erste existierende Eintrag aus desktop.vault_paths (Sergens
-Obsidian-Vault, z.B. C:/Users/serge/Desktop/Kira-Brain) — Fallback: ROOT/gedaechtnis
+Ziel-Wurzel ist der erste existierende Eintrag aus desktop.vault_paths (des Nutzers
+Obsidian-Vault, z.B. C:/Users/Name/Desktop/Mein-Vault) — Fallback: ROOT/gedaechtnis
 (Kiras eigener Ast, den der /wall-Graph ebenfalls liest). Regeln:
 - atomic_write, NIEMALS blind ueberschreiben: existiert die Datei, wird ein
   "## Update <Datum>"-Abschnitt angehaengt (append-only, nichts geht verloren).
 - Abgrenzung: knowledge_note schreibt ins durchsuchbare ARCHIV (state.db) — hier
-  entstehen ECHTE .md-Dateien, die Sergen in Obsidian sieht.
+  entstehen ECHTE .md-Dateien, die der Nutzer in Obsidian sieht.
 - person_fakt_upsert pflegt den Stammbaum (gedaechtnis/stammbaum/...) deterministisch:
   "- <feld>: <wert>"-Zeilen ersetzen (??? fuellen) oder ergaenzen — kleine Modelle
   treffen mit edit_datei kein Markdown zuverlaessig, ein Upsert ist idempotent.
@@ -82,7 +82,7 @@ def _stammbaum_base() -> Path:
 
 def _find_leaf(slug: str) -> Path | None:
     """Bestehendes Stammbaum-Blatt zum Slug — egal in welchem Unterordner
-    (deckt auch SERGEN.md und business-Blaetter ab, Gross-/Kleinschreibung egal)."""
+    (deckt auch die Wurzel-Datei und business-Blaetter ab, Gross-/Kleinschreibung egal)."""
     base = _stammbaum_base()
     if not base.exists():
         return None

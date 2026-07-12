@@ -1,4 +1,4 @@
-"""Werkbank PR 7: Serc "Tag" — Sergens Erst-Blick (heute faellig, heute erledigt,
+"""Werkbank PR 7: Me "Tag" — des Nutzers Erst-Blick (heute faellig, heute erledigt,
 Routinen des Tages, Freigaben-Zaehler) + Freigaben-Badge in der Sidebar."""
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from core.api.ui.views import VIEWS
 
 
 def test_tag_subtab_markup():
-    # "Tag" ist der ERSTE und default-aktive Serc-Subtab
+    # "Tag" ist der ERSTE und default-aktive Me-Subtab
     bar = VIEWS.split('id="me-tabs"', 1)[1].split("</div>", 1)[0]
     assert bar.index('data-s="tag"') < bar.index('data-s="todos"')
     assert '<a data-s="tag" class="on">' in bar
@@ -20,7 +20,7 @@ def test_tag_subtab_markup():
     for el in ('id="tag-heute"', 'id="tag-done"', 'id="tag-routinen"',
                'id="tag-digest"', 'id="tag-frei"', 'id="tag-go-puls"'):
         assert el in tag, f"fehlt im Tag-Subview: {el}"
-    # genau EIN default-aktiver Serc-Subview: v-tag hat das 'on', v-todos nicht mehr
+    # genau EIN default-aktiver Me-Subview: v-tag hat das 'on', v-todos nicht mehr
     assert '<div class="subview on" id="v-tag">' in VIEWS
     assert '<div class="subview" id="v-todos">' in VIEWS
 

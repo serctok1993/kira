@@ -23,7 +23,7 @@ def test_dialog_prefix_formatiert_und_leer():
     out = act._dialog_prefix([{"role": "user", "text": "Baue X"},
                               {"role": "partner", "text": "Verstanden"}])
     assert "GESPRAECH BISHER" in out
-    assert "Sergen: Baue X" in out and "Kira: Verstanden" in out
+    assert "Partner: Baue X" in out and "Kira: Verstanden" in out  # Namen live aus identity
     assert out.rstrip().endswith("---")
 
 

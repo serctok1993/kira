@@ -17,12 +17,15 @@ from __future__ import annotations
 import datetime
 from pathlib import Path
 
+from core.config import DATA_DIR
+
 
 def flag_path() -> Path:
-    """Pfad des Flags — live aus config gelesen (Tests/Sandbox lenken DATA_DIR um)."""
-    from core import config
-
-    return Path(config.DATA_DIR) / "onboarded.flag"
+    """Pfad des Flags — an die BOOT-Datenwurzel gebunden (Import-Zeit, wie DB_PATH).
+    Bewusst NICHT live aus config: Tests, die config.DATA_DIR umbiegen, sollen damit
+    nicht aus Versehen die ganze Instanz 'un-onboarden' (das Gate wuerde jeden
+    TestClient-Aufruf nach /setup umleiten). Onboarding-Tests patchen flag_path direkt."""
+    return Path(DATA_DIR) / "onboarded.flag"
 
 
 def is_onboarded() -> bool:

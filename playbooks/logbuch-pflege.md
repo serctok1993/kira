@@ -1,6 +1,6 @@
 ---
 titel: Logbuch-Pflege (Stammbaum-Luecken)
-wann: Sergen beantwortet eine Logbuch-Frage oder nennt beilaeufig ein neues Faktum ueber sich/Menschen/Projekte.
+wann: der Nutzer beantwortet eine Logbuch-Frage oder nennt beilaeufig ein neues Faktum ueber sich/Menschen/Projekte.
 reifegrad: entwurf
 erfolge: 0
 fehlschlaege: 0
@@ -24,6 +24,6 @@ letzte:
 ## Akzeptanzkriterien
 
 - Der Wert steht in der richtigen Datei, das ??? ist weg (edit_datei = exakter Edit).
-- Sergen wurde nicht mit Folgefragen bombardiert (max 1 Frage/Tag stellt das Briefing).
+- der Nutzer wurde nicht mit Folgefragen bombardiert (max 1 Frage/Tag stellt das Briefing).
 
 ## Lektionen

@@ -9,7 +9,7 @@ import tempfile
 os.environ.setdefault("KIRA_TEST_MODE", "1")
 
 # W0-Fund (12.07.2026): Tests ohne eigenes DB_PATH-Monkeypatching schrieben in die LIVE
-# data/state.db — Test-Events (service-/mcp-/playbook-Fehler), Test-Fakten ("Sergen trinkt
+# data/state.db — Test-Events (service-/mcp-/playbook-Fehler), Test-Fakten ("der Nutzer trinkt
 # Kaffee schwarz") und Tuning-Exporte landeten im echten Gedaechtnis; Kira las ihr eigenes
 # Test-Rauschen als Bugs ins Backlog (B5/B6). Fix: JEDER pytest-Lauf bekommt automatisch
 # eine Wegwerf-Datenwurzel, bevor core.config importiert wird. Bewusst KIRA_TEST_DATA_DIR

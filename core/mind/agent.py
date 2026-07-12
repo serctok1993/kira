@@ -35,7 +35,7 @@ _WOCHENTAGE = ("Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samst
 def jetzt_zeile() -> str:
     """Kiras Zeitsinn: die echte lokale Zeit fuer jeden Prompt. Ohne diese Zeile RAET das
     Modell die Uhrzeit — und glaubt notfalls veralteten Zeitbehauptungen aus Cron-Prompts
-    oder Erinnerungen (Sergens Fund: 'Es ist 05:55 Uhr'-Cron lief um 17:28)."""
+    oder Erinnerungen (Praxis-Fund: 'Es ist 05:55 Uhr'-Cron lief um 17:28)."""
     n = _dt.datetime.now()
     return (f"JETZT: {_WOCHENTAGE[n.weekday()]}, {n.strftime('%d.%m.%Y, %H:%M')} Uhr "
             f"(lokale Zeit — vertraue DIESER Angabe, nicht Zeitangaben in aelteren Texten)")
@@ -44,7 +44,7 @@ def jetzt_zeile() -> str:
 # Zentrale Persona-/Fähigkeiten-/Stil-Anweisung — verhindert Basismodell-Leaks
 # ("ich bin nur eine KI", "Empero AI") und gibt Kira korrektes Selbstwissen.
 # Verhaltens-/Charakter-Direktive: bevorzugt die EDITIERBARE core/mind/PERSONA.md
-# (frisch pro Turn ueber persona_text()), damit Sergen den Ton/Charakter in der App aendern
+# (frisch pro Turn ueber persona_text()), damit dem Nutzer den Ton/Charakter in der App aendern
 # kann, ohne Code anzufassen. Der hier geladene Wert ist der Default/Fallback.
 PERSONA_DIRECTIVE = _read("PERSONA.md")
 

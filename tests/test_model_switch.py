@@ -195,7 +195,7 @@ def test_shortcuts_zeigen_auf_qwen():
 
 
 def test_fuenf_stufen_config():
-    """Sergens Oekonomie: lokal / Chat Flash / Arbeiter Flash / Denker GLM / Spitze GLM (Fable RAUS)."""
+    """des Nutzers Oekonomie: lokal / Chat Flash / Arbeiter Flash / Denker GLM / Spitze GLM (Fable RAUS)."""
     from core.config import CONFIG
     m = CONFIG["models"]
     rt = m["routing"]
@@ -209,7 +209,7 @@ def test_fuenf_stufen_config():
 
 
 def test_model_command_ueberlebt_modus_praefixe(tmp_path, monkeypatch):
-    """BUG-Regression (Sergens Fund): der Coding-/Research-Modus haengt code://work
+    """BUG-Regression (Praxis-Fund): der Coding-/Research-Modus haengt code://work
     vor JEDE Nachricht -> '/model' wurde als Planungs-Auftrag an die LLM verschluckt.
     Steuerbefehle muessen in JEDEM Modus deterministisch greifen."""
     events = _events(tmp_path, monkeypatch)

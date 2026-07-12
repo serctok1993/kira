@@ -56,7 +56,7 @@ def vault_dossier(thema: str = "", text: str = "", **falsche_args) -> str:
       "Faellt im Gespraech ein Geburtstag, Wohnort, eine Vorliebe — trag es VON DIR AUS "
       "ein. feld=geburtstag (TT.MM.JJJJ) landet automatisch im TERMIN-RADAR der Briefings. "
       "Ersetzt ???-Luecken; legt fehlende Personen-Blaetter selbst an.",
-      {"name": "Person, z.B. Mama oder Ali Tokgoez",
+      {"name": "Person, z.B. Mama oder Onkel Ali",
        "feld": "z.B. geburtstag, wohnort, beruf, mag",
        "wert": "der Wert; Datum als TT.MM.JJJJ"})
 def person_fakt(name: str = "", feld: str = "", wert: str = "", **falsche_args) -> str:

@@ -1,4 +1,4 @@
-# HANDBUCH — Kira bedienen (für Sergen)
+# HANDBUCH — Kira bedienen (für den Nutzer)
 
 > Das Gesetzbuch des Königs. Hier steht alles, was DU über das System wissen musst:
 > was Kira kann, wie du sie steuerst, welche Prompts funktionieren, was du in Obsidian
@@ -71,7 +71,7 @@ Ebene 4  Destillat                  gedaechtnis/stammbaum/ + Lektionen/Playbooks
 | `/work <auftrag>` | volles Arbeitsbudget (langer Task) |
 | `/code <auftrag>` (Chat & Telegram) | Coding-Modus — **erbt den Chat davor** (erst brainstormen, dann `/code`) |
 | `plan:` / Coding-Modus | erst Plan, dann Schritte (Coding erzwingt zusätzlich Regeln) |
-| `@ziel:<name>` | Arbeit auf ein Ziel buchen — **wirkt nur zusammen mit `/work`** (`/work @ziel:luvex …`) |
+| `@ziel:<name>` | Arbeit auf ein Ziel buchen — **wirkt nur zusammen mit `/work`** (`/work @ziel:beispiel-projekt …`) |
 | `denk:aus` · `niedrig` · `mittel` · `hoch` | Reasoning-Tiefe des Modells regeln (mehr Denken = besser + teurer) |
 | Fokus (Zentrale) | Daueranweisung für den Motor |
 | JETZT-Eimer (`loop/BACKLOG.md`) | Befehl an den Cloud-Loop — die Datei liegt **im `kira/loop`-Checkout**, nicht in diesem Repo |
@@ -114,7 +114,7 @@ Ebene 4  Destillat                  gedaechtnis/stammbaum/ + Lektionen/Playbooks
 3. `Lege einen Cron an: label "Monats-Verdichtung", schedule "21:00", scope "me", prompt: NUR am 1. des Monats: fuehre das Playbook monats-verdichtung aus, sonst nichts tun.`
 
 4. `Lege einen Cron an: label "Morgen-Briefing", schedule "08:00", scope "me", prompt: {{standup}} Fasse mir den Tag zusammen: Termine, offene Tasks, Fehler, 3 wichtigste Punkte.`
-   *(Ohne diesen Briefing-Cron gibt es KEINE Logbuch-Frage — sie reist im `{{standup}}`-Platzhalter mit. Alternativ: Cockpit → Serc → Chip „☀ Morgen-Briefing".)*
+   *(Ohne diesen Briefing-Cron gibt es KEINE Logbuch-Frage — sie reist im `{{standup}}`-Platzhalter mit. Alternativ: Cockpit → Me → Chip „☀ Morgen-Briefing".)*
 
 Danach: ab morgen enthält dein Briefing automatisch eine **LOGBUCH-FRAGE** (eine pro Tag),
 bis der Stammbaum gefüllt ist.

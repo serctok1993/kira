@@ -20,7 +20,7 @@ def _setup(monkeypatch, tmp_path, email_cfg=None):
     events.init_db()
     approvals.init_approvals()
     cfg = {"enabled": True, "provider": "smtp", "from_address": "kira@example.de",
-           "own_addresses": ["serc.tok1993@gmail.com"], "smtp_host": "smtp.example.de",
+           "own_addresses": ["nutzer@example.com"], "smtp_host": "smtp.example.de",
            "smtp_port": 587, "imap_host": "", "imap_port": 993}
     cfg.update(email_cfg or {})
     monkeypatch.setitem(CONFIG, "channels", {"email": cfg})
@@ -28,9 +28,9 @@ def _setup(monkeypatch, tmp_path, email_cfg=None):
 
 def test_is_stranger_matrix(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
-    assert not mail.is_stranger("serc.tok1993@gmail.com")
-    assert not mail.is_stranger("SERC.TOK1993@GMAIL.COM")  # case-insensitive
-    assert not mail.is_stranger(" serc.tok1993@gmail.com ")
+    assert not mail.is_stranger("nutzer@example.com")
+    assert not mail.is_stranger("NUTZER@EXAMPLE.COM")  # case-insensitive
+    assert not mail.is_stranger(" nutzer@example.com ")
     assert mail.is_stranger("fremd@firma.de")
     assert mail.is_stranger("")
 
@@ -82,7 +82,7 @@ def test_email_send_stranger_blocks(monkeypatch, tmp_path):
     monkeypatch.setattr(mail, "send", lambda to, s, b: sent.append(to) or "gesendet")
 
     out = mail_tools.email_send("fremd@firma.de", "Angebot", "Hallo...")
-    assert "Wartet auf Sergens Freigabe" in out
+    assert "Wartet auf Partners Freigabe" in out
     assert sent == []  # NICHT gesendet
     pend = approvals.pending()
     assert len(pend) == 1 and pend[0]["kind"] == "email_stranger"
@@ -93,9 +93,9 @@ def test_email_send_own_address_flows_and_audits(monkeypatch, tmp_path):
     sent = []
     monkeypatch.setattr(mail, "send", lambda to, s, b: sent.append(to) or "gesendet")
 
-    out = mail_tools.email_send("serc.tok1993@gmail.com", "Standup", "Heute...")
+    out = mail_tools.email_send("nutzer@example.com", "Standup", "Heute...")
     assert out == "gesendet"
-    assert sent == ["serc.tok1993@gmail.com"]
+    assert sent == ["nutzer@example.com"]
     assert approvals.pending() == []
     audits = [e for e in events.recent(20) if e["type"] == "audit"]
-    assert len(audits) == 1 and audits[0]["payload"]["target"] == "serc.tok1993@gmail.com"
+    assert len(audits) == 1 and audits[0]["payload"]["target"] == "nutzer@example.com"

@@ -1,6 +1,6 @@
 """Mail-Konnektor: Kiras eigene Email-Identitaet (S3).
 
-Eigenes Postfach nur fuer Kira (Sergens Entscheidung): Senden via SMTP (oder
+Eigenes Postfach nur fuer Kira (bewusste Entscheidung): Senden via SMTP (oder
 Resend-API, falls Key gesetzt), Empfangen via IMAP — alles stdlib + httpx,
 provider-agnostisch. Config: config.yaml channels.email; Zugangsdaten kommen
 aus dem Secrets-Tresor (SMTP_USER/SMTP_PASS bzw. RESEND_API_KEY, IMAP nutzt

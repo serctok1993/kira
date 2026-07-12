@@ -45,7 +45,7 @@ def test_cron_kaputte_datei_wird_gemeldet(monkeypatch, tmp_path):
     assert cron._load() == []                                   # faellt sicher auf leer
     assert (tmp_path / "cron.json.broken").exists()             # Diagnose-Kopie liegt da
     assert "cron_load_error" in [e["type"] for e in events.recent(10)]
-    assert pings and "beschaedigt" in pings[0]                  # Sergen wird benachrichtigt
+    assert pings and "beschaedigt" in pings[0]                  # der Nutzer wird benachrichtigt
     n = len(events.recent(50))
     cron._load()                                                # sofort nochmal -> gedrosselt
     assert len(events.recent(50)) == n and len(pings) == 1

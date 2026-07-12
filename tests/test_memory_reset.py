@@ -20,7 +20,7 @@ def test_reset_loescht_nur_episodic_mit_backup(monkeypatch, tmp_path):
     store = _tmp(monkeypatch, tmp_path)
     store.remember("hallo, wie gehts", role="user", kind="episodic", session_id="s1")
     store.remember("alter bug im widget", role="user", kind="episodic", session_id="s2")
-    store.remember("Sergen wohnt in Koblenz", role="system", kind="semantic")
+    store.remember("Mia wohnt in Berlin", role="system", kind="semantic")
     store.remember("Skill: leads recherchieren", role="system", kind="procedural")
 
     res = store.reset_episodic(backup=True)

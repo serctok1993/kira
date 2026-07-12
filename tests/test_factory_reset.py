@@ -58,7 +58,7 @@ def test_reset_sichert_und_loescht_nur_gewaehltes(monkeypatch, tmp_path):
     monkeypatch.setattr("core.config.DATA_DIR", tmp_path)       # Backups in den Wegwerf-Pfad
     store.remember("ein test-chat", role="user", kind="episodic", session_id="s1")
     store.remember("SKILL [x]: tu dies", role="self", kind="skill")
-    store.remember("Sergen mag dunkles UI", role="self", kind="fact")
+    store.remember("Mia mag dunkles UI", role="self", kind="fact")
 
     # nur Skills zuruecksetzen -> Fakt und Chat bleiben
     r = factory.reset(scope=["skills"], confirm="WERKSZUSTAND")

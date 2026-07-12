@@ -1,8 +1,8 @@
-"""Desktop-Pflege (S8.5): Kira haelt Sergens Ablage in Ordnung — VORSCHLAG-first.
+"""Desktop-Pflege (S8.5): Kira haelt des Nutzers Ablage in Ordnung — VORSCHLAG-first.
 
 Ein taeglicher, LOKALER Scan (classify-Modell, 0 EUR) sieht sich lose Dateien in
 konfigurierten Ordnern an (Default: Desktop) und schlaegt eine Einsortierung vor.
-NICHTS wird verschoben, bis Sergen den Vorschlag in der Freigabe-Inbox bestaetigt —
+NICHTS wird verschoben, bis der Nutzer den Vorschlag in der Freigabe-Inbox bestaetigt —
 und erst der Auto-Modus (spaeter, per Schalter) wuerde ohne Rueckfrage sortieren.
 
 Config: data/desktop_watch.json

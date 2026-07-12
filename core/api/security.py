@@ -1,7 +1,7 @@
 """Fernzugriff-Schutz (Token-Middleware) — Punkt 4 des 5-Punkte-Plans (PWA/Handy).
 
 Standard: AUS. Ohne Token-Datei verhaelt sich das Cockpit exakt wie bisher (nur
-localhost erreichbar, Desktop/Wallpaper/Tests unberuehrt). Aktiviert Sergen den
+localhost erreichbar, Desktop/Wallpaper/Tests unberuehrt). Aktiviert der Nutzer den
 Fernzugriff (Einstellungen -> Zugaenge), entsteht data/access_token.txt — ab dann
 braucht jede Anfrage, die NICHT direkt von Loopback kommt (oder durch einen Proxy
 wie Tailscale Serve gelaufen ist, erkennbar an X-Forwarded-*), das Token:

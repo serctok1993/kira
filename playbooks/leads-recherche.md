@@ -1,6 +1,6 @@
 ---
 titel: Leads recherchieren und beiseitelegen
-wann: Sergen will Leads/Kontakte/Firmen einer Branche+Region gesammelt haben ("leg mir N Leads fuer X aus Y beiseite").
+wann: der Nutzer will Leads/Kontakte/Firmen einer Branche+Region gesammelt haben ("leg mir N Leads fuer X aus Y beiseite").
 reifegrad: entwurf
 erfolge: 0
 fehlschlaege: 0
@@ -10,7 +10,7 @@ letzte:
 
 # Leads recherchieren und beiseitelegen
 
-> Aus einem Satz ("20 Leads fuer Friseure aus Koblenz") wird eine PRUEFBARE Datei —
+> Aus einem Satz ("20 Leads fuer Friseure aus Berlin") wird eine PRUEFBARE Datei —
 > kein Gerede, kein "habe ich erledigt" ohne Artefakt.
 
 ## Schritte

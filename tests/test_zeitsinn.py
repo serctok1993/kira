@@ -1,4 +1,4 @@
-"""Zeitsinn (Sergens Fund 08.07.): Kira kennt jetzt die echte Uhrzeit, und verpasste
+"""Zeitsinn (Praxis-Fund 08.07.): Kira kennt jetzt die echte Uhrzeit, und verpasste
 Tages-Crons werden nach PC-Neustart NICHT stundenspaeter nachgeholt."""
 from __future__ import annotations
 

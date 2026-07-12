@@ -1,7 +1,7 @@
 """Testumgebung — Fundament (Tier 1a): Sandbox-Praedikate + ephemere Test-Sessions.
 
 Ephemer heisst: ein Test-/Benchmark-Chat (sid-Praefix 'test-'/'bench-') erinnert sich an SICH
-selbst, leckt aber NIE in das Cross-Session-Gedaechtnis (recall) anderer Sessions — so kann Sergen
+selbst, leckt aber NIE in das Cross-Session-Gedaechtnis (recall) anderer Sessions — so kann der Nutzer
 gefahrlos testen, ohne den echten Erinnerungsstrang zu verfaelschen.
 """
 from __future__ import annotations
@@ -63,7 +63,7 @@ def test_reset_raeumt_ephemere_mit(monkeypatch, tmp_path):
     store = _tmp(monkeypatch, tmp_path)
     store.remember("test kram", role="user", kind="episodic", session_id="test-abc")
     store.remember("echtes gespraech", role="user", kind="episodic", session_id="real-1")
-    store.remember("Sergen wohnt in Koblenz", role="system", kind="semantic")
+    store.remember("Mia wohnt in Berlin", role="system", kind="semantic")
     res = store.reset_episodic(backup=False)
     assert res["deleted"] == 2  # beide episodischen (Test + real) weg
     assert res["kept"] == 1     # Fakt bleibt

@@ -56,7 +56,7 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   body[data-anim="on"] .edge::before{opacity:1;animation:spin 7s linear infinite}
   body[data-mode="coding"] .edge::before{background:conic-gradient(from var(--ang),#ff004d,#ff8a00,#ffe600,#39ff14,#00e5ff,#b026ff,#ff004d);
     -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
-  /* S12b (Sergens Wunsch): der LED-Sweep laeuft in JEDEM Modus in der Modus-Farbe —
+  /* S12b (des Nutzers Wunsch): der LED-Sweep laeuft in JEDEM Modus in der Modus-Farbe —
      Chat/Work dezent (halbe Leuchtkraft, langsam), Coding = Vollgas-Regenbogen. */
   .edge::before{opacity:.45;animation:spin 10s linear infinite}
   body[data-anim="on"] .edge::before{opacity:1;animation-duration:7s}
@@ -98,7 +98,7 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   .sub b{color:#efeaf6;font-weight:600} .sub .live{color:var(--accent)}
 
   .talk{position:fixed;left:50%;bottom:94px;transform:translateX(-50%);z-index:5;width:min(680px,88vw);display:flex;flex-direction:column;gap:10px;align-items:center}
-  /* Gespraech in der Bildmitte (Sergens rote Zone): Verlauf waechst nach oben,
+  /* Gespraech in der Bildmitte (des Nutzers rote Zone): Verlauf waechst nach oben,
      aeltere Zeilen blenden aus — Text bricht um statt abgeschnitten zu werden. */
   #convo{display:flex;flex-direction:column;justify-content:flex-end;gap:9px;width:100%;
     max-height:44vh;overflow:hidden;-webkit-mask:linear-gradient(180deg,transparent,#000 18%);
@@ -396,7 +396,7 @@ const MODE_RGB={chat:"176,38,255",work:"57,255,20",coding:"0,229,255"};
 }catch(e){}})();
 const POSX={links:0.32,mitte:0.5,rechts:0.68},POSY={oben:0.32,mitte:0.46,unten:0.6},SIZ={klein:0.72,mittel:1,gross:2.6,riesig:3.6};
 let curG=null;   // zuletzt geladener Graph (fuer Re-Layout bei Groesse/Position)
-// Standard-Layout nach Sergens Desktop-Plan: Graph oben RECHTS, Live-Feed oben links,
+// Standard-Layout nach des Nutzers Desktop-Plan: Graph oben RECHTS, Live-Feed oben links,
 // Mitte bleibt frei fuers Artwork. Standbild default (0% Last); stats=null -> alle.
 let WALL={labels:true,motion:false,color:"vault",pos:"rechts",posy:"oben",size:"gross",stats:null,colors:null,ticker:true,clock:true,week:true,layout:null,spar:false};
 function loadWall(){try{const s=JSON.parse(localStorage.getItem("kira_wall")||"{}");
@@ -425,7 +425,7 @@ function layout(g){
   const bx=POSX[WALL.pos]||0.5,byy=POSY[WALL.posy]||0.46;
   const cnt={};raw.forEach(n=>{const gp=n.group||"·";cnt[gp]=(cnt[gp]||0)+1;});
   groups.sort((a,b)=>(cnt[b]||0)-(cnt[a]||0));
-  // BREIT gezogen (Sergens Feedback: alles klebte aneinander): flache, weite Ellipse —
+  // BREIT gezogen (des Nutzers Feedback: alles klebte aneinander): flache, weite Ellipse —
   // die Cluster bekommen Luft zueinander, das Querformat des Monitors wird genutzt.
   const rx=(WALL.pos==="mitte"?0.32:0.19)*Math.sqrt(sc/2.6),ry=0.105*Math.sqrt(sc/2.6);
   GX={};GMAIN=groups[0]||"·";
@@ -438,7 +438,7 @@ function layout(g){
       x:W*g.fx+Math.cos(a)*rr,y:H*g.fy+Math.sin(a)*rr*0.8,vx:0,vy:0,deg:0};by[n.id]=o;return o;});
   ls=(g.links||[]).map(l=>[by[l.source],by[l.target]]).filter(p=>p[0]&&p[1]);
   ls.forEach(([a,b])=>{a.deg++;b.deg++;});
-  // Knoten bewusst KLEIN halten (Sergens Feedback: Kreise zu gross) — Hubs heben sich
+  // Knoten bewusst KLEIN halten (des Nutzers Feedback: Kreise zu gross) — Hubs heben sich
   // ueber Orbit-Ring + Label ab, nicht ueber fette Blobs. Groesse waechst nur gedaempft
   // mit dem Zoom (Wurzel gedeckelt), sonst werden die Punkte bei 'gross' wieder Buttons.
   const nsc=Math.min(1.25,Math.sqrt(sc));
@@ -454,7 +454,7 @@ function sim(){   // force-directed, ruhig getaktet: Repulsion + Federn + Cluste
       if(d2<50000){const d=Math.sqrt(d2),f=REP/d2;dx/=d;dy/=d;a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}}}
   // ENTWIRRUNG: Federn INNERHALB einer Gruppe halten das Sternbild zusammen (K stark),
   // Federn ZWISCHEN Gruppen sind lang + weich (K schwach) — sonst ziehen die Querlinks
-  // alle Cluster zu einem Knaeuel in die Mitte (genau Sergens 'klebt alles aneinander').
+  // alle Cluster zu einem Knaeuel in die Mitte (genau des Nutzers 'klebt alles aneinander').
   for(const [a,b] of ls){const same=a.grp===b.grp,K=same?0.011:0.0022,L=same?LEN:LEN*2.6;
     let dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy)||1,f=(d-L)*K;dx/=d;dy/=d;
     a.vx+=dx*f;a.vy+=dy*f;b.vx-=dx*f;b.vy-=dy*f;}
@@ -507,7 +507,7 @@ function render(){ctx.clearRect(0,0,W,H);const sc=SCALE();ctx.shadowBlur=0;
     if(n.deg>=6){ctx.strokeStyle='rgba('+c+',.5)';ctx.lineWidth=1;
       ctx.beginPath();ctx.arc(n.x,n.y,n.r+4,0,7);ctx.stroke();}}
   ctx.shadowBlur=0;
-  // Labels: KLEIN + FEST (Sergens Feedback: Riesen-Schriften). Feste Pixelgroesse
+  // Labels: KLEIN + FEST (des Nutzers Feedback: Riesen-Schriften). Feste Pixelgroesse
   // unabhaengig vom Graph-Zoom (Lesbarkeit statt Mitwachsen), nur echte Hubs (ab 4
   // Links), kuehle Eis-Cyan-Toene mit Hauch Letter-Spacing = Sci-Fi statt Plakat.
   if(WALL.labels){ctx.textAlign='center';ctx.lineJoin='round';
@@ -520,7 +520,7 @@ function render(){ctx.clearRect(0,0,W,H);const sc=SCALE();ctx.shadowBlur=0;
       ctx.fillStyle='rgba(182,222,244,'+al.toFixed(2)+')';   // Eis-Cyan, kuehl + dezent
       ctx.strokeText(t,n.x,y);ctx.fillText(t,n.x,y);}
     // Cluster-Beschriftung: Gruppenname klein in GROSSBUCHSTABEN ueber jedem Sternbild.
-    // Die ZENTRAL-Gruppe bleibt unbeschriftet — ihr Hub-Label (z.B. SERGEN) reicht,
+    // Die ZENTRAL-Gruppe bleibt unbeschriftet — ihr Hub-Label (z.B. WURZEL) reicht,
     // sonst kollidieren beide Schriften uebereinander.
     ctx.font='600 9px "Segoe UI",system-ui,sans-serif';
     try{ctx.letterSpacing='0.22em';}catch(e){}
@@ -569,7 +569,7 @@ document.querySelectorAll('#seg button').forEach(b=>b.addEventListener('click',(
 }));
 
 /* ---- ephemerer Chat ueber /ws/chat (frische Session je Aufruf) ----
-   Traegheits-Fixes (Sergens Fund): 1) Nachricht bei getrennter Verbindung NICHT mehr
+   Traegheits-Fixes (Praxis-Fund): 1) Nachricht bei getrennter Verbindung NICHT mehr
    stumm wegwerfen, sondern vormerken + beim Reconnect senden; 2) running wird beim
    Verbindungsabriss zurueckgesetzt (vorher blockierte ein haengender Lauf den Chat
    dauerhaft); 3) getrennte Leiste ist sichtbar gedimmt (.bar.off). ---- */

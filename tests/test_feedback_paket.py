@@ -1,4 +1,4 @@
-"""Sergens Feedback 09.07.: Gedaechtnis-Diaet ('okay, super.' war ein Dauer-Fakt),
+"""des Nutzers Feedback 09.07.: Gedaechtnis-Diaet ('okay, super.' war ein Dauer-Fakt),
 Lektionen in Klartext, Zentrale ohne Scrollfenster/tote Luecke, ehrlicher
 Quellen-Knopf und web_search als Provider-Kette (Brave-Quota-Fix)."""
 from __future__ import annotations
@@ -21,8 +21,8 @@ def test_zu_banal_erkennt_smalltalk():
     for t in ("okay, super.", "ok", "Danke!", "super nice 👍", "ja klar, passt gut",
               "alles klar, läuft", "  "):
         assert builtin._zu_banal(t) is True, f"sollte banal sein: {t!r}"
-    for t in ("Sergen mag dunkles UI-Design ohne Scrollbalken",
-              "Geburtstag Mama: 14.03.1968", "Luvex-Kunde zahlt monatlich 30 Euro"):
+    for t in ("Mia mag dunkles UI-Design ohne Scrollbalken",
+              "Geburtstag Mama: 14.03.1968", "Stammkunde zahlt monatlich 30 Euro"):
         assert builtin._zu_banal(t) is False, f"ist ein echter Fakt: {t!r}"
 
 
@@ -33,7 +33,7 @@ def test_remember_fact_wehrt_smalltalk_ab(monkeypatch):
     monkeypatch.setattr(store, "remember", lambda *a, **k: saved.append(a[0]))
     out = builtin.remember_fact("okay, super.")
     assert "NICHT gespeichert" in out and saved == []          # Smalltalk kommt nicht rein
-    out = builtin.remember_fact("Sergen will Berichte immer mit Quellenliste am Ende")
+    out = builtin.remember_fact("Mia will Berichte immer mit Quellenliste am Ende")
     assert out.startswith("Dauerhaft gemerkt") and len(saved) == 1
 
 
@@ -42,16 +42,16 @@ def test_remember_fact_dedupe(monkeypatch):
     monkeypatch.setattr(store, "init_memory", lambda: None)
     monkeypatch.setattr(store, "find_duplicate", lambda text, kind="fact": "vorhandene-id")
     monkeypatch.setattr(store, "remember", lambda *a, **k: saved.append(a[0]))
-    out = builtin.remember_fact("Sergen arbeitet abends am liebsten mit Musik")
+    out = builtin.remember_fact("Mia arbeitet abends am liebsten mit Musik")
     assert "Schon im Gedaechtnis" in out and saved == []        # kein Duplikat-Stapel
 
 
 def test_find_duplicate_roundtrip(monkeypatch, tmp_path):
     monkeypatch.setattr(store, "DB_PATH", str(tmp_path / "mem.db"))
     store.init_memory()
-    store.remember("Sergen trinkt Kaffee schwarz", role="self", kind="fact")
-    assert store.find_duplicate("  sergen   trinkt kaffee SCHWARZ ") is not None
-    assert store.find_duplicate("Sergen trinkt Tee") is None
+    store.remember("Mia trinkt Kaffee schwarz", role="self", kind="fact")
+    assert store.find_duplicate("  mia   trinkt kaffee SCHWARZ ") is not None
+    assert store.find_duplicate("Mia trinkt Tee") is None
 
 
 def test_gedaechtnis_ui_default_wichtig():

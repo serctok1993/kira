@@ -1,8 +1,8 @@
-"""Freigabe-Inbox: nichts geht nach aussen ohne Sergens GO.
+"""Freigabe-Inbox: nichts geht nach aussen ohne des Nutzers GO.
 
 Jede Aussen-Aktion / irreversible / oeffentliche Handlung (Post, Mail, Publish)
 und jeder Selbst-Aenderungs-Vorschlag (SOUL/GOAL) landet hier als Eintrag mit
-Status 'pending'. Sergen entscheidet im Cockpit: approve / reject. Persistent in
+Status 'pending'. der Nutzer entscheidet im Cockpit: approve / reject. Persistent in
 state.db, damit Freigaben Neustarts ueberleben und nachvollziehbar sind.
 
 Sicherheits-Kern der Autonomie: der Runner/die Tools LEGEN nur an. Bei Freigabe

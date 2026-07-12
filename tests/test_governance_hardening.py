@@ -101,7 +101,7 @@ def test_create_warns_on_autonomous_flood(monkeypatch, tmp_path):
     warns = [e for e in events.recent(50) if e["type"] == "approval_flood_warning"]
     assert len(warns) == 1  # genau beim Ueberschreiten, nicht davor
     assert warns[0]["payload"]["count_today"] == approvals.DAILY_AUTONOMOUS_BUDGET + 1
-    # Eintraege von Sergen (dashboard) zaehlen nicht ins Kira-Budget
+    # Eintraege vom Nutzer (dashboard) zaehlen nicht ins Kira-Budget
     approvals.create("Manuell", kind="generic", source="dashboard")
     assert approvals.created_today("kira") == approvals.DAILY_AUTONOMOUS_BUDGET + 1
 
@@ -159,7 +159,7 @@ def test_api_decide_proposal_consumed_then_409(monkeypatch, tmp_path):
 
 
 def test_api_file_constitution_editable_by_owner(tmp_path, monkeypatch):
-    # Politik-Wechsel (auf Sergens Wunsch): der OWNER darf die Verfassung ueber das Cockpit
+    # Politik-Wechsel (auf des Nutzers Wunsch): der OWNER darf die Verfassung ueber das Cockpit
     # (/api/file) aendern — bewusst, mit Backup + Audit-Event. Kira SELBST kann das weiterhin
     # NICHT (kein arbiträres POST-Tool; write_file/self_edit/evolution bleiben geblockt, s.u.).
     from core.api import server

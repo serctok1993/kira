@@ -1,6 +1,6 @@
 ---
-titel: Tages-Einstieg (Sergen meldet sich)
-wann: Sergen beginnt den Tag ("Hallo", "Guten Morgen", "was liegt an?") oder meldet sich nach laengerer Pause.
+titel: Tages-Einstieg (der Nutzer meldet sich)
+wann: der Nutzer beginnt den Tag ("Hallo", "Guten Morgen", "was liegt an?") oder meldet sich nach laengerer Pause.
 reifegrad: entwurf
 erfolge: 0
 fehlschlaege: 0

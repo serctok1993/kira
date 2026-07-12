@@ -113,11 +113,14 @@ def synthesize(text: str, session_id: str | None = None):
         return None
 
 
-def diagnose(sample: str = "Hallo Sergen, hier ist Kira — die Stimme funktioniert.") -> dict:
+def diagnose(sample: str = "") -> dict:
     """Testet die Sprachausgabe und liefert einen KLARTEXT-Grund (fuer den Cockpit-Test-Knopf).
 
     Laeuft im Cockpit-Prozess -> hat den frisch eingegebenen Key sofort (ohne Neustart).
     Rueckgabe: {ok: bool, reason: str, bytes?: int}."""
+    if not sample:  # Standard-Probe mit den LIVE-Namen (W3: nichts hart verdrahtet)
+        from core import identity as _id
+        sample = f"Hallo {_id.user_name()}, hier ist {_id.agent_name()} — die Stimme funktioniert."
     c = _cfg()
     prov = (c.get("provider") or "").lower()
     if not bool(c.get("enabled")):

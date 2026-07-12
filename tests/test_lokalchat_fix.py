@@ -1,4 +1,4 @@
-"""Fix 09.07. (Sergens Fund): Chat mit lokalem Modell brach sofort ab.
+"""Fix 09.07. (Praxis-Fund): Chat mit lokalem Modell brach sofort ab.
 
 Ursache: der Benchmark-Commit (Modell-Direktwahl) baute in stream_tagged ein
 'if model:' ein, vergass aber den Parameter -> UnboundLocalError bei JEDEM
