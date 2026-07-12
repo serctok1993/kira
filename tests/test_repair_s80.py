@@ -67,8 +67,6 @@ def test_sidecar_writers_use_atomic_write():
 
 def test_server_status_survives_corrupt_config(monkeypatch, tmp_path):
     """Korrupte mcp_servers.json darf nie mehr bis in die API werfen."""
-    import pathlib
-
     from core.agency.mcp import registry_bridge as rb
     from core.kernel import events
 
@@ -76,8 +74,8 @@ def test_server_status_survives_corrupt_config(monkeypatch, tmp_path):
     events.init_db()
     bad = tmp_path / "mcp_servers.json"
     bad.write_text("", encoding="utf-8")  # exakt der Live-Fall: leere Datei
-    # server_status liest den relativen Pfad data/mcp_servers.json -> in die Sandbox lenken
-    monkeypatch.setattr(rb, "Path", lambda s: bad if "mcp_servers" in str(s) else pathlib.Path(s))
+    # W0: server_status liest jetzt den absoluten Modul-Pfad _CONFIG_PATH -> direkt patchen
+    monkeypatch.setattr(rb, "_CONFIG_PATH", bad)
     assert rb.server_status() == {}  # sauber leer statt 'Expecting value'-Crash
 
 
