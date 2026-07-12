@@ -110,11 +110,13 @@ def fast_verify_active() -> bool:
 
 
 def _verify() -> tuple[bool, str]:
-    """Selbst-Test nach einer Aenderung. Timeout grosszuegig (300s): ein Timeout zaehlt
-    als FEHLSCHLAG und wuerde sonst einen GUTEN Edit zurueckrollen. Gibt (ok, ausgabe)."""
+    """Selbst-Test nach einer Aenderung. Timeout grosszuegig (600s = shelltool-Maximum):
+    die volle Suite braucht inzwischen ~6 Minuten — beim alten 300s-Deckel zaehlte der
+    Timeout als FEHLSCHLAG und rollte GUTE Edits zurueck (W0-Fund B4, 8x in 7 Tagen).
+    Gibt (ok, ausgabe)."""
     from core.agency.shelltool import run_shell
 
-    out = run_shell(_verify_cmd(), timeout=300)
+    out = run_shell(_verify_cmd(), timeout=600)
     return out.startswith("[exit 0]"), out
 
 
