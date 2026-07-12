@@ -1,5 +1,5 @@
 """Cockpit-Umbau Stufe 1a (Neon Minimal): einfarbiger Hintergrund, Farbwähler,
-Me->Serc, Research raus, Chat-Modus-Feedback.
+Me->Me, Research raus, Chat-Modus-Feedback.
 
 Reine Marker-/Struktur-Tests gegen CSS/VIEWS/SCRIPT (die UI ist Vanilla, kein Framework).
 """
@@ -53,7 +53,7 @@ def test_farbwaehler_vorhanden():
     assert "#theme-pop .colrow" in CSS
 
 
-# ---- Me -> Serc (Label geändert, data-v bleibt) -----------------------------------------
+# ---- Me -> Me (Label geändert, data-v bleibt) -----------------------------------------
 
 def test_me_heisst_serc():
     # seit Werkbank PR 7 haengt der Freigaben-Badge hinter dem Namen;
@@ -95,7 +95,7 @@ def test_config_aufgeloest():
     for ld in ("models:()=>loadModels()", "steuer:()=>loadSteuer()", "cron:()=>loadCron()",
                "cockpit:()=>loadDesktop()"):
         assert ld in SCRIPT
-    # default-aktive Subviews: v-puls (Kira) + v-tag (Serc, Werkbank PR 7) — kein doppeltes 'on' pro Tab
+    # default-aktive Subviews: v-puls (Kira) + v-tag (Me, Werkbank PR 7) — kein doppeltes 'on' pro Tab
     assert VIEWS.count('class="subview on"') == 2
 
 
@@ -122,20 +122,20 @@ def test_chat_engine_leiste():
     assert ".engine-pill" in CSS and "var(--chat-accent)" in CSS
 
 
-# ---- Stufe 2c: Serc mit Kira-artigen Subtabs -------------------------------------------
+# ---- Stufe 2c: Me mit Kira-artigen Subtabs -------------------------------------------
 
 def test_serc_subtabs():
     assert 'id="me-tabs"' in VIEWS
     for sub in ('id="v-todos"', 'id="v-freigaben"', 'id="v-routinen"', 'id="v-post"', 'id="v-metriken"'):
-        assert sub in VIEWS, f"Serc-Subview fehlt: {sub}"
+        assert sub in VIEWS, f"Me-Subview fehlt: {sub}"
     # die Panels sind unter die richtigen Subviews gewandert (IDs unveraendert)
     for panel in ("id=\"life-board\"", "id=\"inbox-list\"", "id=\"me-crons\"", "id=\"me-mails\"", "id=\"life-metrics\""):
         assert panel in VIEWS
     # me ist in der SUBTABS-Registry (gleiche Mechanik wie Kira)
     assert 'me:      {bar:"#me-tabs"' in SCRIPT
     assert "freigaben:()=>{loadInbox();loadTodoSecrets();}" in SCRIPT
-    # genau EIN default-aktiver Serc-Subview
-    assert VIEWS.count('class="subview on"') == 2   # v-puls (Kira) + v-tag (Serc, Werkbank PR 7)
+    # genau EIN default-aktiver Me-Subview
+    assert VIEWS.count('class="subview on"') == 2   # v-puls (Kira) + v-tag (Me, Werkbank PR 7)
 
 
 # ---- Chat/Coding-Werkbank: breiter Umschalter oben, Werkzeuge gebündelt, Modus-Farbe fix ----
@@ -190,7 +190,7 @@ def test_chat_politur():
 # ---- Ziele-Dashboard: Kennzahlen mit Ziel/Fortschritt, Kira schreibt selbst, Zentrale-Karte ----
 
 def test_ziele_dashboard():
-    # Serc-Subtab heisst jetzt "Ziele", nicht mehr "Metriken"
+    # Me-Subtab heisst jetzt "Ziele", nicht mehr "Metriken"
     assert '>🎯 Ziele</a>' in VIEWS
     assert '>📊 Metriken</a>' not in VIEWS
     assert "◈ ZIELE-DASHBOARD" in VIEWS
@@ -223,9 +223,9 @@ def test_automatisierungspanel():
     assert '#me-brief-setup' not in SCRIPT
 
 
-# ---- Radar konfigurierbar: Sergen sagt, wonach gesucht wird ----------------------------
+# ---- Radar konfigurierbar: der Nutzer sagt, wonach gesucht wird ----------------------------
 
-# ---- Pro-Projekt-Uebersicht: auf einen Blick, was fuer Luvex getan wurde ----------------
+# ---- Pro-Projekt-Uebersicht: auf einen Blick, was fuer Beispiel-Projekt getan wurde ----------------
 
 # ---- Chat/Projekte-UX-Runde: 🗂 rechts, Befehls-Palette, Projekt klickt sich zu ----
 
@@ -318,7 +318,7 @@ def test_drei_modi_und_stop():
     assert ">Chat</a>" in _seg and ">Work</a>" in _seg and ">Coding</a>" in _seg
     assert "💬" not in _seg and "⚙" not in _seg          # Emojis raus -> Icons
     assert 'data-m="plan"' not in VIEWS
-    # Beschreibungstext neben den Buttons ist raus (Sergen kennt die Modi)
+    # Beschreibungstext neben den Buttons ist raus (der Nutzer kennt die Modi)
     assert 'id="mode-hint"' not in VIEWS
     # Work-Modus haengt "work:" an, Coding "code:" — beide im Send-Pfad
     assert 't="work: "+raw' in SCRIPT and 't="code: "+raw' in SCRIPT
@@ -346,7 +346,7 @@ def test_reasoning_popover_ehrlich():
     assert "function setReason(" in SCRIPT
 
 
-# ---- Serc/Kira-Subtableiste: durchgehend lila, weisse Schrift; aktiv = schwarz/lila ----
+# ---- Me/Kira-Subtableiste: durchgehend lila, weisse Schrift; aktiv = schwarz/lila ----
 
 def test_subtab_leiste_lila():
     # Die prominente lila Leiste ist jetzt die GRUPPEN-Zeile (kira-groups); Me bleibt lila

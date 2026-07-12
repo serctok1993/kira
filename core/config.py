@@ -161,6 +161,38 @@ def set_override(path: str, value) -> None:
     _apply_overrides(CONFIG, {path: value})
 
 
+def remove_overrides(prefixes: tuple[str, ...] | list[str]) -> int:
+    """Overrides entfernen (W3 Werkszustand): exakter Pfad ODER Praefix ('identity'
+    trifft 'identity.user'). CONFIG wird danach IN PLACE frisch aufgebaut (config.yaml
+    + models.json + Rest-Overrides) — alle 'from core.config import CONFIG'-Referenzen
+    sehen den neuen Stand sofort. Rueckgabe: Anzahl entfernter Eintraege."""
+    import json as _jo
+
+    ov: dict = {}
+    if _OVERRIDE_FILE.exists():
+        try:
+            ov = _jo.loads(_OVERRIDE_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            ov = {}
+    def _weg(pfad: str) -> bool:
+        return any(pfad == p or pfad.startswith(p + ".") for p in prefixes)
+    rest = {k: v for k, v in ov.items() if not _weg(k)}
+    entfernt = len(ov) - len(rest)
+    if entfernt:
+        from core.kernel.fs import atomic_write as _aw
+        _aw(_OVERRIDE_FILE, _jo.dumps(rest, indent=2, ensure_ascii=False))
+        frisch = load_config()
+        CONFIG.clear()
+        CONFIG.update(frisch)
+        if _MODEL_OVERRIDE.exists():
+            try:
+                apply_model_overrides(_jo.loads(_MODEL_OVERRIDE.read_text(encoding="utf-8")))
+            except Exception:
+                pass
+        _apply_overrides(CONFIG, rest)
+    return entfernt
+
+
 if _OVERRIDE_FILE.exists():
     import json as _json3
 

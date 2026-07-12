@@ -9,7 +9,7 @@ mittendrin. Wirft nie, kostet 0 Tokens.
 Zustaende je Punkt:
   ok      — passt
   warn    — laeuft, aber eingeschraenkt (z.B. alles auf Lokal-Fallback)
-  todo    — Sergen sollte etwas tun (kein Blocker, z.B. Wissensbasis leer)
+  todo    — der Nutzer sollte etwas tun (kein Blocker, z.B. Wissensbasis leer)
   blocker — muss vor dem Start behoben werden
 """
 from __future__ import annotations

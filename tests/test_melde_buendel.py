@@ -1,4 +1,4 @@
-"""Melde-Buendelung (Sergens Fund 09.07.): 10 Missions-Meldungen in 3 Stunden sind
+"""Melde-Buendelung (Praxis-Fund 09.07.): 10 Missions-Meldungen in 3 Stunden sind
 Flut — jetzt sammeln sich Einzeiler im Puffer und der Bot schickt alle N Stunden
 EIN Buendel. Wichtiges (gescheitert, Stripe, Selbst-Check) geht weiter SOFORT raus."""
 from __future__ import annotations

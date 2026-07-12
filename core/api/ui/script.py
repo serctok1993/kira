@@ -56,7 +56,7 @@ const SUBTABS={
            loaders:{models:()=>loadModels(),bench:()=>loadBench(),steuer:()=>loadSteuer(),
                     keys:()=>loadKeys(),cockpit:()=>loadDesktop(),wall:()=>loadWallEditor()}},
  me:      {bar:"#me-tabs", cur:"tag",   /* Werkbank PR 7: erster Blick = DEIN Tag */
-           loaders:{tag:()=>{loadTag();loadWidgets("serc","#widgets-serc");},todos:()=>loadLeben(),freigaben:()=>{loadInbox();loadTodoSecrets();},
+           loaders:{tag:()=>{loadTag();loadWidgets("me","#widgets-me");},todos:()=>loadLeben(),freigaben:()=>{loadInbox();loadTodoSecrets();},
                     routinen:()=>loadMeCrons(),post:()=>loadMails(),metriken:()=>loadZiele()}}};
 const _SETTINGS_SUBS=["models","bench","steuer","keys","cockpit","wall"];
 
@@ -169,7 +169,7 @@ function subnav(tab,s){
 (function(){const vs=$("#v-settings");if(!vs)return;
  _SETTINGS_SUBS.forEach(s2=>{const el=$("#v-"+s2);if(el){el.classList.remove("on");vs.appendChild(el);}});})();
 Object.keys(SUBTABS).forEach(t=>$$(SUBTABS[t].bar+" a").forEach(a=>a.onclick=()=>subnav(t,a.dataset.s)));
-/* Kira-Tab "4 klare Reiter" (S12, Sergens Entscheid 11.07.): Puls · Kopf · Automatik ·
+/* Kira-Tab "4 klare Reiter" (S12, Entscheid des Nutzers 11.07.): Puls · Kopf · Automatik ·
    Maschinenraum. Views/Loader bleiben unveraendert — nur Navigation/Benennung. Die
    Sub-Leiste zeigt sich NUR, wenn die aktive Gruppe mehr als einen Unterpunkt hat
    (Puls = ein Blick, keine zweite Leiste). */
@@ -197,7 +197,7 @@ applyIcons();
 
 /* ---- Me (S7a/S8.4/S9.4): beide Todo-Richtungen + Zugangs-Anfragen + Mails + Routinen ---- */
 function loadMe(){loadInbox();loadTodoSecrets();loadLeben();loadMeCrons();}
-/* Phase 3: echter Posteingang im Serc->Post-Tab (rein lesend; antworten macht der Chat) */
+/* Phase 3: echter Posteingang im Me->Post-Tab (rein lesend; antworten macht der Chat) */
 async function loadMails(){const el=$("#me-mails");if(!el)return;
  el.innerHTML='<span class="muted">… hole Post</span>';
  try{const d=await (await fetch("/api/mails")).json();const ms=d.mails||[];
@@ -255,7 +255,7 @@ async function renderWidget(w){
    +'</div></div>';}
  return "";}
 
-/* ---- Serc "Tag" (Werkbank PR 7): dein Erst-Blick — heute faellig, heute erledigt,
+/* ---- Me "Tag" (Werkbank PR 7): dein Erst-Blick — heute faellig, heute erledigt,
    Routinen des Tages, Freigaben-Zaehler + Kiras Kurz-Digest. Nur vorhandene
    Endpunkte (life/board, digest, cron) — jede Zahl lebt weiter an ihrem Ort. ---- */
 async function loadTag(){const el=$("#tag-heute");if(!el)return;try{
@@ -1041,7 +1041,7 @@ async function onKiraReply(text){
  if(handsFree)armListen();}
 function armListen(){if(handsFree&&!(mediaRec&&mediaRec.state==="recording"))startRec(true);}
 /* Stille-Erkennung: stoppt die Aufnahme automatisch nach einer Sprechpause (freihaendig).
-   Ohne WebAudio faellt es sanft aus -> dann stoppt Sergen per Knopf. */
+   Ohne WebAudio faellt es sanft aus -> dann stoppt der Nutzer per Knopf. */
 function attachVAD(stream,rec){
  let ctx,an,raf,silence=0,last=performance.now(),started=last;vadSpoke=false;
  try{ctx=new (window.AudioContext||window.webkitAudioContext)();
@@ -1264,7 +1264,7 @@ function bar(spent,limit){if(limit==null)return '<span class=muted>kein Limit</s
   +'<small class=muted>'+spent.toFixed(4)+' / '+limit+' € ('+pct+'%)</small>';}
 async function cfgSet(path,value){return (await fetch("/api/config/set",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path,value})})).json();}
 
-/* ---- Steuerpult: Sergens Riegel ueber die Schwarmintelligenz ---- */
+/* ---- Steuerpult: des Nutzers Riegel ueber die Schwarmintelligenz ---- */
 const RANG_ICON={reflex:"🐜",arbeiter:"🔧",denker:"🧠",richter:"⚖"};
 async function loadSteuer(){const el=$("#st-raenge");if(!el)return;
  try{const d=await (await fetch("/api/steuer")).json();
@@ -1553,7 +1553,7 @@ $("#dir-schwarm")&&($("#dir-schwarm").onchange=()=>{const on=$("#dir-schwarm").c
  const rg=$("#dir-rang");if(rg)rg.style.display=on?"":"none";
  const b=$("#dir-now");if(b)b.textContent=on?"🐝 An den Schwarm":"⚡ Sofort ausfuehren";
  const t=$("#dir-text");if(t)t.placeholder=on
-   ?"1. Zeile = Auftrag mit {item}  (z.B. „Finde 5 Telefonnummern fuer {item} in Koblenz“)\ndann je eine Zeile pro Ziel:\nFriseure\nHotels"
+   ?"1. Zeile = Auftrag mit {item}  (z.B. „Finde 5 Telefonnummern fuer {item} in Berlin“)\ndann je eine Zeile pro Ziel:\nFriseure\nHotels"
    :"Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…";
  $("#dir-hint").textContent=on?"🐝 Jede Zeile unter dem Auftrag wird ein eigener Agent (bis schwarm_max, sonst in Wellen).":"";});
 $("#dir-now")&&($("#dir-now").onclick=async()=>{const p=$("#dir-text").value.trim();if(!p)return;
@@ -1965,7 +1965,7 @@ function pollTick(){
 }
 _pollTimer=setTimeout(pollTick,5000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden){pollFails=0;pollTick();}});
-/* ===== Inline-Rename (Sergen): Beschriftungen per Doppelklick aendern, im Browser gespeichert ===== */
+/* ===== Inline-Rename (der Nutzer): Beschriftungen per Doppelklick aendern, im Browser gespeichert ===== */
 (function(){
  var K="kiraLabels",m={};try{m=JSON.parse(localStorage.getItem(K)||"{}")}catch(e){}
  function save(){try{localStorage.setItem(K,JSON.stringify(m))}catch(e){}}

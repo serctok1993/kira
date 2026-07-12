@@ -130,7 +130,7 @@ def test_ws_bench_kennt_swebench():
     assert "swebench" in src and "stream_swebench" in src
 
 
-# --- Fixes nach Sergens 0/40-Lauf (Lauf 1 war systematisch kaputt) -----------
+# --- Fixes nach des Nutzers 0/40-Lauf (Lauf 1 war systematisch kaputt) -----------
 def test_agent_env_laesst_kira_root_in_ruhe(monkeypatch):
     """0%-Ursache 1: KIRA_ROOT zeigte aufs Fremd-Repo -> Subprozess starb beim Import
     (config.yaml/core/mind fehlen dort). Jetzt: ROOT bleibt Kiras Repo, nur Daten umgelenkt."""
@@ -187,7 +187,7 @@ def test_leaderboard_beschriftet_swebench_richtig():
     assert "ev.out" in html  # Fehl-Grund je Aufgabe sichtbar im Live-Verlauf
 
 
-# --- Modell-Direktwahl (Sergens Wunsch: beliebige IDs testen, auch kuenftige) --
+# --- Modell-Direktwahl (des Nutzers Wunsch: beliebige IDs testen, auch kuenftige) --
 def test_force_model_schlaegt_alle_rollen(monkeypatch):
     from core.kernel import llm_router
     monkeypatch.setenv("KIRA_FORCE_MODEL", "openrouter/zukunft/super-5")

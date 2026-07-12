@@ -124,18 +124,18 @@ def test_person_fakt_legt_blatt_an_und_ersetzt_luecke(monkeypatch, tmp_path):
     menschen = tmp_path / "gedaechtnis" / "stammbaum" / "leben" / "menschen"
     menschen.mkdir(parents=True)
     (menschen / "_VORLAGE.md").write_text(
-        "# VORNAME (Beziehung zu Sergen)\n\n- beziehung: ???\n- geburtstag: ???\n\n"
+        "# VORNAME (Beziehung zum Nutzer)\n\n- beziehung: ???\n- geburtstag: ???\n\n"
         "## Notizen (mit Datum)\n\n-\n", encoding="utf-8")
 
-    r = vault_notes.person_fakt_upsert("Ali Tokgoez", "geburtstag", "03.08.1990")
+    r = vault_notes.person_fakt_upsert("Ali Muster", "geburtstag", "03.08.1990")
     assert r["ok"] and r["created"]
-    text = (menschen / "ali-tokgoez.md").read_text(encoding="utf-8")
-    assert text.startswith("# Ali Tokgoez")                     # Vorlagen-Kopf ersetzt
+    text = (menschen / "ali-muster.md").read_text(encoding="utf-8")
+    assert text.startswith("# Ali Muster")                     # Vorlagen-Kopf ersetzt
     assert "- geburtstag: 03.08.1990" in text and "geburtstag: ???" not in text
 
     # Upsert ist idempotent: zweiter Aufruf ersetzt, dupliziert nicht
-    vault_notes.person_fakt_upsert("Ali Tokgoez", "geburtstag", "04.08.1990")
-    text = (menschen / "ali-tokgoez.md").read_text(encoding="utf-8")
+    vault_notes.person_fakt_upsert("Ali Muster", "geburtstag", "04.08.1990")
+    text = (menschen / "ali-muster.md").read_text(encoding="utf-8")
     assert text.count("- geburtstag:") == 1 and "04.08.1990" in text
 
 
@@ -145,21 +145,21 @@ def test_person_fakt_neues_feld_vor_notizen(monkeypatch, tmp_path):
     menschen.mkdir(parents=True)
     (menschen / "mama.md").write_text(
         "# Mama\n\n- geburtstag: 01.05.1965\n\n## Notizen (mit Datum)\n\n- x\n", encoding="utf-8")
-    r = vault_notes.person_fakt_upsert("Mama", "wohnort", "Koblenz")
+    r = vault_notes.person_fakt_upsert("Mama", "wohnort", "Berlin")
     assert r["ok"] and not r["created"] and not r["ersetzt"]
     zeilen = (menschen / "mama.md").read_text(encoding="utf-8").splitlines()
-    assert "- wohnort: Koblenz" in zeilen
-    assert zeilen.index("- wohnort: Koblenz") < zeilen.index("## Notizen (mit Datum)")
+    assert "- wohnort: Berlin" in zeilen
+    assert zeilen.index("- wohnort: Berlin") < zeilen.index("## Notizen (mit Datum)")
 
 
 def test_person_fakt_findet_blatt_in_unterordnern(monkeypatch, tmp_path):
     monkeypatch.setattr(vault_notes, "ROOT", tmp_path)
     base = tmp_path / "gedaechtnis" / "stammbaum"
     (base / "leben").mkdir(parents=True)
-    (base / "SERGEN.md").write_text("# Sergen\n- wohnort: ???\n", encoding="utf-8")
-    r = vault_notes.person_fakt_upsert("Sergen", "wohnort", "Koblenz")
+    (base / "MIA.md").write_text("# Mia\n- wohnort: ???\n", encoding="utf-8")
+    r = vault_notes.person_fakt_upsert("Mia", "wohnort", "Berlin")
     assert r["ok"] and r["ersetzt"] and not r["created"]
-    assert "- wohnort: Koblenz" in (base / "SERGEN.md").read_text(encoding="utf-8")
+    assert "- wohnort: Berlin" in (base / "MIA.md").read_text(encoding="utf-8")
 
 
 def test_logbuch_frage_nennt_person_fakt(monkeypatch, tmp_path):

@@ -111,9 +111,9 @@ def _example_arg(desc: str) -> str:
     if "url" in d:
         return "https://example.com"
     if any(w in d for w in ("suchanfrage", "query", "wonach", "suchen")):
-        return "Wetter Koblenz heute"
+        return "Wetter Berlin heute"
     if any(w in d for w in ("pfad", "datei", "path")):
-        return "C:/Users/serge/Desktop/notiz.txt"
+        return "C:/Users/Name/Desktop/notiz.txt"
     if any(w in d for w in ("titel", "title", "bezeichnung")):
         return "Kurznotiz"
     if any(w in d for w in ("text", "inhalt", "nachricht", "fakt", "information")):
@@ -145,8 +145,8 @@ def _tool_examples() -> list[dict]:
 
 # Anti-Ankuendigung: das Hauptproblem kleiner Modelle — sie versprechen statt zu handeln.
 _DISCIPLINE = [
-    ("Suchst du mir kurz das Wetter in Koblenz für morgen?",
-     'ACT web_search {"query": "Wetter Koblenz morgen"}'),
+    ("Suchst du mir kurz das Wetter in Berlin für morgen?",
+     'ACT web_search {"query": "Wetter Berlin morgen"}'),
     ("Leg bitte eine Notiz an: Termin beim Steuerberater am 14.",
      'ACT knowledge_note {"title": "Termin Steuerberater", "text": "Steuerberater am 14."}'),
     ("Merk dir, dass ich morgens am produktivsten bin.",
@@ -159,7 +159,7 @@ _PERSONA = [
      "Dann drehen wir den Spieß um: Statt weiter Portale abzugrasen, grenzen wir zuerst ein — "
      "welche zwei, drei Stadtteile gehen preislich noch, und ab welcher Kaltmiete wird's "
      "unrealistisch? Sag mir die Zahlen, dann suche ich gezielt statt breit."),
-    ("Gib mir drei frische Ideen, wie ich Luvex bekannter mache.",
+    ("Gib mir drei frische Ideen, wie ich mein Projekt bekannter mache.",
      "Klar, drei Richtungen mit unterschiedlichem Risiko: 1) Vorher-Nachher-Kurzvideos deiner "
      "besten Ergebnisse — billig, zeigt Kompetenz. 2) Eine Kooperation mit einem lokalen Betrieb, "
      "der deine Zielgruppe schon hat. 3) Ein kleines Gewinnspiel, das Reichweite bringt, ohne "

@@ -56,8 +56,9 @@ def _gate(aktion: str) -> str | None:
     if kill_switch_active():
         return "Not-Aus ist aktiv — ich steuere den Rechner gerade nicht."
     if not _enabled():
-        return ("Computer-Steuerung ist AUS. Sergen schaltet sie im Steuerpult frei "
-                "(Kira → Steuerpult → 'Rechner steuern'). Standard ist aus — bewusste Freigabe.")
+        from core import identity as _id
+        return (f"Computer-Steuerung ist AUS. {_id.user_name()} schaltet sie im Steuerpult frei "
+                f"({_id.agent_name()} → Steuerpult → 'Rechner steuern'). Standard ist aus — bewusste Freigabe.")
     if not _IS_WIN:
         return f"Computer-Steuerung laeuft nur unter Windows ({aktion} hier nicht verfuegbar)."
     return None

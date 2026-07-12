@@ -63,8 +63,10 @@ def test_refresh_without_markers_is_safe(monkeypatch, tmp_path):
 
 
 def test_real_body_md_structure():
-    """Die echte BODY.md hat Kopf + Marker und der Kopf haelt die Kontext-Diaet."""
-    real = body._PATH.read_text(encoding="utf-8")
+    """BODY hat Kopf + Marker, der Kopf haelt die Kontext-Diaet — gelebte Datei, sonst
+    (frischer Klon, W3: BODY.md ist Privatsache) das Template, wie body.compact()."""
+    quelle = body._PATH if body._PATH.exists() else body._PATH.parent / "templates" / "BODY.md"
+    real = quelle.read_text(encoding="utf-8")
     assert "<!-- REFERENZ -->" in real
     assert real.count("<!-- AUTO:START -->") == 1 and real.count("<!-- AUTO:END -->") == 1
     assert len(body.compact()) <= 1500

@@ -18,7 +18,7 @@ def test_say_ok_liefert_audio(monkeypatch):
     from core.api import server
     from core.agency.connectors import tts
     monkeypatch.setattr(tts, "synthesize", lambda text, session_id=None: (b"MP3BYTES", "audio/mpeg"))
-    r = asyncio.run(server.api_voice_say({"text": "Hallo Sergen"}))
+    r = asyncio.run(server.api_voice_say({"text": "Hallo Mia"}))
     assert r.status_code == 200
     assert r.body == b"MP3BYTES"
     assert r.media_type == "audio/mpeg"

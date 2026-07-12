@@ -11,7 +11,7 @@ def _page() -> str:
 
 
 def test_page_boots_with_new_ia():
-    """W1-Zuschnitt (Zentrale/Chat/Serc/Kira/Einstellungen) + modulare Shell."""
+    """W1-Zuschnitt (Zentrale/Chat/Me/Kira/Einstellungen) + modulare Shell."""
     html = _page()
     assert "KIRA" in html
     for vid in ("v-home", "v-chat", "v-me", "v-kira", "v-settings"):
@@ -223,7 +223,7 @@ def test_clear_session_only_episodic(monkeypatch, tmp_path):
     mem.init_memory()
     mem.remember("Hallo", role="user", kind="episodic", session_id="s1")
     mem.remember("Antwort", role="partner", kind="episodic", session_id="s1")
-    mem.remember("Sergen mag direkte Antworten", role="user", kind="fact", session_id="s1")
+    mem.remember("Mia mag direkte Antworten", role="user", kind="fact", session_id="s1")
 
     deleted = mem.clear_session("s1")
     assert deleted == 2  # nur der Verlauf
@@ -301,7 +301,7 @@ def test_avatar_hero_and_endpoints():
     bad = client.post("/api/avatar/upload", json={"dataurl": "kein-bild"}).json()
     assert bad["ok"] is False  # Format-Wache; kein Schreiben auf Muell
     r = client.get("/api/avatar")
-    assert r.status_code in (200, 404)  # 404 solange Sergen noch kein Bild hochgeladen hat
+    assert r.status_code in (200, 404)  # 404 solange der Nutzer noch kein Bild hochgeladen hat
 
 
 def test_ws_roundtrip_contract(monkeypatch):

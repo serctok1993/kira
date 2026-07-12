@@ -1,7 +1,7 @@
 """Live-Obsidian-Vault als Graph: liest die echten Markdown-Notizen (gedaechtnis/ + playbooks/)
 und ihre [[Verlinkungen]] und baut daraus Knoten + Fäden fuer die Desktop-Wallpaper-Seite (/wall).
 
-Rein lesend, kein LLM, kein Schreibzugriff — nur die Dateien, die Sergen in Obsidian pflegt.
+Rein lesend, kein LLM, kein Schreibzugriff — nur die Dateien, die der Nutzer in Obsidian pflegt.
 """
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def _group_of(root: Path, p: Path) -> str:
 
 def _default_roots() -> list[Path]:
     """Kiras Gedaechtnis + optionale echte Obsidian-Vaults aus der Config
-    (desktop.vault_paths). So erscheint Sergens ganzer Obsidian-Graph, nicht nur die Memo-Dateien."""
+    (desktop.vault_paths). So erscheint des Nutzers ganzer Obsidian-Graph, nicht nur die Memo-Dateien."""
     roots = [ROOT / "gedaechtnis", ROOT / "playbooks"]
     try:
         from core.config import CONFIG
@@ -47,7 +47,7 @@ def _default_roots() -> list[Path]:
 
 def obsidian_vault_name() -> str | None:
     """Name des Obsidian-Vaults (fuer obsidian://open-Links) — der Ordnername des ersten
-    konfigurierten desktop.vault_paths, z.B. 'Kira-Brain'."""
+    konfigurierten desktop.vault_paths, z.B. 'Mein-Vault'."""
     try:
         from core.config import CONFIG
         for p in (CONFIG.get("desktop") or {}).get("vault_paths") or []:

@@ -15,7 +15,7 @@ def _stammbaum(tmp_path, monkeypatch):
 def test_logbuch_frage_findet_luecke(tmp_path, monkeypatch):
     from core.agency.missions import standup
     base = _stammbaum(tmp_path, monkeypatch)
-    (base / "daten.md").write_text("# Daten\n- geburtsdatum: ???\n- ort: Koblenz\n", encoding="utf-8")
+    (base / "daten.md").write_text("# Daten\n- geburtsdatum: ???\n- ort: Berlin\n", encoding="utf-8")
 
     q = standup._stammbaum_question("2026-07-04")
     assert "LOGBUCH-FRAGE" in q
@@ -80,11 +80,14 @@ def test_api_checkliste_und_files(tmp_path, monkeypatch):
     ck = client.get("/api/checkliste").json()
     assert set(ck) >= {"journal_heute", "stammbaum_luecken", "stammbaum_dateien", "handbuch"}
     assert ck["handbuch"] is True  # HANDBUCH.md existiert im Repo
-    assert ck["stammbaum_dateien"] >= 5  # Wurzel + Aeste (ohne _VORLAGE)
-    assert ck["stammbaum_luecken"] >= 3  # ???-Felder sind geseedet
+    # Stammbaum-Zaehler sind INSTANZ-Werte (W3: Blaetter sind Privatsache, nicht im
+    # Repo) — hier zaehlt nur, dass die Checkliste sie liefert, nicht wie viele es sind.
+    assert isinstance(ck["stammbaum_dateien"], int) and isinstance(ck["stammbaum_luecken"], int)
 
     files = {f["name"] for f in client.get("/api/files").json()}
-    assert {"HANDBUCH.md", "SERGEN.md", "INDEX.md"} <= files
+    from core import identity
+    wurzel = f"{identity.user_name().upper()}.md"   # Werkszustand: PARTNER.md
+    assert {"HANDBUCH.md", wurzel, "INDEX.md"} <= files
     hb = client.get("/api/file", params={"name": "HANDBUCH.md"}).json()
     assert "Gesetzbuch" in hb["content"] and hb["editable"] is True
 
@@ -93,8 +96,9 @@ def test_api_checkliste_und_files(tmp_path, monkeypatch):
 
 def test_vault_und_playbooks_vorhanden():
     from core.config import ROOT
-    for rel in ("gedaechtnis/LIES-MICH.md", "gedaechtnis/stammbaum/SERGEN.md",
-                "gedaechtnis/stammbaum/leben/daten.md", "gedaechtnis/stammbaum/business/_VORLAGE.md",
+    for rel in ("gedaechtnis/LIES-MICH.md", "gedaechtnis/stammbaum/_WURZEL_VORLAGE.md",
+                "gedaechtnis/stammbaum/leben/menschen/_VORLAGE.md",
+                "gedaechtnis/stammbaum/business/_VORLAGE.md",
                 "gedaechtnis/journal/LIES-MICH.md", "docs/HANDBUCH.md"):
         assert (ROOT / rel).exists(), rel
 
@@ -136,21 +140,23 @@ def test_index_regenerierung_erhaelt_nummerierten_kopf(tmp_path, monkeypatch):
     assert out.count("<!-- AUTO:START -->") == 1
 
 
-def test_identitaet_schlank_mit_platz_fuer_sergen():
-    """SOUL/GOAL/USER sind entschlackt (werden bei JEDEM Turn injiziert) und lassen
-    Sergen je einen eigenen, von Kira unangetasteten Platz."""
-    from core.config import ROOT
-    soul = (ROOT / "core" / "mind" / "SOUL.md").read_text(encoding="utf-8")
-    goal = (ROOT / "core" / "mind" / "GOAL.md").read_text(encoding="utf-8")
-    user = (ROOT / "core" / "mind" / "USER.md").read_text(encoding="utf-8")
-    # Owner-Platz in allen dreien (seit 08.07. als VON-SERGEN-Block mit ???-Zeilen)
-    assert "VON SERGEN" in soul and "VON SERGEN" in user
-    assert "VON SERGEN" in goal and "Meilenstein 1" in goal
+def test_identitaet_schlank_mit_platz_fuer_den_nutzer():
+    """SOUL/GOAL/USER-TEMPLATES sind entschlackt (werden bei JEDEM Turn injiziert) und
+    lassen dem Nutzer je einen eigenen, unangetasteten Platz. (W3: die gelebten .md
+    sind Privatsache — geprueft wird das Template, gerendert mit den Werks-Namen.)"""
+    from core import identity
+    from core.config import MIND_DIR
+    def t(name):
+        return identity.render((MIND_DIR / "templates" / name).read_text(encoding="utf-8"))
+    soul, goal, user = t("SOUL.md"), t("GOAL.md"), t("USER.md")
+    # Owner-Platz in allen dreien (VON-<Nutzer>-Block mit ???-Zeilen)
+    assert "VON Partner" in soul and "VON Partner" in user
+    assert "VON Partner" in goal and "Meilenstein 1" in goal
     # schlank geblieben (Effizienz: injiziert pro Turn)
     assert len(soul) < 2300 and len(goal) < 2300
     # Kern-Substanz bleibt erhalten
     assert "Gegengewicht" in soul and "docs/CODING.md" in soul
-    assert "Sergen dienen" in goal and "Nordstern" in goal
+    assert "Partner dienen" in goal and "Nordstern" in goal
 
 
 def test_coding_disziplin_dokument():
@@ -159,9 +165,7 @@ def test_coding_disziplin_dokument():
     doc = (ROOT / "docs" / "CODING.md").read_text(encoding="utf-8")
     for marker in ("_is_code_step", "self_edit", "GLM", "py_compile", "Verfassung", "Not-Aus"):
         assert marker in doc, marker
-    # SOUL traegt die Disziplin als Selbstwissen + Verweis
-    soul = (ROOT / "core" / "mind" / "SOUL.md").read_text(encoding="utf-8")
+    # SOUL-Template traegt die Disziplin als Selbstwissen + Verweis (W3: gelebte
+    # SOUL.md ist Privatsache; das Uebergabe-Dossier KIRA-IST.md ebenso)
+    soul = (ROOT / "core" / "mind" / "templates" / "SOUL.md").read_text(encoding="utf-8")
     assert "docs/CODING.md" in soul
-    # Uebergabe-Dossier verweist den Nachfolger auf die Regeln
-    ist = (ROOT / "docs" / "KIRA-IST.md").read_text(encoding="utf-8")
-    assert "CODING.md" in ist and "_is_code_step" in ist

@@ -1,6 +1,6 @@
 # Tuning-Werkbank — unser eigenes Qwen finetunen
 
-Ziel (Sergens „Unschlagbar-Kombi"): ein **Harness nur für dich** (Kira) + ein
+Ziel (des Nutzers „Unschlagbar-Kombi"): ein **Harness nur für dich** (Kira) + ein
 **Lokalmodell nur für dich** (getuntes Qwen). Kira bleibt dabei voll flexibel —
 sie trainiert **nichts** selbst und hängt an **keinem** Modell. Dieses Modul
 sammelt nur Trainingsmaterial und exportiert es; das Training läuft **außerhalb**,
@@ -15,7 +15,7 @@ auf deinem PC, und ist komplett optional.
 - **Grundstock (Seed):** handgeschriebene Mehrschritt-Beispiele, die Kiras Struktur
   lehren — Coding (suchen → chirurgisch editieren → **verifizieren**), Tool-Ketten,
   Planen-dann-ausführen, Freigabe-Reflex für Außen-Aktionen, Ton/Kreativität, plus
-  Sergens stabile Identität & Werte (Systemdenker, positive Wirkung, Unabhängigkeit).
+  des Nutzers stabile Identität & Werte (Systemdenker, positive Wirkung, Unabhängigkeit).
   Wichtig: **stabile** Dinge (Stil, Werte, Struktur) gehören in die Gewichte —
   **veränderliche** Fakten (Termine, Zahlen, Projektdetails) bleiben im Gedächtnis.
 - **Export:** Prüfstand → „Datensatz exportieren" schreibt ein ChatML-JSONL nach

@@ -28,6 +28,28 @@ app = FastAPI(title="Kira Cockpit")
 events.init_db()
 memory.init_memory()
 
+# W3: Bestands-Instanz beim Boot still stempeln (Lockout-Schutz) — eine gelebte
+# Instanz (USER.md + gesetzter Nutzer-Name) sieht den Setup-Wizard NIEMALS.
+from core.kernel import onboarding as _onboarding  # noqa: E402
+_onboarding.auto_migrate()
+
+# Onboarding-Gate: VOR _remote_guard registriert -> laeuft als INNERE Middleware
+# NACH dem Fernzugriff-Schutz (Token-Pruefung zuerst, dann Setup-Umleitung).
+_SETUP_FREI = ("/setup", "/api/setup", "/health", "/api/icon")
+
+
+@app.middleware("http")
+async def _onboarding_gate(request, call_next):
+    """Frischer Klon (kein onboarded.flag): HTML -> /setup, API -> 503 setup_required."""
+    path = request.url.path
+    if _onboarding.is_onboarded() or any(path == p or path.startswith(p + "/") for p in _SETUP_FREI):
+        return await call_next(request)
+    if request.method == "GET" and "text/html" in (request.headers.get("accept") or ""):
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse("/setup", status_code=302)
+    return JSONResponse({"error": "setup_required", "hint": "Erst-Einrichtung unter /setup"},
+                        status_code=503)
+
 
 @app.middleware("http")
 async def _remote_guard(request, call_next):
@@ -56,7 +78,7 @@ except Exception:  # noqa: BLE001
     pass
 
 def _stammbaum_wurzel_name() -> str:
-    """Dateiname der Stammbaum-Wurzel — traegt den NUTZER-Namen (W2, z.B. SERGEN.md)."""
+    """Dateiname der Stammbaum-Wurzel — traegt den NUTZER-Namen (W2, z.B. WURZEL.md)."""
     from core import identity as _id
 
     return f"{_id.user_name().upper()}.md"
@@ -134,7 +156,7 @@ def api_status() -> dict:
             ("turn_timeout", "llm_call_timeout", "service_crash", "act_degraded"),
             time.time() - 7 * 86400),
         "lessons": memory.recall_lessons(8),
-        "freigaben_offen": _freigaben_offen(),   # Serc-Badge in der Sidebar (Werkbank PR 7)
+        "freigaben_offen": _freigaben_offen(),   # Me-Badge in der Sidebar (Werkbank PR 7)
     }
 
 
@@ -449,7 +471,7 @@ def api_memory(limit: int = 80, offset: int = 0, kind: str = "", q: str = "") ->
 
 @app.post("/api/memory/delete-batch")
 async def api_memory_delete_batch(body: dict) -> dict:
-    """Mehrfachauswahl loeschen: EIN Aufruf, EIN Confirm im UI (Sergens Kernwunsch)."""
+    """Mehrfachauswahl loeschen: EIN Aufruf, EIN Confirm im UI (des Nutzers Kernwunsch)."""
     ids = [str(i) for i in (body.get("ids") or []) if i][:200]
     for mid in ids:
         memory.delete(mid)
@@ -1445,7 +1467,7 @@ def api_costs() -> dict:
 
 def _token_stats() -> dict:
     """Token-Verbrauch heute je Rolle (Fable-Review: bei Gratis-Modellen ist die $-Bremse blind —
-    Sichtbarkeit in Tokens/Calls statt harter Limits, Sergens Entscheidung). Reines SQL-Aggregat
+    Sichtbarkeit in Tokens/Calls statt harter Limits, bewusste Entscheidung). Reines SQL-Aggregat
     ueber llm_call-Events, fail-soft."""
     import datetime as _dt
     import sqlite3 as _sq
@@ -1533,7 +1555,7 @@ async def api_desktop_scan(body: dict) -> dict:
 @app.post("/api/desktop/shortcut")
 async def api_desktop_shortcut(body: dict) -> dict:
     """Ein-Klick: legt (nur Windows) die Desktop-Verknuepfung 'Kira' mit Logo + Autostart an,
-    indem desktop-setup.ps1 ausgefuehrt wird. So braucht Sergen keinen Ordner und keine .bat."""
+    indem desktop-setup.ps1 ausgefuehrt wird. So braucht der Nutzer keinen Ordner und keine .bat."""
     import sys
 
     if not sys.platform.startswith("win"):
@@ -1661,7 +1683,7 @@ async def api_kill(body: dict) -> dict:
 @app.get("/api/bg")
 def api_bg():
     # no-store: der Browser soll das Hintergrundbild nie aus dem Cache holen, sonst
-    # "haengt" ein altes Bild nach dem Wechsel (Sergen: aendern -> neu laden -> alt).
+    # "haengt" ein altes Bild nach dem Wechsel (der Nutzer: aendern -> neu laden -> alt).
     for ext in ("jpg", "jpeg", "png", "webp", "gif"):
         p = ROOT / "data" / f"background.{ext}"
         if p.exists():
@@ -1699,7 +1721,7 @@ async def api_bg_clear(body: dict) -> dict:
     return {"ok": True}
 
 
-# ---------- Kira-Avatar (S6.6d) — Sergens Higgsfield-Bild fuer Hero + Chat ----------
+# ---------- Kira-Avatar (S6.6d) — des Nutzers Higgsfield-Bild fuer Hero + Chat ----------
 @app.get("/api/avatar")
 def api_avatar():
     # no-store wie bei /api/bg: sonst haelt der Browser das ALTE Avatarbild im Cache und
@@ -1912,7 +1934,7 @@ def _bench_record(meta: dict, ev: dict) -> None:
 
 @app.get("/api/model/resolve")
 def api_model_resolve(role: str = "reason") -> dict:
-    """Welches Modell laeuft WIRKLICH auf einer Rolle? (Benchmark-Anzeige: Sergen sah
+    """Welches Modell laeuft WIRKLICH auf einer Rolle? (Benchmark-Anzeige: der Nutzer sah
     vorher das Chat-Modell und wunderte sich, warum 'Denker' nicht GLM zeigt.)"""
     from core.kernel import llm_router
 
@@ -2056,6 +2078,53 @@ def index() -> str:
     feats = json.dumps(CONFIG.get("features") or {}, ensure_ascii=False)[1:-1]
     return _ident_tokens(DASHBOARD_HTML.replace("/*__PHRASES__*/", inner)
                          .replace("/*__FEATURES__*/", feats))
+
+
+@app.get("/setup", response_class=HTMLResponse)
+def setup_page() -> str:
+    # Erst-Einrichtung (W3). Eingerichtete Instanzen sehen den Wizard nie wieder.
+    if _onboarding.is_onboarded():
+        return '<meta http-equiv="refresh" content="0; url=/">'
+    from core.api.ui.setup import SETUP_HTML
+    return SETUP_HTML
+
+
+@app.post("/api/setup")
+def api_setup(body: dict) -> dict:
+    """Wizard-Abschluss: Namen -> Overrides, Zugaenge -> Tresor, Mind-Seed +
+    Stammbaum-Wurzel, Flag, Bot+Runner-Bounce. Nur EINMAL moeglich (Flag-Guard)."""
+    if _onboarding.is_onboarded():
+        return {"ok": False, "error": "Diese Instanz ist schon eingerichtet."}
+    agent = str(body.get("agent") or "Kira").strip()[:40] or "Kira"
+    user = str(body.get("user") or "").strip()[:40]
+    if not user:
+        return {"ok": False, "error": "Nutzer-Name fehlt."}
+    from core.config import set_override
+    set_override("identity.partner_name", agent)
+    set_override("identity.user", user)
+    chat = str(body.get("telegram_chat_id") or "").strip()
+    if chat.isdigit():
+        set_override("channels.telegram.allowed_chat_id", int(chat))
+    for feld, secret_name in (("telegram_token", "TELEGRAM_BOT_TOKEN"),
+                              ("openrouter_key", "OPENROUTER_API_KEY")):
+        wert = str(body.get(feld) or "").strip()
+        if wert:
+            secrets.set_secret(secret_name, wert)
+    from core import identity as _idm
+    from core.mind import seed
+    seed.render_mind(agent, user, force=True)
+    wurzel = ROOT / "gedaechtnis" / "stammbaum" / f"{user.upper()}.md"
+    vorlage = ROOT / "gedaechtnis" / "stammbaum" / "_WURZEL_VORLAGE.md"
+    if not wurzel.exists() and vorlage.exists():
+        from core.kernel.fs import atomic_write
+        atomic_write(wurzel, _idm.render(vorlage.read_text(encoding="utf-8")))
+    _onboarding.complete("wizard")
+    # Bot + Runner neu starten lassen: frische Prozesse laden Token/Key aus dem Tresor
+    flag = ROOT / "data" / "restart.flag"
+    flag.parent.mkdir(parents=True, exist_ok=True)
+    flag.write_text("bot,runner", encoding="utf-8")
+    events.emit("onboarding_complete", {"agent": agent, "user": user})
+    return {"ok": True}
 
 
 @app.get("/wall", response_class=HTMLResponse)

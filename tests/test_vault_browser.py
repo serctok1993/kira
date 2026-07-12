@@ -13,7 +13,7 @@ def _roots(monkeypatch, tmp_path):
     g = tmp_path / "gedaechtnis"
     (g / "stammbaum").mkdir(parents=True)
     (g / "LIES-MICH.md").write_text("# Regeln", encoding="utf-8")
-    (g / "stammbaum" / "SERGEN.md").write_text("# Wurzel\n- geburtstag: ???", encoding="utf-8")
+    (g / "stammbaum" / "MIA.md").write_text("# Wurzel\n- geburtstag: ???", encoding="utf-8")
     p = tmp_path / "playbooks"
     p.mkdir()
     (p / "akquise-email.md").write_text("---\nname: x\n---\nBody", encoding="utf-8")
@@ -26,8 +26,8 @@ def _roots(monkeypatch, tmp_path):
 
 def test_resolve_guard(monkeypatch, tmp_path):
     _roots(monkeypatch, tmp_path)
-    ok = s._vault_resolve("gedaechtnis/stammbaum/SERGEN.md")
-    assert ok and ok.name == "SERGEN.md"
+    ok = s._vault_resolve("gedaechtnis/stammbaum/MIA.md")
+    assert ok and ok.name == "MIA.md"
     assert s._vault_resolve("gedaechtnis\\LIES-MICH.md")  # Windows-Slashes normalisiert
     assert s._vault_resolve("gedaechtnis/../core/mind/SOUL.md") is None   # Traversal
     assert s._vault_resolve("playbooks/notiz.txt") is None                # nur .md
@@ -41,7 +41,7 @@ def test_vault_listing(monkeypatch, tmp_path):
     d = TestClient(s.app).get("/api/vault").json()
     paths = [f["path"] for f in d["files"]]
     assert "gedaechtnis/LIES-MICH.md" in paths
-    assert "gedaechtnis/stammbaum/SERGEN.md" in paths
+    assert "gedaechtnis/stammbaum/MIA.md" in paths
     assert "playbooks/akquise-email.md" in paths
     assert all(p.endswith(".md") for p in paths)          # .txt bleibt draussen
     assert all("name" in f for f in d["files"])
@@ -50,13 +50,13 @@ def test_vault_listing(monkeypatch, tmp_path):
 def test_vault_read_and_save(monkeypatch, tmp_path):
     _roots(monkeypatch, tmp_path)
     cl = TestClient(s.app)
-    f = cl.get("/api/vault/file", params={"path": "gedaechtnis/stammbaum/SERGEN.md"}).json()
+    f = cl.get("/api/vault/file", params={"path": "gedaechtnis/stammbaum/MIA.md"}).json()
     assert "geburtstag: ???" in f["content"] and f["editable"]
 
-    r = cl.post("/api/vault/file", json={"path": "gedaechtnis/stammbaum/SERGEN.md",
+    r = cl.post("/api/vault/file", json={"path": "gedaechtnis/stammbaum/MIA.md",
                                          "content": "# Wurzel\n- geburtstag: 01.01.1993"}).json()
     assert r["ok"]
-    p = tmp_path / "gedaechtnis" / "stammbaum" / "SERGEN.md"
+    p = tmp_path / "gedaechtnis" / "stammbaum" / "MIA.md"
     assert "01.01.1993" in p.read_text(encoding="utf-8")
     baks = list((tmp_path / "data" / "vault_history").glob("*.bak"))
     assert len(baks) == 1 and "???" in baks[0].read_text(encoding="utf-8")  # Undo-Spur

@@ -30,7 +30,7 @@ def ident() -> dict:
 
 
 def genitiv(name: str) -> str:
-    """Deutscher Genitiv: 'Sergen' -> 'Sergens', 'Alex' -> 'Alex'' (s/x/z-Endung)."""
+    """Deutscher Genitiv: 'der Nutzer' -> 'des Nutzers', 'Alex' -> 'Alex'' (s/x/z-Endung)."""
     n = (name or "").strip()
     return n + ("'" if n[-1:].lower() in ("s", "x", "z", "ß") else "s")
 

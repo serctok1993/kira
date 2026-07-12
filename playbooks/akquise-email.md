@@ -1,6 +1,6 @@
 ---
-titel: Akquise-E-Mail an Koblenzer KMU
-wann: Eine Kaltakquise-Mail an einen Lead schreiben (Luvex/KI-Chatbots/Webseiten fuer KMU).
+titel: Akquise-E-Mail an regionale KMU
+wann: Eine Kaltakquise-Mail an einen Lead schreiben (Beispiel-Projekt/KI-Chatbots/Webseiten fuer KMU).
 reifegrad: entwurf
 erfolge: 0
 fehlschlaege: 0
@@ -8,10 +8,10 @@ serie: 0
 letzte:
 ---
 
-# Akquise-E-Mail an Koblenzer KMU
+# Akquise-E-Mail an regionale KMU
 
 > Kanal 2 aus GOAL.md: individualisierte Mails, aus deren Antworten warme Leads
-> für Sergens Anrufe entstehen. Mails an Fremde sind IMMER hart gegated —
+> für den Nutzers Anrufe entstehen. Mails an Fremde sind IMMER hart gegated —
 > dieses Playbook endet grundsätzlich in der Freigabe-Inbox, nie im Postausgang.
 
 ## Schritte
@@ -22,11 +22,11 @@ letzte:
    keine Online-Termine)?
 3. Mail nach der Vorlage unten verfassen: maximal 120 Wörter, Sie-Form, erster Satz nimmt
    konkret Bezug auf den Betrieb (kein Baustein-Satz), EIN Nutzen, EIN Call-to-Action
-   (15-Minuten-Telefonat), Signatur Sergen Tok.
+   (15-Minuten-Telefonat), Signatur [Dein Name].
 4. Selbst-Check gegen die Akzeptanzkriterien unten — erst dann weiter.
 5. Entwurf via request_approval in die Freigabe-Inbox legen (kind: email_stranger),
    mit Betreff, Empfänger und Volltext. NIEMALS direkt senden.
-6. Nach Sergens Entscheidung: playbook_result melden — Freigabe = Erfolg; Ablehnung =
+6. Nach bewusste Entscheidung: playbook_result melden — Freigabe = Erfolg; Ablehnung =
    Fehlschlag, und seine Begründung als Lektion eintragen (playbook_lesson).
 
 ## Vorlage
@@ -39,7 +39,7 @@ letzte:
 > [CTA:] Hätten Sie diese Woche 15 Minuten für ein kurzes Telefonat?
 >
 > Freundliche Grüße
-> Sergen Tok
+> [Dein Name]
 
 ## Folgemails im Gespraechsfaden (Phase 3)
 
@@ -65,7 +65,7 @@ letzte:
 - Erster Satz ist NUR für diesen Betrieb schreibbar (Personalisierungs-Test).
 - Maximal 120 Wörter, keine Floskeln ("ich hoffe, diese Mail erreicht Sie gut").
 - Genau ein Call-to-Action: kurzes Telefonat, mit konkretem Zeitfenster.
-- Kein Fachjargon (KMU-Inhaber, kein Tech-Publikum); Sie-Form; Signatur Sergen.
+- Kein Fachjargon (KMU-Inhaber, kein Tech-Publikum); Sie-Form; Signatur der Nutzer.
 - Jede Behauptung ist im Quellbericht belegbar (Fakten-Treue oben).
 - Entwurf liegt in der Freigabe-Inbox — nicht gesendet.
 

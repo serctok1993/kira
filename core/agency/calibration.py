@@ -8,7 +8,7 @@ Deterministische Aggregation ueber die events-Tabelle (kein LLM, 0 Euro):
   - task_retry/task_scored:  Wiederholungen + Pass-Rate je Strategie (standard/eskaliert/wechsel)
 
 report() liefert die Zahlen, render() den lesbaren Block mit Empfehlungen,
-propose() legt ihn woechentlich als Vorschlag in die Freigabe-Inbox — Sergen zieht
+propose() legt ihn woechentlich als Vorschlag in die Freigabe-Inbox — der Nutzer zieht
 Modell-Rollen dann datenbasiert nach statt nach Gefuehl.
 """
 from __future__ import annotations

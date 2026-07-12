@@ -1,6 +1,6 @@
 """Arbeitsdisziplin im Chat: Auto-Plan, Rueckfrage-Killer, Beweispflicht-Stempel.
 
-Sergens Live-Befund: grosser Auftrag im Plain-Chat -> Bestaetigungsschleife statt Plan,
+des Nutzers Live-Befund: grosser Auftrag im Plain-Chat -> Bestaetigungsschleife statt Plan,
 und halluzinierte Ergebnisse ('10 E-Mails liegen auf dem Desktop') ohne Pruefung.
 """
 from __future__ import annotations
@@ -22,7 +22,7 @@ def test_work_order_positive():
     from core.agency.act import _looks_like_work_order as w
     assert w("Erstelle mir aus den 400 Leads auf dem Desktop 10 E-Mails fuer die besten Kunden")
     assert w("Recherchiere die Konkurrenz und bau mir eine Uebersicht als Datei")
-    assert w("Schreib mir einen Bericht ueber das Projekt Luvex mit den wichtigsten Punkten")
+    assert w("Schreib mir einen Bericht ueber das Projekt Atlas mit den wichtigsten Punkten")
     assert w("Analysiere die Liste und erstelle daraus 5 Vorschlaege")
 
 
@@ -97,7 +97,7 @@ def test_auto_plan_abschaltbar(monkeypatch, tmp_path):
 
 def test_promise_re_erkennt_rueckfragen():
     from core.agency.act import _looks_like_promise as p
-    assert p("Soll ich das Projekt Luvex jetzt anlegen?")
+    assert p("Soll ich das Projekt Atlas jetzt anlegen?")
     assert p("Moechtest du, dass ich die E-Mails schreibe?")
     assert p("Bestaetige kurz, dann lege ich los.")
     assert p("Darf ich die Dateien auf dem Desktop anlegen?")
@@ -111,7 +111,7 @@ def test_claim_stamp_fehlende_datei(monkeypatch, tmp_path):
     events = _tmp_dbs(monkeypatch, tmp_path)
     monkeypatch.setattr(act, "_CLAIM_CHECK", True)
 
-    text = "Erledigt! Ich habe 10 E-Mails erstellt und unter `~/Desktop/luvex/mail1.md` abgelegt."
+    text = "Erledigt! Ich habe 10 E-Mails erstellt und unter `~/Desktop/projekt/mail1.md` abgelegt."
     monkeypatch.setenv("HOME", str(tmp_path))  # leeres Zuhause -> Datei existiert nicht
     monkeypatch.setenv("USERPROFILE", str(tmp_path))  # Windows: expanduser nutzt USERPROFILE
     out = act._claim_stamp(text, session_id="s")
@@ -123,13 +123,13 @@ def test_claim_stamp_existierende_datei(monkeypatch, tmp_path):
     from core.agency import act
     _tmp_dbs(monkeypatch, tmp_path)
     monkeypatch.setattr(act, "_CLAIM_CHECK", True)
-    f = tmp_path / "Desktop" / "luvex" / "mail1.md"
+    f = tmp_path / "Desktop" / "projekt" / "mail1.md"
     f.parent.mkdir(parents=True)
     f.write_text("hallo", encoding="utf-8")
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))  # Windows: expanduser nutzt USERPROFILE
 
-    text = "Ich habe die Mail erstellt: `~/Desktop/luvex/mail1.md`"
+    text = "Ich habe die Mail erstellt: `~/Desktop/projekt/mail1.md`"
     assert "BEWEISPFLICHT" not in act._claim_stamp(text, session_id="s")
 
 
@@ -149,19 +149,20 @@ def test_claim_stamp_relative_pfade_gegen_root(monkeypatch, tmp_path):
     from core.agency import act
     _tmp_dbs(monkeypatch, tmp_path)
     monkeypatch.setattr(act, "_CLAIM_CHECK", True)
-    # relative Behauptung, Datei existiert im ROOT -> kein Stempel (README.md existiert)
-    text = "Ich habe die Notiz in `docs/KIRA-IST.md` gespeichert."
+    # relative Behauptung, Datei existiert im ROOT -> kein Stempel (HANDBUCH ist getrackt;
+    # W3: das alte Uebergabe-Dossier ist Privatsache und fehlt auf frischen Klonen)
+    text = "Ich habe die Notiz in `docs/HANDBUCH.md` gespeichert."
     assert "BEWEISPFLICHT" not in act._claim_stamp(text, session_id="s")
 
 
 def test_work_order_hoeflichkeitsform():
-    """Sergens Live-Fund: 'Kannst du mir ... raussuchen' — Verb am Satzende,
+    """des Nutzers Live-Fund: 'Kannst du mir ... raussuchen' — Verb am Satzende,
     der Satz beginnt mit der Hoeflichkeitsform. Muss als Auftrag zaehlen."""
     from core.agency.act import _looks_like_work_order as w
     assert w("Kannst du mir aus den Lead-Listen auf dem Desktop 20 E-Mails und "
              "Unternehmen raussuchen die als erste Kunden passend sind.")
     assert w("Kannst du mal 10 Leads fuer Friseure recherchieren und als Datei hinterlegen")
-    assert w("Wuerdest du mir bitte einen Bericht zum Projekt Luvex verfassen")
+    assert w("Wuerdest du mir bitte einen Bericht zum Projekt Atlas verfassen")
     # Hoeflich, aber KEIN Auftrag (kein Arbeitsverb bzw. keine Substanz):
     assert not w("Kannst du mir sagen, wie spaet es ist?")
     assert not w("Kannst du eigentlich Backups erstellen?")  # Faehigkeitsfrage ohne Substanz

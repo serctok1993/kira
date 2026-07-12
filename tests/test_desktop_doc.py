@@ -60,7 +60,7 @@ def test_desktop_setup_helfer_vorhanden():
 
 
 def test_cockpit_kopf_ist_wortmarke_nicht_logo():
-    # Sergen wollte das Logo NICHT im Cockpit-Kopf: der Kopf zeigt den „KIRA"-Schriftzug,
+    # der Nutzer wollte das Logo NICHT im Cockpit-Kopf: der Kopf zeigt den „KIRA"-Schriftzug,
     # kein /api/icon-Bild. Das Logo bleibt fuer Fenster-/Taskleisten-Symbol + /wall-Favicon.
     from core.api.ui.views import VIEWS
     from core.api.ui.script import SCRIPT

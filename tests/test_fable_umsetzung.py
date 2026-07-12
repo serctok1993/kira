@@ -75,7 +75,7 @@ def test_doctor_still_wenn_eskalation_stark(monkeypatch):
     assert not any("Eskalation" in p and "Denker" in p for p in rep["problems"])
 
 
-# ---- Dirty-Check: code:-Lauf frisst nie Sergens ungesicherte Arbeit ---------------------
+# ---- Dirty-Check: code:-Lauf frisst nie des Nutzers ungesicherte Arbeit ---------------------
 
 def test_dirty_check_verweigert_am_live_system(monkeypatch, tmp_path):
     from core.kernel import events
