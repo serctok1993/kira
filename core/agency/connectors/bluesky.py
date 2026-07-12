@@ -1,6 +1,6 @@
 """Bluesky-Connector: posten ueber das offene AT-Protokoll (bsky.social).
 
-Zugang: BLUESKY_HANDLE (z.B. sergen.bsky.social) + BLUESKY_APP_PASSWORD — ein
+Zugang: BLUESKY_HANDLE (z.B. beispiel.bsky.social) + BLUESKY_APP_PASSWORD — ein
 APP-Passwort aus den Bluesky-Einstellungen, NIE das Konto-Passwort. Posten ist
 Aussenwirkung: das Werkzeug laeuft durchs publish-Gate (Freigabe-Inbox), und die
 Freigabe fuehrt den Post deterministisch aus (wie bei E-Mails an Fremde).

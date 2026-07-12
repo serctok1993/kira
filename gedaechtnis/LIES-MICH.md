@@ -1,12 +1,12 @@
 # Gedächtnis — Regeln dieses Ordners
 
-> Dieser Ordner ist Kiras **Tiefengedächtnis** und Sergens **Lagebild**. Er wird NIE
+> Dieser Ordner ist Kiras **Tiefengedächtnis** und des Nutzers **Lagebild**. Er wird NIE
 > automatisch in System-Prompts geladen — Kira liest hier gezielt nach (read_file/code_suche)
-> und trägt ein. **Sergen darf hier alles frei ändern**, ohne irgendetwas zu zerschießen.
+> und trägt ein. **der Nutzer darf hier alles frei ändern**, ohne irgendetwas zu zerschießen.
 
 ## Aufbau
 
-- `stammbaum/` — WER und WAS: Wissen über Sergen, Menschen, Projekte. Baumstruktur:
+- `stammbaum/` — WER und WAS: Wissen über der Nutzer, Menschen, Projekte. Baumstruktur:
   universell in den Ästen, Detail in den Blättern. Der Obsidian-Graph zeigt den Baum.
 - `journal/` — WANN: Tages-/Wochen-/Monats-Seiten (Konsolidierung, siehe LIES-MICH dort).
 
@@ -16,9 +16,9 @@ Ein Feld mit dem Wert `???` ist eine **offene Lücke**, die Kira füllen will:
 
     - geburtsdatum: ???
 
-Das Briefing stellt Sergen **eine** solche Frage pro Tag (beiläufig, kein Verhör).
+Das Briefing stellt der Nutzer **eine** solche Frage pro Tag (beiläufig, kein Verhör).
 Sobald die Antwort da ist, trägt Kira den Wert ein und das `???` verschwindet.
-Sergen kann jederzeit selbst Werte eintragen oder neue `- feld: ???`-Zeilen anlegen —
+der Nutzer kann jederzeit selbst Werte eintragen oder neue `- feld: ???`-Zeilen anlegen —
 dann fragt Kira danach.
 
 ## Regeln für Kira (bindend)

@@ -11,7 +11,7 @@ from core.agency.tools.registry import tool
 
 @tool("termin_add",
       "Traegt einen Termin in {{USER_NAME_S}} Kalender ein — er erscheint im TERMIN-RADAR der "
-      "Briefings und im Cockpit (Serc -> Tag). Faellt im Gespraech ein Datum (Zahnarzt, "
+      "Briefings und im Cockpit (Me -> Tag). Faellt im Gespraech ein Datum (Zahnarzt, "
       "Geburtstag, Frist), trag es VON DIR AUS ein. Geburtstage/Jahrestage: jaehrlich=ja.",
       {"datum": "TT.MM.JJJJ, z.B. 15.08.2026",
        "titel": "was ansteht, z.B. Zahnarzt",

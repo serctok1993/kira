@@ -97,7 +97,7 @@ button{padding:0 16px;border:none;border-radius:8px;cursor:pointer;font-weight:6
 button.ghost{background:var(--panel);color:var(--ink);border:1px solid var(--line)}
 /* files */
 .cols{display:flex;gap:16px;flex:1;min-height:0;align-items:flex-start}
-/* Kein Scrollfestival (Sergens Fund): die DATEI-LISTE scrollt intern in eigener Spalte,
+/* Kein Scrollfestival (Praxis-Fund): die DATEI-LISTE scrollt intern in eigener Spalte,
    der EDITOR klebt daneben im Blickfeld (sticky) — Datei unten anklicken, Text sofort sehen. */
 .flist{width:250px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;
   max-height:calc(100vh - 190px);overflow-y:auto;padding-right:4px}
@@ -171,7 +171,7 @@ textarea.k:focus{border-color:var(--accent2)}
 :root{--mono:ui-monospace,"Cascadia Code",Consolas,monospace}
 body{font-family:var(--font,-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,"Helvetica Neue",Arial,sans-serif)}
 .think,#farea,#evlog,#memlist,#feed-list,.e{font-family:var(--mono)}
-/* S6.7: Scanline-/Karo-Overlay und Farb-Glows entfernt — Sergen will glattes Schwarz/Anthrazit. */
+/* S6.7: Scanline-/Karo-Overlay und Farb-Glows entfernt — der Nutzer will glattes Schwarz/Anthrazit. */
 #side h1{animation:kiraflow 8s linear infinite,flickerin 1.3s ease both}  /* Verlauf fliesst + Boot-Flackern */
 @keyframes kiraflow{to{background-position:260% 0}}
 @keyframes flickerin{0%{opacity:0}10%{opacity:.6}13%{opacity:.2}22%{opacity:.95}27%{opacity:.4}33%,100%{opacity:1}}
@@ -237,7 +237,7 @@ select.engine-pill,button.engine-pill{background:var(--panel);color:var(--ink);b
  box-shadow:0 0 10px color-mix(in srgb,var(--chat-accent) 22%,transparent);transition:box-shadow .18s ease,border-color .18s ease}
 select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,button.engine-pill:focus{outline:none;border-color:var(--chat-accent);
  box-shadow:0 0 0 1px var(--chat-accent),0 0 14px color-mix(in srgb,var(--chat-accent) 42%,transparent)}
-/* Serc-Subtabs: zwei Panels nebeneinander (bricht auf schmalem Screen um) */
+/* Me-Subtabs: zwei Panels nebeneinander (bricht auf schmalem Screen um) */
 .me-grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start}
 /* Farbwähler im Optik-Popover */
 #theme-pop .colrow{display:flex;gap:8px;align-items:center;margin-top:9px;padding-top:9px;border-top:1px solid var(--line);flex-wrap:wrap}
@@ -371,9 +371,9 @@ select.engine-pill:hover,select.engine-pill:focus,button.engine-pill:hover,butto
 .wslot{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
 .wslot:empty{display:none}
 .wslot .panel{margin:0}
-/* Werkbank PR 7: Freigaben-Badge am Serc-Eintrag in der Sidebar */
+/* Werkbank PR 7: Freigaben-Badge am Me-Eintrag in der Sidebar */
 .frei-badge{margin-left:6px;background:var(--warn);color:#000;border-radius:9px;font-size:10px;padding:0 6px;font-weight:700;line-height:16px;display:inline-block}
-/* S11: Serc- & Kira-Subtableiste komplett lila mit weisser Schrift; Aktiv = schwarz mit lilaner Schrift */
+/* S11: Me- & Kira-Subtableiste komplett lila mit weisser Schrift; Aktiv = schwarz mit lilaner Schrift */
 #me-tabs,#kira-groups{background:var(--accent);border-color:var(--accent)}
 #me-tabs a,#kira-groups a{color:#fff;border-right-color:color-mix(in srgb,#fff 28%,transparent)}
 #me-tabs a:hover,#kira-groups a:hover{background:color-mix(in srgb,#000 16%,var(--accent))}
@@ -579,7 +579,7 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
 /* Basis (schmal, gestapelt) MUSS vor der Media-Query stehen — sonst ueberstimmt die
    spaetere 1fr-Regel bei gleicher Spezifitaet die 3-Spalten in der @media (Quell-Reihenfolge). */
 .me-grid{display:grid;grid-template-columns:1fr;gap:14px}
-/* Auf-einen-Blick-Kennzahlen in der Projekt-Uebersicht (Luvex & Co.) */
+/* Auf-einen-Blick-Kennzahlen in der Projekt-Uebersicht (Beispiel-Projekt & Co.) */
 @media(min-width:1050px){
  /* Me: 3 App-Style-Spalten, jede stapelt schlanke Panels mit internem Scroll — kein Seiten-Scroll */
  #v-me.on{overflow:hidden}
@@ -592,12 +592,12 @@ h2{text-shadow:0 0 14px color-mix(in srgb,var(--glow) 45%,transparent)}
  #v-kira.on{overflow:hidden}
  #v-kira .subview.on{flex:1;min-height:0;overflow:auto;padding-right:2px}
  /* Einstellungen genauso — sonst quetscht ein grosser Subview (Modelle/Benchmark)
-    die Leiste zusammen und man kommt nicht mehr zurueck (Sergens Fund 09.07.) */
+    die Leiste zusammen und man kommt nicht mehr zurueck (Praxis-Fund 09.07.) */
  #v-settings.on{overflow:hidden}
  #v-settings .subview.on{flex:1;min-height:0;overflow:auto;padding-right:2px}
 }
 
-/* ===== Redesign-Umbau 1 (Sergen): ruhiger + Live-Ops schmaler ===== */
+/* ===== Redesign-Umbau 1 (der Nutzer): ruhiger + Live-Ops schmaler ===== */
 /* Neon-Glow zuruecknehmen — sachlicher, weniger HUD-Effekt. */
 .panel-h{text-shadow:none}
 .panel::before,.panel::after{opacity:.32;filter:none}

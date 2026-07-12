@@ -1,4 +1,4 @@
-"""Tagesfokus: Sergens Richtungs-Hebel — EINE Zeile, um die sich der Heartbeat plant.
+"""Tagesfokus: des Nutzers Richtungs-Hebel — EINE Zeile, um die sich der Heartbeat plant.
 
 Ein Speicher (data/focus.json), zwei Bedienwege: Cockpit-Zentrale ("Als Fokus
 setzen") und Telegram (/fokus). Setzen leert die offene Mission-Queue, damit der

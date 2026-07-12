@@ -1,4 +1,4 @@
-"""Modell-Routing (Sergens 'safe'-Regel): Plaudern billig auf DeepSeek, echtes Arbeiten auf GLM 5.2.
+"""Modell-Routing (des Nutzers 'safe'-Regel): Plaudern billig auf DeepSeek, echtes Arbeiten auf GLM 5.2.
 
 - normaler Chat  -> task_type 'chat'  (config: DeepSeek)
 - /work, work:   -> task_type 'reason' (config: GLM 5.2)
@@ -68,6 +68,6 @@ def test_plan_und_code_faehren_glm_nicht_fable(monkeypatch, tmp_path):
     act.act_chat("code: kleiner Fix", "r5")
     assert seen == {"escalate": False, "review": True}    # GLM + Diff-Review
 
-    # Fable nur, wenn Sergen explizit eskaliert
+    # Fable nur, wenn der Nutzer explizit eskaliert
     act.act_chat("reason: plan: harte Nuss", "r6")
     assert seen["escalate"] is True

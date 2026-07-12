@@ -1,4 +1,4 @@
-"""Seelen-Refresh (08.07.): Dateien auf Effizienz + VON-SERGEN-Platz; Termin-Radar
+"""Seelen-Refresh (08.07.): Dateien auf Effizienz + VON-WURZEL-Platz; Termin-Radar
 wendet Stammbaum-Daten automatisch an (Geburtstage/Termine ins Briefing)."""
 from __future__ import annotations
 
@@ -8,25 +8,32 @@ from core.agency.missions import standup
 from core.config import MIND_DIR
 
 
-# ---------- Seelen-Dateien: dicht, mit klarem Platz fuer Sergen ----------
+# ---------- Seelen-Dateien: dicht, mit klarem Platz fuer den Nutzer ----------
 
-def test_seelen_dateien_dicht_und_mit_sergen_platz():
+def _template(name: str) -> str:
+    """Seelen-TEMPLATE, gerendert — instanzunabhaengig (die gelebten .md sind
+    seit W3 Privatsache und liegen nicht mehr im Repo)."""
+    from core import identity
+    return identity.render((MIND_DIR / "templates" / name).read_text(encoding="utf-8"))
+
+
+def test_seelen_dateien_dicht_und_mit_nutzer_platz():
     grenzen = {"SOUL.md": 2300, "GOAL.md": 2300, "USER.md": 2900}
     for name, cap in grenzen.items():
-        text = (MIND_DIR / name).read_text(encoding="utf-8")
+        text = _template(name)
         assert len(text) < cap, f"{name} zu lang ({len(text)} >= {cap})"
-        assert "VON SERGEN" in text, f"{name}: Sergen-Block fehlt"
-        assert text.count("???") >= 4, f"{name}: zu wenig Ausfuell-Zeilen fuer Sergen"
+        assert "VON Partner" in text, f"{name}: Nutzer-Block fehlt"
+        assert text.count("???") >= 4, f"{name}: zu wenig Ausfuell-Zeilen fuer den Nutzer"
 
 
 def test_soul_hat_arbeitsfreiheit_und_partnerschaft():
-    text = (MIND_DIR / "SOUL.md").read_text(encoding="utf-8")
-    assert "Arbeitsfreiheit" in text and "Partnerin" in text
+    text = _template("SOUL.md")
+    assert "Arbeitsfreiheit" in text and "Partner" in text
     assert "transparent melden" in text          # Freiheit UND Rechenschaft
 
 
 def test_persona_hat_neue_regeln_und_haelt_budget():
-    text = (MIND_DIR / "PERSONA.md").read_text(encoding="utf-8")
+    text = _template("PERSONA.md")
     assert "Zwischenstand" in text               # Update-Pflicht bei laengerer Arbeit
     assert "Termin-Radar" in text                # Fakten sichern -> Radar wendet an
     assert len(text) < 4200                      # Kontext-Diaet haelt
@@ -46,13 +53,13 @@ def test_radar_findet_geburtstag_im_vorlauf(monkeypatch, tmp_path):
     heute = datetime.date(2026, 7, 8)
     _stammbaum(monkeypatch, tmp_path, {
         "sandra.md": "# Sandra\n- geburtstag: 12.07.1995\n- mag: Katzen",
-        "sergen.md": "# Sergen\n- geburtstag: 01.07.1993",          # schon vorbei -> naechstes Jahr
+        "mia.md": "# Mia\n- geburtstag: 01.07.1993",                # schon vorbei -> naechstes Jahr
     })
     out = standup._termin_radar(heute=heute)
     assert "TERMIN-RADAR" in out and "VON DIR AUS" in out
     assert "Sandra" in out and "12.07." in out and "in 4 Tagen" in out
     assert "(wird 31)" in out                                       # Alter aus Jahrgang
-    assert "- Sergen" not in out                                    # 358 Tage hin -> kein Fund
+    assert "- Mia" not in out                                       # 358 Tage hin -> kein Fund
 
 
 def test_radar_heute_und_jahreswechsel(monkeypatch, tmp_path):

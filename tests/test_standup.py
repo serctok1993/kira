@@ -9,7 +9,7 @@ def _use_tmp_db(monkeypatch, tmp_path):
     db = str(tmp_path / "state.db")
     for mod in (objectives, queue, metrics, events):
         monkeypatch.setattr(mod, "DB_PATH", db)
-    # Post-Cap-Bloecke (Termin-Radar, Logbuch-Frage, Fokus) lesen sonst Sergens ECHTEN
+    # Post-Cap-Bloecke (Termin-Radar, Logbuch-Frage, Fokus) lesen sonst des Nutzers ECHTEN
     # Vault (ROOT/gedaechtnis) -> Testlaenge/-inhalt haengt an Live-Daten. Isolieren.
     monkeypatch.setattr(standup, "ROOT", tmp_path)
     events.init_db()

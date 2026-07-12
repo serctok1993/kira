@@ -1,5 +1,5 @@
 """Werkbank PR 8: Widget-System — Kira liefert CONFIG (data/widgets/*.json), nie Code.
-Drei feste Renderer (metric/chart/list), Endpoint-Whitelist, Slots zentrale/projekt/serc."""
+Drei feste Renderer (metric/chart/list), Endpoint-Whitelist, Slots zentrale/projekt/me."""
 from __future__ import annotations
 
 import json
@@ -27,8 +27,8 @@ def test_validate_lehnt_fremdes_ab():
     assert "slot" in widgets.validate({**ok, "slot": "ueberall"})
     assert "id" in widgets.validate({**ok, "id": "../../etc/passwd"})  # kein Traversal
     assert "metric" in widgets.validate({"id": "x1", "title": "T", "type": "chart",
-                                         "slot": "serc"})              # Kennzahl Pflicht
-    lst = {"id": "heute", "title": "Heute", "type": "list", "slot": "serc",
+                                         "slot": "me"})              # Kennzahl Pflicht
+    lst = {"id": "heute", "title": "Heute", "type": "list", "slot": "me",
            "endpoint": "/api/digest", "key": "tasks_done"}
     assert widgets.validate(lst) == ""
     assert "whitelisted" in widgets.validate({**lst, "endpoint": "/api/keys"})
@@ -43,7 +43,7 @@ def test_save_schreibt_nur_bekannte_felder(monkeypatch, tmp_path):
     assert res["ok"]
     raw = json.loads((tmp_path / "widgets" / "follower.json").read_text(encoding="utf-8"))
     assert "html" not in raw and raw["metric"] == "follower"           # bereinigt + normalisiert
-    assert widgets.save({"id": "boese", "title": "X", "type": "list", "slot": "serc",
+    assert widgets.save({"id": "boese", "title": "X", "type": "list", "slot": "me",
                          "endpoint": "/api/kill", "key": "x"})["ok"] is False
 
 
@@ -72,10 +72,10 @@ def test_api_widgets(monkeypatch, tmp_path):
     assert r["types"] == ["metric", "chart", "list"] and "zentrale" in r["slots"]
     assert r["widgets"][0]["id"] == "demo-follower"
     assert c.post("/api/widgets/save", json={"id": "heute", "title": "Heute", "type": "list",
-                                             "slot": "serc", "endpoint": "/api/digest",
+                                             "slot": "me", "endpoint": "/api/digest",
                                              "key": "tasks_done"}).json()["ok"]
     assert c.post("/api/widgets/save", json={"id": "x", "title": "X", "type": "eval",
-                                             "slot": "serc"}).json()["ok"] is False
+                                             "slot": "me"}).json()["ok"] is False
     assert c.post("/api/widgets/delete", json={"id": "heute"}).json()["ok"]
 
 
@@ -97,7 +97,7 @@ def test_widget_tools(monkeypatch, tmp_path):
 # ---------- Cockpit: Slots + sicherer Renderer ----------
 
 def test_slots_und_renderer_markup():
-    for slot in ('id="widgets-home"', 'id="widgets-serc"'):
+    for slot in ('id="widgets-home"', 'id="widgets-me"'):
         assert slot in VIEWS, f"Widget-Slot fehlt: {slot}"
     assert "async function loadWidgets(" in SCRIPT and "async function renderWidget(" in SCRIPT
     # Client prueft die Whitelist nochmal (Defense in depth) und escaped alles
@@ -106,5 +106,5 @@ def test_slots_und_renderer_markup():
     assert "esc(w.title||w.id)" in SCRIPT
     # in allen drei Bereichen verdrahtet
     assert 'loadWidgets("zentrale","#widgets-home")' in SCRIPT
-    assert 'loadWidgets("serc","#widgets-serc")' in SCRIPT
+    assert 'loadWidgets("me","#widgets-me")' in SCRIPT
     assert ".wslot{display:grid" in CSS and ".wslot:empty{display:none}" in CSS

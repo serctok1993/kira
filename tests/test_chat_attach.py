@@ -23,8 +23,8 @@ def test_attach_txt():
 
 def test_attach_csv():
     r = _c().post("/api/chat/attach",
-                  files={"file": ("daten.csv", b"name,umsatz\nLuvex,1000\nQS,2000", "text/csv")})
-    assert r.json()["ok"] is True and "Luvex" in r.json()["text"]
+                  files={"file": ("daten.csv", b"name,umsatz\nAtlas,1000\nNord,2000", "text/csv")})
+    assert r.json()["ok"] is True and "Atlas" in r.json()["text"]
 
 
 def test_attach_unsupported():

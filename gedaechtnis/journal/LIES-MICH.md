@@ -14,7 +14,7 @@
     # 2026-07-04 (Freitag)
     ## Geschehen
     - (Aufgaben, Ereignisse, Entscheidungen — stichpunktartig)
-    ## Gespraeche mit Sergen
+    ## Gespraeche mit dem Nutzer
     - (Themen + was wichtig war)
     ## Gelernt
     - (Lektionen, Fehler, Erkenntnisse)

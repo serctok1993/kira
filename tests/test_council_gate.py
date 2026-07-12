@@ -37,7 +37,7 @@ def test_money_gate_includes_council_verdict(monkeypatch, tmp_path):
     ran = []
     out = gate.guarded("money", "10 EUR Domain kaufen", "namecheap.com, .de-Domain",
                        execute=lambda: ran.append(1))
-    assert "Wartet auf Sergens Freigabe" in out and ran == []
+    assert "Wartet auf Partners Freigabe" in out and ran == []
     pend = approvals.pending()
     assert len(pend) == 1
     assert "RATS-URTEIL" in pend[0]["detail"]
@@ -54,7 +54,7 @@ def test_council_crash_still_files_request(monkeypatch, tmp_path):
 
     monkeypatch.setattr(llm_router, "complete", boom)
     out = gate.guarded("money", "5 EUR ausgeben", "Detail", execute=lambda: "nie")
-    assert "Wartet auf Sergens Freigabe" in out  # Debatten-Ausfall blockiert die Anfrage NICHT
+    assert "Wartet auf Partners Freigabe" in out  # Debatten-Ausfall blockiert die Anfrage NICHT
     pend = approvals.pending()
     assert len(pend) == 1 and "Rats-Debatte fehlgeschlagen" in pend[0]["detail"]
 
@@ -75,6 +75,6 @@ def test_gated_kind_outside_council_list_skips_debate(monkeypatch, tmp_path):
     fake = _fake_complete("egal")
     monkeypatch.setattr(llm_router, "complete", fake)
     out = gate.guarded("money", "Geld-Aktion", "detail", execute=lambda: "nie")
-    assert "Wartet auf Sergens Freigabe" in out
+    assert "Wartet auf Partners Freigabe" in out
     assert fake.calls == []  # Debatte abgeschaltet -> reiner Inbox-Eintrag
     assert "RATS-URTEIL" not in approvals.pending()[0]["detail"]

@@ -41,7 +41,7 @@ def check(test_call: bool = False) -> dict:
             prob("Alle Routen auf Lokal-Fallback — kein Cloud-Key aktiv?")
         # Fable-Review-Regel (flexibel, nichts festgenagelt): die SPITZE (escalation_model) hat
         # im Router Vorrang vor reason. Steht sie auf dem Massen-Modell (chat/bulk) oder lokal,
-        # laufen code:/plan:/Richter aufs schwaechste Glied — laut warnen, Sergen entscheidet.
+        # laufen code:/plan:/Richter aufs schwaechste Glied — laut warnen, der Nutzer entscheidet.
         esc = models.get("escalation_model") or ""
         mass = {routing.get("chat", {}).get("model"), routing.get("bulk", {}).get("model")}
         reason_m = routing.get("reason", {}).get("model")

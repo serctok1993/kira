@@ -66,11 +66,11 @@ def test_elevenlabs_ok(monkeypatch, tmp_path):
         return R()
 
     monkeypatch.setattr(httpx, "post", fake_post)
-    out = tts.synthesize("Hallo Sergen", session_id="v1")
+    out = tts.synthesize("Hallo Mia", session_id="v1")
 
     assert out == (b"MP3BYTES", "audio/mpeg")
     assert "V1" in seen["url"] and seen["headers"]["xi-api-key"] == "sk-test"
-    assert seen["json"]["text"] == "Hallo Sergen"
+    assert seen["json"]["text"] == "Hallo Mia"
     assert "tts_ok" in [e["type"] for e in events.recent(10)]
 
 

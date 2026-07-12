@@ -15,7 +15,7 @@
 - website: ???
 - zugaenge (NUR Namen, Werte in den Secrets-Tresor!): ???
 
-## Briefing (bindende Daueranweisungen von Sergen)
+## Briefing (bindende Daueranweisungen vom Nutzer)
 
 -
 

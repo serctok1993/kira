@@ -1,5 +1,5 @@
 """Charakter-Dateien (SOUL/GOAL/USER/PERSONA): editierbare Textdateien (kein Code), alle an
-EINEM Ort — Kira -> Seele & Dateien (Sergens Wunsch: ein Tab zum Durcharbeiten, der separate
+EINEM Ort — Kira -> Seele & Dateien (des Nutzers Wunsch: ein Tab zum Durcharbeiten, der separate
 Charakter-Reiter wurde entfernt). PERSONA wird frisch pro Turn gelesen (Aenderung wirkt sofort).
 """
 from __future__ import annotations
@@ -33,7 +33,7 @@ def test_files_hat_persona_editierbar():
 
 
 def test_charakter_reiter_ist_weg_dateien_ist_der_eine_ort():
-    """Sergens Entscheidung: EIN Tab fuer alle editierbaren Prompt-Dateien (Seele & Dateien);
+    """bewusste Entscheidung: EIN Tab fuer alle editierbaren Prompt-Dateien (Seele & Dateien);
     der separate Charakter-Reiter ist entfernt."""
     from fastapi.testclient import TestClient
     import core.api.server as s
@@ -95,7 +95,7 @@ def test_update_script_schuetzt_charakter_dateien():
 
 
 def test_onboarding_playbooks_parsen_und_router_zeigt_sie():
-    """Sergens Onboarding-Wunsch: 'neues Projekt' und 'Hallo/Tagesstart' fuehren durch
+    """des Nutzers Onboarding-Wunsch: 'neues Projekt' und 'Hallo/Tagesstart' fuehren durch
     Playbooks. Frontmatter muss parsen, Router-Zeile (wann) vorhanden, Grad entwurf."""
     from core.mind import playbooks
     alle = {p["name"]: p for p in playbooks.list_playbooks()}

@@ -44,7 +44,7 @@ def test_register_commands_raist_nie():
 
 
 def test_menue_nur_echte_befehle():
-    """Jeder Menue-Befehl hat einen Handler in _handle_command — sonst klickt Sergen ins Leere."""
+    """Jeder Menue-Befehl hat einen Handler in _handle_command — sonst klickt der Nutzer ins Leere."""
     from core.agency.connectors import telegram_bot as tb
     handled = set(re.findall(r'cmd == "(\w+)"', _SRC)) | {"start", "help"}
     for grp in re.findall(r'cmd in \(([^)]*)\)', _SRC):   # auch 'cmd in ("a","b")'-Handler

@@ -113,7 +113,7 @@ def test_pdf_roundtrip_if_available(monkeypatch, tmp_path):
 def test_search_fts_fallback(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)  # embed -> None: reiner Volltext-Pfad
     knowledge.ingest_text("Vertrag Hosting", "Der Hosting-Vertrag laeuft bis 2027 und kostet 60 Euro. " * 10)
-    knowledge.ingest_text("SEO-Notizen", "Kira plant die SEO-Struktur fuer QS-Transporte. " * 10)
+    knowledge.ingest_text("SEO-Notizen", "Kira plant die SEO-Struktur fuer das Kundenprojekt. " * 10)
     hits = knowledge.search("hosting vertrag")
     assert hits and hits[0]["title"] == "Vertrag Hosting"
     assert knowledge.search("") == []

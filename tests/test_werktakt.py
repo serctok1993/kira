@@ -1,4 +1,4 @@
-"""Werktakt (Sergens Regel 08.07.): max. N erledigte Schritte pro Ziel und Tag —
+"""Werktakt (des Nutzers Regel 08.07.): max. N erledigte Schritte pro Ziel und Tag —
 dosierte Fallstudien statt 4-6 am Tag, Rest rueckt auf morgen."""
 from __future__ import annotations
 

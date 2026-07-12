@@ -78,7 +78,7 @@ except Exception:  # noqa: BLE001
     pass
 
 def _stammbaum_wurzel_name() -> str:
-    """Dateiname der Stammbaum-Wurzel — traegt den NUTZER-Namen (W2, z.B. SERGEN.md)."""
+    """Dateiname der Stammbaum-Wurzel — traegt den NUTZER-Namen (W2, z.B. WURZEL.md)."""
     from core import identity as _id
 
     return f"{_id.user_name().upper()}.md"
@@ -156,7 +156,7 @@ def api_status() -> dict:
             ("turn_timeout", "llm_call_timeout", "service_crash", "act_degraded"),
             time.time() - 7 * 86400),
         "lessons": memory.recall_lessons(8),
-        "freigaben_offen": _freigaben_offen(),   # Serc-Badge in der Sidebar (Werkbank PR 7)
+        "freigaben_offen": _freigaben_offen(),   # Me-Badge in der Sidebar (Werkbank PR 7)
     }
 
 
@@ -471,7 +471,7 @@ def api_memory(limit: int = 80, offset: int = 0, kind: str = "", q: str = "") ->
 
 @app.post("/api/memory/delete-batch")
 async def api_memory_delete_batch(body: dict) -> dict:
-    """Mehrfachauswahl loeschen: EIN Aufruf, EIN Confirm im UI (Sergens Kernwunsch)."""
+    """Mehrfachauswahl loeschen: EIN Aufruf, EIN Confirm im UI (des Nutzers Kernwunsch)."""
     ids = [str(i) for i in (body.get("ids") or []) if i][:200]
     for mid in ids:
         memory.delete(mid)
@@ -1467,7 +1467,7 @@ def api_costs() -> dict:
 
 def _token_stats() -> dict:
     """Token-Verbrauch heute je Rolle (Fable-Review: bei Gratis-Modellen ist die $-Bremse blind —
-    Sichtbarkeit in Tokens/Calls statt harter Limits, Sergens Entscheidung). Reines SQL-Aggregat
+    Sichtbarkeit in Tokens/Calls statt harter Limits, bewusste Entscheidung). Reines SQL-Aggregat
     ueber llm_call-Events, fail-soft."""
     import datetime as _dt
     import sqlite3 as _sq
@@ -1555,7 +1555,7 @@ async def api_desktop_scan(body: dict) -> dict:
 @app.post("/api/desktop/shortcut")
 async def api_desktop_shortcut(body: dict) -> dict:
     """Ein-Klick: legt (nur Windows) die Desktop-Verknuepfung 'Kira' mit Logo + Autostart an,
-    indem desktop-setup.ps1 ausgefuehrt wird. So braucht Sergen keinen Ordner und keine .bat."""
+    indem desktop-setup.ps1 ausgefuehrt wird. So braucht der Nutzer keinen Ordner und keine .bat."""
     import sys
 
     if not sys.platform.startswith("win"):
@@ -1683,7 +1683,7 @@ async def api_kill(body: dict) -> dict:
 @app.get("/api/bg")
 def api_bg():
     # no-store: der Browser soll das Hintergrundbild nie aus dem Cache holen, sonst
-    # "haengt" ein altes Bild nach dem Wechsel (Sergen: aendern -> neu laden -> alt).
+    # "haengt" ein altes Bild nach dem Wechsel (der Nutzer: aendern -> neu laden -> alt).
     for ext in ("jpg", "jpeg", "png", "webp", "gif"):
         p = ROOT / "data" / f"background.{ext}"
         if p.exists():
@@ -1721,7 +1721,7 @@ async def api_bg_clear(body: dict) -> dict:
     return {"ok": True}
 
 
-# ---------- Kira-Avatar (S6.6d) — Sergens Higgsfield-Bild fuer Hero + Chat ----------
+# ---------- Kira-Avatar (S6.6d) — des Nutzers Higgsfield-Bild fuer Hero + Chat ----------
 @app.get("/api/avatar")
 def api_avatar():
     # no-store wie bei /api/bg: sonst haelt der Browser das ALTE Avatarbild im Cache und
@@ -1934,7 +1934,7 @@ def _bench_record(meta: dict, ev: dict) -> None:
 
 @app.get("/api/model/resolve")
 def api_model_resolve(role: str = "reason") -> dict:
-    """Welches Modell laeuft WIRKLICH auf einer Rolle? (Benchmark-Anzeige: Sergen sah
+    """Welches Modell laeuft WIRKLICH auf einer Rolle? (Benchmark-Anzeige: der Nutzer sah
     vorher das Chat-Modell und wunderte sich, warum 'Denker' nicht GLM zeigt.)"""
     from core.kernel import llm_router
 

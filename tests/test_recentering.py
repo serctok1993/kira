@@ -11,9 +11,17 @@ from core.mind import agent
 
 # --- Persona & Mission: Zweck-Hierarchie + Melde-Regeln ----------------------------
 
+def _persona_template() -> str:
+    """Der Verhaltens-Kern aus dem TEMPLATE (instanzunabhaengig — die gelebte
+    PERSONA.md ist seit W3 Privatsache und liegt nicht mehr im Repo)."""
+    from core import identity
+    from core.config import MIND_DIR
+    return identity.render((MIND_DIR / "templates" / "PERSONA.md").read_text(encoding="utf-8"))
+
+
 def test_persona_has_purpose_hierarchy_and_reporting_rules():
-    p = agent.PERSONA_DIRECTIVE
-    assert "Sergen dienen" in p and "Dich verbessern" in p
+    p = _persona_template()
+    assert "Partner dienen" in p and "Dich verbessern" in p
     assert "Geld ist NUR Mittel" in p  # Geld entwertet
     assert "SOFORT und ehrlich" in p and "ohne Beleg" in p  # Melde-Regeln
     assert "project_note" not in p  # W1: Projekt-Werkzeug ist ausgebaut
@@ -22,7 +30,7 @@ def test_persona_has_purpose_hierarchy_and_reporting_rules():
 def test_persona_hat_mitdenken_und_nachschau_blocks():
     """Prompt-Touch: Proaktivitaet (1 Mitdenk-Schritt, ausser Voice) + effizienter
     Nachschau-Weg (Karte -> Adresse -> nur diese Datei, nie den Vault scannen)."""
-    p = agent.PERSONA_DIRECTIVE
+    p = _persona_template()
     # Mitdenken: genau EIN vorausschauender Schritt, Voice ist die Ausnahme
     assert "WIE DU MITDENKST" in p
     assert "GENAU EIN" in p
@@ -42,9 +50,9 @@ def test_mission_goal_reordered():
     m = CONFIG.get("mission", {})
     assert m.get("self_every") == 3
     g = m.get("goal", "")
-    assert "SERGENS ALLTAG TRAGEN" in g and "DICH SELBST PFLEGEN" in g
+    assert "DEN ALLTAG DEINES PARTNERS TRAGEN" in g and "DICH SELBST PFLEGEN" in g
     # Assistenz steht VOR der Selbstpflege; kein Business-/Etappen-Ziel mehr in der Mission
-    assert g.index("SERGENS ALLTAG TRAGEN") < g.index("DICH SELBST PFLEGEN")
+    assert g.index("DEN ALLTAG DEINES PARTNERS TRAGEN") < g.index("DICH SELBST PFLEGEN")
     assert "GENEHMIGTE PROJEKTE" not in g and "10k" not in g
     assert "Kasse/Meilenstein/ROI" in g  # Geld-Denken bleibt explizit ausgeschlossen
     assert "NIE Erfolg behaupten ohne Beleg" in g  # Melde-Regeln woertlich erhalten
@@ -102,7 +110,7 @@ def test_self_tick_skipped_when_focus_set(monkeypatch, tmp_path):
     monkeypatch.setitem(CONFIG, "mission", {"name": "m", "goal": "G", "self_every": 2,
                                             "notify_telegram": False})
     monkeypatch.setattr(runner, "kill_switch_active", lambda: False)
-    monkeypatch.setattr(runner, "_focus", lambda: "Mach das Kundenprojekt fertig")  # Sergen-Fokus
+    monkeypatch.setattr(runner, "_focus", lambda: "Mach das Kundenprojekt fertig")  # der Nutzer-Fokus
     monkeypatch.setattr(runner, "_self_improve_tick", lambda *a: {"self_tick": True})
     monkeypatch.setattr(runner.planner, "generate_tasks", lambda *a, **k: [])
 
@@ -194,7 +202,7 @@ def test_cron_scope_filter_and_migration(monkeypatch, tmp_path):
     # Alt-Job ohne scope-Feld gilt defensiv als system
     jobs = cron._load(); del jobs[0]["scope"]; cron._save(jobs)
     assert "Systemjob" in [j["label"] for j in cron.list_jobs(scope="system")]
-    # Briefing wurde AUS angelegt (Sergen schaltet bewusst an)
+    # Briefing wurde AUS angelegt (der Nutzer schaltet bewusst an)
     briefing = [j for j in cron.list_jobs(scope="me") if j["label"] == "Briefing"][0]
     assert briefing["enabled"] is False
 

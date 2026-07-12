@@ -24,6 +24,12 @@ from core.kernel import events
 from core.kernel.fs import atomic_write
 
 
+def _ident_name() -> str:
+    """Nutzer-Name fuer lehrende Fehlertexte (W3) — live aus identity."""
+    from core import identity
+    return identity.user_name()
+
+
 def diff_summary(old: str, new: str) -> tuple[int, int]:
     """(hinzugefuegte, entfernte) Zeilen — fuer das '+3 −1' hinter jedem Edit."""
     add = rem = 0
@@ -95,7 +101,7 @@ def _verify_cmd() -> str:
 # Lauf-Modus (Paket B): waehrend eines code:/plan:-Laufs laeuft pro .py-Edit NUR der
 # schnelle Syntax-/Truncation-Check — die volle Testsuite prueft der Lauf EINMAL am Ende
 # (plan_and_execute) und rollt bei Rot den GANZEN Lauf zurueck. Spart die 375-Test-Suite
-# nach jedem einzelnen Edit (das waren Sergens 5-15 Minuten). Config: selfdev.fast_verify_in_run.
+# nach jedem einzelnen Edit (das waren des Nutzers 5-15 Minuten). Config: selfdev.fast_verify_in_run.
 _FAST_VERIFY = False
 
 
@@ -160,7 +166,7 @@ def apply_edit(rel_path: str, new_content: str, reason: str = "", verify: bool =
     if p == (MIND_DIR / "constitution.md").resolve():
         events.emit("write_blocked", {"path": str(p), "tool": "self_edit"})
         return {"ok": False, "error": "constitution.md ist unantastbar (Verfassung) — "
-                                      "Aenderungen macht nur Sergen selbst via Git."}
+                                      f"Aenderungen macht nur {_ident_name()} selbst via Git."}
     # Sicherheit: nur innerhalb des Projekts
     if ROOT not in p.parents and p != ROOT:
         return {"ok": False, "error": "Pfad ausserhalb des Projekts."}

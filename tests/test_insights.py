@@ -128,7 +128,7 @@ def test_planner_no_warning_when_budget_comfortable(monkeypatch):
     monkeypatch.setattr(llm_router, "complete", fake)
     planner.generate_tasks("Ziel", "Kontext",
                            budget={"day_limit": 20.0, "day_remaining": 15.0, "month_remaining": 100.0})
-    # S8.1: komfortables Budget -> gar keine Budget-Zeile (Sergen kalkuliert, nicht Kira)
+    # S8.1: komfortables Budget -> gar keine Budget-Zeile (der Nutzer kalkuliert, nicht Kira)
     assert "Tagesbudget" not in prompts[0]
     assert "erschoepft" not in prompts[0]
 
