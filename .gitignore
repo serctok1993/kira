@@ -50,3 +50,6 @@ docs/harness-diaet.md
 docs/radar/
 core/tools/sunrise*.py
 sunrise_simulation.py
+
+# Lokale Session-/Editor-Werkzeuge
+.claude/
