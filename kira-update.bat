@@ -1,30 +1,5 @@
 @echo off
-REM Kira aktualisieren: einfach doppelklicken.
-REM
-REM Modell: Der Cloud-Stand (GitHub) ist die Wahrheit fuer den CODE. Diese Datei setzt
-REM deinen lokalen Code exakt darauf, damit das Update nie mehr an Kiras eigenen
-REM Selbst-Edits scheitert ("would be overwritten by merge").
-REM
-REM SICHER fuer deine Sachen:
-REM   - data/ und .env sind gitignored  -> git fasst sie NIE an (Gedaechtnis-DB, Secrets, Modelle).
-REM   - gedaechtnis/ und playbooks/ (deine Obsidian-Notizen) UND deine Charakter-Dateien
-REM     (SOUL/GOAL/USER/PERSONA, im Cockpit editierbar) werden VOR dem Update beiseitegelegt
-REM     und DANACH wieder eingespielt -> deine Eintraege bleiben erhalten.
-REM   Es weichen nur lokale CODE-Aenderungen, die der Cloud-Stand ohnehin ersetzt.
-cd /d %~dp0
-echo === Sichere deine Notizen und Charakter-Dateien ...
-git stash push --quiet -- gedaechtnis playbooks core/mind/SOUL.md core/mind/GOAL.md core/mind/USER.md core/mind/PERSONA.md
-echo === Verwerfe Kiras lokale Code-Selbst-Edits ...
-git checkout --quiet -- .
-echo === Hole neuesten Cloud-Stand ...
-git fetch origin main
-git reset --hard --quiet origin/main
-echo === Spiele deine Notizen zurueck ...
-git stash pop --quiet
-echo === Starte Kira sauber neu (Supervisor, ~20 Sekunden) ...
-echo all> data\restart.flag
-echo.
-echo Fertig! Danach im Browser Strg+F5 druecken.
-echo (Falls oben "CONFLICT" steht, sag Claude Bescheid - deine Notizen sind sicher im stash.)
-timeout /t 15
-rem Fenster schliesst sich nach 15s von selbst (vorher: pause = blieb ewig offen)
+REM Kira aktualisieren — einfach doppelklicken. (Die eigentliche Logik wohnt in
+REM scripts\kira-update.bat; dieser Wrapper bleibt hier, damit der gewohnte
+REM Doppelklick im Kira-Ordner weiter funktioniert.)
+call "%~dp0scripts\kira-update.bat"

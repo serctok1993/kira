@@ -28,17 +28,17 @@ Genau der Look, den du meinst (glänzend, abgerundet, weich) ist **Bibata Modern
 
 ## 2 · Ordner-Icons — flach im Linux-Style
 
-**Doppelklick auf `linux-look.bat`** → jeder Ordner, der direkt auf deinem **Desktop** liegt
+**Doppelklick auf `scripts\linux-look.bat`** → jeder Ordner, der direkt auf deinem **Desktop** liegt
 (Projekte, Kira, Programme, Beispiel-Projekt …), bekommt ein flaches Linux-artiges Ordner-Icon.
 
 - Das Icon wird **selbst gezeichnet** (`data/linux-folder.ico`) — **kein Download nötig**.
 - **Sicher & reversibel:** jeder Ordner bekommt nur seine eigene `desktop.ini` (kein System-Eingriff).
-- **Zurück:** Doppelklick auf **`linux-look-zurueck.bat`**.
+- **Zurück:** Doppelklick auf **`scripts\linux-look-zurueck.bat`**.
 - **Andere Farbe?** z. B. Kira-Lila:
-  `powershell -ExecutionPolicy Bypass -File linux-look.ps1 -Color b026ff`
+  `powershell -ExecutionPolicy Bypass -File scripts\linux-look.ps1 -Color b026ff`
   (Standard ist Papirus-Teal `5aa2b4`.)
 - **Nur bestimmte Ordner:**
-  `... -File linux-look.ps1 -Folders "C:\Users\Name\Desktop\Projekte","C:\Users\Name\Desktop\Kira"`
+  `... -File scripts\linux-look.ps1 -Folders "C:\Users\Name\Desktop\Projekte","C:\Users\Name\Desktop\Kira"`
 
 > Hängt noch das alte Icon? Einmal ab-/anmelden oder den Explorer neu starten — Windows cached Icons.
 > Für **echte Papirus/Yaru-Ordner-Grafiken** (statt der selbst gezeichneten): eine `.ico` aus

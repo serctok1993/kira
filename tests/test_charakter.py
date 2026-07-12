@@ -91,9 +91,13 @@ def test_persona_traegt_kommandeurs_prinzip():
 
 
 def test_update_script_schuetzt_charakter_dateien():
+    # W3: die Charakter-Dateien sind gitignored — git fasst sie beim Update NIE an.
+    # Das Skript legt nur noch die getrackten Notiz-Anteile beiseite und erklaert warum.
     from pathlib import Path
-    bat = Path("kira-update.bat").read_text(encoding="utf-8", errors="replace")
-    assert "core/mind/SOUL.md" in bat and "core/mind/PERSONA.md" in bat
+    bat = Path("scripts/kira-update.bat").read_text(encoding="utf-8", errors="replace")
+    assert "git stash push --quiet -- gedaechtnis playbooks" in bat
+    assert "core/mind/SOUL.md" not in bat          # Alt-Verhalten (Stash der Seele) ist raus
+    assert "gitignored" in bat                     # der Schutz-Grund steht im Skript
 
 
 def test_onboarding_playbooks_parsen_und_router_zeigt_sie():

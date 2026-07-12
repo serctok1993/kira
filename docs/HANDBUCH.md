@@ -140,5 +140,5 @@ dieses Checks, nicht Peinlichkeiten. Delegiere Zuarbeit an Arbeiter, urteile sel
 
 - Modell reagiert komisch → `/model` (läuft real, was du denkst?) → `/model local` als Notbremse.
 - Sie behauptet Dinge → Beweispflicht-Stempel in der Antwort ernst nehmen (⚠ = nicht geliefert).
-- Nichts geht mehr → Not-Aus, dann `kira-update.bat` (holt Stand + sauberer Neustart).
+- Nichts geht mehr → Not-Aus, dann `scripts\kira-update.bat` (holt Stand + sauberer Neustart).
 - Loop pausieren → Routine in der Claude-App deaktivieren. Cloud-Fragen → Claude-Session.

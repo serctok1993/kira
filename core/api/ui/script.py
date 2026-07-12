@@ -1829,7 +1829,7 @@ function refreshLogo(){const t=Date.now();
 $("#set-logo")&&($("#set-logo").onchange=e=>{const f=e.target.files[0];if(!f)return;
  const rd=new FileReader();rd.onload=async()=>{
   const r=await (await fetch("/api/icon/upload",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({dataurl:rd.result})})).json();
-  $("#set-logo-hint").textContent=r.ok?(r.ico?"✓ Logo gesetzt — Desktop-App einmal neu starten (Tray-Menue), dann sitzt es auch im Fenster + in der Taskleiste":"✓ Logo gesetzt — fuer Fenster-/Taskleisten-Symbol einmal kira-einrichten.bat"):("Fehler: "+(r.error||"?"));
+  $("#set-logo-hint").textContent=r.ok?(r.ico?"✓ Logo gesetzt — Desktop-App einmal neu starten (Tray-Menue), dann sitzt es auch im Fenster + in der Taskleiste":"✓ Logo gesetzt — fuer Fenster-/Taskleisten-Symbol einmal scripts\\kira-einrichten.bat"):("Fehler: "+(r.error||"?"));
   if(r.ok)refreshLogo();};
  rd.readAsDataURL(f);e.target.value="";});
 $("#set-logo-clear")&&($("#set-logo-clear").onclick=async()=>{await fetch("/api/icon/clear",{method:"POST"});
