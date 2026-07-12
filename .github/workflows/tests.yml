@@ -1,0 +1,23 @@
+# CI: die volle Suite auf Ubuntu — der stehende Linux-Beweis (W4b) und das
+# Clean-Gate (test_werkszustand_clean laeuft mit; W4.4 macht es zum Release-Tor).
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: uv installieren
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+      - name: Abhaengigkeiten
+        run: uv sync --frozen || uv sync
+      - name: Suite (offline, eigene Wegwerf-Datenwurzel)
+        run: uv run pytest tests -q

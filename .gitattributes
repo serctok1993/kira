@@ -1,0 +1,6 @@
+# Zeilenenden plattformfest: Shell-Skripte + systemd-Units brauchen LF,
+# Windows-Batches CRLF — egal auf welchem System ausgecheckt wird.
+*.sh       text eol=lf
+*.service  text eol=lf
+*.bat      text eol=crlf
+*.ps1      text eol=crlf

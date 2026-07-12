@@ -12,10 +12,16 @@ Die echten Sicherheitsnetze bleiben Kill-Switch + Git (alles rueckrollbar).
 """
 from __future__ import annotations
 
+import os
 import re
 import subprocess
 
 from core.config import ROOT
+
+# W4b: die Shell selbst ist portabel (shell=True -> cmd.exe bzw. /bin/sh). Nur der
+# Unix-Verwechslungs-Hinweis ist ein WINDOWS-Schutz — unter Linux sind head/grep/cat
+# ja richtig und duerfen nie geblockt werden.
+_IS_WIN = os.name == "nt"
 from core.governance import audit
 from core.kernel import events
 from core.kernel.scheduler import kill_switch_active
@@ -81,7 +87,7 @@ def run_shell(command: str, cwd: str | None = None, timeout: int = 60) -> str:
     if _is_dangerous(command):
         events.emit("shell_blocked", {"command": command[:200]})
         return "Blockiert: dieser Befehl wirkt potenziell zerstoererisch. Ausfuehrung verweigert."
-    if _UNIX_ISH.search(command):  # Unix-Verwechslung -> sofort korrigieren statt scheitern lassen
+    if _IS_WIN and _UNIX_ISH.search(command):  # Unix-Verwechslung (nur Windows) -> sofort korrigieren
         events.emit("shell_hint", {"command": command[:200]})
         return _UNIX_HINT
 
