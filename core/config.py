@@ -11,8 +11,14 @@ from dotenv import load_dotenv
 # Datenwurzel: normal aus __file__ abgeleitet (Live byte-identisch). Eine Sandbox kann sie
 # ueber KIRA_ROOT/KIRA_DATA_DIR umlenken (Testumgebung / Coding-Benchmark im git-Worktree) —
 # ohne gesetzte Env aendert sich NICHTS.
+# KIRA_TEST_DATA_DIR (W0-Fund 12.07.): automatische Wegwerf-Datenwurzel der Testsuite
+# (tests/conftest.py). Bewusst ein EIGENER Schluessel und NICHT KIRA_DATA_DIR: sandbox_active()
+# bleibt False -> suppress_repo_writes() greift in Tests weiter (Git-/Verify-Pfade bleiben
+# No-Ops). Vorher schrieben Tests ohne eigenes Monkeypatching in die LIVE state.db —
+# Test-Events/-Fakten/-Tuning-Exporte landeten im echten Gedaechtnis (Fehlalarme B5/B6).
 ROOT = Path(os.getenv("KIRA_ROOT") or Path(__file__).resolve().parent.parent).resolve()  # kira/
-DATA_DIR = Path(os.getenv("KIRA_DATA_DIR") or (ROOT / "data")).resolve()
+DATA_DIR = Path(os.getenv("KIRA_DATA_DIR") or os.getenv("KIRA_TEST_DATA_DIR")
+                or (ROOT / "data")).resolve()
 MIND_DIR = ROOT / "core" / "mind"
 DB_PATH = DATA_DIR / "state.db"
 CONFIG_PATH = ROOT / "config.yaml"

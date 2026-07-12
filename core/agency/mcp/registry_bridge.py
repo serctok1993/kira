@@ -29,6 +29,7 @@ from typing import Any
 from core.agency.mcp.client import McpServer
 from core.agency.tools import registry
 from core.agency.tools.registry import register
+from core.config import DATA_DIR
 
 # ---------------------------------------------------------------------------
 # Modul-Zustand
@@ -429,7 +430,7 @@ def shutdown_all() -> None:
 _EXAMPLE_CONFIG = Path(__file__).resolve().parents[3] / "config" / "mcp_servers.example.json"
 
 
-def load_and_bridge(config_path: str = "data/mcp_servers.json") -> dict[str, int]:
+def load_and_bridge(config_path: str | None = None) -> dict[str, int]:
     """Laedt die Server-Konfiguration und brueckt alle aktivierten Server.
 
     Fehlt data/mcp_servers.json (data/ ist gitignored), wird sie aus der
@@ -438,7 +439,10 @@ def load_and_bridge(config_path: str = "data/mcp_servers.json") -> dict[str, int
     Returns:
         {server_name: anzahl_registrierter_tools}
     """
-    path = Path(config_path)
+    # W0-Fix: absoluter Default statt relativem "data/..." — ein Prozess mit anderem
+    # Arbeitsverzeichnis (Desktop-App, manuell gestarteter uvicorn) las/seedete sonst
+    # eine ANDERE Datei als das Cockpit.
+    path = Path(config_path) if config_path else _CONFIG_PATH
     if not path.exists():
         try:
             from core.kernel.fs import atomic_write
@@ -498,7 +502,7 @@ def server_status() -> dict[str, dict]:
 
     S8.0: defensiv gegen korrupte Config — vorher warf ein halb geschriebenes
     JSON hier 'Expecting value: line 1 column 1' bis in die API hoch."""
-    path = Path("data/mcp_servers.json")
+    path = _CONFIG_PATH
     try:
         configs = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
     except (json.JSONDecodeError, OSError) as e:
@@ -533,7 +537,9 @@ def server_status() -> dict[str, dict]:
 # Damit kann Sergen (oder Kira) beliebige MCP-Server ohne Code-Aenderung hinzufuegen.
 # ---------------------------------------------------------------------------
 
-_CONFIG_PATH = Path("data/mcp_servers.json")
+# W0-Fix: absolut (DATA_DIR) statt relativ — CWD-unabhaengig, und die Test-Sandbox
+# (conftest KIRA_TEST_DATA_DIR) greift automatisch.
+_CONFIG_PATH = DATA_DIR / "mcp_servers.json"
 
 
 def _read_config() -> dict:
