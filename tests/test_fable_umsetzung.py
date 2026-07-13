@@ -133,7 +133,7 @@ def test_einstellungen_ebene_im_cockpit():
     from fastapi.testclient import TestClient
     import core.api.server as s
     html = TestClient(s.app).get("/").text
-    assert 'id="gear"' in html                     # ⚙ in der Topbar
-    assert "⚙ Einstellungen" in html               # Gruppe umbenannt
+    assert 'id="gear"' in html                     # Zahnrad in der Topbar
+    assert "Setup" in html and 'data-v="settings"' in html   # Einstellungen in der Rail (Kommandobruecke)
     assert 'id="st-tokens"' in html                # Token-Statistik-Karte
     assert "tokens_heute" in html                  # JS rendert sie

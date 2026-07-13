@@ -150,6 +150,7 @@ def api_status() -> dict:
         "spend_usd_today": round(today_spend_usd(), 4),
         "budget": treasury.status(),
         "kill_switch": kill_switch_active(),
+        "heartbeat": heartbeat_on(),   # Kommandobruecke: Motor-Chip im Kopf (AN/aus)
         "events": events.counts_by_type(),
         # Ehrliches Fehler-Fenster (7 Tage) statt kumulativem All-Time-Zaehler:
         "errors_recent": events.count_since(

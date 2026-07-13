@@ -14,27 +14,32 @@ sitzt als Icon+Popover in der Topbar (nicht mehr in der Nav). Panel-IDs sind sta
 """
 
 VIEWS = r"""</head><body>
+<!-- Kommandobruecke: schmale Icon-Rail — Chat ist das Herzstueck, Board/Kira/Du/Setup daneben -->
 <div id="side">
-  <h1 id="brand"><span class="txt">__AGENT_UC__</span></h1>
-  <a data-v="home" class="on" title="Kommandostand: Status, Befehl, Live-Ops, Digest"><i class="ti">◈</i> Zentrale</a>
-  <a data-v="chat" title="Mit mir reden"><i class="ti">›</i> Chat</a>
-  <a data-v="me" title="Dein Bereich: Todos, Freigaben, was __AGENT__ von dir braucht, deine Routinen"><i class="ti">☰</i> __USER__ <b id="side-frei" class="frei-badge" style="display:none"></b></a>
+  <a data-v="chat" class="on" title="Chat — das Herzstueck"><i class="ti">›</i> Chat</a>
+  <a data-v="home" title="Board: Zahlen, Ziele, Befehl, Live-Ops"><i class="ti">◈</i> Board</a>
   <a data-v="kira" title="Wer ich bin: Seele, Gedaechtnis, Wissen, Gewissen, Automatik, Lernen"><i class="ti">✦</i> __AGENT__</a>
-  <a data-v="settings" title="Einstellungen: Modelle, Benchmark, Steuerpult, Zugaenge, Cockpit, Wallpaper"><i class="ti">⚙</i> Einstellungen</a>
+  <a data-v="me" title="Dein Bereich: Todos, Freigaben, was __AGENT__ von dir braucht, deine Routinen"><i class="ti">☰</i> __USER__ <b id="side-frei" class="frei-badge" style="display:none"></b></a>
   <div class="spacer"></div>
+  <a data-v="settings" title="Einstellungen: Modelle, Benchmark, Steuerpult, Zugaenge, Cockpit, Wallpaper"><i class="ti">⚙︎</i> Setup</a>
   <div class="kill" id="kill">Not-Aus: aus</div>
 </div>
 <div id="main">
   <div id="bar">
     <a id="burger" title="Menue">☰</a>
+    <h1 id="brand"><span class="txt">__AGENT_UC__</span></h1>
     <span class="live"></span>
     <span id="pulse" class="pulse">…</span>
     <span style="flex:1"></span>
+    <!-- Kommandobruecke: die Zahlen, die frueher fehlten — ein Blick, null Klicks -->
+    <span class="chip st" id="chip-motor" title="24/7-Motor (Heartbeat)"><span class="dot" id="motor-dot"></span> Motor <b id="motor-b">…</b></span>
+    <span class="chip st" title="heutige Cloud-Ausgaben / Tagesdeckel">heute <b id="b-spend">…</b></span>
+    <span class="chip st warnc" id="chip-frei" style="display:none;cursor:pointer" title="klick: zur Freigabe-Inbox">● <b id="chip-frei-n"></b> Freigaben</span>
+    <span class="chip st" id="chip-termin" style="display:none" title="naechster Termin">◈ <b id="chip-termin-b"></b></span>
+    <span class="chip st" title="aktives Chat-Modell"><b id="b-model">…</b></span>
     <span id="ws-dot" class="off" title="Chat-Verbindung"></span>
-    <span class="muted"><b id="b-model">…</b></span>
-    <span class="muted">heute <b id="b-spend">…</b></span>
     <span id="b-kill"></span>
-    <a id="gear" title="Einstellungen (Modelle, Steuerpult, Zugänge, Cockpit, Wallpaper)" style="cursor:pointer;font-size:16px;padding:0 4px">⚙</a>
+    <a id="gear" title="Einstellungen (Modelle, Steuerpult, Zugänge, Cockpit, Wallpaper)" style="cursor:pointer;font-size:16px;padding:0 4px">⚙︎</a>
     <span id="theme-wrap">
       <a id="theme-btn" title="Optik anpassen">◐</a>
       <div id="theme-pop" class="look">
@@ -44,7 +49,7 @@ VIEWS = r"""</head><body>
         <button class="thm" data-theme="amber" title="Schwarz / Amber (Retro-Terminal)"><span class="td" style="background:#f59e0b"></span></button>
         <button class="thm" data-theme="rot" title="Schwarz / Rot (Crimson)"><span class="td" style="background:#f43f5e"></span></button>
         <button class="thm kira" id="thm-kira" data-theme="kira" title="Kira-Modus (Bild-Hintergrund)"></button>
-        <label id="bgup" title="Hintergrund-Bild waehlen" style="cursor:pointer;color:var(--muted);font-size:15px">📷<input id="bgquick" type="file" accept="image/*" style="display:none"/></label>
+        <label id="bgup" title="Hintergrund-Bild waehlen" style="cursor:pointer;color:var(--muted);font-size:15px">▣<input id="bgquick" type="file" accept="image/*" style="display:none"/></label>
         <div class="colrow">
           <label>BG<input type="color" id="col-bg" title="Hintergrund-Farbe"/></label>
           <label>Kästen<input type="color" id="col-panel" title="Kasten-Farbe"/></label>
@@ -71,8 +76,16 @@ VIEWS = r"""</head><body>
     </span>
   </div>
 
-  <!-- ================= ZENTRALE ================= -->
-  <div class="view on" id="v-home">
+  <!-- Kommandobruecke: die Fokus-Zeile — DEIN Tages-Hebel, sichtbar ueber allem -->
+  <div id="fokus-line">
+    <span class="fk">FOKUS</span>
+    <b id="fokus-text">…</b>
+    <span class="muted" id="fokus-sub"></span>
+    <a id="fokus-edit" title="Fokus setzen/aendern — __AGENT__ plant ihre Ticks darum herum">ändern ✎</a>
+  </div>
+
+  <!-- ================= BOARD (Zentrale) ================= -->
+  <div class="view" id="v-home">
     <div id="hero">
       <img id="hero-av" alt=""/>
       <div id="hero-txt">
@@ -93,13 +106,13 @@ VIEWS = r"""</head><body>
       <h3>Befehl an __AGENT__</h3>
       <textarea id="dir-text" class="k" placeholder="Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…"></textarea>
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-        <button type="button" class="ghost" id="dir-mic" title="Auftrag diktieren (Voice)">🎤</button>
-        <button id="dir-now">⚡ Sofort ausfuehren</button>
-        <button class="ghost" id="dir-focus">🧭 Als Fokus setzen</button>
+        <button type="button" class="ghost" id="dir-mic" title="Auftrag diktieren (Voice)">◉</button>
+        <button id="dir-now">↯ Sofort ausfuehren</button>
+        <button class="ghost" id="dir-focus">✧ Als Fokus setzen</button>
         <button class="ghost" id="dir-clear" title="Fokus loeschen">Fokus loeschen</button>
-        <label class="chip tog" id="dir-schwarm-l" title="Als Schwarm-Auftrag an die Armee — landet im Chat, du drueckst Senden"><input type="checkbox" id="dir-schwarm"/> 🐝 Schwarm</label>
+        <label class="chip tog" id="dir-schwarm-l" title="Als Schwarm-Auftrag an die Armee — landet im Chat, du drueckst Senden"><input type="checkbox" id="dir-schwarm"/> ⁂ Schwarm</label>
         <select id="dir-rang" title="Rang fuer den Schwarm" style="display:none">
-          <option value="reflex">🐜 reflex</option><option value="arbeiter" selected>🔧 arbeiter</option><option value="denker">🧠 denker</option><option value="richter">⚖ richter</option>
+          <option value="reflex">· reflex</option><option value="arbeiter" selected>⚒︎ arbeiter</option><option value="denker">◆ denker</option><option value="richter">⚖︎ richter</option>
         </select>
         <span class="muted" id="dir-hint" style="align-self:center"></span>
       </div>
@@ -132,12 +145,12 @@ VIEWS = r"""</head><body>
     </div>
   </div>
 
-  <!-- ================= CHAT ================= -->
-  <div class="view" id="v-chat">
+  <!-- ================= CHAT (Kommandobruecke: Sessions | Gespraech | Dein Tag) ================= -->
+  <div class="view on" id="v-chat">
     <div id="chat-wrap">
       <div id="sess-panel">
         <div class="sp-h"><span class="muted" style="font-size:11px;letter-spacing:1px">GESPRAECHE</span>
-          <span style="flex:1"></span><button type="button" class="ghost" id="sess-test" title="Test-Chat: zum gefahrlosen Ausprobieren — dieser Verlauf leckt NICHT in Kiras Langzeit-Gedaechtnis (andere Chats sehen ihn nie)" style="padding:4px 9px">🧪</button><button type="button" class="ghost" id="sess-new" title="Neue Unterhaltung (getrennt von der Tages-Session)" style="padding:4px 9px">＋</button></div>
+          <span style="flex:1"></span><button type="button" class="ghost" id="sess-test" title="Test-Chat: zum gefahrlosen Ausprobieren — dieser Verlauf leckt NICHT in Kiras Langzeit-Gedaechtnis (andere Chats sehen ihn nie)" style="padding:4px 9px">✱</button><button type="button" class="ghost" id="sess-new" title="Neue Unterhaltung (getrennt von der Tages-Session)" style="padding:4px 9px">＋</button></div>
         <div id="sess-items"><div class="muted" style="padding:10px">…</div></div>
         <div class="sp-f"><a id="sess-archtoggle" class="muted" style="cursor:pointer;font-size:11px">Archiv anzeigen</a></div>
       </div>
@@ -146,6 +159,8 @@ VIEWS = r"""</head><body>
           <span style="flex:1"></span>
           <button type="button" class="ghost" id="sess-toggle" title="Drueberfahren = Gespraeche auf · Klick = angepinnt (bleibt offen)" style="padding:5px 12px;font-size:12px">Chats</button>
         </div>
+        <!-- Kommandobruecke: offene Freigaben landen ALS KARTEN direkt im Gespraech -->
+        <div id="chat-frei"></div>
         <div id="log"></div>
         <!-- Werkbank UNTEN: Modus-Slider links (direkt ueber dem "+") · Werkzeuge rechts -->
         <div id="chat-tools">
@@ -184,13 +199,30 @@ VIEWS = r"""</head><body>
           <button id="sendbtn">Senden</button>
         </form>
       </div>
+      <!-- Kommandobruecke: DEIN TAG als dritte Spalte — Termine, Todos, Puls, ohne Tab-Wechsel -->
+      <aside id="chat-tag">
+        <div class="panel"><div class="panel-h">◈ TERMINE <span class="sp"></span><a class="mehr" data-go="me:tag">mehr ›</a></div>
+          <div class="panel-b" id="ct-termine"><span class="muted">…</span></div></div>
+        <div class="panel"><div class="panel-h">✓ TODOS <span class="sp"></span><a class="mehr" data-go="me:todos">alle ›</a></div>
+          <div class="panel-b" id="ct-todos"><span class="muted">…</span></div></div>
+        <div class="panel"><div class="panel-h">↯ PULS <span class="sp"></span><a class="mehr" data-go="kira:puls">mehr ›</a></div>
+          <div class="panel-b" id="ct-puls"><span class="muted">…</span></div></div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Kommandobruecke: Strg+K — ueberall hinspringen (Sessions, Bereiche, Aktionen) -->
+  <div id="pal-wrap" style="display:none">
+    <div id="pal">
+      <input id="pal-q" placeholder="Springen oder suchen …  (Esc schliesst)" autocomplete="off"/>
+      <div id="pal-list"></div>
     </div>
   </div>
 
   <!-- ================= ME (dein Bereich) ================= -->
   <div class="view" id="v-me">
     <div class="seg" id="me-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="tag" class="on">☀ Tag</a><a data-s="todos">✅ Todos</a><a data-s="freigaben">🔔 Freigaben</a><a data-s="routinen">⏰ Routinen</a><a data-s="post">✉ Post</a><a data-s="metriken">🎯 Ziele</a>
+      <a data-s="tag" class="on">☀︎ Tag</a><a data-s="todos">✓ Todos</a><a data-s="freigaben">● Freigaben</a><a data-s="routinen">◷ Routinen</a><a data-s="post">✉︎ Post</a><a data-s="metriken">◎ Ziele</a>
     </div>
 
     <!-- Werkbank PR 7: Me "Tag" — DEIN Erst-Blick (Kiras Erst-Blick ist der Puls).
@@ -264,7 +296,7 @@ VIEWS = r"""</head><body>
           </div>
           <div style="margin-top:7px">
             <span class="muted" style="font-size:10px">Schnell:</span>
-            <a class="chip au-preset" data-time="08:00" data-what="Erstelle mein Tages-Briefing aus dem Lagebericht: {{standup}} — 1) wie der Tag aussieht (Termine, faellige Todos), 2) was du heute vorhast, 3) EIN proaktiver Vorschlag. Warm, knapp, strukturiert — dann per Telegram senden.">☀ Morgen-Briefing</a>
+            <a class="chip au-preset" data-time="08:00" data-what="Erstelle mein Tages-Briefing aus dem Lagebericht: {{standup}} — 1) wie der Tag aussieht (Termine, faellige Todos), 2) was du heute vorhast, 3) EIN proaktiver Vorschlag. Warm, knapp, strukturiert — dann per Telegram senden.">☀︎ Morgen-Briefing</a>
           </div>
         </div>
       </div>
@@ -300,22 +332,22 @@ VIEWS = r"""</head><body>
          Die Sub-Leiste erscheint NUR, wenn die Gruppe mehr als einen Unterpunkt hat.
          Views/Loader unveraendert — nur Navigation und Benennung sind neu. -->
     <div class="seg" id="kira-groups" style="margin-bottom:12px">
-      <a data-g="puls" class="on" title="Was __AGENT__ heute tut und lernt — der erste Blick">⚡ Puls</a><a data-g="kopf" title="Was in ihr steckt: Charakter, Gedaechtnis, Wissen, Playbooks">🧠 Kopf</a><a data-g="automatik" title="Was von allein laeuft: Routinen, Monitor, Freigabe-Regeln">⏰ Automatik</a><a data-g="maschine" title="Technik-Details fuer selten: Diagnose, Anatomie, Statistik, Protokoll">🔧 Maschinenraum</a>
+      <a data-g="puls" class="on" title="Was __AGENT__ heute tut und lernt — der erste Blick">↯ Puls</a><a data-g="kopf" title="Was in ihr steckt: Charakter, Gedaechtnis, Wissen, Playbooks">◆ Kopf</a><a data-g="automatik" title="Was von allein laeuft: Routinen, Monitor, Freigabe-Regeln">◷ Automatik</a><a data-g="maschine" title="Technik-Details fuer selten: Diagnose, Anatomie, Statistik, Protokoll">⚒︎ Maschinenraum</a>
     </div>
     <div class="seg" id="kira-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="puls" class="on">⚡ Puls</a><a data-s="files">Charakter</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="playbooks">Playbooks</a><a data-s="cron">Routinen</a><a data-s="monitor">Monitor</a><a data-s="gov">Autonomie</a><a data-s="checkliste">Checkliste</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a><a data-s="evolution">Evolution</a><a data-s="log">Protokoll</a>
+      <a data-s="puls" class="on">↯ Puls</a><a data-s="files">Charakter</a><a data-s="mem">Gedaechtnis</a><a data-s="wissen">Wissen</a><a data-s="playbooks">Playbooks</a><a data-s="cron">Routinen</a><a data-s="monitor">Monitor</a><a data-s="gov">Autonomie</a><a data-s="checkliste">Checkliste</a><a data-s="anatomie">Anatomie</a><a data-s="stats">Statistik</a><a data-s="evolution">Evolution</a><a data-s="log">Protokoll</a>
     </div>
 
     <div class="subview on" id="v-puls">
-      <div class="card"><h3>⚡ Puls — was __AGENT__ heute tut und lernt</h3>
+      <div class="card"><h3>↯ Puls — was __AGENT__ heute tut und lernt</h3>
         <div class="muted">Erster Blick auf SIE: heute getan, zuletzt gelernt, Skills.
-        Tiefer: 🧠 Kopf (Gedaechtnis, Wissen) · 🔧 Maschinenraum (Checkliste, Statistik).</div>
+        Tiefer: ◆ Kopf (Gedaechtnis, Wissen) · ⚒︎ Maschinenraum (Checkliste, Statistik).</div>
         <div id="puls-body" style="margin-top:10px"><span class="muted">…</span></div>
       </div>
     </div>
 
     <div class="subview" id="v-keys">
-      <div class="card"><h3>🔊 Kira-Stimme (ElevenLabs)</h3>
+      <div class="card"><h3>◉ Kira-Stimme (ElevenLabs)</h3>
         <div class="muted">Kira spricht auf Sprachnachrichten zurück. Key hier einfügen, Schalter an —
           fertig. Regel: Sprichst du, spricht sie; tippst du, bleibt's Text. <span id="voice-stat"></span></div>
         <div class="row" style="margin-top:8px">
@@ -326,12 +358,12 @@ VIEWS = r"""</head><body>
           <label class="chip tog"><input type="checkbox" id="voice-on"/> Sprachantworten an</label>
           <input id="voice-id" placeholder="Stimme-ID (leer = Standard)" style="min-width:220px"/>
           <button id="voice-save">Übernehmen</button>
-          <button id="voice-test" class="ghost">🔊 Test</button>
+          <button id="voice-test" class="ghost">◉ Test</button>
           <span class="muted" id="voice-hint" style="align-self:center"></span>
         </div>
         <div id="voice-testout" class="muted" style="margin-top:6px"></div>
       </div>
-      <div class="card"><h3>📱 Handy-Zugriff (PWA)</h3>
+      <div class="card"><h3>▯ Handy-Zugriff (PWA)</h3>
         <div class="muted">Cockpit als App auf dem Handy — empfohlener Weg: <b>Tailscale Serve</b> auf
           diesem PC (<code>tailscale serve --bg 8000</code>) → nur deine eigenen Geräte kommen ran, HTTPS
           inklusive. Das Token hier ist die zweite Schicht: am Handy einmal eingeben, dann
@@ -339,7 +371,7 @@ VIEWS = r"""</head><body>
         <div class="row" style="margin-top:8px;flex-wrap:wrap;gap:10px;align-items:center">
           <button id="remote-toggle">…</button>
           <code id="remote-token" style="display:none;user-select:all;background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:6px 9px;font-size:12px"></code>
-          <button id="remote-copy" class="ghost" style="display:none">📋 Token kopieren</button>
+          <button id="remote-copy" class="ghost" style="display:none">≡ Token kopieren</button>
           <span class="muted" id="remote-hint" style="font-size:12px"></span>
         </div>
       </div>
@@ -370,17 +402,17 @@ VIEWS = r"""</head><body>
         <textarea id="mem-new" class="k" style="margin-top:8px" placeholder="z.B. __USER__ bevorzugt kurze, direkte Antworten."></textarea>
         <div class="row" style="margin-top:8px"><button id="mem-add">+ Merken</button><span class="muted" id="mem-hint" style="align-self:center"></span></div>
       </div>
-      <div class="muted" style="margin:6px 0 8px;max-width:980px">Was Kira sich merkt — 🧠 = sie selbst, 👤 = du. ✎ bearbeiten, ✕ loeschen. (Verfassung/Seele/Ziel sind Dateien und bleiben unberuehrt.)</div>
+      <div class="muted" style="margin:6px 0 8px;max-width:980px">Was Kira sich merkt — ◆ = sie selbst, ● = du. ✎ bearbeiten, ✕ loeschen. (Verfassung/Seele/Ziel sind Dateien und bleiben unberuehrt.)</div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:4px 0 12px;max-width:980px">
         <!-- Gedaechtnis-Diaet (Praxis-Fund): Standard = nur bewusst Gemerktes; der rohe
              Chat-Verlauf liegt hinter 'chat' und flutet die Liste nicht mehr -->
-        <span class="seg" id="mem-filter"><a data-mf="wichtig" class="on">★ wichtig</a><a data-mf="fact">Fakten</a><a data-mf="lesson">Lektionen</a><a data-mf="skill">Skills</a><a data-mf="episodic">chat</a><a data-mf="partner">🧠 __AGENT__</a><a data-mf="user">👤 Du</a><a data-mf="all">alles</a></span>
-        <input id="mem-search" placeholder="🔍 suchen…" style="flex:1;min-width:150px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);outline:none"/>
+        <span class="seg" id="mem-filter"><a data-mf="wichtig" class="on">★ wichtig</a><a data-mf="fact">Fakten</a><a data-mf="lesson">Lektionen</a><a data-mf="skill">Skills</a><a data-mf="episodic">chat</a><a data-mf="partner">◆ __AGENT__</a><a data-mf="user">● Du</a><a data-mf="all">alles</a></span>
+        <input id="mem-search" placeholder="⌕ suchen…" style="flex:1;min-width:150px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);outline:none"/>
       </div>
       <div id="mem-selbar" style="display:none;gap:10px;align-items:center;margin:0 0 10px;max-width:980px;
         background:var(--panel);border:1px solid var(--accent);border-radius:10px;padding:7px 12px">
         <b id="mem-selcount" style="font-size:13px">0 ausgewaehlt</b>
-        <button class="ghost" id="mem-del-batch" style="font-size:12px">🗑 Auswahl loeschen</button>
+        <button class="ghost" id="mem-del-batch" style="font-size:12px">✕ Auswahl loeschen</button>
         <a id="mem-sel-clear" class="muted" style="cursor:pointer;font-size:12px">abwaehlen</a>
       </div>
       <div id="memlist" style="max-width:980px"></div>
@@ -392,7 +424,7 @@ VIEWS = r"""</head><body>
         <div class="panel"><div class="panel-h">◈ WISSEN FUETTERN — Datei oder Notiz</div>
           <div class="panel-b">
             <div class="row" style="flex-wrap:wrap">
-              <label class="ghost" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer">📄 Datei waehlen<input id="kn-file" type="file" accept=".txt,.md,.markdown,.html,.htm,.pdf,.csv,.log,.json,.yaml,.yml" style="display:none"/></label>
+              <label class="ghost" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer">▤ Datei waehlen<input id="kn-file" type="file" accept=".txt,.md,.markdown,.html,.htm,.pdf,.csv,.log,.json,.yaml,.yml" style="display:none"/></label>
               <span class="muted" id="kn-file-hint" style="align-self:center">txt · md · html · pdf (max 15 MB) — oder per Telegram schicken</span>
             </div>
             <input id="kn-title" placeholder="Titel der Notiz" style="margin-top:10px;width:100%"/>
@@ -402,7 +434,7 @@ VIEWS = r"""</head><body>
         </div>
         <div class="panel"><div class="panel-h">◈ IM ARCHIV SUCHEN</div>
           <div class="panel-b">
-            <input id="kn-q" placeholder="🔍 Was suchst du im Archiv?" style="width:100%"/>
+            <input id="kn-q" placeholder="⌕ Was suchst du im Archiv?" style="width:100%"/>
             <div id="kn-results" style="margin-top:8px"><span class="muted">…</span></div>
           </div>
         </div>
@@ -508,7 +540,7 @@ VIEWS = r"""</head><body>
       <div class="card"><h3>Zaehe Ziele</h3><div id="st-objs" class="muted">…</div></div>
       <div class="card"><h3>Wiederkehrende Pruefer-Kritik</h3><div id="st-themes" class="muted">…</div></div>
       <div class="card"><h3>Strategien — lohnt Eskalation?</h3><div id="st-strats" class="muted">…</div></div>
-      <div class="card"><h3>💶 Kosten je Modell (7 Tage)</h3><div id="st-costs" class="muted">…</div></div>
+      <div class="card"><h3>€ Kosten je Modell (7 Tage)</h3><div id="st-costs" class="muted">…</div></div>
     </div>
 
   <!-- Config aufgeloest: die Technik-Unterreiter leben jetzt als Kira-Subtabs weiter -->
@@ -562,15 +594,15 @@ VIEWS = r"""</head><body>
       <div class="row" style="margin-top:4px;flex-wrap:wrap">
         <label class="muted" style="align-self:center">Zuweisen an:</label>
         <select id="cat-role">
-          <option value="chat">💬 Chat (Smalltalk)</option>
-          <option value="reason">🧠 Denker (Reason/Coding)</option>
-          <option value="bulk">⏰ Crons (einfach)</option>
-          <option value="classify">🐜 Reflex (lokal, 0€)</option>
-          <option value="worker">🔧 Arbeiter (Delegation)</option>
-          <option value="escalation">⚡ Eskalation</option>
+          <option value="chat">› Chat (Smalltalk)</option>
+          <option value="reason">◆ Denker (Reason/Coding)</option>
+          <option value="bulk">◷ Crons (einfach)</option>
+          <option value="classify">· Reflex (lokal, 0€)</option>
+          <option value="worker">⚒︎ Arbeiter (Delegation)</option>
+          <option value="escalation">↯ Eskalation</option>
           <option value="default">★ Default (alles)</option>
         </select>
-        <input id="cat-search" placeholder="🔍 suchen: deepseek, flash, claude, gemini, qwen …" style="min-width:240px;flex:1"/>
+        <input id="cat-search" placeholder="⌕ suchen: deepseek, flash, claude, gemini, qwen …" style="min-width:240px;flex:1"/>
       </div>
       <div id="cat-list" style="max-height:340px;overflow:auto;margin-top:8px;font-size:12px"></div>
       <div class="muted" id="cat-hint" style="margin-top:6px"></div>
@@ -579,7 +611,7 @@ VIEWS = r"""</head><body>
 
   <!-- ============ STEUERPULT: des Nutzers Riegel ueber die Schwarmintelligenz ============ -->
   <div class="subview" id="v-steuer">
-    <div class="card"><h3>🎛 Steuerpult — dein Riegel über die Schwarmintelligenz</h3>
+    <div class="card"><h3>≣ Steuerpult — dein Riegel über die Schwarmintelligenz</h3>
       <div class="muted">Kira arbeitet in <b>Rängen</b> (Reflex → Arbeiter → Denker → Richter). Hier bestimmst du,
       <b>welches Modell hinter jedem Rang steht</b>, wie viel ein Unteragent darf — und schickst der Armee
       <b>direkte Befehle</b>, ohne dass ein Modell mitreden muss. Im Chat geht dasselbe per
@@ -595,10 +627,10 @@ VIEWS = r"""</head><body>
     <div class="card"><h3>Schwarm-Regler — wie viel deine Armee darf</h3>
       <div class="row" style="flex-wrap:wrap;gap:10px;margin-top:6px">
         <label class="muted" style="align-self:center">Schritte je Unteragent:</label>
-        <label class="muted" style="align-self:center">🐜<input id="st-s-reflex" type="number" min="1" max="40" style="width:64px"/></label>
-        <label class="muted" style="align-self:center">🔧<input id="st-s-arbeiter" type="number" min="1" max="40" style="width:64px"/></label>
-        <label class="muted" style="align-self:center">🧠<input id="st-s-denker" type="number" min="1" max="40" style="width:64px"/></label>
-        <label class="muted" style="align-self:center">⚖<input id="st-s-richter" type="number" min="1" max="40" style="width:64px"/></label>
+        <label class="muted" style="align-self:center">·<input id="st-s-reflex" type="number" min="1" max="40" style="width:64px"/></label>
+        <label class="muted" style="align-self:center">⚒︎<input id="st-s-arbeiter" type="number" min="1" max="40" style="width:64px"/></label>
+        <label class="muted" style="align-self:center">◆<input id="st-s-denker" type="number" min="1" max="40" style="width:64px"/></label>
+        <label class="muted" style="align-self:center">⚖︎<input id="st-s-richter" type="number" min="1" max="40" style="width:64px"/></label>
       </div>
       <div class="row" style="flex-wrap:wrap;gap:10px;margin-top:8px">
         <label class="muted" style="align-self:center">Schwarm-Breite (max. Unteragenten)</label>
@@ -611,17 +643,17 @@ VIEWS = r"""</head><body>
     </div>
     <div class="card"><h3>Rechner steuern — Kira sieht den Bildschirm &amp; bedient Maus/Tastatur</h3>
       <div class="muted" style="margin-top:4px;font-size:12px">Macht-Schritt 1: damit steuert Kira jedes Programm auf dem PC — auch ohne API (Photoshop, Desktop-Apps, Legacy-Tools). Jede Aktion landet im Protokoll; Not-Aus stoppt sie sofort. <b>Standard aus</b> — bewusst freischalten.</div>
-      <label class="chip tog" id="st-cu-l" style="margin-top:10px;display:inline-flex"><input type="checkbox" id="st-cu"/> 🖥 Rechner-Steuerung erlauben</label>
+      <label class="chip tog" id="st-cu-l" style="margin-top:10px;display:inline-flex"><input type="checkbox" id="st-cu"/> ▣ Rechner-Steuerung erlauben</label>
       <span class="muted" id="st-cu-hint" style="margin-left:8px"></span>
     </div>
     <div class="card"><h3>Kommandobrücke — Auftrag direkt an die Armee</h3>
       <div class="row" style="flex-wrap:wrap;gap:10px;margin-top:6px">
         <label class="muted" style="align-self:center">Rang:</label>
         <select id="st-cmd-rang">
-          <option value="reflex">🐜 Reflex (lokal, 0€)</option>
-          <option value="arbeiter" selected>🔧 Arbeiter (billig)</option>
-          <option value="denker">🧠 Denker</option>
-          <option value="richter">⚖ Richter (teuer, selten!)</option>
+          <option value="reflex">· Reflex (lokal, 0€)</option>
+          <option value="arbeiter" selected>⚒︎ Arbeiter (billig)</option>
+          <option value="denker">◆ Denker</option>
+          <option value="richter">⚖︎ Richter (teuer, selten!)</option>
         </select>
         <label class="chip tog" style="align-self:center"><input type="checkbox" id="st-cmd-schwarm"/> als Schwarm (Liste)</label>
       </div>
@@ -657,7 +689,7 @@ VIEWS = r"""</head><body>
         <span class="muted" id="au-hint" style="align-self:center"></span>
       </div></div>
     <div class="card"><h3>Audit — protokollierte Aussen-Aktionen</h3><div id="g-audit" class="muted">…</div></div>
-    <div class="card"><h3>💶 Kosten-Aufschluesselung (heute · 7 Tage)</h3><div id="g-costs" class="muted">…</div></div>
+    <div class="card"><h3>€ Kosten-Aufschluesselung (heute · 7 Tage)</h3><div id="g-costs" class="muted">…</div></div>
   </div>
 
   <div class="subview" id="v-cron">
@@ -693,16 +725,16 @@ VIEWS = r"""</head><body>
   <div class="subview" id="v-log">
     <div id="log-filters" style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
       <a href="#" data-f="all" class="pill on">Alles</a>
-      <a href="#" data-f="error" class="pill">⚠ Fehler</a>
-      <a href="#" data-f="action" class="pill">⚡ Aktionen</a>
-      <a href="#" data-f="chat" class="pill">💬 Chat</a>
+      <a href="#" data-f="error" class="pill">⚠︎ Fehler</a>
+      <a href="#" data-f="action" class="pill">↯ Aktionen</a>
+      <a href="#" data-f="chat" class="pill">› Chat</a>
     </div>
     <div id="evlog"></div>
     <div style="text-align:center;margin-top:12px"><button class="ghost" id="log-more">mehr laden ↓</button></div>
   </div>
 
   <div class="subview" id="v-bench">
-    <div class="card"><h3>🧬 Tuning-Werkbank — unser eigenes LLM</h3>
+    <div class="card"><h3>∿ Tuning-Werkbank — unser eigenes LLM</h3>
       <div class="muted" style="font-size:12px;margin-top:4px">Kira sammelt bei jeder echten Unterhaltung still Trainingsmaterial und generiert Struktur-Beispiele live aus ihrer Werkzeug-Registry. Der Export ist ein Standard-JSONL — das Training selbst läuft <b>außerhalb</b> von Kira (Anleitung: docs/TUNING.md). Das getunte Modell erscheint danach einfach als weiteres Ollama-Modell im Dropdown; Cloud-Modelle bleiben unberührt.</div>
       <div id="tun-stats" style="margin-top:8px"><span class="muted">…</span></div>
       <div class="row" style="gap:10px;margin-top:8px;align-items:center">
@@ -710,7 +742,7 @@ VIEWS = r"""</head><body>
         <span class="muted" id="tun-hint" style="font-size:12px"></span>
       </div>
     </div>
-    <div class="card"><h3>🏁 Coding-Benchmark</h3>
+    <div class="card"><h3>⚑︎ Coding-Benchmark</h3>
       <div class="muted"><b>HumanEval</b> = der internationale Standard (164 genormte Python-Aufgaben,
       pass@1 — direkt vergleichbar mit publizierten Scores: Frontier-Modelle ~90 %+, starke offene
       Modelle grob 70–90 %). Misst das <b>Modell</b> auf der gewählten Rolle. <b>SWE-bench Lite</b> =
@@ -720,7 +752,7 @@ VIEWS = r"""</head><body>
       Pipeline-Test (Kira löst Aufgaben im isolierten Wegwerf-Arbeitsbaum — beweist die Kette, misst
       keine Leistung). Alles live, nichts berührt Repo oder Gedächtnis.</div>
       <div class="row" style="margin-top:10px;align-items:center;gap:12px;flex-wrap:wrap">
-        <button id="bench-start">▶ Benchmark starten</button>
+        <button id="bench-start">► Benchmark starten</button>
         <button id="bench-stop" class="ghost" style="display:none">■ Stopp</button>
         <select id="bench-suite" title="Welcher Test">
           <option value="humaneval" selected>HumanEval (international)</option>
@@ -743,9 +775,9 @@ VIEWS = r"""</head><body>
       <div class="muted" style="margin-top:6px;font-size:11.5px">Tipp: 20 Aufgaben ≈ schneller Eindruck (±10 %), alle 164 ≈ belastbare Zahl. Rolle wechseln → Modelle direkt vergleichen. Cloud-Rollen kosten pro Aufgabe wenige Cent oder weniger.</div>
       <div id="bench-score" style="margin-top:12px;font-size:20px;font-weight:600"></div>
     </div>
-    <div class="card"><h3>🏆 Leaderboard — deine Läufe</h3>
+    <div class="card"><h3>★ Leaderboard — deine Läufe</h3>
       <div class="row" style="align-items:center;gap:10px;margin-bottom:8px">
-        <button id="bench-copy" class="ghost">📋 Als Tabelle kopieren</button>
+        <button id="bench-copy" class="ghost">≡ Als Tabelle kopieren</button>
         <span class="muted" id="bench-copy-hint" style="font-size:12px"></span>
       </div>
       <div id="bench-results" class="muted" style="overflow-x:auto">…</div>
@@ -756,7 +788,7 @@ VIEWS = r"""</head><body>
   </div>
 
   <div class="subview" id="v-wall">
-    <div class="card"><h3>🖥 Wallpaper-Editor</h3>
+    <div class="card"><h3>▣ Wallpaper-Editor</h3>
       <div class="muted">Stellt die Desktop-Seite <b>/wall</b> (Lively-Wallpaper) live ein: welche Stats oben
       erscheinen, Bewegung/Worte, Farbe, Position, Größe und die Modus-Farben. Wird serverseitig
       gespeichert — das Wallpaper zieht in ~3&nbsp;s nach.</div>
@@ -809,7 +841,7 @@ VIEWS = r"""</head><body>
       <div class="row" style="margin-top:8px;align-items:center;gap:12px">
         <img id="logo-prev" src="/api/icon" alt="" onerror="this.style.visibility='hidden'"
           style="width:46px;height:46px;border-radius:10px;object-fit:cover;border:1px solid var(--line)"/>
-        <label class="ghost" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer">🖼 Logo waehlen<input id="set-logo" type="file" accept="image/png,image/jpeg,image/webp" style="display:none"/></label>
+        <label class="ghost" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer">▣ Logo waehlen<input id="set-logo" type="file" accept="image/png,image/jpeg,image/webp" style="display:none"/></label>
         <button class="ghost" id="set-logo-clear">Entfernen</button>
         <span class="muted" id="set-logo-hint" style="align-self:center"></span>
       </div>
@@ -819,7 +851,7 @@ VIEWS = r"""</head><body>
       startet die App — und richtet den <b>Autostart</b> ein. Danach das laufende Fenster per
       <b>Rechtsklick → „An Taskleiste anheften"</b>. Ein Klick, kein Ordner. (Nur Windows.)</div>
       <div class="row" style="margin-top:8px;align-items:center;gap:10px">
-        <button id="make-shortcut">🖥 Desktop-Icon erstellen</button>
+        <button id="make-shortcut">▣ Desktop-Icon erstellen</button>
         <span class="muted" id="make-shortcut-hint" style="font-size:12px;align-self:center"></span>
       </div>
     </div>
@@ -828,7 +860,7 @@ VIEWS = r"""</head><body>
       frischen Anfang, wenn alte Gespräche die Antworten verwässern. Deine <b>Fakten &amp; Skills
       bleiben</b>, und alles Gelöschte wird vorher gesichert (<code>data/backups/</code>).</div>
       <div class="row" style="margin-top:8px;align-items:center;gap:10px">
-        <button id="reset-episodic" style="border-color:var(--danger);color:var(--danger)">🧹 Chat-Verlauf zurücksetzen</button>
+        <button id="reset-episodic" style="border-color:var(--danger);color:var(--danger)">≋ Chat-Verlauf zurücksetzen</button>
         <span class="muted" id="reset-episodic-hint" style="font-size:12px;align-self:center"></span>
       </div>
     </div>
@@ -836,7 +868,7 @@ VIEWS = r"""</head><body>
       <div class="muted">Ihr Gesicht im Cockpit: gross in der Zentrale, klein an ihren Chat-Antworten.
       Erzeuge Bilder z.B. in <b>Higgsfield</b> und lade sie hier hoch (quadratisch wirkt am besten).</div>
       <div class="row" style="margin-top:8px">
-        <label class="ghost" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer">🖼 Avatar waehlen<input id="set-avatar" type="file" accept="image/*" style="display:none"/></label>
+        <label class="ghost" style="display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border:1px solid var(--line);border-radius:8px;cursor:pointer">▣ Avatar waehlen<input id="set-avatar" type="file" accept="image/*" style="display:none"/></label>
         <button class="ghost" id="set-avatar-clear">Avatar entfernen</button>
         <span class="muted" id="set-avatar-hint" style="align-self:center"></span>
       </div>
@@ -887,7 +919,7 @@ VIEWS = r"""</head><body>
        hierher um (script.py) — kleinster Eingriff in den Monolith. ================= -->
   <div class="view" id="v-settings">
     <div class="seg" id="settings-tabs" style="margin-bottom:12px;display:inline-flex;flex-wrap:wrap">
-      <a data-s="models" class="on">⚙ Modelle</a><a data-s="bench">🏁 Benchmark</a><a data-s="steuer">🎛 Steuerpult</a><a data-s="keys">Zugaenge</a><a data-s="cockpit">Cockpit</a><a data-s="wall">🖥 Wallpaper</a>
+      <a data-s="models" class="on">⚙︎ Modelle</a><a data-s="bench">⚑︎ Benchmark</a><a data-s="steuer">≣ Steuerpult</a><a data-s="keys">Zugaenge</a><a data-s="cockpit">Cockpit</a><a data-s="wall">▣ Wallpaper</a>
     </div>
   </div>
 </div>

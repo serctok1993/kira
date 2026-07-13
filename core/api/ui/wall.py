@@ -204,7 +204,7 @@ WALL_HTML = r"""<!doctype html><html lang="de"><head><meta charset="utf-8"/>
   <div id="aura"></div>
   <canvas id="graph"></canvas>
   <div class="edge"></div>
-  <button class="gear" id="gear" title="Desktop-Einstellungen">⚙</button>
+  <button class="gear" id="gear" title="Desktop-Einstellungen">⚙︎</button>
   <div class="wpop" id="wpop">
     <div class="wt">Vault-Graph</div>
     <label><input type="checkbox" id="w-labels"/> Worte (Labels)</label>

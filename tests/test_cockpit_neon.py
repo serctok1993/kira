@@ -191,8 +191,8 @@ def test_chat_politur():
 
 def test_ziele_dashboard():
     # Me-Subtab heisst jetzt "Ziele", nicht mehr "Metriken"
-    assert '>🎯 Ziele</a>' in VIEWS
-    assert '>📊 Metriken</a>' not in VIEWS
+    assert '>◎ Ziele</a>' in VIEWS          # Emoji-Sweep: flache Glyphe statt 🎯
+    assert 'Metriken</a>' not in VIEWS
     assert "◈ ZIELE-DASHBOARD" in VIEWS
     # manuelles Eintragen + Zentrale-Karte fuer angeheftete Kennzahlen
     for m in ('id="zm-name"', 'id="zm-add"', 'id="z-ziele-panel"', 'id="z-ziele"'):
@@ -214,7 +214,7 @@ def test_automatisierungspanel():
     for m in ('id="au-what"', 'id="au-time"', 'id="au-interval"', 'id="au-now"', 'id="au-add"'):
         assert m in VIEWS, f"Automatik-Feld fehlt: {m}"
     # Morgen-Briefing lebt als Schnell-Vorlage weiter (nicht mehr der einzige Weg)
-    assert 'class="chip au-preset"' in VIEWS and '☀ Morgen-Briefing' in VIEWS
+    assert 'class="chip au-preset"' in VIEWS and 'Morgen-Briefing' in VIEWS
     # JS: legt eine Routine an (scope me), Preset fuellt das Feld
     assert '$("#au-add")' in SCRIPT and '"/api/cron/add"' in SCRIPT
     assert 'scope:"me"' in SCRIPT

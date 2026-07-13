@@ -28,7 +28,7 @@ function rndPhrase(){if(PHRASES.length<2)return PHRASES[0]||"ich denke kurz nach
  let p=PHRASES[Math.floor(Math.random()*PHRASES.length)],g=0;
  while(p===_lastPhrase&&g++<8)p=PHRASES[Math.floor(Math.random()*PHRASES.length)];
  _lastPhrase=p;return p;}
-let cur="home";
+let cur="chat";  /* Kommandobruecke: der Chat ist das Herzstueck und die Startflaeche */
 $$("#side a").forEach(a=>a.onclick=()=>{nav(a.dataset.v);document.body.classList.remove("side-open");});
 /* S6.4: mobiles Seitenmenue ein-/ausklappen */
 $("#burger")&&($("#burger").onclick=()=>document.body.classList.toggle("side-open"));
@@ -36,7 +36,7 @@ function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle(
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");};
  if(document.startViewTransition&&!matchMedia("(prefers-reduced-motion: reduce)").matches){document.startViewTransition(go);}else{go();}
  if(v==="home")loadCommand();
- if(v==="chat"){loadChatModels();loadChatSessions();}
+ if(v==="chat"){loadChatModels();loadChatSessions();loadChatSide();}
  if(v==="me")loadMe();
  if(SUBTABS[v])subnav(v,SUBTABS[v].cur);}
 
@@ -187,7 +187,7 @@ function kiraGroup(gk){const grp=KIRA_GROUPS.find(x=>x.key===gk);if(!grp)return;
  if(grp.subs.includes(SUBTABS.kira.cur))syncKiraGroup(SUBTABS.kira.cur);  /* schon in der Gruppe -> nur filtern */
  else subnav("kira",grp.subs[0]);}                                        /* sonst zum ersten Sub-Tab */
 $$("#kira-groups a").forEach(a=>a.onclick=()=>kiraGroup(a.dataset.g));
-/* ⚙ Einstellungen-Shortcut in der Topbar: springt in den eigenen Einstellungen-Tab (PR 3). */
+/* ⚙︎ Einstellungen-Shortcut in der Topbar: springt in den eigenen Einstellungen-Tab (PR 3). */
 $("#gear")&&($("#gear").onclick=()=>nav("settings"));
 syncKiraGroup(SUBTABS.kira.cur||"puls");  /* Startzustand: Reiter 'Puls' aktiv */
 /* Icons pro Tab anpassbar (localStorage kira_icons: {"home":"◈",...}) — Pflege in Kira->Cockpit */
@@ -266,13 +266,13 @@ async function loadTag(){const el=$("#tag-heute");if(!el)return;try{
   fetch("/api/termine").then(r=>r.json()).catch(()=>({}))]);
  const b=(lb&&lb.board)||{};
  const t0=new Date();t0.setHours(0,0,0,0);const start=t0.getTime()/1000;
- const row=t=>{const due=t.due_date?(' <span class="muted">&#9200;'+esc(t.due_date)+'</span>'):'';
+ const row=t=>{const due=t.due_date?(' <span class="muted">◷'+esc(t.due_date)+'</span>'):'';
   const act=t.status==="pending"?' <a data-tgdone="'+esc(t.id)+'" style="cursor:pointer;color:var(--ok)" title="abhaken">&#10003;</a>':'';
   return '<div class="op" style="border-radius:8px;margin-bottom:3px"><span class="od"></span><span class="opx">'+esc((t.description||"").slice(0,150))+due+'</span>'+act+'</div>';};
  const heute=(b.running||[]).concat(b.today||[]);
  const rest=(b.week||[]).length+(b.later||[]).length;
- el.innerHTML=(heute.length?heute.map(row).join(""):'<div class="emptybox">Heute ist nichts faellig.<br>Neues kommt unter ✅ Todos rein.</div>')
-  +(rest?'<div class="muted" style="font-size:11px;margin-top:6px">+ '+rest+' weitere offen → ✅ Todos</div>':'');
+ el.innerHTML=(heute.length?heute.map(row).join(""):'<div class="emptybox">Heute ist nichts faellig.<br>Neues kommt unter ✓ Todos rein.</div>')
+  +(rest?'<div class="muted" style="font-size:11px;margin-top:6px">+ '+rest+' weitere offen → ✓ Todos</div>':'');
  $$('#tag-heute [data-tgdone]').forEach(a=>a.onclick=async()=>{
   await fetch("/api/mission/task/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.tgdone,status:"done"})});
   toast("abgehakt","ok");loadTag();});
@@ -284,9 +284,9 @@ async function loadTag(){const el=$("#tag-heute");if(!el)return;try{
  const jobs=((cr&&cr.jobs)||[]).filter(j=>(j.scope||"system")==="me"&&j.enabled&&j.next_run&&j.next_run<end);
  const re=$("#tag-routinen");if(re)re.innerHTML=jobs.length
   ?jobs.map(j=>'<div class="memrow" style="font-size:12.5px"><b>'+new Date(j.next_run*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})+'</b> '+esc(j.label||"")+'</div>').join("")
-  :'<div class="emptybox">Heute keine Routinen mehr.<br>Anlegen unter ⏰ Routinen.</div>';
+  :'<div class="emptybox">Heute keine Routinen mehr.<br>Anlegen unter ◷ Routinen.</div>';
  const fr=$("#tag-frei");if(fr){const n=(dg&&dg.pending_approvals)|0;
-  fr.innerHTML=n?('<a style="cursor:pointer;color:var(--warn)">🔔 '+n+' Freigabe'+(n>1?'n':'')+' offen</a>'):'';
+  fr.innerHTML=n?('<a style="cursor:pointer;color:var(--warn)">● '+n+' Freigabe'+(n>1?'n':'')+' offen</a>'):'';
   const fa=fr.querySelector("a");if(fa)fa.onclick=()=>subnav("me","freigaben");}
  const di=$("#tag-digest");if(di)di.innerHTML=dg
   ?('<div style="font-size:13px"><b>'+(dg.tasks_done_count||0)+'</b> Schritte erledigt · <b>'+(dg.planned||0)+'</b> geplant'
@@ -310,12 +310,49 @@ async function loadMeCrons(){const el=$("#me-crons");if(!el)return;try{
  const mine=(d.jobs||[]).filter(j=>(j.scope||"system")==="me");
  el.innerHTML=mine.length?mine.map(j=>{
   const nxt=j.next_run?new Date(j.next_run*1000).toLocaleString([],{weekday:"short",hour:"2-digit",minute:"2-digit"}):"—";
-  return '<div class="memrow"><div class="mh"><span class="badge kind">'+(j.enabled?"AN":"aus")+'</span>'
-   +'<b>'+esc(j.label||"")+'</b><span class="muted" style="font-size:11px">'+esc(j.schedule_text||"")+' · naechster: '+nxt+'</span>'
-   +'<span style="flex:1"></span><a data-ctog="'+esc(j.id)+'" style="cursor:pointer;color:var(--hud)">'+(j.enabled?"pausieren":"aktivieren")+'</a></div></div>';}).join("")
+  return '<div class="memrow" data-cid="'+esc(j.id)+'"><div class="mh"><span class="badge kind">'+(j.enabled?"AN":"aus")+'</span>'
+   +'<b data-cedit="'+esc(j.id)+'" style="cursor:pointer" title="klicken: bearbeiten">'+esc(j.label||"")+'</b>'
+   +'<span class="muted" style="font-size:11px">'+esc(j.schedule_text||"")+' · naechster: '+nxt+'</span>'
+   +'<span style="flex:1"></span>'
+   +'<a data-cedit="'+esc(j.id)+'" style="cursor:pointer;color:var(--muted)" title="Name, Zeitplan und Auftrag aendern — im Auftrag sind URLs erlaubt (z.B. eine Tracking-Seite)">bearbeiten</a>'
+   +'<a data-ctog="'+esc(j.id)+'" style="cursor:pointer;color:var(--hud);margin-left:10px">'+(j.enabled?"pausieren":"aktivieren")+'</a></div>'
+   +'<div class="cron-edit" style="display:none"></div></div>';}).join("")
   :'<div class="emptybox">Noch keine Routinen.<br>Unten eine Automatisierung einrichten — oder sag es mir per Telegram.</div>';
  el.querySelectorAll("[data-ctog]").forEach(a=>a.onclick=async()=>{
   await fetch("/api/cron/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.ctog})});loadMeCrons();});
+ /* Kommandobruecke-Feedback: Routine anklicken -> inline bearbeiten (Name, Zeitplan,
+    Auftrag). Der Auftrag ist freier Text — URLs (Tracking-Seiten etc.) fahren einfach mit. */
+ el.querySelectorAll("[data-cedit]").forEach(a=>a.onclick=()=>{
+  const j=mine.find(x=>x.id===a.dataset.cedit);if(!j)return;
+  const row=el.querySelector('[data-cid="'+j.id+'"]');const box=row.querySelector(".cron-edit");
+  if(box.style.display!=="none"){box.style.display="none";return;}
+  el.querySelectorAll(".cron-edit").forEach(b=>b.style.display="none");
+  box.style.display="";
+  box.innerHTML='<div style="display:grid;gap:7px;padding:9px 4px 4px">'
+   +'<input class="k ce-label" placeholder="Name der Routine"/>'
+   +'<input class="k ce-sched" placeholder="Zeitplan — z.B. 07:30 · mo 20:00 · 60m"/>'
+   +'<textarea class="k ce-prompt" rows="3" placeholder="Was soll ich regelmaessig tun? URLs erlaubt — z.B. Oeffne https://… und melde mir die Zahl."></textarea>'
+   +'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ce-save">Speichern</button>'
+   +'<button class="ghost ce-test" title="einmal sofort ausfuehren (Probelauf)">► testen</button>'
+   +'<button class="ghost ce-del" style="color:var(--danger)">loeschen</button>'
+   +'<span style="flex:1"></span><button class="ghost ce-cancel">abbrechen</button></div></div>';
+  box.querySelector(".ce-label").value=j.label||"";
+  box.querySelector(".ce-sched").value=j.schedule_text||"";
+  box.querySelector(".ce-prompt").value=j.prompt||"";
+  box.querySelector(".ce-cancel").onclick=()=>box.style.display="none";
+  box.querySelector(".ce-save").onclick=async()=>{
+   await fetch("/api/cron/update",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({id:j.id,label:box.querySelector(".ce-label").value,
+     schedule:box.querySelector(".ce-sched").value,prompt:box.querySelector(".ce-prompt").value})});
+   toast("Routine gespeichert","ok");loadMeCrons();};
+  box.querySelector(".ce-test").onclick=async()=>{toast("Probelauf gestartet …","ok");
+   await fetch("/api/cron/runnow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:j.id})});
+   toast("Probelauf fertig — Ergebnis siehst du im Puls/Protokoll","ok");};
+  box.querySelector(".ce-del").onclick=async()=>{
+   if(!confirm('Routine "'+(j.label||"")+'" wirklich loeschen?'))return;
+   await fetch("/api/cron/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:j.id})});
+   toast("Routine geloescht","ok");loadMeCrons();};
+ });
 }catch(e){}}
 /* Automatisierungspanel: Uhrzeit/Intervall + freier Auftrag -> Routine (scope me). */
 $$('.au-preset').forEach(a=>a.onclick=()=>{
@@ -454,7 +491,7 @@ async function renderModelRows(term){const box=$("#model-rows");if(!box)return;
  term=(term||"").toLowerCase();
  const rows=MODEL_CACHE.filter(m=>!term||((m.id+" "+(m.name||"")).toLowerCase().includes(term))).slice(0,60);
  box.innerHTML=rows.length?rows.map(m=>{const rc=isReasoningModel(m.id);
-   const badge=rc?'<span class="rbadge" style="color:var(--ok)">🧠 denkt</span>':'<span class="rbadge muted">kein Reasoning</span>';
+   const badge=rc?'<span class="rbadge" style="color:var(--ok)">◆ denkt</span>':'<span class="rbadge muted">kein Reasoning</span>';
    const act=(m.id===cur)?' style="border:1px solid var(--chat-accent)"':'';
    const tip=rc?'Reasoning-faehig — der Denk-Tiefe-Regler wird aktiv':'Kein eingebautes Reasoning';
    return '<div class="cmd-row" data-mid="'+esc(m.id)+'" title="'+tip+'"'+act+'><span class="cmd-k">'+esc((m.name||m.id).slice(0,44))+'</span><span style="flex:1"></span>'+badge+'</div>';}).join("")
@@ -505,7 +542,7 @@ $("#cr-add").onclick=async()=>{const p=$("#cr-prompt").value.trim();if(!p)return
 /* Zentrale-Randdaten (PR 6 entschlackt): Fokus-Hinweis + letzte 3 Lektionen ins
    'Kira heute'-Panel; System/Modell/Budget leben im HUD-Streifen. */
 async function loadHome(){const o=await (await fetch("/api/overview")).json();
- try{const dz=await (await fetch("/api/direktive")).json();const dh=$("#dir-hint");if(dh&&dz.focus)dh.textContent="🧭 Aktueller Fokus: "+dz.focus.slice(0,140);}catch(e){}
+ try{const dz=await (await fetch("/api/direktive")).json();const dh=$("#dir-hint");if(dh&&dz.focus)dh.textContent="✧ Aktueller Fokus: "+dz.focus.slice(0,140);}catch(e){}
  /* Werkbank PR 6: Schnellzugriff-Karte ersatzlos raus (Sidebar reicht) — die letzten 3
     Lektionen wandern ins 'Kira heute'-Panel; die Historie lebt im Kira-Puls. */
  const zl=$("#z-lektionen");
@@ -542,12 +579,12 @@ async function loadHud(){const el=$("#hud-strip");if(!el)return;
   const errs=(st.errors_recent!=null)?st.errors_recent:((ec.turn_timeout||0)+(ec.llm_call_timeout||0)+(ec.service_crash||0)+(ec.act_degraded||0));
   const dayPct=b.day_limit?Math.min(100,Math.round(100*(b.day_spent||0)/b.day_limit)):0;
   const warn=dayPct>=85?" warn":"";
-  const kill=o.kill_switch?'<span style="color:var(--danger)">⛔ NOT-AUS</span>':'<span style="color:var(--ok)">● bereit</span>';
+  const kill=o.kill_switch?'<span style="color:var(--danger)">✕ NOT-AUS</span>':'<span style="color:var(--ok)">● bereit</span>';
   const model=(""+(o.model||"")).split("/").pop();
   const on=o.mission&&o.mission.heartbeat;
   const motor='<a id="hud-motor" title="Klicken zum Umschalten" style="cursor:pointer;border-bottom:1px dotted var(--muted);color:'+(on?"var(--ok)":"var(--muted)")+'">'+(on?"● laeuft · AUS?":"○ aus · AN?")+'</a>';
   const hf=(typeof handsFree!=="undefined")&&handsFree;
-  const assist='<a id="hud-assist" title="Assistenz-Modus: freihaendig zuhoeren, reagiert auf \'Kira …\', antwortet mit Stimme" style="cursor:pointer;border-bottom:1px dotted var(--muted);color:'+(hf?"var(--ok)":"var(--muted)")+'">'+(hf?"🎙️ hoert zu · AUS?":"🎙️ Zuhoeren?")+'</a>';
+  const assist='<a id="hud-assist" title="Assistenz-Modus: freihaendig zuhoeren, reagiert auf \'Kira …\', antwortet mit Stimme" style="cursor:pointer;border-bottom:1px dotted var(--muted);color:'+(hf?"var(--ok)":"var(--muted)")+'">'+(hf?"◉ hoert zu · AUS?":"◉ Zuhoeren?")+'</a>';
   const jobs=mb?((mb.board&&(((mb.board.today||[]).length)+((mb.board.week||[]).length)+((mb.board.later||[]).length)))||0):0;
   const running=mb&&mb.board?((mb.board.running||[]).length):0;
   const todos=lb&&lb.board?(((lb.board.today||[]).length)+((lb.board.week||[]).length)):0;
@@ -581,7 +618,7 @@ async function loadHud(){const el=$("#hud-strip");if(!el)return;
   /* S6.6d: Hero-Status + Aura (Heartbeat an = Avatar leuchtet) */
   const hs=$("#hero-status");
   if(hs){const on=o.mission&&o.mission.heartbeat;
-   hs.textContent=(o.kill_switch?"⛔ NOT-AUS aktiv":(on?"Heartbeat laeuft — arbeitet autonom":"Heartbeat aus — wartet auf dich"));
+   hs.textContent=(o.kill_switch?"✕ NOT-AUS aktiv":(on?"Heartbeat laeuft — arbeitet autonom":"Heartbeat aus — wartet auf dich"));
    /* Budget-Dopplung raus — steht schon als HUD-Zelle oben. */
    const hv=$("#hero-av");if(hv)hv.classList.toggle("aura",!!on&&!o.kill_switch);}
  }catch(e){}}
@@ -632,13 +669,13 @@ function loadCommand(){loadHud();loadOps();loadTagewerk();loadNews();loadHome();
 
 /* Konstanten fuers Lebens-Board (loadLeben) */
 const KIND_LABEL={big:"BIG",monthly:"MONAT",weekly:"WOCHE"};
-const BOARD_GROUPS=[["running","▶ laeuft"],["today","⏰ heute / ueberfaellig"],["week","diese Woche"],["later","spaeter"],["deferred","aufgeschoben"],["done","erledigt"]];
+const BOARD_GROUPS=[["running","► laeuft"],["today","◷ heute / ueberfaellig"],["week","diese Woche"],["later","spaeter"],["deferred","aufgeschoben"],["done","erledigt"]];
 async function loadInbox(){const el=$("#inbox-list");if(!el)return;
  try{const d=await (await fetch("/api/approvals")).json();const p=d.pending||[];
   const cnt=$("#inbox-count");if(cnt)cnt.textContent=p.length?(p.length+" warten"):"leer";
   if(!p.length){el.innerHTML='<span class="muted">Nichts wartet auf Freigabe. Kira legt hier Aussen-Aktionen/Entwuerfe zum GO ab.</span>';return;}
   el.innerHTML=p.map(a=>{const ts=new Date(a.ts*1000).toLocaleString();
-   const kb={publish:"📮",email:"✉️",email_stranger:"✉️",external:"🌐",evolution:"🧬",playbook:"📘",generic:"📝"}[a.kind]||"📝";
+   const kb={publish:"✉︎",email:"✉︎",email_stranger:"✉︎",external:"⊕",evolution:"∿",playbook:"▤",generic:"▤"}[a.kind]||"▤";
    /* S11.4: E-Mail-Entwuerfe lesbar rendern (An/Betreff/Text) statt rohem JSON */
    let raw=(""+(a.detail||""));
    if(a.kind==="email"||a.kind==="email_stranger"){
@@ -664,14 +701,14 @@ async function loadTagewerk(){const el=$("#tagewerk");if(!el)return;
   const row=(ico,txt)=>'<div style="display:flex;gap:8px;padding:3px 0;font-size:12.5px"><span style="min-width:18px">'+ico+'</span><span>'+txt+'</span></div>';
   const dz=d.diagnose?new Date(d.diagnose.ts*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):null;
   el.innerHTML=
-   row("✅","<b>"+d.tasks.done+"</b> Tasks erledigt"+(d.tasks.avg_score!=null?" (Ø "+d.tasks.avg_score+")":"")+(d.tasks.failed?' · <span style="color:var(--danger)">'+d.tasks.failed+" gescheitert</span>":""))
-  +row("✉","<b>"+d.mails.anzahl+"</b> Mails gesendet"+(d.mails.an.length?' <span class="muted">('+esc(d.mails.an.slice(0,2).join(", "))+")</span>":""))
-  +row("🧠","<b>"+d.skills.anzahl+"</b> Skills gelernt · <b>"+d.lektionen+"</b> Lektionen")
-  +row("⏰","<b>"+d.crons.anzahl+"</b> Cron-Laeufe"+(d.crons.labels.length?' <span class="muted">('+esc(d.crons.labels.slice(0,2).join(", "))+")</span>":""))
-  +row("🔧","<b>"+d.selbstverbesserung.ticks+"</b> Selbst-Optimierungen"+(d.selbstverbesserung.code_edits.length?" · "+d.selbstverbesserung.code_edits.length+" Code-Edits":""))
-  +row("🩺",d.diagnose?("Diagnose "+dz+" — "+(d.diagnose.ok?'<span style="color:var(--ok)">alles ok</span>':'<span style="color:var(--warn)">'+d.diagnose.probleme+" Punkte</span>")):'<span class="muted">heute keine Diagnose</span>')
+   row("✓","<b>"+d.tasks.done+"</b> Tasks erledigt"+(d.tasks.avg_score!=null?" (Ø "+d.tasks.avg_score+")":"")+(d.tasks.failed?' · <span style="color:var(--danger)">'+d.tasks.failed+" gescheitert</span>":""))
+  +row("✉︎","<b>"+d.mails.anzahl+"</b> Mails gesendet"+(d.mails.an.length?' <span class="muted">('+esc(d.mails.an.slice(0,2).join(", "))+")</span>":""))
+  +row("◆","<b>"+d.skills.anzahl+"</b> Skills gelernt · <b>"+d.lektionen+"</b> Lektionen")
+  +row("◷","<b>"+d.crons.anzahl+"</b> Cron-Laeufe"+(d.crons.labels.length?' <span class="muted">('+esc(d.crons.labels.slice(0,2).join(", "))+")</span>":""))
+  +row("⚒︎","<b>"+d.selbstverbesserung.ticks+"</b> Selbst-Optimierungen"+(d.selbstverbesserung.code_edits.length?" · "+d.selbstverbesserung.code_edits.length+" Code-Edits":""))
+  +row("✚",d.diagnose?("Diagnose "+dz+" — "+(d.diagnose.ok?'<span style="color:var(--ok)">alles ok</span>':'<span style="color:var(--warn)">'+d.diagnose.probleme+" Punkte</span>")):'<span class="muted">heute keine Diagnose</span>')
   +row("⏸",d.freigaben_offen?('<b style="color:var(--warn)">'+d.freigaben_offen+"</b> Freigaben warten auf dich"):'<span class="muted">keine offenen Freigaben</span>')
-  +row("💰",d.kosten_heute_usd.toFixed(2).replace(".",",")+" $ heute");
+  +row("€",d.kosten_heute_usd.toFixed(2).replace(".",",")+" $ heute");
   const g=$("#go-tagewerk");if(g)g.onclick=()=>{nav("kira");if(typeof subnav==="function")subnav("kira","checkliste");};
  }catch(e){}}
 async function loadDigest(){const el=$("#digest");if(!el)return;
@@ -700,11 +737,142 @@ async function refreshStatus(){let s;try{s=await J("/api/status");}catch(e){retu
  $("#b-spend").textContent="$"+s.spend_usd_today+((s.budget&&s.budget.day_limit!=null)?(" / "+s.budget.day_limit+"€"):"");
  const k=$("#kill"); k.classList.toggle("active",s.kill_switch);
  k.textContent="Not-Aus: "+(s.kill_switch?"AKTIV":"aus");
- $("#b-kill").innerHTML=s.kill_switch?'<b style="color:var(--danger)">⛔ NOT-AUS</b>':'';
+ $("#b-kill").innerHTML=s.kill_switch?'<b style="color:var(--danger)">✕ NOT-AUS</b>':'';
  const fb=$("#side-frei");if(fb){const n=s.freigaben_offen|0;fb.textContent=n||"";fb.style.display=n?"":"none";}
+ /* Kommandobruecke: Kopf-Chips — Motor, Freigaben (klickbar zur Inbox) */
+ const mb=$("#motor-b");if(mb){const on=!!s.heartbeat;mb.textContent=on?"AN":"aus";
+  const dt=$("#motor-dot");if(dt)dt.className="dot"+(on?" ok":"");}
+ const cf=$("#chip-frei");if(cf){const n=s.freigaben_offen|0;cf.style.display=n?"":"none";
+  const cn=$("#chip-frei-n");if(cn)cn.textContent=n;}
  return s;}
+$("#chip-frei")&&($("#chip-frei").onclick=()=>{nav("me");subnav("me","freigaben");});
 $("#kill").onclick=async()=>{const on=!$("#kill").classList.contains("active");
  await fetch("/api/kill",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({on})});refreshStatus();};
+
+/* ==== Kommandobruecke: Fokus-Zeile · Tag-Spalte im Chat · Freigabe-Karten · Briefing · Strg+K ==== */
+async function loadFokus(){const t=$("#fokus-text");if(!t)return;try{
+ const d=await (await fetch("/api/direktive")).json();const f=(d&&d.focus)||"";
+ t.textContent=f||"kein Fokus gesetzt";
+ const su=$("#fokus-sub");if(su)su.textContent=f?"— __AGENT__ plant ihre Ticks darum herum":"";
+}catch(e){t.textContent="—";}}
+$("#fokus-edit")&&($("#fokus-edit").onclick=async()=>{
+ const alt=$("#fokus-text").textContent;
+ const f=prompt("Tagesfokus (leer = loeschen):",alt==="kein Fokus gesetzt"?"":alt);
+ if(f===null)return;
+ await fetch("/api/direktive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({focus:f})});
+ toast(f?"Fokus gesetzt":"Fokus geloescht","ok");loadFokus();});
+
+let _ctDaten=null;  /* letzter Stand der Tag-Spalte — fuettert auch das Briefing */
+async function loadChatSide(){
+ const te=$("#ct-termine");if(!te)return;
+ try{
+  const [tm,lb,dg,ap]=await Promise.all([
+   fetch("/api/termine").then(r=>r.json()).catch(()=>({})),
+   fetch("/api/life/board").then(r=>r.json()).catch(()=>({})),
+   fetch("/api/digest").then(r=>r.json()).catch(()=>null),
+   fetch("/api/approvals").then(r=>r.json()).catch(()=>({}))]);
+  _ctDaten={tm,lb,dg,ap};
+  /* Termine (+ Kopf-Chip "naechster Termin") */
+  const ts=(tm&&tm.termine)||[];
+  te.innerHTML=ts.length?ts.slice(0,5).map(t=>{
+   const wann=t.tage_bis===0?'<b style="color:var(--accent)">HEUTE</b>':(t.tage_bis===1?'morgen':('in '+t.tage_bis+' Tagen'));
+   const kern='<span class="ct-zeit">'+esc(t.datum.slice(0,6))+(t.zeit?('<br>'+esc(t.zeit)):'')+'</span><span>'+esc(t.titel)+' <span class="muted" style="font-size:11px">— '+wann+'</span></span>';
+   return t.jaehrlich?('<div class="radar">✶ '+esc(t.titel)+' — '+wann+'</div>'):('<div class="ct-row">'+kern+'</div>');
+  }).join(""):'<div class="emptybox">Keine Termine.<br>Sag mir: „trag ein: Zahnarzt am 15.08.“</div>';
+  const heute=ts.find(t=>t.tage_bis===0&&t.zeit);
+  const tc=$("#chip-termin");if(tc){tc.style.display=heute?"":"none";
+   const tb=$("#chip-termin-b");if(tb&&heute)tb.textContent=heute.zeit+" "+heute.titel.slice(0,18);}
+  /* Todos: heute faellig, direkt abhakbar */
+  const b=(lb&&lb.board)||{};const offen=(b.running||[]).concat(b.today||[]);
+  const td=$("#ct-todos");if(td){
+   td.innerHTML=offen.length?offen.slice(0,6).map(t=>
+    '<div class="ct-row"><a data-ctdone="'+esc(t.id)+'" style="cursor:pointer;color:var(--ok)" title="abhaken">✓</a><span>'+esc((t.description||"").slice(0,90))+'</span></div>').join("")
+    :'<div class="emptybox">Heute ist nichts faellig.</div>';
+   $$('#ct-todos [data-ctdone]').forEach(a=>a.onclick=async()=>{
+    await fetch("/api/mission/task/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.ctdone,status:"done"})});
+    toast("abgehakt","ok");loadChatSide();});}
+  /* Puls: was __AGENT__ heute schaffte */
+  const pu=$("#ct-puls");if(pu)pu.innerHTML=dg
+   ?('<div class="ct-row"><span class="ct-zeit">✓</span><span><b>'+(dg.tasks_done_count||0)+'</b> Schritte erledigt · <b>'+(dg.planned||0)+'</b> geplant'+(dg.errors?(' · <b style="color:var(--warn)">'+dg.errors+'</b> Fehler'):'')+'</span></div>'
+     +'<div class="ct-row"><span class="ct-zeit">$</span><span>'+(+dg.spend_usd||0).toFixed(2)+' heute ausgegeben</span></div>')
+   :'<span class="muted">Puls nicht ladbar.</span>';
+  /* Freigaben ALS KARTEN im Gespraech */
+  renderChatFrei((ap&&ap.pending)||[]);
+  briefingBubble();
+ }catch(e){te.innerHTML='<span class="muted">Tag nicht ladbar.</span>';}}
+
+function renderChatFrei(pend){const w=$("#chat-frei");if(!w)return;
+ w.innerHTML=(pend||[]).slice(0,3).map(p=>
+  '<div class="frei-karte" data-fid="'+esc(p.id)+'">'
+  +'<div class="fkopf">⚷ Freigabe noetig — '+esc(p.kind||"Aktion")+'</div>'
+  +'<div class="fwas">'+esc((p.title||"").slice(0,140))
+  +(p.detail?('<small>'+esc((""+p.detail).slice(0,180))+'</small>'):'')+'</div>'
+  +'<div class="fbtn"><button class="fgo" data-fgo="'+esc(p.id)+'">Freigeben</button>'
+  +'<button class="fno" data-fno="'+esc(p.id)+'">Ablehnen</button>'
+  +'<button class="fno" style="border:0" data-fall="1">alle ansehen ›</button></div></div>').join("");
+ const decide=async(id,ok)=>{
+  await fetch("/api/approvals/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,approved:ok})});
+  toast(ok?"freigegeben":"abgelehnt","ok");loadChatSide();refreshStatus();};
+ $$('#chat-frei [data-fgo]').forEach(x=>x.onclick=()=>decide(x.dataset.fgo,true));
+ $$('#chat-frei [data-fno]').forEach(x=>x.onclick=()=>decide(x.dataset.fno,false));
+ $$('#chat-frei [data-fall]').forEach(x=>x.onclick=()=>{nav("me");subnav("me","freigaben");});}
+
+/* Nie-leerer Chat: __AGENT__ eroeffnet mit dem Tag (rein clientseitig, 0 Token) */
+function briefingBubble(){const lg=$("#log");if(!lg||lg.querySelector(".msg"))return;
+ if($("#brief-bubble"))return;
+ const d=_ctDaten||{};const ts=((d.tm||{}).termine)||[];const b=((d.lb||{}).board)||{};
+ const offen=(b.running||[]).concat(b.today||[]).length;
+ const heute=ts.filter(t=>t.tage_bis===0);
+ const h=new Date().getHours();const gruss=h<11?"Guten Morgen":(h<18?"Hallo":"Guten Abend");
+ let rows="";
+ heute.slice(0,3).forEach(t=>{rows+='<div class="kk"><span>◷ '+(t.zeit?esc(t.zeit)+" ":"")+esc(t.titel)+'</span><b>heute</b></div>';});
+ const geb=ts.find(t=>t.jaehrlich&&t.tage_bis<=7);
+ if(geb)rows+='<div class="kk"><span>✶ '+esc(geb.titel)+'</span><b>in '+geb.tage_bis+' Tagen</b></div>';
+ rows+='<div class="kk"><span>✓ offene Todos</span><b>'+offen+'</b></div>';
+ const div=document.createElement("div");div.className="msg bot";div.id="brief-bubble";
+ div.innerHTML='<div>'+gruss+' ☀︎ Dein Tag in kurz:</div><div class="karte-mini">'+rows+'</div>'
+  +'<div class="muted" style="font-size:12px">Schreib mir einfach — oder klick rechts direkt ins Geschehen.</div>';
+ lg.appendChild(div);}
+
+/* "mehr ›"-Spruenge aus der Tag-Spalte */
+$$("#chat-tag .mehr").forEach(a=>a.onclick=()=>{const g=(a.dataset.go||"").split(":");
+ nav(g[0]);if(g[1])subnav(g[0],g[1]);});
+
+/* ==== Strg+K: Springen & Suchen (Sessions, Bereiche, Aktionen) ==== */
+let _sessCache=[];
+const _palAktionen=[
+ {k:"Bereich",t:"Chat",go:()=>nav("chat")},
+ {k:"Bereich",t:"Board (Zahlen, Ziele, Live-Ops)",go:()=>nav("home")},
+ {k:"Bereich",t:"__AGENT__ (Seele, Playbooks, Automatik)",go:()=>nav("kira")},
+ {k:"Bereich",t:"__USER__ — Tag & Todos",go:()=>{nav("me");subnav("me","tag");}},
+ {k:"Bereich",t:"Freigabe-Inbox",go:()=>{nav("me");subnav("me","freigaben");}},
+ {k:"Bereich",t:"Einstellungen (Modelle, Zugaenge)",go:()=>nav("settings")},
+ {k:"Aktion",t:"Neuer Chat",go:()=>{nav("chat");const b=$("#sess-new");b&&b.click();}},
+ {k:"Aktion",t:"Fokus setzen/aendern",go:()=>{const e=$("#fokus-edit");e&&e.click();}}];
+function palOpen(){const w=$("#pal-wrap");if(!w)return;w.style.display="";
+ const q=$("#pal-q");q.value="";palRender("");q.focus();}
+function palClose(){const w=$("#pal-wrap");if(w)w.style.display="none";}
+function palRender(f){const l=$("#pal-list");if(!l)return;const fl=f.toLowerCase();
+ const ses=_sessCache.filter(s=>((s.title||s.session_id||"")+"").toLowerCase().includes(fl)).slice(0,6)
+  .map(s=>({k:"Session",t:(s.title||s.session_id),go:()=>{nav("chat");const el=document.querySelector('[data-sid="'+s.session_id+'"]');el&&el.click();}}));
+ const akt=_palAktionen.filter(a=>a.t.toLowerCase().includes(fl));
+ const alle=ses.concat(akt).slice(0,12);
+ l.innerHTML=alle.map((a,i)=>'<div class="pal-row'+(i===0?" on":"")+'" data-pi="'+i+'"><span class="pk">'+a.k+'</span>'+esc(a.t)+'</div>').join("")
+  ||'<div class="pal-row"><span class="pk">—</span>nichts gefunden</div>';
+ l._alle=alle;
+ $$("#pal-list .pal-row").forEach(r=>r.onclick=()=>{const a=l._alle[+r.dataset.pi];if(a){palClose();a.go();}});}
+document.addEventListener("keydown",e=>{
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();palOpen();return;}
+ const w=$("#pal-wrap");if(!w||w.style.display==="none")return;
+ if(e.key==="Escape"){palClose();}
+ else if(e.key==="Enter"){const l=$("#pal-list");const a=l&&l._alle&&l._alle[[...$$("#pal-list .pal-row")].findIndex(r=>r.classList.contains("on"))];
+  if(a){e.preventDefault();palClose();a.go();}}
+ else if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();
+  const rows=$$("#pal-list .pal-row");const i=rows.findIndex(r=>r.classList.contains("on"));
+  const j=e.key==="ArrowDown"?Math.min(rows.length-1,i+1):Math.max(0,i-1);
+  rows.forEach((r,x)=>r.classList.toggle("on",x===j));}});
+$("#pal-q")&&($("#pal-q").oninput=e=>palRender(e.target.value));
+$("#pal-wrap")&&($("#pal-wrap").onclick=e=>{if(e.target.id==="pal-wrap")palClose();});
 
 /* ---- Chat ---- */
 const log=$("#log");
@@ -785,20 +953,20 @@ function stopThinking(){if(thinkTimer){clearInterval(thinkTimer);thinkTimer=null
 const proto=location.protocol==="https:"?"wss":"ws";
 let ws,curBot,curThink,thinkBuf,traceC=null,curThinkLine=null,curSid=null,wsIntentional=false,wsDelay=1000;
 /* Werkzeug -> Icon, Klarname, Schluessel-Argument (fuer den Claude-Code-Look im Trace) */
-const TOOLMAP={read_file:["📖","Lesen","path"],code_suche:["🔎","Suche","muster"],datei_finden:["🗂","Finden","muster"],
- edit_datei:["✏️","Edit","pfad"],self_edit:["✏️","Edit","path"],write_file:["📄","Neu anlegen","path"],
- append_file:["➕","Anhaengen","path"],list_dir:["📂","Ordner","path"],make_dir:["📁","Ordner+","path"],
- run_command:["▷","Terminal","command"],web_search:["🌐","Websuche","query"],web_fetch:["🌐","Web","url"],
- remember_fact:["🧠","Merken","fact"],request_approval:["🛎","Freigabe","title"],read_file_lines:["📖","Lesen","path"],
- browser_act:["🌍","Browser","actions"],browse:["🌍","Browser lesen","url"],screenshot_url:["📸","Screenshot","url"],
- db_query:["🗃","DB-Abfrage","sql"],health:["🩺","Selbst-Check",""],read_logs:["🧾","Logs","name"],
- harness_report:["📊","Selbst-Report","window"],cron_add:["⏰","Routine+","label"],cron_list:["⏰","Routinen",""],
- cron_remove:["⏰","Routine−","job_id"],learn_skill:["🎓","Skill lernen","name"],list_skills:["🎓","Skills",""],
- plan_and_execute:["🗺","Plan & Los","task"],switch_model:["🎛","Modell","model"],restart_self:["🔄","Neustart","which"],
- request_secret:["🔑","Zugang","name"],watch_add:["👁","Monitor+","value"],jetzt:["🕐","Uhrzeit",""]};
+const TOOLMAP={read_file:["▤","Lesen","path"],code_suche:["⌕","Suche","muster"],datei_finden:["▤","Finden","muster"],
+ edit_datei:["✎","Edit","pfad"],self_edit:["✎","Edit","path"],write_file:["▤","Neu anlegen","path"],
+ append_file:["+","Anhaengen","path"],list_dir:["▤","Ordner","path"],make_dir:["▤","Ordner+","path"],
+ run_command:["▷","Terminal","command"],web_search:["⊕","Websuche","query"],web_fetch:["⊕","Web","url"],
+ remember_fact:["◆","Merken","fact"],request_approval:["●","Freigabe","title"],read_file_lines:["▤","Lesen","path"],
+ browser_act:["⊕","Browser","actions"],browse:["⊕","Browser lesen","url"],screenshot_url:["▣","Screenshot","url"],
+ db_query:["▤","DB-Abfrage","sql"],health:["✚","Selbst-Check",""],read_logs:["▤","Logs","name"],
+ harness_report:["◫","Selbst-Report","window"],cron_add:["◷","Routine+","label"],cron_list:["◷","Routinen",""],
+ cron_remove:["◷","Routine−","job_id"],learn_skill:["✦","Skill lernen","name"],list_skills:["✦","Skills",""],
+ plan_and_execute:["▤","Plan & Los","task"],switch_model:["≣","Modell","model"],restart_self:["↻","Neustart","which"],
+ request_secret:["≡","Zugang","name"],watch_add:["◉","Monitor+","value"],jetzt:["◷","Uhrzeit",""]};
 function shortArgs(a){try{const s=JSON.stringify(a||{});return s==="{}"?"":s.slice(0,90);}catch(e){return "";}}
 function toolLabel(name,args){const t=TOOLMAP[name];
- if(!t)return {icon:"🔧",label:name,target:shortArgs(args)};
+ if(!t)return {icon:"⚒︎",label:name,target:shortArgs(args)};
  const v=args&&args[t[2]]!=null?(""+args[t[2]]):shortArgs(args);
  return {icon:t[0],label:t[1],target:v};}
 function renderDiff(box,txt){const pre=document.createElement("pre");pre.className="tdiff";
@@ -840,7 +1008,7 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
  function traceObs(name,text){ensureTrace();traceLive();curThinkLine=null;
   const t=text||"";const m=t.match(/```diff\n([\s\S]*?)```/);
   const head=(m?t.slice(0,m.index):t).trim();
-  const bad=/Fehlgeschlagen|ROT|⚠|Fehler|blockiert|nicht gefunden/i.test(head);
+  const bad=/Fehlgeschlagen|ROT|⚠︎|Fehler|blockiert|nicht gefunden/i.test(head);
   const row=document.createElement("div");row.className="orow";
   if(head){const hd=document.createElement("div");hd.className="ostat "+(bad?"err":"ok");
    hd.textContent="↳ "+head.slice(0,240);row.appendChild(hd);}
@@ -867,13 +1035,14 @@ let showArchived=false;
 function markActiveSession(){$$("#sess-items .sess").forEach(r=>r.classList.toggle("on",r.dataset.sid===curSid));}
 async function loadChatSessions(){const box=$("#sess-items");if(!box)return;
  const d=await (await fetch("/api/chat/sessions"+(showArchived?"?archived=1":""))).json();const ss=d.sessions||[];
+ _sessCache=ss;  /* Kommandobruecke: fuettert die Strg+K-Palette */
  let html="",lastDay=null;
  ss.forEach(s=>{const dl=dayLabel(s.last);
   if(dl!==lastDay){html+='<div class="sday">'+dl+'</div>';lastDay=dl;}
   const t=esc(((s.title||s.session_id)+"").slice(0,44));
-  html+='<div class="sess'+(s.archived?" arch":"")+'" data-sid="'+esc(s.session_id)+'"><span class="si">'+(s.channel==="telegram"?"✈️":"💬")+'</span>'
+  html+='<div class="sess'+(s.archived?" arch":"")+'" data-sid="'+esc(s.session_id)+'"><span class="si">'+(s.channel==="telegram"?"➤":"›")+'</span>'
    +'<span class="st">'+t+'</span><span class="sd">'+relTime(s.last)+'</span>'
-   +'<a class="sa" title="'+(s.archived?"aus dem Archiv holen":"archivieren")+'">'+(s.archived?"↩":"🗄")+'</a>'
+   +'<a class="sa" title="'+(s.archived?"aus dem Archiv holen":"archivieren")+'">'+(s.archived?"↩":"▤")+'</a>'
    +'<a class="sx" title="loeschen">✕</a></div>';});
  box.innerHTML=html||'<div class="muted" style="padding:10px">noch keine Unterhaltungen</div>';
  box.querySelectorAll(".sess").forEach(r=>{
@@ -895,7 +1064,7 @@ async function openSession(sid){curSid=sid;log.innerHTML="";curBot=null;curThink
 function newSession(){curSid="cockpit-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;markActiveSession();reconnect();}
 $("#sess-new")&&($("#sess-new").onclick=()=>newSession());
 /* Test-Chat: sid mit 'test-'-Praefix -> gefahrloses Ausprobieren, leckt NICHT ins Langzeit-Gedaechtnis */
-function newTestSession(){curSid="test-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;markActiveSession();reconnect();try{toast("🧪 Test-Chat — dieser Verlauf bleibt aussen vor (kein Langzeit-Gedaechtnis)");}catch(e){}}
+function newTestSession(){curSid="test-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;markActiveSession();reconnect();try{toast("✱ Test-Chat — dieser Verlauf bleibt aussen vor (kein Langzeit-Gedaechtnis)");}catch(e){}}
 $("#sess-test")&&($("#sess-test").onclick=()=>newTestSession());
 /* Gespraeche: Hover-Intent — Drueberfahren oeffnet, Klick PINNT (bleibt offen bis zum
    naechsten Klick). Bleibt offen solange die Maus ueber Button ODER Panel ist; schliesst
@@ -973,7 +1142,7 @@ document.addEventListener("click",e=>{const p=$("#reason-pop");
  if(p&&p.style.display!=="none"&&!e.target.closest("#reason-pop")&&e.target.id!=="chip-denk")p.style.display="none";});
 function sendText(raw,opts){raw=(raw||"").trim();if(!raw||!ws||ws.readyState!==1)return false;
  opts=opts||{};
- msgEl((opts.voice?"🎙️ ":"")+raw,"me");startThinking();
+ msgEl((opts.voice?"◉ ":"")+raw,"me");startThinking();
  let t=raw;
  if(opts.voice){t="sprich: "+raw;}  /* Assistenz-Modus: knappe, vorgelesene Antwort */
  else{
@@ -1017,8 +1186,8 @@ function startLive(){stopLive();liveBusy=false;
   liveBusy=false;
  },2000);}
 function stopLive(){if(liveTimer){clearInterval(liveTimer);liveTimer=null;}}
-let ttsOn=localStorage.getItem("kira_tts")==="1";      /* 🔊 Antworten vorlesen */
-let handsFree=false;                                    /* 🎙️ Assistenz: Kira hoert freihaendig zu */
+let ttsOn=localStorage.getItem("kira_tts")==="1";      /* ◉ Antworten vorlesen */
+let handsFree=false;                                    /* ◉ Assistenz: Kira hoert freihaendig zu */
 let curAudio=null;
 /* W2: Weckwort = Agenten-Name; fuer den Werksnamen bleiben die Whisper-Varianten (kiera/kyra). */
 const WAKE=(IDENTITY.agent||"Kira").toLowerCase()==="kira"?/\bk[iy]e?ra\b/i
@@ -1061,7 +1230,7 @@ function attachVAD(stream,rec){
 async function startRec(autoSend){recAutoSend=!!autoSend;
  try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});chunks=[];mediaRec=new MediaRecorder(stream);
   mediaRec.ondataavailable=ev=>chunks.push(ev.data);
-  mediaRec.onstop=async()=>{stopLive();stream.getTracks().forEach(t=>t.stop());$("#micbtn")&&($("#micbtn").textContent="🎤");
+  mediaRec.onstop=async()=>{stopLive();stream.getTracks().forEach(t=>t.stop());$("#micbtn")&&($("#micbtn").textContent="◉");
    if(recAutoSend&&!vadSpoke){if(handsFree)armListen();return;}  /* nur Stille -> nicht transkribieren */
    const blob=new Blob(chunks,{type:"audio/webm"});const rd=new FileReader();
    rd.onload=async()=>{const sendNow=pttSend;pttSend=false;      /* PTT: einmalig konsumieren */
@@ -1074,7 +1243,7 @@ async function startRec(autoSend){recAutoSend=!!autoSend;
      if(heard&&WAKE.test(heard)){                     /* nur reagieren, wenn "Kira" gesagt wurde */
       const instr=heard.replace(new RegExp(".*?"+WAKE.source+"[\\s,:!.-]*","i"),"").trim();
       if(instr)sendText(instr,{voice:true});           /* Weckwort abgestreift -> Auftrag */
-      else{add("🎙️ Ja? Ich hoere.","sys");armListen();} /* nur "Kira" -> weiterlauschen */
+      else{add("◉ Ja? Ich hoere.","sys");armListen();} /* nur "Kira" -> weiterlauschen */
      }else if(handsFree)armListen();                   /* nicht angesprochen -> still weiterlauschen */
     }else if(ok){const t=(txt||"").trim();
      if(sendNow&&t){$("#cin").value="";sendText(t,{voice:false});} /* PTT losgelassen -> direkt senden */
@@ -1094,10 +1263,10 @@ window.kiraPTT=function(down){
  else{if(!pttDown)return;pttDown=false;
   try{if(mediaRec&&mediaRec.state==="recording"){pttSend=true;mediaRec.stop();}}catch(e){}}};
 /* Assistenz-Modus lebt in der Zentrale (#hud-assist). Toggle: an -> lauschen + vorlesen; aus -> stumm. */
-function paintAssist(){const b=$("#hud-assist");if(b){b.textContent=handsFree?"🎙️ hoert zu · AUS?":"🎙️ Zuhoeren?";
+function paintAssist(){const b=$("#hud-assist");if(b){b.textContent=handsFree?"◉ hoert zu · AUS?":"◉ Zuhoeren?";
  b.style.color=handsFree?"var(--ok)":"var(--muted)";}}
 function toggleAssist(){handsFree=!handsFree;paintAssist();
- if(handsFree){add("🎙️ Assistenz-Modus an — sag \"Kira\" + deine Anweisung, ich hoere zu und antworte knapp.","sys");armListen();}
+ if(handsFree){add("◉ Assistenz-Modus an — sag \"Kira\" + deine Anweisung, ich hoere zu und antworte knapp.","sys");armListen();}
  else{try{if(mediaRec&&mediaRec.state==="recording")mediaRec.stop();}catch(e){}
   try{if(curAudio)curAudio.pause();}catch(e){}add("Assistenz-Modus aus.","sys");}}
 
@@ -1127,7 +1296,7 @@ $("#imgfile")&&($("#imgfile").onchange=ev=>{const f=ev.target.files[0];if(!f)ret
  } else { attachFile(f); }                                       /* PDF/Datei -> Text an Kira in den Chat */
  ev.target.value="";});
 /* Datei anhaengen: Text extrahieren (Server) + als Kontext an Kira senden — sie kann dann
-   analysieren ODER (mit email_send) eine Mail schreiben. Die Blase zeigt nur 📎 Name + dein Auftrag. */
+   analysieren ODER (mit email_send) eine Mail schreiben. Die Blase zeigt nur + Name + dein Auftrag. */
 async function attachFile(f){
  const b=msgEl("… Kira liest "+f.name+" …","bot");
  try{const fd=new FormData();fd.append("file",f);
@@ -1135,7 +1304,7 @@ async function attachFile(f){
   if(!r.ok){b.querySelector(".mbody").textContent="(Datei-Fehler: "+(r.error||"?")+")";return;}
   b.remove();
   const prompt=$("#cin").value.trim();$("#cin").value="";
-  msgEl("📎 "+r.name+(r.truncated?" (gekuerzt)":"")+(prompt?(" — "+prompt):""),"me");
+  msgEl("+ "+r.name+(r.truncated?" (gekuerzt)":"")+(prompt?(" — "+prompt):""),"me");
   const full=(prompt?prompt+"\n\n":"Fasse mir diese Datei zusammen.\n\n")
    +"[Angehaengte Datei: "+r.name+(r.truncated?" — auf "+Math.round(12000/1000)+"k Zeichen gekuerzt, gesamt "+r.chars+"]":"]")+"\n\n"+r.text;
   if(ws&&ws.readyState===1){startThinking();ws.send(full);setStreaming(true);curBot=null;curThink=null;traceC=null;curThinkLine=null;}
@@ -1181,7 +1350,7 @@ $("#fsave").onclick=async()=>{if(!fcur)return;
 /* ---- Models ---- */
 function showLoaded(el,ld){if(ld&&ld.context){const col=(ld.gpu_pct!=null&&ld.gpu_pct>=99)?"var(--ok)":"var(--warn)";
    el.innerHTML="Geladen: <b>"+ld.context+"</b> Kontext · <b style='color:"+col+"'>"+(ld.gpu_pct!=null?ld.gpu_pct+"% GPU":"?")+"</b> · "+(ld.vram_gb||"?")+" GB VRAM"
-    +((ld.gpu_pct!=null&&ld.gpu_pct<99)?" ⚠️ teilweise CPU — kleiner waehlen":"");}
+    +((ld.gpu_pct!=null&&ld.gpu_pct<99)?" ⚠︎ teilweise CPU — kleiner waehlen":"");}
   else{el.textContent="(Modell noch nicht geladen — wird beim ersten Chat geladen)";}}
 async function loadModels(){const s=await (await fetch("/api/status")).json();
  $("#m-active").innerHTML="<b>"+s.model+"</b> &nbsp; <span class=muted>Eskalation: "+(s.escalation_model||"-")+"</span>";
@@ -1209,7 +1378,7 @@ async function loadModels(){const s=await (await fetch("/api/status")).json();
 async function useModel(id){await fetch("/api/model/use",{method:"POST",headers:{"Content-Type":"application/json"},
   body:JSON.stringify({id})});loadModels();refreshStatus();}
 /* ---- Modell-Katalog + Rollen ---- */
-const ROLE_LABEL={chat:"💬 Chat",reason:"🧠 Denker (Reason/Coding)",bulk:"⏰ Crons",classify:"🐜 Reflex (lokal)",worker:"🔧 Arbeiter (Delegation)",escalation:"⚡ Eskalation",default:"★ Default"};
+const ROLE_LABEL={chat:"› Chat",reason:"◆ Denker (Reason/Coding)",bulk:"◷ Crons",classify:"· Reflex (lokal)",worker:"⚒︎ Arbeiter (Delegation)",escalation:"↯ Eskalation",default:"★ Default"};
 let MCAT={openrouter:[],local:[],aimlapi:[]};
 function money(x){return (x==null||x===0)?"0€":("$"+(x*1e6).toFixed(2)+"/M");}
 function renderRoles(roles){const el=$("#m-roles");if(!el)return;
@@ -1265,7 +1434,7 @@ function bar(spent,limit){if(limit==null)return '<span class=muted>kein Limit</s
 async function cfgSet(path,value){return (await fetch("/api/config/set",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({path,value})})).json();}
 
 /* ---- Steuerpult: des Nutzers Riegel ueber die Schwarmintelligenz ---- */
-const RANG_ICON={reflex:"🐜",arbeiter:"🔧",denker:"🧠",richter:"⚖"};
+const RANG_ICON={reflex:"·",arbeiter:"⚒︎",denker:"◆",richter:"⚖︎"};
 async function loadSteuer(){const el=$("#st-raenge");if(!el)return;
  try{const d=await (await fetch("/api/steuer")).json();
   el.innerHTML=(d.raenge||[]).map(r=>{const real=(r.real||"").replace(/^openrouter\//,"");
@@ -1314,9 +1483,9 @@ $("#st-cmd-go")&&($("#st-cmd-go").onclick=()=>{
  nav("chat");const ci=$("#cin");if(ci){ci.value=cmd;ci.focus();}});
 async function doRestart(e){if(e&&e.preventDefault)e.preventDefault();await fetch("/api/restart",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});alert("Neustart angefordert — Dienste bouncen in ~20s.");}
 /* S8.3: Autonomie-Karte — echte Schalter statt Vertrauensbarometer */
-const GATE_KINDS={money:"💶 Geld bewegen",email_stranger:"✉️ Mails/Nachrichten an Fremde",
- publish:"📮 Veroeffentlichen (Posts, Deploys nach aussen)",external:"🌐 Externe Dienste schreiben",
- email:"📧 Mails an dich/Bekannte"};
+const GATE_KINDS={money:"€ Geld bewegen",email_stranger:"✉︎ Mails/Nachrichten an Fremde",
+ publish:"✉︎ Veroeffentlichen (Posts, Deploys nach aussen)",external:"⊕ Externe Dienste schreiben",
+ email:"✉︎ Mails an dich/Bekannte"};
 async function loadAutonomy(){try{const d=await J("/api/autonomy");
  const box=$("#au-box");if(!box)return;
  let h='<label style="cursor:pointer;display:flex;gap:8px;align-items:center"><input type="checkbox" id="au-chains" '+(d.chains_off?"":"checked")+'/> '
@@ -1374,7 +1543,7 @@ async function loadKeys(){const s=await (await fetch("/api/secrets")).json();
 /* ---- Handy-Zugriff (PWA): Fernzugriff an/aus + Token anzeigen (nur lokal sichtbar) ---- */
 async function loadRemote(){const b=$("#remote-toggle");if(!b)return;
  try{const r=await (await fetch("/api/remote/status")).json();
-  b.textContent=r.enabled?"Fernzugriff ausschalten":"📱 Fernzugriff aktivieren";
+  b.textContent=r.enabled?"Fernzugriff ausschalten":"▯ Fernzugriff aktivieren";
   const tk=$("#remote-token"),cp=$("#remote-copy");
   const show=r.enabled&&r.token;
   if(tk){tk.style.display=show?"inline-block":"none";tk.textContent=show?r.token:"";}
@@ -1410,7 +1579,7 @@ $("#voice-test")&&($("#voice-test").onclick=async()=>{const o=$("#voice-testout"
 let memFilter="wichtig",memQuery="",memBound=false;  /* Gedaechtnis-Diaet: Standard = nur Gemerktes */
 const MEM_WICHTIG=["fact","lesson","skill","semantic"];
 const memSel=new Set();   /* Mehrfachauswahl (Werkbank PR 5): EIN Loeschen fuer N Eintraege */
-function memBadge(role){return role==="partner"?'<span class="badge kira">🧠 Kira</span>':'<span class="badge you">👤 Du</span>';}
+function memBadge(role){return role==="partner"?'<span class="badge kira">◆ Kira</span>':'<span class="badge you">● Du</span>';}
 function memSelBar(){const b=$("#mem-selbar");if(!b)return;
  b.style.display=memSel.size?"flex":"none";
  const c=$("#mem-selcount");if(c)c.textContent=memSel.size+" ausgewaehlt";}
@@ -1439,7 +1608,7 @@ async function loadMem(){bindMemFilter();memSel.clear();memSelBar();
   d.querySelector('[data-del]').onclick=async()=>{if(!confirm("Diese Erinnerung loeschen?"))return;await fetch("/api/memory/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:m.id})});loadMem();};
   d.querySelector('[data-edit]').onclick=()=>{const sp=d.querySelector('[data-txt]');
    const ta=document.createElement("textarea");ta.className="k";ta.value=m.text||"";sp.replaceWith(ta);
-   const eb=d.querySelector('[data-edit]');eb.textContent="💾";
+   const eb=d.querySelector('[data-edit]');eb.textContent="▼";
    eb.onclick=async()=>{await fetch("/api/memory/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:m.id,text:ta.value})});loadMem();};};
   el.appendChild(d);});
  loadMemHist();}
@@ -1456,7 +1625,7 @@ async function loadMemHist(){const el=$("#memhist");if(!el)return;
   if(!hs.length){el.innerHTML='<span class="muted">(noch keine Aenderungen aufgezeichnet)</span>';return;}
   el.className="panel-b hist";
   el.innerHTML=hs.map(h=>{const ts=new Date(h.ts*1000).toLocaleString();
-   const who=h.role==="partner"?'🧠 Kira':(h.role==="user"?'👤 Du':'•');
+   const who=h.role==="partner"?'◆ Kira':(h.role==="user"?'● Du':'•');
    let body="";
    if(h.action==="memory_add")body='<span class="new">＋ '+(""+(h.text||"")).slice(0,180).replace(/</g,"&lt;")+'</span>';
    else if(h.action==="memory_delete")body='<span class="old">✕ '+(""+(h.text||"")).slice(0,180).replace(/</g,"&lt;")+'</span>';
@@ -1511,21 +1680,21 @@ $("#col-reset")&&($("#col-reset").onclick=()=>{localStorage.removeItem("kira_cus
 applyCustom(loadCustom());  /* eigene Farben beim Start anwenden (nach setTheme, gewinnt) */
 
 /* ---- Live-Puls: was ich gerade tue (Einblick in mein Herz) ---- */
-const PULSE={read_file:"📖 Ich lese eine Datei",write_file:"✍️ Ich schreibe Code",edit_file:"✍️ Ich baue an Code",run_command:"⚙️ Ich fuehre etwas aus",run_shell:"⚙️ Ich fuehre etwas aus",web_fetch:"🌐 Ich lese eine Seite",web_search:"🔍 Ich recherchiere",browse:"🧭 Ich schaue mir eine Seite an",screenshot_url:"📸 Ich mache ein Bild",read_logs:"🩺 Ich pruefe mein Log",health:"🩺 Ich checke meinen Zustand",learn_skill:"🧠 Ich lerne etwas Neues",curate_skills:"🧠 Ich ordne meine Faehigkeiten",restart_self:"🔄 Ich starte mich neu",jetzt:"🕒 Ich schaue auf die Uhr"};
+const PULSE={read_file:"▤ Ich lese eine Datei",write_file:"✎ Ich schreibe Code",edit_file:"✎ Ich baue an Code",run_command:"⚙︎ Ich fuehre etwas aus",run_shell:"⚙︎ Ich fuehre etwas aus",web_fetch:"⊕ Ich lese eine Seite",web_search:"⌕ Ich recherchiere",browse:"✧ Ich schaue mir eine Seite an",screenshot_url:"▣ Ich mache ein Bild",read_logs:"✚ Ich pruefe mein Log",health:"✚ Ich checke meinen Zustand",learn_skill:"◆ Ich lerne etwas Neues",curate_skills:"◆ Ich ordne meine Faehigkeiten",restart_self:"↻ Ich starte mich neu",jetzt:"◷ Ich schaue auf die Uhr"};
 function pulsePhrase(e){const p=e.payload||{},t=e.type,tool=p.tool||"";
  if(t==="tool_call"||t==="act_step"){const a=p.args||{};let x=a.path||a.file||a.url||a.command||a.query||"";x=(""+x).replace(/^https?:\/\//,"").slice(0,46);
-  return (PULSE[tool]||("⚡ "+(tool||"Ich arbeite")))+(x?(" — "+x):"");}
- if(t==="partner_message")return "💬 Ich hab dir gerade geantwortet";
- if(t==="user_message"||t==="telegram_in")return "👂 Ich hoere dir zu";
- if(t==="mission_task_start")return "🎯 Ich arbeite an: "+(""+(p.desc||"")).slice(0,56);
- if(t==="mission_task_done")return "✅ Schritt fertig: "+(""+(p.summary||"")).slice(0,52);
- if(t==="plan_made"||t==="plan_start"||t==="plan_step")return "🗺️ Ich mache mir einen Plan";
- if(t==="reflection")return "🪞 Ich denke ueber mich nach";
- if(t==="service_crash")return "⚠️ Ein Dienst kam gerade zurueck";
- if(t==="focus_set")return "🧭 Du hast mir eine Richtung gegeben";
+  return (PULSE[tool]||("↯ "+(tool||"Ich arbeite")))+(x?(" — "+x):"");}
+ if(t==="partner_message")return "› Ich hab dir gerade geantwortet";
+ if(t==="user_message"||t==="telegram_in")return "◉ Ich hoere dir zu";
+ if(t==="mission_task_start")return "◎ Ich arbeite an: "+(""+(p.desc||"")).slice(0,56);
+ if(t==="mission_task_done")return "✓ Schritt fertig: "+(""+(p.summary||"")).slice(0,52);
+ if(t==="plan_made"||t==="plan_start"||t==="plan_step")return "▤ Ich mache mir einen Plan";
+ if(t==="reflection")return "◐ Ich denke ueber mich nach";
+ if(t==="service_crash")return "⚠︎ Ein Dienst kam gerade zurueck";
+ if(t==="focus_set")return "✧ Du hast mir eine Richtung gegeben";
  if(t==="act_done")return "✓ Aufgabe fertig";
- if(t==="cron_run")return "⏰ Geplante Aufgabe gelaufen";
- if(t==="cron_missed")return "⏰ Verpassten Cron uebersprungen (PC war aus)";
+ if(t==="cron_run")return "◷ Geplante Aufgabe gelaufen";
+ if(t==="cron_missed")return "◷ Verpassten Cron uebersprungen (PC war aus)";
  return "· aktiv";}
 async function updatePulse(){try{const es=await (await fetch("/api/events?limit=6")).json();const el=$("#pulse");if(!el)return;
   if(!es.length){el.textContent="Leerlauf";return;}
@@ -1539,7 +1708,7 @@ function simpleRecord(btnSel,targetSel){const btn=$(btnSel);if(!btn)return;let r
  btn.onclick=async()=>{if(rec&&rec.state==="recording"){rec.stop();return;}
   try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});ch=[];rec=new MediaRecorder(stream);
    rec.ondataavailable=e=>ch.push(e.data);
-   rec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());btn.textContent="🎤";
+   rec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());btn.textContent="◉";
     const t=$(targetSel);const old=(t&&t.value||"").trim();const blob=new Blob(ch,{type:"audio/webm"});const rd=new FileReader();
     rd.onload=async()=>{t.value=(old?old+" ":"")+"… transkribiere …";
      try{const r=await (await fetch("/api/transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audio:rd.result})})).json();
@@ -1551,26 +1720,26 @@ simpleRecord("#dir-mic","#dir-text");
 /* Schwarm-Umschalter: blendet den Rang ein, ändert den Knopf */
 $("#dir-schwarm")&&($("#dir-schwarm").onchange=()=>{const on=$("#dir-schwarm").checked;
  const rg=$("#dir-rang");if(rg)rg.style.display=on?"":"none";
- const b=$("#dir-now");if(b)b.textContent=on?"🐝 An den Schwarm":"⚡ Sofort ausfuehren";
+ const b=$("#dir-now");if(b)b.textContent=on?"⁂ An den Schwarm":"↯ Sofort ausfuehren";
  const t=$("#dir-text");if(t)t.placeholder=on
    ?"1. Zeile = Auftrag mit {item}  (z.B. „Finde 5 Telefonnummern fuer {item} in Berlin“)\ndann je eine Zeile pro Ziel:\nFriseure\nHotels"
    :"Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…";
- $("#dir-hint").textContent=on?"🐝 Jede Zeile unter dem Auftrag wird ein eigener Agent (bis schwarm_max, sonst in Wellen).":"";});
+ $("#dir-hint").textContent=on?"⁂ Jede Zeile unter dem Auftrag wird ein eigener Agent (bis schwarm_max, sonst in Wellen).":"";});
 $("#dir-now")&&($("#dir-now").onclick=async()=>{const p=$("#dir-text").value.trim();if(!p)return;
  if($("#dir-schwarm")&&$("#dir-schwarm").checked){                       /* Schwarm-Auftrag -> im Chat vorbereiten (Finger am Abzug bleibt bei dir) */
   const rang=($("#dir-rang")&&$("#dir-rang").value)||"arbeiter";
   /* 1. Zeile = Vorlage (mit {item}), weitere Zeilen = Ziele -> korrektes "/schwarm rang vorlage | a | b" */
   const lines=p.split("\n").map(s=>s.trim()).filter(Boolean);
-  if(lines.length<2){$("#dir-hint").textContent="🐝 Schwarm braucht Ziele: 1. Zeile der Auftrag (mit {item}), dann je eine Zeile pro Ziel (z.B. Friseure / Hotels).";return;}
+  if(lines.length<2){$("#dir-hint").textContent="⁂ Schwarm braucht Ziele: 1. Zeile der Auftrag (mit {item}), dann je eine Zeile pro Ziel (z.B. Friseure / Hotels).";return;}
   const vorlage=lines[0],items=lines.slice(1);
   const cin=$("#cin");if(cin)cin.value="/schwarm "+rang+" "+vorlage+" | "+items.join(" | ");
-  nav("chat");if(cin)cin.focus();$("#dir-hint").textContent="🐝 "+items.length+" Auftraege im Chat vorbereitet — druecke Senden.";return;}
+  nav("chat");if(cin)cin.focus();$("#dir-hint").textContent="⁂ "+items.length+" Auftraege im Chat vorbereitet — druecke Senden.";return;}
  $("#dir-hint").textContent="… Kira arbeitet daran (kann ~1 min dauern) …";
  const r=await (await fetch("/api/direktive/now",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:p})})).json();
  $("#dir-hint").textContent="✓ erledigt";const rr=$("#dir-result");rr.style.display="block";rr.textContent=(r.result||"(keine Antwort)");});
 $("#dir-focus")&&($("#dir-focus").onclick=async()=>{const p=$("#dir-text").value.trim();
  await fetch("/api/direktive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({focus:p})});
- $("#dir-hint").textContent="🧭 Fokus gesetzt — ich ziehe ihn in meinen naechsten Schritt.";loadHome();});
+ $("#dir-hint").textContent="✧ Fokus gesetzt — ich ziehe ihn in meinen naechsten Schritt.";loadHome();});
 $("#dir-clear")&&($("#dir-clear").onclick=async()=>{await fetch("/api/direktive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({focus:""})});$("#dir-text").value="";$("#dir-hint").textContent="Fokus geloescht.";loadHome();});
 
 /* ---- Leben (S5.3b): Todos, Ziele, Metrik-Sparklines ---- */
@@ -1582,13 +1751,13 @@ async function loadLeben(){
  try{const d=await (await fetch("/api/life/board")).json();const b=d.board||{};let h="";
   BOARD_GROUPS.forEach(([k,label])=>{const arr=b[k]||[];if(!arr.length)return;
    h+='<div style="margin:9px 0 4px;font-size:11px;letter-spacing:1px;color:var(--hud);text-transform:uppercase">'+label+' ('+arr.length+')</div>'
-    +arr.map(t=>{const due=t.due_date?('&#9200;'+t.due_date):'';
+    +arr.map(t=>{const due=t.due_date?('◷'+t.due_date):'';
      const act=t.status==="pending"?' <a data-ldone="'+t.id+'" style="cursor:pointer;color:var(--ok)" title="abhaken">&#10003;</a>':'';
      return '<div class="op" style="border-radius:8px;margin-bottom:3px"><span class="od"></span><span class="opx">'+(t.description||"").replace(/</g,"&lt;").slice(0,150)+' <span class="muted">'+due+'</span></span>'+act+'</div>';}).join("");});
   $("#life-board").innerHTML=h||'<div class="emptybox">Keine offenen Todos<br>Sag mir einfach, was ansteht.</div>';
   $$('#life-board [data-ldone]').forEach(a=>a.onclick=async()=>{await fetch("/api/mission/task/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.ldone,status:"done"})});loadLeben();});
   const objs=d.objectives||[];
-  $("#life-goals").innerHTML=objs.length?objs.map(o=>'<div class="memrow"><div class="mh"><span class="badge kind">'+(KIND_LABEL[o.kind]||o.kind)+'</span><b>'+(o.title||"").replace(/</g,"&lt;")+'</b><span style="flex:1"></span><span class="muted">'+o.progress+'%'+(o.target_date?(' &middot; &#9200;'+o.target_date):'')+'</span></div></div>').join("")
+  $("#life-goals").innerHTML=objs.length?objs.map(o=>'<div class="memrow"><div class="mh"><span class="badge kind">'+(KIND_LABEL[o.kind]||o.kind)+'</span><b>'+(o.title||"").replace(/</g,"&lt;")+'</b><span style="flex:1"></span><span class="muted">'+o.progress+'%'+(o.target_date?(' &middot; ◷'+o.target_date):'')+'</span></div></div>').join("")
    :'<div class="emptybox">Noch keine Lebens-Ziele<br>z.B. Kira, neues Ziel: 85kg bis Dezember</div>';
  }catch(e){}}
 
@@ -1601,7 +1770,7 @@ function zieleCard(d){
  const delta=d.delta!=null?(' <span class="muted">('+(d.delta>0?'+':'')+d.delta+')</span>'):'';
  const bar=(d.target!=null)?('<div class="mini-bar" style="margin-top:6px"><i style="width:'+(d.progress||0)+'%"></i></div>'
    +'<div class="muted" style="font-size:10px;margin-top:2px">Ziel '+d.target+(d.unit?(' '+esc(d.unit)):'')+' · '+(d.progress||0)+'%</div>'):'';
- const pin=d.pinned?'📌':'📍';
+ const pin=d.pinned?'▪':'▪';
  return '<div class="memrow" data-zn="'+esc(d.name)+'"><div class="mh"><b>'+em+esc(d.name)+'</b>'
   +'<span style="flex:1"></span>'+sparkVals(d.series)
   +'<span style="min-width:92px;text-align:right"><b>'+d.value+'</b>'+unit+delta+'</span>'
@@ -1721,11 +1890,11 @@ async function loadMcp(){const cat=$("#mcp-catalog"),list=$("#mcp-list");if(!cat
   cat.innerHTML=(d.catalog||[]).map(c=>{const drin=st[c.id]!=null;
    const dis=(!c.secret_ready||drin);
    const t=drin?"schon angeschlossen":(c.setup?c.setup:(!c.secret_ready?("Zugang fehlt: "+c.secret+" (im Tresor eintragen)"):c.info));
-   return '<button class="ghost mcp-cat" data-id="'+c.id+'" title="'+esc(t)+'"'+(dis?" disabled":"")+' style="font-size:12px">＋ '+esc(c.label)+(c.setup?" ⚙":(c.secret&&!c.secret_ready?" 🔒":""))+'</button>';}).join("");
+   return '<button class="ghost mcp-cat" data-id="'+c.id+'" title="'+esc(t)+'"'+(dis?" disabled":"")+' style="font-size:12px">＋ '+esc(c.label)+(c.setup?" ⚙︎":(c.secret&&!c.secret_ready?" ⚷":""))+'</button>';}).join("");
   /* Einrichtungs-Hinweise fuer Server, die eine einmalige Vorbereitung brauchen (WhatsApp/Kalender) */
   const setups=(d.catalog||[]).filter(c=>c.setup&&st[c.id]==null);
   const sb=$("#mcp-setups");if(sb)sb.innerHTML=setups.length?('<div class="muted" style="font-size:11px;letter-spacing:1px;margin:10px 0 4px">EINRICHTUNG</div>'
-   +setups.map(c=>'<details style="margin:2px 0"><summary style="cursor:pointer;font-size:12px">⚙ '+esc(c.label)+'</summary><div class="muted" style="font-size:12px;margin:4px 0 8px;white-space:pre-wrap">'+esc(c.setup)+'</div></details>').join("")):"";
+   +setups.map(c=>'<details style="margin:2px 0"><summary style="cursor:pointer;font-size:12px">⚙︎ '+esc(c.label)+'</summary><div class="muted" style="font-size:12px;margin:4px 0 8px;white-space:pre-wrap">'+esc(c.setup)+'</div></details>').join("")):"";
   $$('.mcp-cat').forEach(b=>b.onclick=async()=>{b.textContent="… starte";
    const r=await (await fetch("/api/mcp/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({catalog_id:b.dataset.id})})).json();
    toast(r.ok?(r.error?("angelegt, aber: "+r.error):("✓ "+(r.tools||0)+" Werkzeuge da")):("Fehler: "+(r.error||"?")),r.ok&&!r.error?"ok":"warn");loadMcp();});
@@ -1733,7 +1902,7 @@ async function loadMcp(){const cat=$("#mcp-catalog"),list=$("#mcp-list");if(!cat
   list.innerHTML=names.length?names.map(n=>{const s=st[n];const on=s.enabled;
    return '<div class="memrow"><div class="mh">'
     +'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+(s.running?"var(--ok)":(on?"var(--warn)":"var(--muted)"))+';margin-right:6px"></span>'
-    +'<b>'+esc(n)+'</b><span class="muted" style="font-size:11px;margin-left:6px">'+(s.tools||0)+' Tools'+(s.error?' &middot; ⚠ '+esc((""+s.error).slice(0,60)):'')+'</span>'
+    +'<b>'+esc(n)+'</b><span class="muted" style="font-size:11px;margin-left:6px">'+(s.tools||0)+' Tools'+(s.error?' &middot; ⚠︎ '+esc((""+s.error).slice(0,60)):'')+'</span>'
     +'<span style="flex:1"></span>'
     +'<button class="ghost mcp-tog" data-n="'+esc(n)+'" data-on="'+(on?1:0)+'" style="padding:1px 8px;font-size:12px">'+(on?"aktiv":"aus")+'</button>'
     +'<button class="ghost mcp-del" data-n="'+esc(n)+'" title="entfernen" style="padding:1px 8px;font-size:12px">✕</button>'
@@ -1931,8 +2100,8 @@ function startBench(){if(benchWs){try{benchWs.close();}catch(e){}}
 function stopBench(){if(benchWs){try{benchWs.close();}catch(e){}}benchWs=null;$("#bench-start").style.display="";$("#bench-stop").style.display="none";benchLog('<span class="muted">Abgebrochen.</span>');}
 function renderBenchEvent(ev){const k=ev.kind,a=ev.ev||{};
  if(k==="suite_start"){benchTotal=ev.total;benchPassed=0;updateBenchScore();benchLog('<b>Benchmark: '+ev.total+' Aufgabe(n)</b>');}
- else if(k==="task_start")benchLog('<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:6px"><b>▶ '+esc(ev.id)+'</b> <span class="muted">'+esc(ev.prompt||"")+'</span></div>');
- else if(k==="act"){let s="";if(a.kind==="think")s='<span class="muted">💭 '+esc((a.text||"").slice(0,300))+'</span>';else if(a.kind==="tool")s='🔧 '+esc(a.name||"")+' <span class="muted">'+esc(JSON.stringify(a.args||{}).slice(0,120))+'</span>';else if(a.kind==="obs")s='<span class="muted">↳ '+esc(((a.name||"")+" "+(a.text||"")).slice(0,300))+'</span>';else if(a.kind==="final")s='<span class="muted">'+esc((a.text||"").slice(0,200))+'</span>';if(s)benchLog(s);}
+ else if(k==="task_start")benchLog('<div style="margin-top:8px;border-top:1px solid var(--line);padding-top:6px"><b>► '+esc(ev.id)+'</b> <span class="muted">'+esc(ev.prompt||"")+'</span></div>');
+ else if(k==="act"){let s="";if(a.kind==="think")s='<span class="muted">… '+esc((a.text||"").slice(0,300))+'</span>';else if(a.kind==="tool")s='⚒︎ '+esc(a.name||"")+' <span class="muted">'+esc(JSON.stringify(a.args||{}).slice(0,120))+'</span>';else if(a.kind==="obs")s='<span class="muted">↳ '+esc(((a.name||"")+" "+(a.text||"")).slice(0,300))+'</span>';else if(a.kind==="final")s='<span class="muted">'+esc((a.text||"").slice(0,200))+'</span>';if(s)benchLog(s);}
  else if(k==="task_done"){if(ev.passed)benchPassed++;updateBenchScore();
   benchLog((ev.passed?'<span style="color:var(--ok)">✓ bestanden</span>':'<span style="color:var(--danger)">✗ nicht bestanden (rc='+ev.rc+')</span>')+' — '+esc(ev.id)
    +(ev.out?' <span class="muted">· '+esc((""+ev.out).slice(0,180))+'</span>':''));}
@@ -1942,7 +2111,7 @@ function renderBenchEvent(ev){const k=ev.kind,a=ev.ev||{};
   loadBenchResults();}
  else if(k==="error")benchLog('<span style="color:var(--danger)">Fehler: '+esc(ev.text||"")+'</span>');}
 
-refreshStatus();loadCommand();
+refreshStatus();loadFokus();nav("chat");  /* Kommandobruecke: Chat ist die Startflaeche */
 /* ---- S6.4: EIN Poll-Scheduler statt zweier nackter setInterval ----
    - pausiert bei document.hidden (kein Polling im Hintergrund-Tab)
    - Backoff x2 bis 60s bei Fehler-Serien (pollFails), sofort zurueck auf 5s bei Erfolg
