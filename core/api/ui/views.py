@@ -106,23 +106,9 @@ VIEWS = r"""</head><body>
          Live-Ops, die MITTE gehoert der Galaxie, rechts "__AGENT__ heute"; unten der
          Chat-Einstieg: tippen, die Seiten gleiten weg, du landest im Gespraech. -->
     <div class="cmd-grid" id="board-grid">
+      <!-- Runde V: der "Befehl an Kira"-Kasten ist im Chat-Einstieg unten aufgegangen —
+           Live-Ops bekommt dafuer die ganze linke Spalte -->
       <div id="board-links" class="cmd-main">
-        <div class="direktive">
-          <h3>Befehl an __AGENT__</h3>
-          <textarea id="dir-text" class="k" placeholder="Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…"></textarea>
-          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-            <button type="button" class="ghost" id="dir-mic" title="Auftrag diktieren (Voice)">◉</button>
-            <button id="dir-now">↯ Sofort ausfuehren</button>
-            <button class="ghost" id="dir-focus">✧ Als Fokus setzen</button>
-            <button class="ghost" id="dir-clear" title="Fokus loeschen">Fokus loeschen</button>
-            <label class="chip tog" id="dir-schwarm-l" title="Als Schwarm-Auftrag an die Armee — landet im Chat, du drueckst Senden"><input type="checkbox" id="dir-schwarm"/> ⁂ Schwarm</label>
-            <select id="dir-rang" title="Rang fuer den Schwarm" style="display:none">
-              <option value="reflex">· reflex</option><option value="arbeiter" selected>⚒︎ arbeiter</option><option value="denker">◆ denker</option><option value="richter">⚖︎ richter</option>
-            </select>
-            <span class="muted" id="dir-hint" style="align-self:center"></span>
-          </div>
-          <div id="dir-result" style="margin-top:8px;white-space:pre-wrap;display:none;border-top:1px solid var(--line);padding-top:8px"></div>
-        </div>
         <div class="panel">
           <div class="panel-h">◈ Live-Ops <span class="live"></span><span class="sp"></span>
             <span class="seg" id="ops-filter"><a data-of="all" class="on">alle <b class="ofc"></b></a><a data-of="action">aktionen <b class="ofc"></b></a><a data-of="info">info <b class="ofc"></b></a><a data-of="chat">chat <b class="ofc"></b></a><a data-of="error">fehler <b class="ofc"></b></a></span>
@@ -132,6 +118,7 @@ VIEWS = r"""</head><body>
       </div>
       <!-- die Mitte bleibt frei: hier lebt die Galaxie; Widgets duerfen darueber schweben -->
       <div id="board-mitte">
+        <a id="mind-worte" title="Begriffe an den wichtigsten Punkten ein-/ausblenden">✱ Begriffe</a>
         <div id="widgets-home" class="wslot"></div>
       </div>
       <div id="board-rechts" class="cmd-side">
@@ -148,10 +135,30 @@ VIEWS = r"""</head><body>
         </div>
       </div>
     </div>
-    <!-- der Chat-Einstieg: 1:1 die Chat-Optik (LED-Rand), Absenden gleitet ins Gespraech -->
-    <form id="board-chat">
-      <textarea id="bc-in" rows="1" placeholder="Schreib mir …  (Enter sendet — dein Satz gleitet direkt ins Gespraech)" autocomplete="off"></textarea>
-      <button id="bc-send" type="submit">Senden</button>
+    <!-- der Chat-Einstieg: 1:1 die Chat-Optik (LED-Rand), Absenden gleitet ins Gespraech.
+         Runde V: die Befehl-Funktionen (Sofort/Fokus/Schwarm/Voice) leben hier, rechts
+         die Modus-Wahl Chat·Work·Coding — dieselbe Quelle wie im Chat. -->
+    <form id="board-chat" data-mode="chat">
+      <div class="bc-zeile">
+        <textarea id="bc-in" rows="1" placeholder="Schreib mir …  (Enter sendet — dein Satz gleitet direkt ins Gespraech)" autocomplete="off"></textarea>
+        <button id="bc-send" type="submit">Senden</button>
+      </div>
+      <div class="bc-werk">
+        <button type="button" class="ghost" id="dir-mic" title="Auftrag diktieren (Voice)">◉</button>
+        <button type="button" class="ghost" id="dir-now" title="Einmal-Auftrag sofort ausfuehren (ohne Chat-Wechsel)">↯ Sofort ausfuehren</button>
+        <button type="button" class="ghost" id="dir-focus" title="Text als Tages-Fokus setzen — __AGENT__ plant ihre Ticks darum herum">✧ Als Fokus setzen</button>
+        <button type="button" class="ghost" id="dir-clear" title="Fokus loeschen">Fokus loeschen</button>
+        <label class="chip tog" id="dir-schwarm-l" title="Als Schwarm-Auftrag an die Armee — landet im Chat, du drueckst Senden"><input type="checkbox" id="dir-schwarm"/> ⁂ Schwarm</label>
+        <select id="dir-rang" title="Rang fuer den Schwarm" style="display:none">
+          <option value="reflex">· reflex</option><option value="arbeiter" selected>⚒︎ arbeiter</option><option value="denker">◆ denker</option><option value="richter">⚖︎ richter</option>
+        </select>
+        <span class="muted" id="dir-hint" style="align-self:center"></span>
+        <span style="flex:1"></span>
+        <div id="bc-mode" title="Chat = Dialog · Work = laengerer Auftrag mit vollem Werkzeug-Budget · Coding = an __AGENT__ schrauben">
+          <a data-m="chat" class="on">Chat</a><a data-m="work">Work</a><a data-m="coding">Coding</a>
+        </div>
+      </div>
+      <div id="dir-result" style="white-space:pre-wrap;display:none;border-top:1px solid var(--line);padding-top:8px"></div>
     </form>
   </div>
 
