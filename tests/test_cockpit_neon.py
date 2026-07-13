@@ -554,11 +554,22 @@ def test_led_bar_und_slider_unten():
 
 
 def test_trace_klappt_bei_neuem_schritt_zu():
-    # Denk-Trace startet eingeklappt (Peek) und klappt bei jedem neuen Schritt automatisch wieder zu
-    assert 'curThink.className="think"' in SCRIPT          # kein "show" default -> eingeklappt
-    assert "function traceLive(" in SCRIPT
-    assert "function settleTrace(" in SCRIPT               # nach dem Lauf: Rainbow beruhigt sich
-    assert 'curThink.classList.contains("show"))curThink.classList.remove("show")' in SCRIPT
+    # Runde X hat das UMGEDREHT: nichts klappt mehr von allein zu. Live laeuft der
+    # Denkstrom in einem End-Fenster mit; manuell Geoeffnetes bleibt offen; nach dem
+    # Lauf bleibt nur die Kopfzeile (Dauer + Aktionen).
+    assert 'curThink.className="think live"' in SCRIPT
+    assert "function traceLive(" not in SCRIPT             # das Auto-Zuklappen ist Geschichte
+    assert "function settleTrace(" in SCRIPT
+    assert 'classList.remove("live")' in SCRIPT
+    assert '"Gedanken & Schritte"' in SCRIPT               # Kopfzeile mit Dauer + Aktionszahl
+    assert "traceC.scrollTop=traceC.scrollHeight" in SCRIPT  # Fenster haengt am ENDE
+    assert ".think.live .c{max-height:7.5em" in CSS
+    assert "transparent,#000 36%" in CSS                   # Fade OBEN — unten liest man mit
+    assert ".think.show .c{max-height:46vh;overflow-y:auto" in CSS  # voll = intern scrollbar
+    # ALTBUG: der Kopf-Klick band die globale curThink-Variable — nach dem Lauf (null)
+    # warf jeder Klick still einen TypeError, der Trace liess sich NIE mehr oeffnen
+    assert "const dieser=curThink;" in SCRIPT
+    assert 'dieser.classList.toggle("show")' in SCRIPT
 
 
 def test_chat_kein_ueberlappen():

@@ -1159,20 +1159,33 @@ function renderDiff(box,txt){const pre=document.createElement("pre");pre.classNa
 function wsDot(ok){const d=$("#ws-dot");if(d){d.classList.toggle("on",ok);d.classList.toggle("off",!ok);d.title=ok?"Chat verbunden":"Chat getrennt — verbinde neu";}}
 function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/chat"+(curSid?("?sid="+encodeURIComponent(curSid)):"");ws=new WebSocket(url);
  ws.onopen=()=>{wsDelay=1000;wsDot(true);};
- /* eingeklappt neu generieren: kommt ein neuer Schritt, klappt ein manuell geoeffneter Trace wieder zu */
- function traceLive(){if(curThink&&curThink.classList.contains("show"))curThink.classList.remove("show");}
- /* nach dem Lauf: Rainbow-Ueberschrift beruhigen (statischer Titel statt fliessender Phrase) */
- function settleTrace(){if(curThink){const tx=curThink.querySelector(".h .tx");if(tx){tx.classList.remove("live");tx.textContent="Denken & Aktionen";}}}
- function ensureTrace(){if(!curThink){curThink=document.createElement("div");curThink.className="think";
-    curThink.innerHTML='<span class="h"><span class="chev">▸</span> <span class="tx live">…</span> <span class="hint">— klick zum Ein-/Ausklappen</span></span><div class="c"></div>';
-    curThink.querySelector(".h").onclick=()=>curThink.classList.toggle("show");log.appendChild(curThink);
+ /* Runde X: NICHTS klappt mehr von allein zu. Live laeuft der Denkstrom in einem
+    End-Fenster mit (die letzten Zeilen ziehen vorbei — mitlesen ohne Klick);
+    manuell Geoeffnetes bleibt offen; nach dem Lauf bleibt nur die Kopfzeile. */
+ function settleTrace(){if(!curThink)return;
+  curThink.classList.remove("live");
+  const sek=curThink._t0?Math.max(1,Math.round((Date.now()-curThink._t0)/1000)):0;
+  const n=curThink.querySelectorAll(".trow").length;
+  const tx=curThink.querySelector(".h .tx");
+  if(tx){tx.classList.remove("live");
+   tx.textContent="Gedanken & Schritte"+(sek?" · "+sek+"s":"")+(n?" · "+n+" Aktion"+(n===1?"":"en"):"");}
+  const hint=curThink.querySelector(".h .hint");if(hint)hint.textContent="— klick zum Nachlesen";}
+ function ensureTrace(){if(!curThink){curThink=document.createElement("div");curThink.className="think live";
+    curThink._t0=Date.now();
+    curThink.innerHTML='<span class="h"><span class="chev">▸</span> <span class="tx live">…</span> <span class="hint">— live · klick fuer den ganzen Verlauf</span></span><div class="c"></div>';
+    /* ALTBUG-Fix: der Klick band die GLOBALE curThink-Variable — nach dem Lauf (null)
+       warf jeder Klick still einen TypeError, der Trace liess sich NIE mehr oeffnen.
+       Jetzt haelt der Handler sein eigenes Element. */
+    const dieser=curThink;
+    curThink.querySelector(".h").onclick=()=>dieser.classList.toggle("show");log.appendChild(curThink);
     traceC=curThink.querySelector(".c");curThinkLine=null;
     if(thinkEl){thinkEl.remove();thinkEl=null;}   /* Vor-Trace-Puls in die Trace-Ueberschrift falten (Timer laeuft weiter) */
     refreshPhrase();}return curThink;}
- function traceScroll(){log.scrollTop=log.scrollHeight;}
+ function traceScroll(){if(traceC)traceC.scrollTop=traceC.scrollHeight;  /* das Live-Fenster haengt am ENDE des Denkstroms */
+  log.scrollTop=log.scrollHeight;}
  /* Denkstrom tippt sich rein statt als Block zu spawnen (Typewriter, Rueckstau-adaptiv). */
  function traceThink(t){ensureTrace();
-  if(!curThinkLine){traceLive();curThinkLine=document.createElement("div");curThinkLine.className="tthink";curThinkLine._buf="";curThinkLine._shown=0;traceC.appendChild(curThinkLine);}
+  if(!curThinkLine){curThinkLine=document.createElement("div");curThinkLine.className="tthink";curThinkLine._buf="";curThinkLine._shown=0;traceC.appendChild(curThinkLine);}
   const el=curThinkLine;el._buf+=t;
   const rm=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if(rm){el._shown=el._buf.length;el.textContent=el._buf;traceScroll();return;}
@@ -1183,12 +1196,12 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
     el.textContent=el._buf.slice(0,el._shown);traceScroll();
     el._raf=requestAnimationFrame(tick);};
    el._raf=requestAnimationFrame(tick);}}
- function traceTool(name,args){ensureTrace();traceLive();curThinkLine=null;
+ function traceTool(name,args){ensureTrace();curThinkLine=null;
   const L=toolLabel(name,args);const row=document.createElement("div");row.className="trow";
   row.innerHTML='<span class="ti">'+esc(L.icon)+'</span><span class="tl">'+esc(L.label)+'</span>'
    +(L.target?'<span class="tt">'+esc(L.target)+'</span>':'');
   traceC.appendChild(row);traceScroll();}
- function traceObs(name,text){ensureTrace();traceLive();curThinkLine=null;
+ function traceObs(name,text){ensureTrace();curThinkLine=null;
   const t=text||"";const m=t.match(/```diff\n([\s\S]*?)```/);
   const head=(m?t.slice(0,m.index):t).trim();
   const bad=/Fehlgeschlagen|ROT|⚠︎|Fehler|blockiert|nicht gefunden/i.test(head);
