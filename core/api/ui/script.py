@@ -28,7 +28,7 @@ function rndPhrase(){if(PHRASES.length<2)return PHRASES[0]||"ich denke kurz nach
  let p=PHRASES[Math.floor(Math.random()*PHRASES.length)],g=0;
  while(p===_lastPhrase&&g++<8)p=PHRASES[Math.floor(Math.random()*PHRASES.length)];
  _lastPhrase=p;return p;}
-let cur="chat";  /* Kommandobruecke: der Chat ist das Herzstueck und die Startflaeche */
+let cur="home";  /* Runde IV: das Board ist der EMPFANG — der Chat bleibt das Herzstueck */
 $$("#side a").forEach(a=>a.onclick=()=>{nav(a.dataset.v);document.body.classList.remove("side-open");});
 /* S6.4: mobiles Seitenmenue ein-/ausklappen */
 $("#burger")&&($("#burger").onclick=()=>document.body.classList.toggle("side-open"));
@@ -1285,6 +1285,23 @@ $("#cform").onsubmit=e=>{e.preventDefault();
 /* Eingabefeld waechst mit dem Text (kein Seit-Scrollen); Enter sendet, Shift+Enter = neue Zeile */
 function growCin(){const c=$("#cin");if(!c)return;c.style.height="auto";c.style.height=Math.min(c.scrollHeight,200)+"px";}
 $("#cin")&&$("#cin").addEventListener("input",growCin);
+
+/* ==== Runde IV: der Chat-Einstieg im Board — Absenden laesst die Seiten dissipieren
+   (links/rechts gleiten weg), dann uebernimmt der ECHTE Chat die Nachricht: eine
+   Bewegung statt Tab-Wechsel. reduced-motion springt direkt. ==== */
+function boardZumChat(text){const home=$("#v-home");
+ const los=()=>{home.classList.remove("abflug");nav("chat");
+  const ci=$("#cin");
+  if(!sendText(text)&&ci){ci.value=text;growCin();}   /* WS noch zu? -> Chat vorbefuellt */
+  if(ci)ci.focus();};
+ if(matchMedia("(prefers-reduced-motion: reduce)").matches){los();return;}
+ home.classList.add("abflug");setTimeout(los,430);}
+$("#board-chat")&&($("#board-chat").onsubmit=e=>{e.preventDefault();
+ const t=$("#bc-in").value.trim();if(!t)return;
+ $("#bc-in").value="";boardZumChat(t);});
+$("#bc-in")&&$("#bc-in").addEventListener("keydown",e=>{
+ if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();
+  const f=$("#board-chat");f.requestSubmit?f.requestSubmit():f.dispatchEvent(new Event("submit",{cancelable:true}));}});
 $("#cin")&&$("#cin").addEventListener("keydown",e=>{if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing){e.preventDefault();
  if(streaming){stopStream();return;} if(sendText($("#cin").value)){$("#cin").value="";growCin();}}});
 
@@ -2282,7 +2299,7 @@ function renderBenchEvent(ev){const k=ev.kind,a=ev.ev||{};
   loadBenchResults();}
  else if(k==="error")benchLog('<span style="color:var(--danger)">Fehler: '+esc(ev.text||"")+'</span>');}
 
-refreshStatus();loadFokus();nav("chat");  /* Kommandobruecke: Chat ist die Startflaeche */
+refreshStatus();loadFokus();nav("home");  /* Runde IV: Board als Empfang — unten tippen gleitet in den Chat */
 /* ---- S6.4: EIN Poll-Scheduler statt zweier nackter setInterval ----
    - pausiert bei document.hidden (kein Polling im Hintergrund-Tab)
    - Backoff x2 bis 60s bei Fehler-Serien (pollFails), sofort zurueck auf 5s bei Erfolg

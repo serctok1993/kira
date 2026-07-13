@@ -739,6 +739,44 @@ button.ghost:hover{box-shadow:0 0 0 1px var(--accent);filter:none}
 .badge.pb-autonom{color:var(--ok);border-color:var(--ok)}
 /* Galaxie einen Hauch praesenter (bleibt hinter allem) */
 #mindcv{opacity:.55}
+
+/* ===== Runde IV: Board = EMPFANG (Skizze des Nutzers, 13.07.) =====
+   Drei Zonen: links Befehl + Live-Ops, Mitte frei fuer die Galaxie, rechts
+   "Kira heute". Unten der Chat-Einstieg mit LED-Rand (1:1 Chat-Optik) —
+   Absenden laesst die Seiten dissipieren und gleitet ins Gespraech. */
+#v-home .cmd-grid{display:grid;grid-template-columns:minmax(300px,400px) 1fr minmax(280px,350px);
+ gap:14px;align-items:stretch}
+#board-links,#board-rechts{display:flex;flex-direction:column;gap:12px;min-width:0;min-height:0;
+ overflow-y:auto;padding-right:2px}
+#board-links .panel{margin:0}
+#v-home .direktive{max-width:none;margin:0}
+#board-mitte{min-width:0;pointer-events:none}              /* die Mitte gehoert der Galaxie */
+#board-mitte .wslot{pointer-events:auto;max-width:340px;margin:0 auto}
+/* Chat-Einstieg: LED-Rand rundum (wie der Streifen im Chat), Feld + Senden wie #cform */
+#board-chat{position:relative;display:flex;gap:10px;align-items:flex-end;z-index:1;
+ width:min(880px,100%);margin:14px auto 0;padding:11px;border-radius:16px;
+ background:color-mix(in srgb,var(--panel) 88%,transparent)}
+#board-chat::before{content:"";position:absolute;inset:0;border-radius:16px;padding:1.6px;
+ background:linear-gradient(90deg,#7d2fff,#b026ff,#d16bff,#ff2d95,#b026ff,#7d2fff);
+ background-size:200% 100%;animation:ledflow 7s linear infinite;pointer-events:none;
+ -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+ -webkit-mask-composite:xor;mask-composite:exclude;
+ filter:drop-shadow(0 0 10px color-mix(in srgb,var(--accent-chat) 45%,transparent))}
+#board-chat textarea{flex:1;padding:11px 12px;border-radius:10px;border:1px solid var(--line);
+ background:var(--panel);color:var(--ink);resize:none;font:inherit;outline:none;
+ caret-color:var(--accent-chat);max-height:200px}
+#board-chat textarea:focus{border-color:var(--accent2)}
+#board-chat button{flex-shrink:0;height:46px;padding:0 24px;border:0;border-radius:10px;cursor:pointer;
+ font-weight:600;color:#fff;background:linear-gradient(135deg,var(--accent-chat),var(--accent2))}
+/* Abflug: links/rechts dissipieren, der Einstieg taucht ab — dann uebernimmt der Chat */
+#board-links,#board-rechts,#board-chat{transition:transform .42s ease,opacity .42s ease}
+#v-home.abflug #board-links{transform:translateX(-56px);opacity:0}
+#v-home.abflug #board-rechts{transform:translateX(56px);opacity:0}
+#v-home.abflug #board-chat{transform:translateY(22px);opacity:0}
+@media (prefers-reduced-motion:reduce){
+ #board-chat::before{animation:none}
+ #board-links,#board-rechts,#board-chat{transition:none}}
+@media(max-width:1050px){#board-mitte{display:none}#board-chat{margin-top:12px}}
 </style>"""
 
 # Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt

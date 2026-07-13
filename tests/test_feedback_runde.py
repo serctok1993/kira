@@ -147,6 +147,28 @@ def test_runde3_bibliothek_statt_archiv():
     assert "Archiv anzeigen" in VIEWS                           # Chat-Archiv unangetastet
 
 
+def test_runde4_board_empfang_layout():
+    # Skizze des Nutzers: links Befehl+Live-Ops, Mitte Galaxie, rechts "Kira heute",
+    # UNTEN der Chat-Einstieg — alles im Board, das jetzt der Empfang ist.
+    home = VIEWS.split('id="v-home"', 1)[1].split('id="v-chat"', 1)[0]
+    assert home.index('id="board-links"') < home.index('id="board-mitte"') < home.index('id="board-rechts"')
+    assert home.index('id="board-rechts"') < home.index('id="board-chat"')
+    assert 'id="bc-in"' in home and 'id="tagewerk"' in home.split('id="board-rechts"', 1)[1]
+    assert "#v-home .cmd-grid{display:grid" in CSS
+
+
+def test_runde4_chat_einstieg_mit_led_und_abflug():
+    # Der Einstieg traegt den LED-Rand (wie der Chat-Streifen) und das Absenden
+    # laesst die Seiten dissipieren, bevor der ECHTE Chat die Nachricht uebernimmt.
+    assert "#board-chat::before" in CSS
+    assert "ledflow" in CSS.split("#board-chat::before", 1)[1][:600]
+    assert "function boardZumChat" in SCRIPT
+    assert 'classList.add("abflug")' in SCRIPT and "sendText(text)" in SCRIPT
+    assert "#v-home.abflug #board-links{transform:translateX(-" in CSS
+    assert "#v-home.abflug #board-rechts{transform:translateX(" in CSS
+    assert "prefers-reduced-motion" in SCRIPT.split("function boardZumChat", 1)[1][:600]
+
+
 def test_runde3_theme_logo_und_playbook_ampel():
     # Wortmarke haengt an den Akzent-Variablen — Theme-Wechsel faerbt KIRA mit
     runde3 = CSS.split("Feinschliff-Runde III", 1)[1]
