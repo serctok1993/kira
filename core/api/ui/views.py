@@ -14,25 +14,30 @@ sitzt als Icon+Popover in der Topbar (nicht mehr in der Nav). Panel-IDs sind sta
 """
 
 VIEWS = r"""</head><body>
+<!-- Kommandobruecke: schmale Icon-Rail — Chat ist das Herzstueck, Board/Kira/Du/Setup daneben -->
 <div id="side">
-  <h1 id="brand"><span class="txt">__AGENT_UC__</span></h1>
-  <a data-v="home" class="on" title="Kommandostand: Status, Befehl, Live-Ops, Digest"><i class="ti">◈</i> Zentrale</a>
-  <a data-v="chat" title="Mit mir reden"><i class="ti">›</i> Chat</a>
-  <a data-v="me" title="Dein Bereich: Todos, Freigaben, was __AGENT__ von dir braucht, deine Routinen"><i class="ti">☰</i> __USER__ <b id="side-frei" class="frei-badge" style="display:none"></b></a>
+  <a data-v="chat" class="on" title="Chat — das Herzstueck"><i class="ti">›</i> Chat</a>
+  <a data-v="home" title="Board: Zahlen, Ziele, Befehl, Live-Ops"><i class="ti">◈</i> Board</a>
   <a data-v="kira" title="Wer ich bin: Seele, Gedaechtnis, Wissen, Gewissen, Automatik, Lernen"><i class="ti">✦</i> __AGENT__</a>
-  <a data-v="settings" title="Einstellungen: Modelle, Benchmark, Steuerpult, Zugaenge, Cockpit, Wallpaper"><i class="ti">⚙</i> Einstellungen</a>
+  <a data-v="me" title="Dein Bereich: Todos, Freigaben, was __AGENT__ von dir braucht, deine Routinen"><i class="ti">☰</i> __USER__ <b id="side-frei" class="frei-badge" style="display:none"></b></a>
   <div class="spacer"></div>
+  <a data-v="settings" title="Einstellungen: Modelle, Benchmark, Steuerpult, Zugaenge, Cockpit, Wallpaper"><i class="ti">⚙</i> Setup</a>
   <div class="kill" id="kill">Not-Aus: aus</div>
 </div>
 <div id="main">
   <div id="bar">
     <a id="burger" title="Menue">☰</a>
+    <h1 id="brand"><span class="txt">__AGENT_UC__</span></h1>
     <span class="live"></span>
     <span id="pulse" class="pulse">…</span>
     <span style="flex:1"></span>
+    <!-- Kommandobruecke: die Zahlen, die frueher fehlten — ein Blick, null Klicks -->
+    <span class="chip st" id="chip-motor" title="24/7-Motor (Heartbeat)"><span class="dot" id="motor-dot"></span> Motor <b id="motor-b">…</b></span>
+    <span class="chip st" title="heutige Cloud-Ausgaben / Tagesdeckel">heute <b id="b-spend">…</b></span>
+    <span class="chip st warnc" id="chip-frei" style="display:none;cursor:pointer" title="klick: zur Freigabe-Inbox">🔔 <b id="chip-frei-n"></b> Freigaben</span>
+    <span class="chip st" id="chip-termin" style="display:none" title="naechster Termin">◈ <b id="chip-termin-b"></b></span>
+    <span class="chip st" title="aktives Chat-Modell"><b id="b-model">…</b></span>
     <span id="ws-dot" class="off" title="Chat-Verbindung"></span>
-    <span class="muted"><b id="b-model">…</b></span>
-    <span class="muted">heute <b id="b-spend">…</b></span>
     <span id="b-kill"></span>
     <a id="gear" title="Einstellungen (Modelle, Steuerpult, Zugänge, Cockpit, Wallpaper)" style="cursor:pointer;font-size:16px;padding:0 4px">⚙</a>
     <span id="theme-wrap">
@@ -71,8 +76,16 @@ VIEWS = r"""</head><body>
     </span>
   </div>
 
-  <!-- ================= ZENTRALE ================= -->
-  <div class="view on" id="v-home">
+  <!-- Kommandobruecke: die Fokus-Zeile — DEIN Tages-Hebel, sichtbar ueber allem -->
+  <div id="fokus-line">
+    <span class="fk">FOKUS</span>
+    <b id="fokus-text">…</b>
+    <span class="muted" id="fokus-sub"></span>
+    <a id="fokus-edit" title="Fokus setzen/aendern — __AGENT__ plant ihre Ticks darum herum">ändern ✎</a>
+  </div>
+
+  <!-- ================= BOARD (Zentrale) ================= -->
+  <div class="view" id="v-home">
     <div id="hero">
       <img id="hero-av" alt=""/>
       <div id="hero-txt">
@@ -132,8 +145,8 @@ VIEWS = r"""</head><body>
     </div>
   </div>
 
-  <!-- ================= CHAT ================= -->
-  <div class="view" id="v-chat">
+  <!-- ================= CHAT (Kommandobruecke: Sessions | Gespraech | Dein Tag) ================= -->
+  <div class="view on" id="v-chat">
     <div id="chat-wrap">
       <div id="sess-panel">
         <div class="sp-h"><span class="muted" style="font-size:11px;letter-spacing:1px">GESPRAECHE</span>
@@ -146,6 +159,8 @@ VIEWS = r"""</head><body>
           <span style="flex:1"></span>
           <button type="button" class="ghost" id="sess-toggle" title="Drueberfahren = Gespraeche auf · Klick = angepinnt (bleibt offen)" style="padding:5px 12px;font-size:12px">Chats</button>
         </div>
+        <!-- Kommandobruecke: offene Freigaben landen ALS KARTEN direkt im Gespraech -->
+        <div id="chat-frei"></div>
         <div id="log"></div>
         <!-- Werkbank UNTEN: Modus-Slider links (direkt ueber dem "+") · Werkzeuge rechts -->
         <div id="chat-tools">
@@ -184,6 +199,23 @@ VIEWS = r"""</head><body>
           <button id="sendbtn">Senden</button>
         </form>
       </div>
+      <!-- Kommandobruecke: DEIN TAG als dritte Spalte — Termine, Todos, Puls, ohne Tab-Wechsel -->
+      <aside id="chat-tag">
+        <div class="panel"><div class="panel-h">◈ TERMINE <span class="sp"></span><a class="mehr" data-go="me:tag">mehr ›</a></div>
+          <div class="panel-b" id="ct-termine"><span class="muted">…</span></div></div>
+        <div class="panel"><div class="panel-h">✓ TODOS <span class="sp"></span><a class="mehr" data-go="me:todos">alle ›</a></div>
+          <div class="panel-b" id="ct-todos"><span class="muted">…</span></div></div>
+        <div class="panel"><div class="panel-h">⚡ PULS <span class="sp"></span><a class="mehr" data-go="kira:puls">mehr ›</a></div>
+          <div class="panel-b" id="ct-puls"><span class="muted">…</span></div></div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- Kommandobruecke: Strg+K — ueberall hinspringen (Sessions, Bereiche, Aktionen) -->
+  <div id="pal-wrap" style="display:none">
+    <div id="pal">
+      <input id="pal-q" placeholder="Springen oder suchen …  (Esc schliesst)" autocomplete="off"/>
+      <div id="pal-list"></div>
     </div>
   </div>
 
