@@ -566,6 +566,10 @@ def test_trace_klappt_bei_neuem_schritt_zu():
     assert ".think.live .c{max-height:7.5em" in CSS
     assert "transparent,#000 36%" in CSS                   # Fade OBEN — unten liest man mit
     assert ".think.show .c{max-height:46vh;overflow-y:auto" in CSS  # voll = intern scrollbar
+    # ALTBUG: der Kopf-Klick band die globale curThink-Variable — nach dem Lauf (null)
+    # warf jeder Klick still einen TypeError, der Trace liess sich NIE mehr oeffnen
+    assert "const dieser=curThink;" in SCRIPT
+    assert 'dieser.classList.toggle("show")' in SCRIPT
 
 
 def test_chat_kein_ueberlappen():
