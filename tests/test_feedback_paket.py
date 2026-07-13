@@ -76,14 +76,15 @@ def test_reflexion_verlangt_klartext_lektionen():
 # ---------- Zentrale-Politur ----------
 
 def test_dir_row_fuellt_die_luecke():
+    # Runde IV: die dir-row ist dem Board-Grid gewichen — Befehl+Live-Ops links,
+    # Widgets schweben in der Galaxie-Mitte, "Kira heute" rechts.
     home = VIEWS.split('id="v-home"', 1)[1].split('id="v-chat"', 1)[0]
-    # Befehl + Widget-Slot teilen sich eine Reihe, VOR dem cmd-grid
-    assert home.index('class="dir-row"') < home.index('class="direktive"')
-    assert home.index('class="direktive"') < home.index('id="widgets-home"') < home.index('class="cmd-grid"')
-    # der Slot haengt nicht mehr in der Seitenspalte
-    side = home.split('class="cmd-side"', 1)[1]
-    assert 'id="widgets-home"' not in side
-    assert ".dir-row{display:flex" in CSS
+    links = home.split('id="board-links"', 1)[1].split('id="board-mitte"', 1)[0]
+    assert 'class="direktive"' in links and 'id="ops-feed"' in links
+    mitte = home.split('id="board-mitte"', 1)[1].split('id="board-rechts"', 1)[0]
+    assert 'id="widgets-home"' in mitte
+    # der Slot haengt nicht in der Seitenspalte
+    assert 'id="widgets-home"' not in home.split('id="board-rechts"', 1)[1]
 
 
 def test_digest_und_lektionen_einzeilig():
