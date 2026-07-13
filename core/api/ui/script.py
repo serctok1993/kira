@@ -916,11 +916,12 @@ document.addEventListener("keydown",e=>{
 $("#pal-q")&&($("#pal-q").oninput=e=>palRender(e.target.value));
 $("#pal-wrap")&&($("#pal-wrap").onclick=e=>{if(e.target.id==="pal-wrap")palClose();});
 
-/* ==== MIND als BOARD-HINTERGRUND, Feinschliff-Runde III: eine GALAXIE, keine Woerter.
-   Knoten sind leuchtende Sterne (Halo + heller Kern, leichtes Funkeln), Verbindungen
-   schimmern schwach, Lichtpunkte "pingen" die Kanten entlang; dahinter Nebel und
-   Sternenstaub in den Theme-Farben. Layout wird UNSICHTBAR vorberechnet (kein
-   Galaxienflug), HD ueber devicePixelRatio, reduced-motion = stehendes Bild. ==== */
+/* ==== MIND als BOARD-HINTERGRUND — Runde VII: eine 3D-GALAXIE (Video-Vorbild
+   "Memory Galaxy"). Sterne haben echte TIEFE (z), eine langsame Orbit-Kamera
+   fliegt um das Galaxie-Herz: nahe Sterne gross und hell, ferne klein und leise;
+   frisch beruehrte Notizen leuchten WEISSER (heat aus dem Graph — "brighter &
+   whiter = more recently touched"). Layout unsichtbar vorberechnet, HD via
+   devicePixelRatio, reduced-motion = stehendes Bild ohne Flug. ==== */
 let _mindDaten=null,_mindLauf=null,_mindMalen=null;
 /* Runde V: Begriffe an den wichtigsten Punkten — klein, per Knopf schaltbar */
 let _mindWorte=(localStorage.getItem("mind_worte")||"1")==="1";
@@ -934,20 +935,26 @@ async function loadMind(){const cv=$("#mindcv");if(!cv)return;
  if(!home.clientWidth){setTimeout(loadMind,300);return;}
  const W=home.clientWidth,H=Math.max(home.clientHeight,600);
  cv.width=W*dpr;cv.height=H*dpr;
- /* Runde V: das Herz der Galaxie liegt in der FREIEN Mitte (board-mitte),
-    nicht mehr unterm halben Board verschoben */
+ /* Runde V: das Herz der Galaxie liegt in der FREIEN Mitte (board-mitte) */
  let cx=W/2,cy=H/2;const mit=$("#board-mitte");
  if(mit&&mit.offsetWidth){const hr=home.getBoundingClientRect(),mr=mit.getBoundingClientRect();
   cx=mr.left-hr.left+mr.width/2;cy=mr.top-hr.top+mr.height/2;}
  const ctx=cv.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);
  const css=getComputedStyle(document.documentElement);
  const HUD=(css.getPropertyValue("--hud").trim()||"#c084fc"),AK2=(css.getPropertyValue("--accent2").trim()||"#7c3aed");
- const rgba=(hex,a)=>{if(!/^#[0-9a-fA-F]{6}$/.test(hex||""))hex="#b026ff";
-  const n=parseInt(hex.slice(1),16);return "rgba("+(n>>16&255)+","+(n>>8&255)+","+(n&255)+","+a+")";};
- const staub=[];for(let i=0;i<150;i++)staub.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.2+.3,ph:Math.random()*6.283});
+ /* Farben kommen als "r,g,b"-Tripel aus der Graph-API ODER als #hex aus dem Theme —
+    (Runde-VII-Fix: vorher fiel jedes Tripel still auf Lila zurueck) */
+ const rgba=(farbe,a)=>{const f=(""+(farbe||"")).trim();
+  if(/^\d+,\d+,\d+$/.test(f))return "rgba("+f+","+a+")";
+  if(/^#[0-9a-fA-F]{6}$/.test(f)){const n=parseInt(f.slice(1),16);
+   return "rgba("+(n>>16&255)+","+(n>>8&255)+","+(n&255)+","+a+")";}
+  return "rgba(176,38,255,"+a+")";};
+ const staub=[];for(let i=0;i<150;i++)staub.push({x:Math.random()*W,y:Math.random()*H,
+  z:Math.random()*440-220,r:Math.random()*1.2+.3,ph:Math.random()*6.283});
  const idx={};nodes.forEach((n,i)=>{idx[n.id]=i;
   const a=Math.random()*6.283,r=Math.random()*.38+.08;   /* Start als lockere Wolke um die Mitte */
-  n.x=cx+Math.cos(a)*W*r*.8;n.y=cy+Math.sin(a)*H*r*.8;n.vx=0;n.vy=0;n.ph=Math.random()*6.283;});
+  n.x=cx+Math.cos(a)*W*r*.8;n.y=cy+Math.sin(a)*H*r*.8;n.vx=0;n.vy=0;
+  n.z=Math.random()*440-220;n.ph=Math.random()*6.283;});  /* z = feste Tiefe je Stern */
  const links=(d.links||[]).filter(l=>idx[l.source]!=null&&idx[l.target]!=null)
   .map(l=>[idx[l.source],idx[l.target]]);
  const grad=nodes.map(()=>0);links.forEach(([a,b])=>{grad[a]++;grad[b]++;});
@@ -964,6 +971,11 @@ async function loadMind(){const cv=$("#mindcv");if(!cv)return;
    n.x=Math.max(24,Math.min(W-24,n.x));n.y=Math.max(24,Math.min(H-24,n.y));});};
  /* 1) Layout FERTIG rechnen, bevor irgendwas sichtbar wird (kein wildes Fliegen) */
  for(let s=0;s<160;s++)schrittRechnen(1);
+ /* 3D-Kamera: langsamer Orbit ums Galaxie-Herz + sanftes Nicken — der "Flug" */
+ let kam=0;const F=760;
+ const proj=(x,y,z)=>{const c=Math.cos(kam),s=Math.sin(kam);
+  const rx=x-cx,px=rx*c+z*s,pz=-rx*s+z*c,sc=F/(F+pz);
+  return [cx+px*sc,cy+(y-cy)*sc,sc,pz];};
  const pings=[];
  const malen=(alpha,zeit)=>{ctx.clearRect(0,0,W,H);ctx.globalAlpha=alpha;
   /* Nebel: zwei grosse, sehr dezente Farbwolken — ums Galaxie-Herz gelegt */
@@ -971,33 +983,46 @@ async function loadMind(){const cv=$("#mindcv");if(!cv)return;
   g.addColorStop(0,rgba(AK2,.09));g.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
   g=ctx.createRadialGradient(cx+W*.12,cy+H*.14,0,cx+W*.12,cy+H*.14,W*.32);
   g.addColorStop(0,rgba(HUD,.05));g.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  /* Sternenstaub: winzige, leise funkelnde Punkte */
-  staub.forEach(s=>{ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);
-   ctx.fillStyle="rgba(236,238,244,"+(.10+.13*(1+Math.sin(zeit*.0009+s.ph))/2).toFixed(3)+")";ctx.fill();});
-  ctx.strokeStyle=rgba(HUD,.10);ctx.lineWidth=1;
-  links.forEach(([ia,ib])=>{ctx.beginPath();ctx.moveTo(nodes[ia].x,nodes[ia].y);ctx.lineTo(nodes[ib].x,nodes[ib].y);ctx.stroke();});
-  /* Sterne: farbiger Halo + heller Kern; die groessten funkeln mit Kreuz-Glanz */
-  nodes.forEach((n,i)=>{const tw=.75+.25*Math.sin(zeit*.0011+n.ph);
-   const r=Math.min(6,2+grad[i]*.6)*tw;
-   const halo=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,r*3.4);
-   halo.addColorStop(0,rgba(n.color,.5));halo.addColorStop(1,"rgba(0,0,0,0)");
-   ctx.beginPath();ctx.arc(n.x,n.y,r*3.4,0,7);ctx.fillStyle=halo;ctx.fill();
-   ctx.beginPath();ctx.arc(n.x,n.y,Math.max(1.1,r*.8),0,7);ctx.fillStyle="rgba(240,238,250,.9)";ctx.fill();
-   if(grad[i]>=5){ctx.strokeStyle="rgba(255,255,255,"+(.26*tw).toFixed(3)+")";ctx.lineWidth=1;
-    ctx.beginPath();ctx.moveTo(n.x-r*2.6,n.y);ctx.lineTo(n.x+r*2.6,n.y);
-    ctx.moveTo(n.x,n.y-r*2.6);ctx.lineTo(n.x,n.y+r*2.6);ctx.stroke();}});
-  /* Begriffe (Runde V): NUR die wichtigsten Punkte, klein und leise — per Knopf schaltbar */
-  if(_mindWorte){ctx.font="9px 'Segoe UI',sans-serif";ctx.fillStyle="rgba(236,238,244,.42)";
-   nodes.forEach((n,i)=>{if(grad[i]>=4)ctx.fillText((n.id||"").slice(0,16),n.x+8,n.y+3);});}
-  /* Pings: Lichtpunkte wandern die Verbindungen entlang — max 3 gleichzeitig, nie penetrant */
+  /* Sternenstaub: winzige funkelnde Punkte MIT Tiefe (Parallaxe beim Flug) */
+  staub.forEach(s=>{const [sx,sy,sc]=proj(s.x,s.y,s.z);
+   ctx.beginPath();ctx.arc(sx,sy,s.r*sc,0,7);
+   ctx.fillStyle="rgba(236,238,244,"+((.08+.13*(1+Math.sin(zeit*.0009+s.ph))/2)*sc).toFixed(3)+")";ctx.fill();});
+  /* Faeden: je weiter hinten, desto leiser */
+  links.forEach(([ia,ib])=>{const A=nodes[ia],B=nodes[ib];
+   const [ax,ay,asc]=proj(A.x,A.y,A.z),[bx,by,bsc]=proj(B.x,B.y,B.z);
+   const t=(asc+bsc)/2;ctx.strokeStyle=rgba(HUD,(.13*t*t).toFixed(3));ctx.lineWidth=1;
+   ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(bx,by);ctx.stroke();});
+  /* Sterne: fern zuerst malen (sauberes Ueberlagern); nahe gross+hell, ferne klein+leise;
+     frisch beruehrte Notizen (heat) leuchten weisser und weiter */
+  const reihenfolge=nodes.map((n,i)=>[proj(n.x,n.y,n.z),n,i]).sort((a,b)=>a[0][3]>b[0][3]?-1:1);
+  reihenfolge.forEach(([[px,py,sc],n,i])=>{
+   const tw=.75+.25*Math.sin(zeit*.0011+n.ph),heat=Math.max(0,Math.min(1,n.heat||0));
+   const r=Math.min(6,2+grad[i]*.6)*tw*sc*(1+.5*heat);
+   const halo=ctx.createRadialGradient(px,py,0,px,py,r*(3.4+2*heat));
+   halo.addColorStop(0,rgba(n.color,(.28+.34*sc+.25*heat).toFixed(3)));
+   if(heat>.4)halo.addColorStop(.35,"rgba(255,255,255,"+(.18*heat).toFixed(3)+")");
+   halo.addColorStop(1,"rgba(0,0,0,0)");
+   ctx.beginPath();ctx.arc(px,py,r*(3.4+2*heat),0,7);ctx.fillStyle=halo;ctx.fill();
+   ctx.beginPath();ctx.arc(px,py,Math.max(1,r*.8),0,7);
+   ctx.fillStyle="rgba(255,255,255,"+((.45+.45*sc+.1*heat)).toFixed(3)+")";ctx.fill();
+   if(grad[i]>=5&&sc>.85){ctx.strokeStyle="rgba(255,255,255,"+(.26*tw*sc).toFixed(3)+")";ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(px-r*2.6,py);ctx.lineTo(px+r*2.6,py);
+    ctx.moveTo(px,py-r*2.6);ctx.lineTo(px,py+r*2.6);ctx.stroke();}
+   /* Begriffe (Runde V): nur wichtige UND nahe Sterne, klein und leise */
+   if(_mindWorte&&grad[i]>=4&&sc>.92){ctx.font="9px 'Segoe UI',sans-serif";
+    ctx.fillStyle="rgba(236,238,244,"+(.42*sc).toFixed(3)+")";
+    ctx.fillText((n.id||"").slice(0,16),px+8,py+3);}});
+  /* Pings: Lichtpunkte wandern die Faeden entlang — max 3 gleichzeitig, nie penetrant */
   if(links.length&&pings.length<3&&Math.random()<.02)pings.push({l:links[Math.random()*links.length|0],t:0});
   for(let i=pings.length-1;i>=0;i--){const p=pings[i];p.t+=.014;if(p.t>=1){pings.splice(i,1);continue;}
-   const a=nodes[p.l[0]],b=nodes[p.l[1]],x=a.x+(b.x-a.x)*p.t,y=a.y+(b.y-a.y)*p.t,f=Math.sin(p.t*Math.PI);
-   const pg=ctx.createRadialGradient(x,y,0,x,y,9);pg.addColorStop(0,rgba(HUD,.85*f));pg.addColorStop(1,"rgba(0,0,0,0)");
+   const A=nodes[p.l[0]],B=nodes[p.l[1]];
+   const [ax,ay,asc]=proj(A.x,A.y,A.z),[bx,by,bsc]=proj(B.x,B.y,B.z);
+   const x=ax+(bx-ax)*p.t,y=ay+(by-ay)*p.t,f=Math.sin(p.t*Math.PI)*((asc+bsc)/2);
+   const pg=ctx.createRadialGradient(x,y,0,x,y,9);pg.addColorStop(0,rgba(HUD,(.85*f).toFixed(3)));pg.addColorStop(1,"rgba(0,0,0,0)");
    ctx.beginPath();ctx.arc(x,y,9,0,7);ctx.fillStyle=pg;ctx.fill();
    ctx.beginPath();ctx.arc(x,y,1.6,0,7);ctx.fillStyle="rgba(255,255,255,"+(.9*f).toFixed(3)+")";ctx.fill();}
   ctx.globalAlpha=1;};
- /* 2) sanft einblenden, dann nur noch ruhige Drift (reduced-motion: statisch) */
+ /* 2) sanft einblenden, dann Orbit-Flug + ruhige Drift (reduced-motion: statisch) */
  _mindMalen=malen;                        /* Begriffe-Knopf malt ohne Layout-Neustart */
  if(_mindLauf)cancelAnimationFrame(_mindLauf);
  const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1005,7 +1030,7 @@ async function loadMind(){const cv=$("#mindcv");if(!cv)return;
  let t=0;
  const atmen=()=>{t++;const zeit=performance.now();
   if(t<=24){malen(t/24,zeit);}               /* Fade-in */
-  else{schrittRechnen(.02);malen(1,zeit);}   /* Drift: 2% Kraft = kaum sichtbares Leben */
+  else{kam+=.0009;schrittRechnen(.02);malen(1,zeit);}  /* Orbit ~2 min/Umlauf + 2% Drift */
   if(cur==="home")_mindLauf=requestAnimationFrame(atmen);};
  atmen();}
 /* Fenster-Groesse aendert sich -> Galaxie passt sich an (debounced) */
