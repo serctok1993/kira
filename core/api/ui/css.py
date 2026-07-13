@@ -885,6 +885,42 @@ select.engine-pill,button.engine-pill{box-shadow:none}
 #board-links #ops-feed{font-size:11.5px}
 #board-links .op{flex-wrap:wrap}
 #board-links .op .opx{white-space:normal;word-break:break-word;overflow-wrap:anywhere}
+
+/* ===== Runde IX: Board-Chat pur — ein stinknormales Chatfenster; der MODUS
+   faerbt ALLES (eine --dock-acc-Variable statt fest Lila). ===== */
+#chat-dock,#board-chat{--dock-acc:var(--accent-chat)}
+#chat-main[data-mode="work"] #chat-dock{--dock-acc:var(--work-accent)}
+#chat-main[data-mode="coding"] #chat-dock{--dock-acc:var(--coding-accent)}
+#board-chat[data-mode="work"]{--dock-acc:var(--work-accent)}
+#board-chat[data-mode="coding"]{--dock-acc:var(--coding-accent)}
+/* Hover + An-Zustaende folgen dem Modus */
+#board-chat .bc-werk button.ghost:hover,#board-chat .bc-werk .chip:hover,
+#chat-dock .toolbox .chip:hover,#chat-dock .engine-pill:hover,#board-chat .engine-pill:hover,
+#cform .chip.mic:hover,#board-chat .chip.mic:hover{
+ border-color:color-mix(in srgb,var(--dock-acc) 60%,var(--line));color:var(--ink)}
+#chat-dock .chip.tog.on,#board-chat .chip.tog.on{color:var(--ink);
+ border-color:color-mix(in srgb,var(--dock-acc) 60%,var(--line));
+ background:color-mix(in srgb,var(--dock-acc) 14%,var(--panel))}
+#bc-mode .pill,#chat-mode-seg .pill{background:color-mix(in srgb,var(--dock-acc) 28%,transparent)}
+/* Senden: schlank und flach, traegt die Modus-Farbe — kein Massiv-Klotz mehr */
+#chat-main #cform>button:last-child,#board-chat #bc-send{
+ height:38px;padding:0 16px;font-size:12.5px;font-weight:600;border-radius:9px;
+ color:var(--ink);border:1px solid color-mix(in srgb,var(--dock-acc) 60%,var(--line));
+ background:color-mix(in srgb,var(--dock-acc) 16%,var(--panel));filter:none;box-shadow:none}
+#chat-main #cform>button:last-child:hover,#board-chat #bc-send:hover{
+ background:color-mix(in srgb,var(--dock-acc) 26%,var(--panel));filter:none}
+/* Alles eine Nummer kleiner */
+#board-chat .bc-werk .ghost,#board-chat .bc-werk .chip,#chat-dock .toolbox .chip,
+#chat-dock .engine-pill,#board-chat .engine-pill{padding:4px 10px;font-size:11.5px}
+#bc-mode a,#chat-mode-seg a{padding:5px 12px;font-size:11.5px}
+#board-chat textarea{padding:9px 11px}
+/* + und Mikro sitzen am Feld — beide Docks gleich */
+#board-chat .plus{flex-shrink:0}
+#cform .chip.mic,#board-chat .chip.mic{height:38px;padding:0 11px;display:inline-flex;align-items:center}
+.chip.mic svg{width:15px;height:15px}
+.chip.mic.rec{color:var(--danger);border-color:var(--danger);animation:aurapulse 1.6s ease-in-out infinite}
+/* Board-Modell-Popup oeffnet nach OBEN (der Dock klebt unten) */
+#bc-model-pop{bottom:calc(100% + 6px);top:auto;right:0}
 </style>"""
 
 # Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt

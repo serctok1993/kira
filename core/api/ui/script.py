@@ -501,17 +501,20 @@ async function loadStats(){try{
 /* ---- Modell-Umschalter in der Chat-Pane ---- */
 function shortModel(id){return (id||"").replace(/^openrouter\//,"").replace(/^ollama_chat\//,"").split("/").pop();}
 function setChatModel(id){const h=$("#chat-model");if(h)h.value=id||"";
- const b=$("#model-btn");if(b)b.textContent=id?shortModel(id):"Modell";syncDenk();}
+ const b=$("#model-btn");if(b)b.textContent=id?shortModel(id):"Modell";
+ const b2=$("#bc-model-btn");if(b2)b2.textContent=id?shortModel(id):"Modell";  /* Runde IX: Board-Pille synct */
+ syncDenk();}
 async function loadChatModels(){const s=await (await fetch("/api/status")).json();
  REASON_MARKERS=s.reasoning_markers||REASON_MARKERS;
  setChatModel(s.resolved_model||s.model);}   /* das Modell, das der Chat WIRKLICH nutzt */
 async function useChatModel(id){
  /* NUR die Chat-Rolle setzen — NICHT default (das wuerde reason/bulk mitreissen und den GLM-Denker kapern). */
  await fetch("/api/model/role",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role:"chat",model:id})});
- setChatModel(id);const p=$("#model-pop");if(p)p.style.display="none";refreshStatus();}
-/* Modell-Popover: ALLE Modelle (wie in den Einstellungen), mit ehrlichem Reasoning-Hinweis pro Modell. */
+ setChatModel(id);["#model-pop","#bc-model-pop"].forEach(s=>{const p=$(s);if(p)p.style.display="none";});refreshStatus();}
+/* Modell-Popover: ALLE Modelle (wie in den Einstellungen), mit ehrlichem Reasoning-Hinweis pro Modell.
+   Runde IX: EIN Bauteil fuer Chat UND Board (box-Parameter statt fester IDs). */
 let MODEL_CACHE=null;
-async function renderModelRows(term){const box=$("#model-rows");if(!box)return;
+async function renderModelRows(term,box){box=box||$("#model-rows");if(!box)return;
  if(!MODEL_CACHE){try{const d=await (await fetch("/api/model/catalog")).json();const c=d.catalog||{};
    MODEL_CACHE=[].concat(c.local||[],c.openrouter||[],c.aimlapi||[]);}catch(e){MODEL_CACHE=[];}}
  const cur=($("#chat-model")&&$("#chat-model").value)||"";
@@ -523,14 +526,18 @@ async function renderModelRows(term){const box=$("#model-rows");if(!box)return;
    const tip=rc?'Reasoning-faehig — der Denk-Tiefe-Regler wird aktiv':'Kein eingebautes Reasoning';
    return '<div class="cmd-row" data-mid="'+esc(m.id)+'" title="'+tip+'"'+act+'><span class="cmd-k">'+esc((m.name||m.id).slice(0,44))+'</span><span style="flex:1"></span>'+badge+'</div>';}).join("")
   :'<div class="muted" style="padding:8px">nichts gefunden</div>';
- $$('#model-rows .cmd-row').forEach(r=>r.onclick=()=>useChatModel(r.dataset.mid));}
-$("#model-btn")&&($("#model-btn").onclick=async e=>{e.stopPropagation();const el=$("#model-pop");if(!el)return;
- const show=el.style.display==="none";
- if(show){el.innerHTML='<input class="mq" id="model-q" placeholder="Modell suchen (Fable, Opus, GLM …)"/><div class="mrows" id="model-rows"><div class="muted" style="padding:8px">… lade Modelle …</div></div>';
-  el.style.display="block";const q=$("#model-q");if(q){q.oninput=()=>renderModelRows(q.value);q.focus();}renderModelRows("");}
- else el.style.display="none";});
-document.addEventListener("click",e=>{const p=$("#model-pop");
- if(p&&p.style.display!=="none"&&!e.target.closest("#model-pop")&&e.target.id!=="model-btn")p.style.display="none";});
+ box.querySelectorAll(".cmd-row").forEach(r=>r.onclick=()=>useChatModel(r.dataset.mid));}
+function modellKnopf(btnSel,popSel){const b=$(btnSel);if(!b)return;
+ b.onclick=async e=>{e.stopPropagation();const el=$(popSel);if(!el)return;
+  const show=el.style.display==="none";
+  if(show){el.innerHTML='<input class="mq" placeholder="Modell suchen (Fable, Opus, GLM …)"/><div class="mrows"><div class="muted" style="padding:8px">… lade Modelle …</div></div>';
+   el.style.display="block";const q=el.querySelector(".mq"),rows=el.querySelector(".mrows");
+   if(q){q.oninput=()=>renderModelRows(q.value,rows);q.focus();}renderModelRows("",rows);}
+  else el.style.display="none";};
+ document.addEventListener("click",e=>{const p=$(popSel);
+  if(p&&p.style.display!=="none"&&!e.target.closest(popSel)&&!e.target.closest(btnSel))p.style.display="none";});}
+modellKnopf("#model-btn","#model-pop");
+modellKnopf("#bc-model-btn","#bc-model-pop");
 
 /* ---- Monitor ---- */
 let _moEditId=null;  /* Feedback-Runde II: Eintrag anklicken -> bearbeiten (Formular oben) */
@@ -1350,15 +1357,24 @@ $("#cin")&&$("#cin").addEventListener("input",growCin);
 /* ==== Runde IV: der Chat-Einstieg im Board — Absenden laesst die Seiten dissipieren
    (links/rechts gleiten weg), dann uebernimmt der ECHTE Chat die Nachricht: eine
    Bewegung statt Tab-Wechsel. reduced-motion springt direkt. ==== */
-function boardZumChat(text){const home=$("#v-home");
+function boardZumChat(text,nurVorbereiten){const home=$("#v-home");
  const los=()=>{home.classList.remove("abflug");nav("chat");
   const ci=$("#cin");
-  if(!sendText(text)&&ci){ci.value=text;growCin();}   /* WS noch zu? -> Chat vorbefuellt */
+  if(nurVorbereiten){if(ci){ci.value=text;growCin();}}  /* Schwarm: Finger am Abzug bleibt bei dir */
+  else if(!sendText(text)&&ci){ci.value=text;growCin();} /* WS noch zu? -> Chat vorbefuellt */
   if(ci)ci.focus();};
  if(matchMedia("(prefers-reduced-motion: reduce)").matches){los();return;}
  home.classList.add("abflug");setTimeout(los,430);}
 $("#board-chat")&&($("#board-chat").onsubmit=e=>{e.preventDefault();
  const t=$("#bc-in").value.trim();if(!t)return;
+ /* Runde IX: Schwarm lebt im Senden-Knopf — "/schwarm rang vorlage | a | b" wird
+    im Chat VORBEREITET (nicht gesendet), du drueckst dort Senden */
+ if($("#dir-schwarm")&&$("#dir-schwarm").checked){
+  const rang=($("#dir-rang")&&$("#dir-rang").value)||"arbeiter";
+  const lines=t.split("\n").map(s=>s.trim()).filter(Boolean);
+  if(lines.length<2){$("#dir-hint").textContent="⁂ Schwarm braucht Ziele: 1. Zeile der Auftrag (mit {item}), dann je eine Zeile pro Ziel (z.B. Friseure / Hotels).";return;}
+  $("#bc-in").value="";
+  boardZumChat("/schwarm "+rang+" "+lines[0]+" | "+lines.slice(1).join(" | "),true);return;}
  $("#bc-in").value="";boardZumChat(t);});
 $("#bc-in")&&$("#bc-in").addEventListener("keydown",e=>{
  if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();
@@ -1428,7 +1444,7 @@ function attachVAD(stream,rec){
 async function startRec(autoSend){recAutoSend=!!autoSend;
  try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});chunks=[];mediaRec=new MediaRecorder(stream);
   mediaRec.ondataavailable=ev=>chunks.push(ev.data);
-  mediaRec.onstop=async()=>{stopLive();stream.getTracks().forEach(t=>t.stop());$("#micbtn")&&($("#micbtn").textContent="◉");
+  mediaRec.onstop=async()=>{stopLive();stream.getTracks().forEach(t=>t.stop());$("#micbtn")&&($("#micbtn").classList.remove("rec"));
    if(recAutoSend&&!vadSpoke){if(handsFree)armListen();return;}  /* nur Stille -> nicht transkribieren */
    const blob=new Blob(chunks,{type:"audio/webm"});const rd=new FileReader();
    rd.onload=async()=>{const sendNow=pttSend;pttSend=false;      /* PTT: einmalig konsumieren */
@@ -1449,7 +1465,7 @@ async function startRec(autoSend){recAutoSend=!!autoSend;
    rd.readAsDataURL(blob);};
   /* manuelles Mikro (kein Weckwort-Lauschen) -> Aufnahme in Haeppchen + Live-Transkription */
   if(recAutoSend){mediaRec.start();}else{$("#cin").value="";growCin();mediaRec.start(1200);startLive();}
-  $("#micbtn")&&($("#micbtn").textContent="⏹");
+  $("#micbtn")&&($("#micbtn").classList.add("rec"));
   if(autoSend)attachVAD(stream,mediaRec);              /* freihaendig -> Pause stoppt automatisch */
  }catch(err){add("Mikrofon nicht verfuegbar: "+err,"sys");handsFree=false;paintAssist();}}
 $("#micbtn")&&($("#micbtn").onclick=()=>{if(mediaRec&&mediaRec.state==="recording"){mediaRec.stop();return;}startRec(false);});
@@ -1926,41 +1942,31 @@ function simpleRecord(btnSel,targetSel){const btn=$(btnSel);if(!btn)return;let r
  btn.onclick=async()=>{if(rec&&rec.state==="recording"){rec.stop();return;}
   try{const stream=await navigator.mediaDevices.getUserMedia({audio:true});ch=[];rec=new MediaRecorder(stream);
    rec.ondataavailable=e=>ch.push(e.data);
-   rec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());btn.textContent="◉";
+   rec.onstop=async()=>{stream.getTracks().forEach(t=>t.stop());btn.classList.remove("rec");
     const t=$(targetSel);const old=(t&&t.value||"").trim();const blob=new Blob(ch,{type:"audio/webm"});const rd=new FileReader();
     rd.onload=async()=>{t.value=(old?old+" ":"")+"… transkribiere …";
      try{const r=await (await fetch("/api/transcribe",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({audio:rd.result})})).json();
       t.value=(old?old+" ":"")+(r.ok?(r.text||""):"(Audio-Fehler)");}catch(e){t.value=old;}t.focus();};
     rd.readAsDataURL(blob);};
-   rec.start();btn.textContent="⏹";
+   rec.start();btn.classList.add("rec");
   }catch(err){add("Mikrofon nicht verfuegbar: "+err,"sys");}};}
-/* Runde V: der Befehl-Kasten ist im Board-Chat aufgegangen — Voice, Schwarm,
-   Sofort und Fokus lesen jetzt ALLE aus #bc-in (ein Feld, viele Hebel). */
+/* Runde IX: der Board-Chat ist ein stinknormales Chatfenster — Voice diktiert
+   ins Feld, der Schwarm lebt im Senden-Knopf (Logik in boardZumChat/onsubmit),
+   die Fokus-Knoepfe sind raus (der Tages-Fokus wohnt oben in der Fokus-Zeile). */
 simpleRecord("#dir-mic","#bc-in");
-/* Schwarm-Umschalter: blendet den Rang ein, ändert den Knopf */
+/* Schwarm-Umschalter: blendet den Rang ein, macht Senden zum Schwarm-Knopf */
 $("#dir-schwarm")&&($("#dir-schwarm").onchange=()=>{const on=$("#dir-schwarm").checked;
  const rg=$("#dir-rang");if(rg)rg.style.display=on?"":"none";
- const b=$("#dir-now");if(b)b.textContent=on?"⁂ An den Schwarm":"↯ Sofort ausfuehren";
+ const b=$("#bc-send");if(b)b.textContent=on?"⁂ An den Schwarm":"Senden";
  const t=$("#bc-in");if(t)t.placeholder=on
    ?"1. Zeile = Auftrag mit {item}  (z.B. „Finde 5 Telefonnummern fuer {item} in Berlin“)\ndann je eine Zeile pro Ziel:\nFriseure\nHotels"
    :"Schreib mir …  (Enter sendet — dein Satz gleitet direkt ins Gespraech)";
  $("#dir-hint").textContent=on?"⁂ Jede Zeile unter dem Auftrag wird ein eigener Agent (bis schwarm_max, sonst in Wellen).":"";});
-$("#dir-now")&&($("#dir-now").onclick=async()=>{const p=$("#bc-in").value.trim();if(!p)return;
- if($("#dir-schwarm")&&$("#dir-schwarm").checked){                       /* Schwarm-Auftrag -> im Chat vorbereiten (Finger am Abzug bleibt bei dir) */
-  const rang=($("#dir-rang")&&$("#dir-rang").value)||"arbeiter";
-  /* 1. Zeile = Vorlage (mit {item}), weitere Zeilen = Ziele -> korrektes "/schwarm rang vorlage | a | b" */
-  const lines=p.split("\n").map(s=>s.trim()).filter(Boolean);
-  if(lines.length<2){$("#dir-hint").textContent="⁂ Schwarm braucht Ziele: 1. Zeile der Auftrag (mit {item}), dann je eine Zeile pro Ziel (z.B. Friseure / Hotels).";return;}
-  const vorlage=lines[0],items=lines.slice(1);
-  const cin=$("#cin");if(cin)cin.value="/schwarm "+rang+" "+vorlage+" | "+items.join(" | ");
-  nav("chat");if(cin)cin.focus();$("#dir-hint").textContent="⁂ "+items.length+" Auftraege im Chat vorbereitet — druecke Senden.";return;}
- $("#dir-hint").textContent="… Kira arbeitet daran (kann ~1 min dauern) …";
- const r=await (await fetch("/api/direktive/now",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:p})})).json();
- $("#dir-hint").textContent="✓ erledigt";const rr=$("#dir-result");rr.style.display="block";rr.textContent=(r.result||"(keine Antwort)");});
-$("#dir-focus")&&($("#dir-focus").onclick=async()=>{const p=$("#bc-in").value.trim();
- await fetch("/api/direktive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({focus:p})});
- $("#dir-hint").textContent="✧ Fokus gesetzt — ich ziehe ihn in meinen naechsten Schritt.";loadHome();loadFokus();});
-$("#dir-clear")&&($("#dir-clear").onclick=async()=>{await fetch("/api/direktive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({focus:""})});$("#bc-in").value="";$("#dir-hint").textContent="Fokus geloescht.";loadHome();loadFokus();});
+/* + im Board: gleitet ins Gespraech und oeffnet direkt die Dateiwahl */
+$("#bc-plus")&&($("#bc-plus").onclick=()=>{const home=$("#v-home");
+ const los=()=>{home.classList.remove("abflug");nav("chat");const f=$("#imgfile");f&&f.click();};
+ if(matchMedia("(prefers-reduced-motion: reduce)").matches){los();return;}
+ home.classList.add("abflug");setTimeout(los,430);});
 
 /* ---- Leben (S5.3b): Todos, Ziele, Metrik-Sparklines ---- */
 function spark(series){if(!series||series.length<2)return'<span class="muted" style="margin-right:8px">&mdash;</span>';
