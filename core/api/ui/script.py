@@ -237,7 +237,9 @@ $("#me-todo-in")&&($("#me-todo-in").addEventListener("keydown",e=>{if(e.key==="E
 const W_ENDPOINTS=["/api/digest","/api/tagewerk","/api/status","/api/evolution"];
 async function loadWidgets(slot,sel){const box=$(sel);if(!box)return;try{
  const d=await (await fetch("/api/widgets")).json();
- const ws=(d.widgets||[]).filter(w=>w.slot===slot).slice(0,8);
+ /* Runde VIII: das Demo-Widget draengt sich nicht mehr in die Galaxie-Mitte —
+    im Board erscheinen nur ECHTE Widgets (Kira legt sie per widget_add an) */
+ const ws=(d.widgets||[]).filter(w=>w.slot===slot&&!(w.demo&&slot==="zentrale")).slice(0,8);
  if(!ws.length){box.innerHTML="";return;}
  const parts=await Promise.all(ws.map(w=>renderWidget(w).catch(()=>"")));
  box.innerHTML=parts.filter(Boolean).join("");
@@ -616,9 +618,9 @@ async function loadHud(){const el=$("#hud-strip");if(!el)return;
   const kill=o.kill_switch?'<span style="color:var(--danger)">✕ NOT-AUS</span>':'<span style="color:var(--ok)">● bereit</span>';
   const model=(""+(o.model||"")).split("/").pop();
   const on=o.mission&&o.mission.heartbeat;
-  const motor='<a id="hud-motor" title="Klicken zum Umschalten" style="cursor:pointer;border-bottom:1px dotted var(--muted);color:'+(on?"var(--ok)":"var(--muted)")+'">'+(on?"● laeuft · AUS?":"○ aus · AN?")+'</a>';
+  const motor='<a id="hud-motor" class="hud-tog'+(on?" on":"")+'" title="Klicken zum Umschalten">'+(on?"● laeuft":"○ aus")+'</a>';
   const hf=(typeof handsFree!=="undefined")&&handsFree;
-  const assist='<a id="hud-assist" title="Assistenz-Modus: freihaendig zuhoeren, reagiert auf \'Kira …\', antwortet mit Stimme" style="cursor:pointer;border-bottom:1px dotted var(--muted);color:'+(hf?"var(--ok)":"var(--muted)")+'">'+(hf?"◉ hoert zu · AUS?":"◉ Zuhoeren?")+'</a>';
+  const assist='<a id="hud-assist" class="hud-tog'+(hf?" on":"")+'" title="Assistenz-Modus: freihaendig zuhoeren, reagiert auf \'Kira …\', antwortet mit Stimme">'+(hf?"◉ hoert zu":"◉ Zuhoeren")+'</a>';
   const jobs=mb?((mb.board&&(((mb.board.today||[]).length)+((mb.board.week||[]).length)+((mb.board.later||[]).length)))||0):0;
   const running=mb&&mb.board?((mb.board.running||[]).length):0;
   const todos=lb&&lb.board?(((lb.board.today||[]).length)+((lb.board.week||[]).length)):0;
@@ -730,15 +732,19 @@ async function loadTagewerk(){const el=$("#tagewerk");if(!el)return;
   const row=(ico,farbe,txt)=>'<div style="display:flex;gap:8px;padding:2px 0;font-size:12px"><span style="min-width:18px;color:'+farbe+'">'+ico+'</span><span>'+txt+'</span></div>';
   const zahl=(n,farbe)=>'<b style="color:'+((n|0)>0?farbe:"var(--muted)")+'">'+n+'</b>';
   const dz=d.diagnose?new Date(d.diagnose.ts*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):null;
-  el.innerHTML=
-   row("✓","var(--ok)",zahl(d.tasks.done,"var(--ok)")+" Tasks erledigt"+(d.tasks.avg_score!=null?" (Ø "+d.tasks.avg_score+")":"")+(d.tasks.failed?' · <span style="color:var(--danger)">'+d.tasks.failed+" gescheitert</span>":""))
-  +row("✉︎","var(--blau)",zahl(d.mails.anzahl,"var(--blau)")+" Mails gesendet"+(d.mails.an.length?' <span class="muted">('+esc(d.mails.an.slice(0,2).join(", "))+")</span>":""))
-  +row("◆","var(--ok)",zahl(d.skills.anzahl,"var(--ok)")+" Skills gelernt · "+zahl(d.lektionen,"var(--warn)")+" Lektionen")
-  +row("◷","var(--blau)",zahl(d.crons.anzahl,"var(--blau)")+" Cron-Laeufe"+(d.crons.labels.length?' <span class="muted">('+esc(d.crons.labels.slice(0,2).join(", "))+")</span>":""))
-  +row("⚒︎","var(--hud)",zahl(d.selbstverbesserung.ticks,"var(--hud)")+" Selbst-Optimierungen"+(d.selbstverbesserung.code_edits.length?" · "+d.selbstverbesserung.code_edits.length+" Code-Edits":""))
-  +row("✚",d.diagnose&&!d.diagnose.ok?"var(--warn)":"var(--ok)",d.diagnose?("Diagnose "+dz+" — "+(d.diagnose.ok?'<span style="color:var(--ok)">alles ok</span>':'<span style="color:var(--warn)">'+d.diagnose.probleme+" Punkte</span>")):'<span class="muted">heute keine Diagnose</span>')
-  +row("⏸",d.freigaben_offen?"var(--warn)":"var(--muted)",d.freigaben_offen?('<b style="color:var(--warn)">'+d.freigaben_offen+"</b> Freigaben warten auf dich"):'<span class="muted">keine offenen Freigaben</span>')
-  +row("€",d.kosten_heute_usd>0?"var(--warn)":"var(--ok)",d.kosten_heute_usd.toFixed(2).replace(".",",")+" $ heute");
+  /* Runde VIII: 0-Zeilen kollabieren — nur was PASSIERT ist, steht im Panel;
+     so passt "Kira heute" IMMER komplett auf den Schirm */
+  const zeilen=[];
+  if(d.tasks.done||d.tasks.failed)zeilen.push(row("✓","var(--ok)",zahl(d.tasks.done,"var(--ok)")+" Tasks erledigt"+(d.tasks.avg_score!=null?" (Ø "+d.tasks.avg_score+")":"")+(d.tasks.failed?' · <span style="color:var(--danger)">'+d.tasks.failed+" gescheitert</span>":"")));
+  if(d.mails.anzahl)zeilen.push(row("✉︎","var(--blau)",zahl(d.mails.anzahl,"var(--blau)")+" Mails gesendet"+(d.mails.an.length?' <span class="muted">('+esc(d.mails.an.slice(0,2).join(", "))+")</span>":"")));
+  if(d.skills.anzahl||d.lektionen)zeilen.push(row("◆","var(--ok)",zahl(d.skills.anzahl,"var(--ok)")+" Skills gelernt · "+zahl(d.lektionen,"var(--warn)")+" Lektionen"));
+  if(d.crons.anzahl)zeilen.push(row("◷","var(--blau)",zahl(d.crons.anzahl,"var(--blau)")+" Cron-Laeufe"+(d.crons.labels.length?' <span class="muted">('+esc(d.crons.labels.slice(0,2).join(", "))+")</span>":"")));
+  if(d.selbstverbesserung.ticks)zeilen.push(row("⚒︎","var(--hud)",zahl(d.selbstverbesserung.ticks,"var(--hud)")+" Selbst-Optimierungen"+(d.selbstverbesserung.code_edits.length?" · "+d.selbstverbesserung.code_edits.length+" Code-Edits":"")));
+  if(d.diagnose)zeilen.push(row("✚",!d.diagnose.ok?"var(--warn)":"var(--ok)","Diagnose "+dz+" — "+(d.diagnose.ok?'<span style="color:var(--ok)">alles ok</span>':'<span style="color:var(--warn)">'+d.diagnose.probleme+" Punkte</span>")));
+  if(d.freigaben_offen)zeilen.push(row("⏸","var(--warn)",'<b style="color:var(--warn)">'+d.freigaben_offen+"</b> Freigaben warten auf dich"));
+  if(d.kosten_heute_usd>0)zeilen.push(row("€","var(--warn)",d.kosten_heute_usd.toFixed(2).replace(".",",")+" $ heute"));
+  el.innerHTML=zeilen.length?zeilen.join("")
+   :'<span class="muted" style="font-size:12px">Noch nichts passiert heute — gib ihr unten einen Auftrag.</span>';
   const g=$("#go-tagewerk");if(g)g.onclick=()=>{nav("kira");if(typeof subnav==="function")subnav("kira","checkliste");};
  }catch(e){}}
 async function loadDigest(){const el=$("#digest");if(!el)return;
@@ -1261,8 +1267,10 @@ const MODE_HINT={
  work:"Work — echter Auftrag mit vollem Werkzeug-Budget auf GLM 5.2: Recherche, mehrere Schritte, Web/Dateien.",
  coding:"Coding — an Kira selbst schrauben (GLM 5.2): lesen → chirurgisch editieren → Tests + Diff-Review."};
 function applyChatMode(){const m=$("#chat-main");if(m)m.setAttribute("data-mode",chatMode);
- const seg=$("#chat-mode-seg");if(seg)seg.style.setProperty("--i",{chat:0,work:1,coding:2}[chatMode]||0);  /* Slider gleitet */
- /* Runde V: der Board-Einstieg traegt dieselbe Modus-Quelle — LED-Rand + Wahl folgen mit */
+ const i={chat:0,work:1,coding:2}[chatMode]||0;
+ const seg=$("#chat-mode-seg");if(seg)seg.style.setProperty("--i",i);  /* Slider gleitet */
+ /* Runde V/VIII: der Board-Einstieg traegt dieselbe Modus-Quelle — gleiches Segment, gleiche Pille */
+ const bm=$("#bc-mode");if(bm)bm.style.setProperty("--i",i);
  const bc=$("#board-chat");if(bc)bc.setAttribute("data-mode",chatMode);
  $$("#bc-mode a").forEach(x=>x.classList.toggle("on",x.dataset.m===chatMode));
  $$("#chat-mode-seg a").forEach(x=>x.classList.toggle("on",x.dataset.m===chatMode));}
@@ -1453,7 +1461,7 @@ window.kiraPTT=function(down){
  else{if(!pttDown)return;pttDown=false;
   try{if(mediaRec&&mediaRec.state==="recording"){pttSend=true;mediaRec.stop();}}catch(e){}}};
 /* Assistenz-Modus lebt in der Zentrale (#hud-assist). Toggle: an -> lauschen + vorlesen; aus -> stumm. */
-function paintAssist(){const b=$("#hud-assist");if(b){b.textContent=handsFree?"◉ hoert zu · AUS?":"◉ Zuhoeren?";
+function paintAssist(){const b=$("#hud-assist");if(b){b.textContent=handsFree?"◉ hoert zu":"◉ Zuhoeren";b.classList.toggle("on",!!handsFree);
  b.style.color=handsFree?"var(--ok)":"var(--muted)";}}
 function toggleAssist(){handsFree=!handsFree;paintAssist();
  if(handsFree){add("◉ Assistenz-Modus an — sag \"Kira\" + deine Anweisung, ich hoere zu und antworte knapp.","sys");armListen();}
