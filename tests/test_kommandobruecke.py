@@ -80,11 +80,11 @@ def test_strg_k_palette():
 
 
 def test_routinen_sind_bearbeitbar():
-    # Sergens Feedback im PR-Review: Routine anklicken -> Name/Zeitplan/Auftrag aendern
+    # Feedback aus dem PR-Review (13.07.): Routine anklicken -> Name/Zeitplan/Auftrag aendern
     # (Auftrag = freier Text, URLs fuer Tracking fahren mit). Endpoint existierte schon.
     assert "data-cedit" in SCRIPT and '"/api/cron/update"' in SCRIPT
     assert "ce-prompt" in SCRIPT and "ce-sched" in SCRIPT and "ce-label" in SCRIPT
-    assert '"/api/cron/runnow"' in SCRIPT                      # ▶ testen (Probelauf)
+    assert '"/api/cron/runnow"' in SCRIPT                      # ► testen (Probelauf)
     assert '"/api/cron/remove"' in SCRIPT                      # loeschen mit confirm
 
 
