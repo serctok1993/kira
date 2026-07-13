@@ -1173,7 +1173,11 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
  function ensureTrace(){if(!curThink){curThink=document.createElement("div");curThink.className="think live";
     curThink._t0=Date.now();
     curThink.innerHTML='<span class="h"><span class="chev">▸</span> <span class="tx live">…</span> <span class="hint">— live · klick fuer den ganzen Verlauf</span></span><div class="c"></div>';
-    curThink.querySelector(".h").onclick=()=>curThink.classList.toggle("show");log.appendChild(curThink);
+    /* ALTBUG-Fix: der Klick band die GLOBALE curThink-Variable — nach dem Lauf (null)
+       warf jeder Klick still einen TypeError, der Trace liess sich NIE mehr oeffnen.
+       Jetzt haelt der Handler sein eigenes Element. */
+    const dieser=curThink;
+    curThink.querySelector(".h").onclick=()=>dieser.classList.toggle("show");log.appendChild(curThink);
     traceC=curThink.querySelector(".c");curThinkLine=null;
     if(thinkEl){thinkEl.remove();thinkEl=null;}   /* Vor-Trace-Puls in die Trace-Ueberschrift falten (Timer laeuft weiter) */
     refreshPhrase();}return curThink;}
