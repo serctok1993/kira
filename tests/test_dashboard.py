@@ -154,7 +154,11 @@ def test_esc_helper_and_audit_escaping():
     Inbox-Titel/Detail) laufen hindurch. Rohes '+p.action+' darf nicht zurueckkommen."""
     html = _page()
     assert "function esc(" in html
-    assert "esc(p.action)" in html and "esc(p.target||'')" in html
+    # Runde II (Klartext-Audit): Aktion, Kurz-Ziel und Tooltip laufen durch esc();
+    # esc() deckt auch '"' ab, sonst waere der title-Attribut-Kontext ein Ausbruch.
+    assert "esc(KLAR[p.action]||p.action)" in html and "esc(kurz)" in html
+    assert 'esc((p.target||"").slice(0,600))' in html
+    assert '.replace(/"/g,"&quot;")' in html
     assert "'<b>'+p.action+'</b>'" not in html
 
 

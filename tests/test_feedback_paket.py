@@ -99,8 +99,11 @@ def test_hud_neue_zellen():
 
 
 def test_news_seed_fragt_erst():
+    # Runde II: keine eingebrannten Standard-Quellen mehr — der Knopf fuehrt
+    # zur Quellen-Verwaltung im Monitor, hinzugefuegt wird dort bewusst.
     fn = SCRIPT.split("function bindNewsSeed()", 1)[1].split("function bindOpsFilter", 1)[0]
-    assert "confirm(" in fn and "Standard-Quellen" in fn       # nichts wird still hinzugefuegt
+    assert "Quellen verwalten" in fn and 'subnav("kira","monitor")' in fn
+    assert "Standard-Quellen" not in fn
 
 
 # ---------- web_search Provider-Kette ----------

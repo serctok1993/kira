@@ -86,6 +86,9 @@ VIEWS = r"""</head><body>
 
   <!-- ================= BOARD (Zentrale) ================= -->
   <div class="view" id="v-home">
+    <!-- Feedback-Runde II: das MIND ist kein Kasten, sondern der HINTERGRUND des Boards —
+         der Vault-Graph liegt eingebettet unter allem, das Board dreht sich ums Gehirn -->
+    <canvas id="mindcv"></canvas>
     <div id="hero">
       <img id="hero-av" alt=""/>
       <div id="hero-txt">
@@ -98,12 +101,6 @@ VIEWS = r"""</head><body>
     <div style="display:flex;align-items:center;gap:8px;margin:2px 0">
       <div class="ticker" id="news-ticker" style="flex:1;min-width:0"><span>… Intel wird geladen …</span></div>
       <a id="news-seed" class="muted" style="cursor:pointer;font-size:10px;white-space:nowrap">+ Quellen</a>
-    </div>
-    <!-- Feedback 13.07.: das Mind visuell — der Vault als lebender Graph mitten im Board
-         (gleiche Daten wie das /wall-Wallpaper; Knoten = Notizen, Faeden = [[Links]]) -->
-    <div class="panel" id="mind-panel">
-      <div class="panel-h">◆ MIND <span class="sp"></span><span class="muted" style="font-size:10px;letter-spacing:0;text-transform:none">dein Vault als Graph — gross: /wall</span></div>
-      <div class="panel-b" style="padding:0"><canvas id="mindcv" style="width:100%;height:290px;display:block;cursor:crosshair"></canvas></div>
     </div>
     <!-- Feedback 09.07.: die Luecke neben dem Befehl gehoert den Widgets (Kira blendet
          hier per widget_add Kacheln ein — Follower, Kennzahlen, Listen) -->
@@ -688,27 +685,29 @@ VIEWS = r"""</head><body>
     </div>
   </div>
 
+  <!-- Feedback-Runde II: kein Extra-"Gewissen"-Konzept mehr — Autonomie zuerst
+       (du entscheidest, fertig), dann Budget, dann ein VERSTAENDLICHES Protokoll. -->
   <div class="subview" id="v-gov">
-    <div class="card"><h3>Was ist das „Gewissen"?</h3>
-      <div class="muted">Meine <b>Leitplanken</b> — womit du steuerst, wie weit ich gehen darf:
-      <b class="ok">Budget</b> = wie viel Geld sie pro Tag/Monat ausgeben darf (danach faellt sie automatisch auf lokal/0&nbsp;€).
-      <b class="ok">Autonomie</b> = welche Aktionsarten deine Freigabe brauchen. <b class="ok">Audit</b> = Protokoll ihrer Aussen-Aktionen.</div></div>
-    <div class="card"><h3>Budget (Treasury)</h3><div id="g-budget" class="muted">…</div>
+    <div class="card"><h3>Autonomie — was braucht deine Freigabe?</h3>
+      <div class="muted">Hier stellst du ein, WAS __AGENT__ dir vorlegen MUSS — alles andere
+      tut sie eigenstaendig (jede Aussen-Aktion landet im Protokoll unten).</div>
+      <div id="au-box" style="margin-top:10px" class="muted">…</div>
+      <div class="row" style="margin-top:10px">
+        <button id="au-save">Speichern (greift sofort)</button>
+        <span class="muted" id="au-hint" style="align-self:center"></span>
+      </div></div>
+    <div class="card"><h3>Budget — was darf sie ausgeben?</h3>
+      <div class="muted" style="font-size:12px">Tages- und Monatsdeckel fuer Cloud-Kosten. Ist der Deckel erreicht, faellt sie automatisch auf lokal (0&nbsp;€).</div>
+      <div id="g-budget" class="muted" style="margin-top:8px">…</div>
       <div class="row" style="margin-top:10px">
         <input id="g-day" type="number" step="0.5" placeholder="Tag €" style="max-width:120px"/>
         <input id="g-month" type="number" step="1" placeholder="Monat €" style="max-width:120px"/>
         <button id="g-budget-save">Speichern</button>
         <span class="muted" id="g-budget-hint" style="align-self:center"></span>
       </div></div>
-    <div class="card"><h3>Autonomie — was braucht deine Freigabe?</h3>
-      <div class="muted">Vertrauen entsteht durchs Nachpruefen, nicht durch ein Barometer. Hier stellst
-      du ein, WAS Kira dir vorlegen MUSS — alles andere tut sie eigenstaendig (mit Audit-Spur unten).</div>
-      <div id="au-box" style="margin-top:10px" class="muted">…</div>
-      <div class="row" style="margin-top:10px">
-        <button id="au-save">Speichern (greift sofort)</button>
-        <span class="muted" id="au-hint" style="align-self:center"></span>
-      </div></div>
-    <div class="card"><h3>Audit — protokollierte Aussen-Aktionen</h3><div id="g-audit" class="muted">…</div></div>
+    <div class="card"><h3>Protokoll — was hat sie nach aussen getan?</h3>
+      <div class="muted" style="font-size:12px">Jede Aussen-Aktion in Klartext, neueste zuerst. Geheimnisse (Tokens/Keys) werden automatisch geschwaerzt; das technische Detail steckt im Tooltip.</div>
+      <div id="g-audit" class="muted" style="margin-top:6px">…</div></div>
     <div class="card"><h3>€ Kosten-Aufschluesselung (heute · 7 Tage)</h3><div id="g-costs" class="muted">…</div></div>
   </div>
 
@@ -727,18 +726,23 @@ VIEWS = r"""</head><body>
   </div>
 
   <div class="subview" id="v-monitor">
-    <div class="card"><h3>Web-/News-Monitor (rein lesend)</h3>
-      <div class="muted">Ich ueberwache Feeds &amp; Themen, fasse Neues zusammen und melde dir's per Telegram. Nur Lesen — sicher.</div>
+    <div class="card"><h3>Dein News- &amp; Themen-Radar</h3>
+      <div class="muted">Sag mir, was ich fuer dich im Auge behalten soll — ein <b>Stichwort/Thema</b>
+      (z.B. „Anthropic Claude Release", „Foerderprogramme KMU") oder eine <b>Feed-URL</b> einer
+      Website. Ich schaue regelmaessig nach, fasse NUR NEUES zusammen und melde es hier, im
+      Laufband auf dem Board und im Briefing. Rein lesend — ich klicke nirgends drauf.</div>
       <div class="row" style="margin-top:8px">
-        <select id="mo-kind"><option value="feed">RSS-Feed</option><option value="search">Web-Thema</option></select>
-        <input id="mo-value" placeholder="RSS-URL  oder  Suchbegriff" style="min-width:240px"/>
-        <input id="mo-label" placeholder="Label (optional)" style="max-width:150px"/>
+        <select id="mo-kind"><option value="search">Thema/Stichwort</option><option value="feed">Feed-URL (RSS)</option></select>
+        <input id="mo-value" placeholder="z.B. Anthropic Claude  oder  https://…/rss.xml" style="min-width:240px"/>
+        <input id="mo-label" placeholder="Name (optional)" style="max-width:150px"/>
         <button id="mo-add">+ Beobachten</button>
         <button class="ghost" id="mo-check">Jetzt pruefen</button>
       </div>
       <div class="muted" id="mo-hint" style="margin-top:6px"></div>
     </div>
-    <div class="card"><h3>Beobachtungen</h3><div id="mo-list" class="muted">…</div></div>
+    <div class="card"><h3>Beobachtungen</h3>
+      <div class="muted" style="font-size:12px">Klick auf einen Eintrag = bearbeiten (landet oben im Formular).</div>
+      <div id="mo-list" class="muted">…</div></div>
     <div class="card"><h3>Zuletzt gemeldet</h3><div id="mo-recent" class="muted">…</div></div>
   </div>
 

@@ -711,9 +711,10 @@ button.ghost:hover{box-shadow:0 0 0 1px var(--accent);filter:none}
 .mem-cols #memhist-panel{margin:0;position:sticky;top:8px}
 .mem-cols #memhist{max-height:70vh;overflow-y:auto}
 @media(max-width:1150px){.mem-cols{grid-template-columns:1fr}.mem-cols #memhist-panel{position:static}}
-/* MIND-Graph im Board */
-#mind-panel{margin:10px 0 4px}
-#mind-panel canvas{background:radial-gradient(ellipse at center,rgba(139,92,246,.06),transparent 70%)}
+/* MIND-Graph: eingebetteter HINTERGRUND des Boards (Feedback-Runde II: kein Kasten) —
+   Panels liegen drueber, der Graph lebt in Mitte + Zwischenraeumen, stoert nie. */
+#v-home{position:relative;isolation:isolate}
+#mindcv{position:absolute;inset:0;width:100%;height:100%;z-index:-1;opacity:.5;pointer-events:none}
 </style>"""
 
 # Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt
