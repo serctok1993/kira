@@ -846,6 +846,45 @@ button.ghost:hover{box-shadow:0 0 0 1px var(--accent);filter:none}
 select.engine-pill,button.engine-pill{box-shadow:none}
 #chat-main #cform>button:last-child,#board-chat button[type="submit"]{filter:saturate(.75)}
 @media (prefers-reduced-motion:reduce){#chat-dock::before{animation:none}}
+
+/* ===== Runde VIII: EINE Buttonsprache (Vorbild: das Modus-Segment) =====
+   Werkzeug-Knoepfe sind flach und ruhig — Panel, Linie, gedaempfter Text;
+   Akzent kommt erst beim Hover. GEFUELLT ist nur noch Senden. */
+#board-chat .bc-werk button.ghost,#board-chat .bc-werk .chip,
+#chat-dock .toolbox .chip,#chat-dock .engine-pill,#cform .chip.mic{
+ background:var(--panel);border:1px solid var(--line);color:var(--muted);
+ border-radius:9px;padding:6px 13px;font-size:12px;font-weight:500;
+ box-shadow:none;text-shadow:none;filter:none}
+#board-chat .bc-werk button.ghost:hover,#board-chat .bc-werk .chip:hover,
+#chat-dock .toolbox .chip:hover,#chat-dock .engine-pill:hover,#cform .chip.mic:hover{
+ border-color:color-mix(in srgb,var(--accent) 55%,var(--line));color:var(--ink);
+ background:var(--panel);box-shadow:none;filter:none;transform:none}
+#chat-dock .chip.tog.on,#board-chat .chip.tog.on{color:var(--ink);
+ border-color:color-mix(in srgb,var(--accent) 55%,var(--line));
+ background:color-mix(in srgb,var(--accent) 14%,var(--panel))}
+#cmd-help{color:var(--muted)}                     /* das "weirde" Cyan ist Geschichte */
+/* Das Modus-Segment ist ueberall DASSELBE Bauteil — bc-mode = chat-mode-seg */
+#bc-mode{--i:0;position:relative;display:flex;padding:4px;isolation:isolate;
+ border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:visible}
+#bc-mode .pill{position:absolute;top:4px;bottom:4px;left:4px;width:calc((100% - 8px)/3);
+ border-radius:9px;z-index:-1;transform:translateX(calc(var(--i)*100%));transition:transform .25s ease;
+ background:color-mix(in srgb,var(--accent-chat) 30%,transparent)}
+#board-chat[data-mode="work"] #bc-mode .pill{background:color-mix(in srgb,var(--work-accent) 26%,transparent)}
+#board-chat[data-mode="coding"] #bc-mode .pill{background:color-mix(in srgb,var(--coding-accent) 26%,transparent)}
+#bc-mode a{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;
+ padding:6px 14px;border-radius:9px;cursor:pointer;color:var(--muted);font-size:12px;white-space:nowrap}
+#bc-mode a.on{color:#fff;background:none}
+#bc-mode a .mi{width:13px;height:13px;flex:none;color:#7d768f}
+@media (prefers-reduced-motion:reduce){#bc-mode .pill{transition:none}}
+/* HUD: Heartbeat + Assistenz als ruhige Toggle-Pillen statt gepunkteter Links */
+.hud-tog{cursor:pointer;display:inline-block;border:1px solid var(--line);border-radius:999px;
+ padding:2px 10px;color:var(--muted);font-size:11.5px;white-space:nowrap}
+.hud-tog.on{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,var(--line))}
+.hud-tog:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line));color:var(--ink)}
+/* Live-Ops: Texte brechen sauber um statt abgehackt zu enden */
+#board-links #ops-feed{font-size:11.5px}
+#board-links .op{flex-wrap:wrap}
+#board-links .op .opx{white-space:normal;word-break:break-word;overflow-wrap:anywhere}
 </style>"""
 
 # Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt

@@ -202,6 +202,30 @@ def test_runde6_chat_dock_und_farbdiaet():
     assert '#chat-main[data-mode="work"] #chat-dock::before' in CSS
 
 
+def test_runde8_eine_buttonsprache():
+    # Vorbild Modus-Segment: Werkzeug-Knoepfe flach (Panel/Linie/gedaempft),
+    # GEFUELLT ist nur noch Senden; bc-mode = dasselbe Bauteil wie chat-mode-seg.
+    r8 = CSS.split("Runde VIII", 1)[1]
+    assert "#board-chat .bc-werk button.ghost" in r8 and "background:var(--panel)" in r8
+    assert "#cmd-help{color:var(--muted)}" in r8
+    assert '<span class="pill"></span>' in VIEWS.split('id="bc-mode"', 1)[1][:260]
+    assert "#bc-mode .pill{position:absolute" in CSS
+    assert 'const bm=$("#bc-mode");if(bm)bm.style.setProperty("--i",i);' in SCRIPT
+    # HUD: Heartbeat/Assistenz als ruhige Toggle-Pillen, die Frage-Links sind Geschichte
+    assert 'class="hud-tog' in SCRIPT and ".hud-tog{cursor:pointer" in CSS
+    assert "AN?" not in SCRIPT and "AUS?" not in SCRIPT
+
+
+def test_runde8_kira_heute_kollabiert_demo_weg_ops_umbruch():
+    # 0-Zeilen kollabieren -> "Kira heute" passt IMMER auf den Schirm
+    assert "if(d.mails.anzahl)zeilen.push(" in SCRIPT
+    assert "Noch nichts passiert heute" in SCRIPT
+    # das Demo-Widget draengt sich nicht mehr in die Galaxie-Mitte
+    assert 'w.demo&&slot==="zentrale"' in SCRIPT
+    # Live-Ops-Texte brechen sauber um
+    assert "#board-links .op .opx{white-space:normal" in CSS
+
+
 def test_runde7_galaxie_3d(tmp_path):
     # Video-Vorbild "Memory Galaxy": echte Tiefe, Orbit-Flug, Frische leuchtet weisser.
     mind = SCRIPT.split("async function loadMind()", 1)[1].split("/* ---- Chat ----", 1)[0]
