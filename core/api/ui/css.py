@@ -706,6 +706,15 @@ button.ghost:hover{box-shadow:0 0 0 1px var(--accent);filter:none}
          font-size:13.5px;color:var(--ink)}
 .pal-row .pk{font-size:10px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;min-width:64px}
 .pal-row:hover,.pal-row.on{background:rgba(139,92,246,.16)}
+/* Feedback 13.07.: Gedaechtnis in 2 Spalten — links WAS, rechts WER/Aenderungen */
+.mem-cols{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:14px;align-items:start;max-width:1440px}
+.mem-cols #memhist-panel{margin:0;position:sticky;top:8px}
+.mem-cols #memhist{max-height:70vh;overflow-y:auto}
+@media(max-width:1150px){.mem-cols{grid-template-columns:1fr}.mem-cols #memhist-panel{position:static}}
+/* MIND-Graph: eingebetteter HINTERGRUND des Boards (Feedback-Runde II: kein Kasten) —
+   Panels liegen drueber, der Graph lebt in Mitte + Zwischenraeumen, stoert nie. */
+#v-home{position:relative;isolation:isolate}
+#mindcv{position:absolute;inset:0;width:100%;height:100%;z-index:-1;opacity:.5;pointer-events:none}
 </style>"""
 
 # Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt

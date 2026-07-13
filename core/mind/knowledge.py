@@ -259,6 +259,20 @@ def list_docs(limit: int = 100) -> list[dict]:
     return [dict(zip(cols, r)) for r in rows]
 
 
+def get_doc(doc_id: str) -> dict:
+    """Volltext eines Dokuments (alle Chunks in Reihenfolge) — fuers Cockpit-Ansehen."""
+    init_knowledge()
+    with _conn() as c:
+        row = c.execute("SELECT id, ts, title, source, tags FROM knowledge_docs WHERE id=?",
+                        (doc_id,)).fetchone()
+        if not row:
+            return {"error": "Dokument nicht gefunden"}
+        chunks = [r[0] for r in c.execute(
+            "SELECT text FROM knowledge_chunks WHERE doc_id=? ORDER BY chunk_no", (doc_id,))]
+    return {"id": row[0], "ts": row[1], "title": row[2], "source": row[3], "tags": row[4],
+            "text": "\n\n".join(chunks)}
+
+
 def delete(doc_id: str) -> bool:
     init_knowledge()
     with _conn() as c:
