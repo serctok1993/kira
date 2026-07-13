@@ -436,17 +436,19 @@ VIEWS = r"""</head><body>
             </div>
             <input id="kn-title" placeholder="Titel der Notiz" style="margin-top:10px;width:100%"/>
             <textarea id="kn-text" class="k" style="margin-top:6px;min-height:90px" placeholder="… oder hier Text/Wissen einfuegen …"></textarea>
-            <div class="row" style="margin-top:6px"><button id="kn-add">+ Ins Archiv</button><span class="muted" id="kn-hint" style="align-self:center"></span></div>
+            <div class="row" style="margin-top:6px"><button id="kn-add">+ In die Bibliothek</button><span class="muted" id="kn-hint" style="align-self:center"></span></div>
           </div>
         </div>
-        <div class="panel"><div class="panel-h">◈ UEBERALL SUCHEN <span class="sp"></span><span class="muted" style="font-size:10px;letter-spacing:0;text-transform:none">Archiv · Vault/Obsidian · Sessions · Gedaechtnis</span></div>
+        <div class="panel"><div class="panel-h">◈ UEBERALL SUCHEN <span class="sp"></span><span class="muted" style="font-size:10px;letter-spacing:0;text-transform:none">Bibliothek · Vault/Obsidian · Sessions · Gedaechtnis</span></div>
           <div class="panel-b">
             <input id="kn-q" placeholder="⌕ Ein Feld fuer alles — Notizen, Dateien, Gespraeche, Fakten …" style="width:100%"/>
             <div id="kn-results" style="margin-top:8px"><span class="muted">…</span></div>
           </div>
         </div>
       </div>
-      <div class="panel"><div class="panel-h">◈ ARCHIV <span class="sp"></span><span class="muted" id="kn-count" style="font-size:11px"></span></div>
+      <!-- Feinschliff-Runde III: "Archiv" klang nach Ablage-Friedhof — es ist Kiras
+           LESE-BESTAND: hier liegt alles, was sie gelesen hat, durchsuchbar und im Zugriff. -->
+      <div class="panel"><div class="panel-h">◈ BIBLIOTHEK — was Kira gelesen hat <span class="sp"></span><span class="muted" id="kn-count" style="font-size:11px"></span></div>
         <div id="kn-docs" class="panel-b"><span class="muted">…</span></div></div>
     </div>
 
