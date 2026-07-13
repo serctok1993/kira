@@ -132,7 +132,7 @@ def test_runde3_galaxie_ohne_woerter():
     # Das Mind ist ein Sternsystem: Nebel + Staub + Pings, HD, Theme-Farben.
     # Runde V: Begriffe kamen KLEIN und SCHALTBAR zurueck — Woerter nur hinterm Gate.
     mind = SCRIPT.split("async function loadMind()", 1)[1].split("/* ---- Chat ----", 1)[0]
-    assert "if(_mindWorte){" in mind.split("fillText", 1)[0]    # Beschriftung nur hinterm Schalter
+    assert "if(_mindWorte" in mind.split("fillText", 1)[0]      # Beschriftung nur hinterm Schalter
     assert "pings" in mind and "staub" in mind and "createRadialGradient" in mind
     assert "devicePixelRatio" in mind
     assert 'getPropertyValue("--hud")' in mind                  # Galaxie folgt dem Theme
@@ -200,6 +200,23 @@ def test_runde6_chat_dock_und_farbdiaet():
     assert "#chat-dock::before" in CSS and "#chat-main::before{display:none}" in CSS
     assert "#chat-dock::before,#board-chat::before{opacity:.5;filter:none}" in CSS
     assert '#chat-main[data-mode="work"] #chat-dock::before' in CSS
+
+
+def test_runde7_galaxie_3d(tmp_path):
+    # Video-Vorbild "Memory Galaxy": echte Tiefe, Orbit-Flug, Frische leuchtet weisser.
+    mind = SCRIPT.split("async function loadMind()", 1)[1].split("/* ---- Chat ----", 1)[0]
+    assert "const proj=(x,y,z)=>" in mind and "kam+=.0009" in mind   # Kamera fliegt
+    assert "n.z=Math.random()*440-220" in mind                       # feste Tiefe je Stern
+    assert "sort((a,b)=>a[0][3]>b[0][3]?-1:1)" in mind               # fern zuerst malen
+    assert "n.heat" in mind                                          # Frische -> Leuchtkraft
+    assert r"/^\d+,\d+,\d+$/" in mind                                # Tripel-Farben verstanden (Fix)
+    # Graph liefert heat: frische Datei leuchtet, unaufgeloestes Ziel bleibt kalt
+    from core.api import vault_graph
+    (tmp_path / "a.md").write_text("[[b]]", encoding="utf-8")
+    g = vault_graph.build_graph([tmp_path])
+    knoten = {n["id"]: n for n in g["nodes"]}
+    assert 0.9 < knoten["a"]["heat"] <= 1.0
+    assert knoten["b"]["heat"] == 0.0
 
 
 def test_runde4_chat_einstieg_mit_led_und_abflug():
