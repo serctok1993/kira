@@ -179,7 +179,9 @@ VIEWS = r"""</head><body>
         <!-- Kommandobruecke: offene Freigaben landen ALS KARTEN direkt im Gespraech -->
         <div id="chat-frei"></div>
         <div id="log"></div>
-        <!-- Werkbank UNTEN: Modus-Slider links (direkt ueber dem "+") · Werkzeuge rechts -->
+        <!-- Runde VI: der Chat wohnt in einem DOCK wie der Board-Einstieg — kleine Chips
+             oben (Modus + Modell + Werkzeuge), Feld unten mit + links und Mikro rechts. -->
+        <div id="chat-dock">
         <div id="chat-tools">
           <div id="chat-mode-seg" title="Chat = Dialog (DeepSeek) · Work = laengerer Auftrag mit vollem Werkzeug-Budget (GLM) · Coding = an Kira schrauben (Plan + Schritte + Diff-Review)">
             <span class="pill"></span>
@@ -202,7 +204,6 @@ VIEWS = r"""</head><body>
               <input type="hidden" id="reason-level"/>
             </span>
             <label class="chip tog" id="chip-tts" title="Kira liest ihre Antworten laut vor (Stimme muss unter Kira → Zugaenge an sein)"><input type="checkbox" id="tts-on"/> Vorlesen</label>
-            <button type="button" id="micbtn" class="chip" title="Sprachmemo aufnehmen — Kira hoert zu">Sprechen</button>
           </span>
           <span style="position:relative;display:inline-block">
             <button type="button" id="model-btn" class="chip engine-pill" title="Modell fuer diesen Chat — klick fuer alle Modelle">Modell</button>
@@ -213,8 +214,10 @@ VIEWS = r"""</head><body>
         <form id="cform">
           <label id="plusbtn" class="plus" title="Bild oder Datei (PDF, txt, md, csv) hochladen">+<input id="imgfile" type="file" accept="image/*,.pdf,.txt,.md,.markdown,.csv,.log,.json,.yaml,.yml,.html,.htm" style="display:none"/></label>
           <textarea id="cin" rows="1" placeholder="Schreib mir…  (Enter sendet · Shift+Enter = neue Zeile)" autocomplete="off" autofocus></textarea>
+          <button type="button" id="micbtn" class="chip mic" title="Sprachmemo aufnehmen — Kira hoert zu">◉</button>
           <button id="sendbtn">Senden</button>
         </form>
+        </div>
       </div>
       <!-- Kommandobruecke: DEIN TAG als dritte Spalte — Termine, Todos, Puls, ohne Tab-Wechsel -->
       <aside id="chat-tag">
