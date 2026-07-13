@@ -193,6 +193,10 @@ def test_runde9_board_chat_pur_und_modus_farbe():
     assert "#chat-main #cform>button:last-child,#board-chat #bc-send{" in CSS
     # + im Board beamt in den Chat und oeffnet die Dateiwahl
     assert 'f&&f.click()' in SCRIPT
+    # Schwarm-Toggle + Rang-Wahl im Dunkel-Look (kein weisses OS-Kaestchen/-Dropdown)
+    assert "#dir-schwarm-l input{display:none}" in CSS
+    assert '$("#dir-schwarm-l").classList.toggle("on",on)' in SCRIPT
+    assert "#dir-rang{background:var(--panel)" in CSS
 
 
 def test_runde5_kira_heute_farbig_ohne_scroll():
