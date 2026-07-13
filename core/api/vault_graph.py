@@ -61,9 +61,14 @@ def obsidian_vault_name() -> str | None:
 def build_graph(roots: list[Path] | None = None) -> dict:
     """Scannt die Vault-Ordner, baut {nodes, links, counts}.
 
-    nodes: [{id, group, color}]  · links: [{source, target}]  ·
+    nodes: [{id, group, color, heat}]  · links: [{source, target}]  ·
     counts: {notes, links} (notes = echte .md-Dateien, links = eindeutige Verbindungen).
+    heat 0..1 = Frische der Notiz (mtime, ~2 Wochen Halbwertszeit) — die Galaxie
+    laesst frisch beruehrte Notizen heller und weisser leuchten.
     """
+    import math
+    import time
+
     if roots is None:
         roots = _default_roots()
 
@@ -74,15 +79,23 @@ def build_graph(roots: list[Path] | None = None) -> dict:
 
     nodes: dict[str, dict] = {}   # key = stem.lower() -> node
     note_count = 0
+    jetzt = time.time()
 
-    def _add(stem: str, group: str) -> None:
+    def _add(stem: str, group: str, heat: float = 0.0) -> None:
         key = stem.lower()
         if key not in nodes:
-            nodes[key] = {"id": stem, "group": group, "color": _GROUP_COLOR.get(group, _GROUP_COLOR["vault"])}
+            nodes[key] = {"id": stem, "group": group,
+                          "color": _GROUP_COLOR.get(group, _GROUP_COLOR["vault"]),
+                          "heat": round(heat, 3)}
 
     for root, p in files:
         note_count += 1
-        _add(p.stem, _group_of(root, p))
+        try:
+            tage = max(0.0, (jetzt - p.stat().st_mtime) / 86400)
+            heat = math.exp(-tage / 14)
+        except OSError:
+            heat = 0.0
+        _add(p.stem, _group_of(root, p), heat)
 
     links: list[dict] = []
     seen: set[tuple[str, str]] = set()
