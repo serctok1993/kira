@@ -147,12 +147,10 @@ def test_chat_werkbank():
     tools = VIEWS.index('id="chat-tools"')
     form = VIEWS.index('id="cform"')
     assert log < tools < seg < form
-    # Mikro bleibt in der Werkbank; das Upload-"+" sitzt jetzt direkt am Eingabefeld
-    mic = VIEWS.index('id="micbtn"')
-    assert tools < mic < form                       # micbtn liegt im chat-tools-Block
+    # Runde VI: + links am Feld, Mikro RECHTS am Feld (beides im Eingabeformular)
     cform_block = VIEWS[form:VIEWS.index("</form>", form)]
-    assert 'id="micbtn"' not in cform_block          # Mikro NICHT im Eingabeformular
-    assert 'id="plusbtn"' in cform_block             # aber das "+" (Upload) schon
+    assert 'id="plusbtn"' in cform_block and 'id="micbtn"' in cform_block
+    assert cform_block.index('id="cin"') < cform_block.index('id="micbtn"') < cform_block.index('id="sendbtn"')
     # Modus-Farbe fix: Chat=Lila, Work=Grün, Coding=Rainbow(Cyan-Chrome), unabhängig vom Theme
     assert "--accent-chat:#b026ff" in CSS and "--work-accent:#39ff14" in CSS
     assert "#chat-main{--chat-accent:var(--accent-chat)}" in CSS
@@ -176,13 +174,13 @@ def test_chat_politur():
     # Vorlesen ohne Emoji davor
     assert "> 🔊 Vorlesen</label>" not in VIEWS
     assert "/> Vorlesen</label>" in VIEWS
-    # Commands, Reasoning, Vorlesen & Sprechen liegen alle in der unteren Werkzeug-Box (vor dem Modell-Speicher)
+    # Commands, Reasoning & Vorlesen liegen in der Werkzeug-Box (vor dem Modell-Speicher);
+    # das Mikro zog in Runde VI RECHTS ans Eingabefeld
     box_start = VIEWS.index('<span class="toolbox">')
     tools_end = VIEWS.index('id="chat-model"')
-    for m in ('id="cmd-help"', 'id="chip-denk"', 'id="chip-tts"', 'id="micbtn"'):
+    for m in ('id="cmd-help"', 'id="chip-denk"', 'id="chip-tts"'):
         assert box_start < VIEWS.index(m) < tools_end, f"{m} fehlt in der Werkzeug-Box"
-    # Mikro heisst jetzt "Sprechen" (kein Emoji mehr)
-    assert ">Sprechen</button>" in VIEWS
+    assert 'id="micbtn" class="chip mic"' in VIEWS
 
 
 # ---- Projekte-Tab entzerrt: Akte als eigener Kasten, Radar scrollt, kein "Venture" mehr ----

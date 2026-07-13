@@ -819,6 +819,33 @@ button.ghost:hover{box-shadow:0 0 0 1px var(--accent);filter:none}
  background:color-mix(in srgb,var(--panel) 72%,transparent)}
 #mind-worte.on{color:var(--hud);border-color:color-mix(in srgb,var(--hud) 50%,var(--line))}
 #mind-worte:hover{color:var(--accent)}
+
+/* ===== Runde VI: Chat-Dock — der Chat wohnt im selben Rahmen wie der Board-Einstieg;
+   Farb-Diaet: die Modus-Farbe bleibt, die Grelle geht. ===== */
+#chat-dock{position:relative;width:min(880px,100%);margin:10px auto 0;padding:10px 11px;
+ border-radius:16px;background:color-mix(in srgb,var(--panel) 88%,transparent)}
+#chat-dock::before{content:"";position:absolute;inset:0;border-radius:16px;padding:1.4px;
+ background:linear-gradient(90deg,#7d2fff,#b026ff,#d16bff,#ff2d95,#b026ff,#7d2fff);
+ background-size:200% 100%;animation:ledflow 9s linear infinite;pointer-events:none;
+ -webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);
+ -webkit-mask-composite:xor;mask-composite:exclude}
+#chat-main[data-mode="work"] #chat-dock::before{background-image:linear-gradient(90deg,#0aff9d,#39ff14,#9bff3c,#00e5a8,#39ff14,#0aff9d)}
+#chat-main[data-mode="coding"] #chat-dock::before{background-image:linear-gradient(90deg,#ff004d,#ff8a00,#ffe600,#39ff14,#00e5ff,#b026ff,#ff004d);animation-duration:6.5s}
+/* der grelle Vollbreite-LED-Streifen oben ist Geschichte — der Dock traegt die Modus-Farbe */
+#chat-main::before{display:none}
+/* Chips im Dock: EINE ruhige kleine Zeile (Modus + Modell + Werkzeuge) */
+#chat-dock #chat-tools{margin:0 0 8px;padding:0}
+#chat-tools #chat-mode-seg{width:auto}
+#chat-mode-seg a{padding:6px 14px;font-size:12px;gap:5px}
+#chat-mode-seg a .mi{width:13px;height:13px}
+#chat-dock #cform{margin:0;max-width:none}
+#cform .chip.mic{flex-shrink:0;height:46px;padding:0 14px;border-radius:10px;font-size:15px;
+ display:inline-flex;align-items:center}
+/* Farb-Diaet: LED-Raender halbtransparent, Glows runter — beide Docks gleich */
+#chat-dock::before,#board-chat::before{opacity:.5;filter:none}
+select.engine-pill,button.engine-pill{box-shadow:none}
+#chat-main #cform>button:last-child,#board-chat button[type="submit"]{filter:saturate(.75)}
+@media (prefers-reduced-motion:reduce){#chat-dock::before{animation:none}}
 </style>"""
 
 # Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt
