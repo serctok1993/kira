@@ -522,11 +522,20 @@ document.addEventListener("click",e=>{const p=$("#model-pop");
  if(p&&p.style.display!=="none"&&!e.target.closest("#model-pop")&&e.target.id!=="model-btn")p.style.display="none";});
 
 /* ---- Monitor ---- */
+let _moEditId=null;  /* Feedback-Runde II: Eintrag anklicken -> bearbeiten (Formular oben) */
 async function loadMonitor(){const m=await (await fetch("/api/monitor")).json();
- $("#mo-list").innerHTML=m.watches.length?m.watches.map(w=>'<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>'+(w.label||"").replace(/</g,"&lt;")+'</b> <small class=muted>['+w.kind+']</small> <a href="#" data-rm="'+w.id+'" style="float:right;color:var(--warn)">entfernen</a><br><small class=muted>'+(w.value||"").replace(/</g,"&lt;")+'</small></div>').join(""):'<span class=muted>(noch keine — oben hinzufuegen)</span>';
- document.querySelectorAll('#mo-list a[data-rm]').forEach(a=>a.onclick=async(e)=>{e.preventDefault();await fetch("/api/monitor/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.rm})});loadMonitor();});
+ $("#mo-list").innerHTML=m.watches.length?m.watches.map(w=>'<div data-medit="'+w.id+'" style="padding:6px 0;border-bottom:1px solid var(--line);cursor:pointer" title="klicken: bearbeiten"><b>'+(w.label||"").replace(/</g,"&lt;")+'</b> <small class=muted>['+(w.kind==="feed"?"Feed":"Thema")+']</small> <a href="#" data-rm="'+w.id+'" style="float:right;color:var(--warn)">entfernen</a><br><small class=muted>'+(w.value||"").replace(/</g,"&lt;")+'</small></div>').join(""):'<span class=muted>(noch keine — oben ein Thema oder einen Feed eintragen)</span>';
+ document.querySelectorAll('#mo-list a[data-rm]').forEach(a=>a.onclick=async(e)=>{e.preventDefault();e.stopPropagation();if(!confirm("Diese Beobachtung entfernen?"))return;await fetch("/api/monitor/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.rm})});if(_moEditId===a.dataset.rm)_moEditId=null;loadMonitor();});
+ document.querySelectorAll('#mo-list [data-medit]').forEach(r=>r.onclick=()=>{
+  const w=m.watches.find(x=>x.id===r.dataset.medit);if(!w)return;
+  _moEditId=w.id;$("#mo-kind").value=w.kind;$("#mo-value").value=w.value||"";$("#mo-label").value=w.label||"";
+  $("#mo-add").textContent="Änderung speichern";$("#mo-hint").textContent='bearbeite „'+(w.label||w.value)+'" — Speichern ersetzt den Eintrag';
+  $("#mo-value").focus();});
  $("#mo-recent").innerHTML=m.recent.length?m.recent.map(r=>{const ts=new Date(r.ts*1000).toLocaleString();return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><small class=muted>'+ts+'</small> <b>'+(r.label||"")+'</b> ('+r.count+' neu)<br>'+(r.summary||"").slice(0,320).replace(/</g,"&lt;").replace(/\n/g,"<br>")+'</div>';}).join(""):'<span class=muted>(noch nichts gemeldet)</span>';}
-$("#mo-add").onclick=async()=>{const v=$("#mo-value").value.trim();if(!v)return;await fetch("/api/monitor/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:$("#mo-kind").value,value:v,label:$("#mo-label").value})});$("#mo-value").value="";$("#mo-label").value="";loadMonitor();};
+$("#mo-add").onclick=async()=>{const v=$("#mo-value").value.trim();if(!v)return;
+ if(_moEditId){await fetch("/api/monitor/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:_moEditId})});_moEditId=null;$("#mo-add").textContent="+ Beobachten";}
+ await fetch("/api/monitor/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({kind:$("#mo-kind").value,value:v,label:$("#mo-label").value})});
+ $("#mo-value").value="";$("#mo-label").value="";$("#mo-hint").textContent="✓ gespeichert";loadMonitor();};
 $("#mo-check").onclick=async()=>{$("#mo-hint").textContent="… prueft alle Beobachtungen (kann etwas dauern) …";const r=await (await fetch("/api/monitor/check",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"})).json();$("#mo-hint").textContent="Geprueft: "+r.checked+" Quelle(n) · Neu gemeldet: "+(r.digests?r.digests.length:0);loadMonitor();};
 
 /* ---- Cron / geplante Aufgaben ---- */
@@ -668,18 +677,11 @@ async function loadNews(){const tk=$("#news-ticker");if(!tk)return;
   const head=rec.map(x=>'▟ '+(x.label||"")+': '+((x.summary||"").replace(/\n/g," ").slice(0,90))).join('     ◆     ');
   tk.innerHTML='<span>'+esc(head)+'</span>';
  }catch(e){}}
-const DEFAULT_FEEDS=[{kind:"feed",value:"https://hnrss.org/frontpage",label:"Hacker News"},
- {kind:"feed",value:"https://www.theverge.com/rss/index.xml",label:"The Verge"},
- {kind:"search",value:"KI Modell Release news",label:"KI-Releases"},
- {kind:"search",value:"AI agents open source",label:"Agents"}];
-function bindNewsSeed(){const s=$("#news-seed");if(!s)return;s.onclick=async()=>{
-  /* Feedback 09.07.: nichts still hinzufuegen — erst zeigen, WAS dazukommt */
-  if(!confirm("Diese Standard-Quellen fuers Intel-Laufband hinzufuegen?\n\n"
-    +DEFAULT_FEEDS.map(f=>"• "+(f.label||f.value)).join("\n")
-    +"\n\n(Verwalten/Loeschen: Kira → Monitor)"))return;
-  s.textContent="… fuege hinzu";
-  for(const f of DEFAULT_FEEDS){try{await fetch("/api/monitor/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(f)});}catch(e){}}
-  s.textContent="✓ hinzugefuegt";loadNews();};}
+/* Feedback-Runde II: KEINE eingebrannten Quellen mehr (Hacker News & Co. raus) —
+   der Knopf fuehrt zum Monitor, wo DU bestimmst, was beobachtet wird. */
+function bindNewsSeed(){const s=$("#news-seed");if(!s)return;
+ s.textContent="Quellen verwalten ›";
+ s.onclick=()=>{nav("kira");subnav("kira","monitor");};}
 function bindOpsFilter(){$$("#ops-filter a").forEach(a=>a.onclick=()=>{opsFilter=a.dataset.of;$$("#ops-filter a").forEach(x=>x.classList.toggle("on",x===a));renderOps();});}
 function loadCommand(){loadHud();loadOps();loadTagewerk();loadNews();loadHome();loadDigest();bindNewsSeed();bindOpsFilter();loadWidgets("zentrale","#widgets-home");}
 
@@ -900,45 +902,55 @@ document.addEventListener("keydown",e=>{
 $("#pal-q")&&($("#pal-q").oninput=e=>palRender(e.target.value));
 $("#pal-wrap")&&($("#pal-wrap").onclick=e=>{if(e.target.id==="pal-wrap")palClose();});
 
-/* ==== MIND-Graph im Board (Feedback 13.07.): der Vault als lebendes Gehirn —
-   gleiche Daten wie /wall (Knoten = Notizen, Faeden = [[Links]]), kompakter Renderer. ==== */
+/* ==== MIND-Graph als BOARD-HINTERGRUND (Feedback-Runde II): kein Kasten, kein
+   Galaxienflug — das Layout wird UNSICHTBAR vorberechnet, dann sanft eingeblendet
+   und driftet nur noch ruhig. Das Board dreht sich ums Gehirn. ==== */
 let _mindDaten=null,_mindLauf=null;
 async function loadMind(){const cv=$("#mindcv");if(!cv)return;
  try{if(!_mindDaten)_mindDaten=await (await fetch("/api/vault/graph")).json();}catch(e){return;}
  const d=_mindDaten||{};const nodes=(d.nodes||[]).slice(0,220);
  if(!nodes.length)return;
- const dpr=window.devicePixelRatio||1,W=cv.clientWidth||900,H=290;
+ const home=$("#v-home"),dpr=window.devicePixelRatio||1;
+ const W=home.clientWidth||1100,H=Math.max(home.clientHeight,600);
  cv.width=W*dpr;cv.height=H*dpr;
- const ctx=cv.getContext("2d");ctx.scale(dpr,dpr);
+ const ctx=cv.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);
  const idx={};nodes.forEach((n,i)=>{idx[n.id]=i;
-  n.x=W/2+(Math.random()-.5)*W*.7;n.y=H/2+(Math.random()-.5)*H*.7;n.vx=0;n.vy=0;});
+  const a=Math.random()*6.283,r=Math.random()*.38+.08;   /* Start als lockere Wolke um die Mitte */
+  n.x=W/2+Math.cos(a)*W*r;n.y=H/2+Math.sin(a)*H*r;n.vx=0;n.vy=0;});
  const links=(d.links||[]).filter(l=>idx[l.source]!=null&&idx[l.target]!=null)
   .map(l=>[idx[l.source],idx[l.target]]);
  const grad=nodes.map(()=>0);links.forEach(([a,b])=>{grad[a]++;grad[b]++;});
- const farbe=n=>n.color||"#9d97b2";
- /* kleine Kraft-Simulation: Abstossung + Federn + Mitte-Anker, ~90 Schritte, dann still */
- let schritt=0;if(_mindLauf)cancelAnimationFrame(_mindLauf);
- const tick=()=>{schritt++;
+ const schrittRechnen=(kraft)=>{
   for(let i=0;i<nodes.length;i++){const a=nodes[i];
    for(let j=i+1;j<nodes.length;j++){const b=nodes[j];
-    let dx=a.x-b.x,dy=a.y-b.y,q=dx*dx+dy*dy||1;if(q>90*90)continue;
-    const f=420/q;dx*=f;dy*=f;a.vx+=dx;a.vy+=dy;b.vx-=dx;b.vy-=dy;}}
+    let dx=a.x-b.x,dy=a.y-b.y,q=dx*dx+dy*dy||1;if(q>120*120)continue;
+    const f=(560*kraft)/q;dx*=f;dy*=f;a.vx+=dx;a.vy+=dy;b.vx-=dx;b.vy-=dy;}}
   links.forEach(([ia,ib])=>{const a=nodes[ia],b=nodes[ib];
-   const dx=b.x-a.x,dy=b.y-a.y,dist=Math.sqrt(dx*dx+dy*dy)||1,f=(dist-46)*.012;
-   a.vx+=dx/dist*f*46;a.vy+=dy/dist*f*46;b.vx-=dx/dist*f*46;b.vy-=dy/dist*f*46;});
-  nodes.forEach(n=>{n.vx+=(W/2-n.x)*.004;n.vy+=(H/2-n.y)*.004;
-   n.x+=n.vx*=.62;n.y+=n.vy*=.62;
-   n.x=Math.max(8,Math.min(W-8,n.x));n.y=Math.max(8,Math.min(H-8,n.y));});
-  ctx.clearRect(0,0,W,H);
-  ctx.strokeStyle="rgba(139,92,246,.16)";ctx.lineWidth=1;
+   const dx=b.x-a.x,dy=b.y-a.y,dist=Math.sqrt(dx*dx+dy*dy)||1,f=(dist-64)*.011*kraft;
+   a.vx+=dx/dist*f*50;a.vy+=dy/dist*f*50;b.vx-=dx/dist*f*50;b.vy-=dy/dist*f*50;});
+  nodes.forEach(n=>{n.vx+=(W/2-n.x)*.0035*kraft;n.vy+=(H/2-n.y)*.0035*kraft;
+   n.x+=n.vx*=.58;n.y+=n.vy*=.58;
+   n.x=Math.max(24,Math.min(W-24,n.x));n.y=Math.max(24,Math.min(H-24,n.y));});};
+ /* 1) Layout FERTIG rechnen, bevor irgendwas sichtbar wird (kein wildes Fliegen) */
+ for(let s=0;s<160;s++)schrittRechnen(1);
+ const malen=(alpha)=>{ctx.clearRect(0,0,W,H);ctx.globalAlpha=alpha;
+  ctx.strokeStyle="rgba(139,92,246,.14)";ctx.lineWidth=1;
   links.forEach(([ia,ib])=>{ctx.beginPath();ctx.moveTo(nodes[ia].x,nodes[ia].y);ctx.lineTo(nodes[ib].x,nodes[ib].y);ctx.stroke();});
   nodes.forEach((n,i)=>{const r=Math.min(6,2+grad[i]*.6);
-   ctx.beginPath();ctx.arc(n.x,n.y,r,0,7);ctx.fillStyle=farbe(n);ctx.fill();});
-  ctx.font="10px 'Segoe UI',sans-serif";ctx.fillStyle="rgba(236,233,244,.75)";
+   ctx.beginPath();ctx.arc(n.x,n.y,r,0,7);ctx.fillStyle=n.color||"#9d97b2";ctx.fill();});
+  ctx.font="10px 'Segoe UI',sans-serif";ctx.fillStyle="rgba(236,233,244,.6)";
   nodes.forEach((n,i)=>{if(grad[i]>=4)ctx.fillText((n.id||"").slice(0,18),n.x+7,n.y+3);});
-  if(schritt<90)_mindLauf=requestAnimationFrame(tick);};
- tick();}
-$("#mindcv")&&($("#mindcv").onclick=()=>{_mindDaten=null;loadMind();});
+  ctx.globalAlpha=1;};
+ /* 2) sanft einblenden, dann nur noch ruhige Drift (reduced-motion: statisch) */
+ if(_mindLauf)cancelAnimationFrame(_mindLauf);
+ const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
+ if(still){malen(1);return;}
+ let t=0;
+ const atmen=()=>{t++;
+  if(t<=24){malen(t/24);}                    /* Fade-in */
+  else{schrittRechnen(.02);malen(1);}        /* Drift: 2% Kraft = kaum sichtbares Leben */
+  if(cur==="home")_mindLauf=requestAnimationFrame(atmen);};
+ atmen();}
 
 /* ---- Chat ---- */
 const log=$("#log");
@@ -1576,9 +1588,14 @@ async function loadGov(){const g=await (await fetch("/api/governance")).json();c
  if($("#g-day")&&document.activeElement!==$("#g-day"))$("#g-day").value=t.day_limit!=null?t.day_limit:"";
  if($("#g-month")&&document.activeElement!==$("#g-month"))$("#g-month").value=t.month_limit!=null?t.month_limit:"";
  loadAutonomy();
+ /* Feedback-Runde II: Klartext statt Roh-Dump — was WAR das, kurz; Detail im Tooltip */
+ const KLAR={shell:"Shell-Befehl ausgefuehrt",browser_act:"Im Browser gehandelt",email:"E-Mail gesendet",
+   email_reply:"E-Mail beantwortet",money:"Geld-Aktion",publish:"Veroeffentlicht",post:"Gepostet"};
  const a=$("#g-audit");a.innerHTML=g.audit.length?g.audit.map(e=>{const ts=new Date(e.ts*1000).toLocaleString();const p=e.payload;
-   return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>'+esc(p.action)+'</b> '+esc(p.target||'')
-    +' <small class=muted>'+ts+(p.reversible?' · rückrollbar':'')+'</small></div>';}).join(""):'<span class=muted>(noch keine Außen-Aktionen protokolliert)</span>';loadCosts();}
+   const kurz=(p.target||'').replace(/\s+/g," ").slice(0,110);
+   return '<div style="padding:6px 0;border-bottom:1px solid var(--line)" title="'+esc((p.target||"").slice(0,600))+'">'
+    +'<b>'+esc(KLAR[p.action]||p.action)+'</b> <span style="font-size:12px">'+esc(kurz)+(((p.target||"").length>110)?'…':'')+'</span>'
+    +' <small class=muted>'+ts+(p.reversible?' · rueckrollbar':'')+'</small></div>';}).join(""):'<span class=muted>(noch keine Aussen-Aktionen protokolliert)</span>';loadCosts();}
 async function loadCosts(){const el=$("#g-costs");if(!el)return;
  try{const c=await (await fetch("/api/costs")).json();
   const line=m=>'<div style="display:flex;gap:10px;padding:3px 0;font-family:var(--mono);font-size:12px"><span style="flex:1">'+m.model.replace(/</g,"&lt;")+'</span><span class=muted>'+m.calls+' calls</span><span style="min-width:80px;text-align:right">$'+m.cost.toFixed(3)+'</span></div>';

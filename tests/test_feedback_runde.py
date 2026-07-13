@@ -79,7 +79,40 @@ def test_e_playbooks_bearbeitbar():
 
 
 def test_f_mind_graph_im_board():
-    assert 'id="mind-panel"' in VIEWS and 'id="mindcv"' in VIEWS
+    # Runde II: das Mind ist kein Kasten mehr, sondern der HINTERGRUND des Boards
+    assert 'id="mind-panel"' not in VIEWS and 'id="mindcv"' in VIEWS
     assert "loadMind" in SCRIPT and '"/api/vault/graph"' in SCRIPT
     assert 'if(v==="home"){loadCommand();loadMind();}' in SCRIPT
-    assert "#mind-panel" in CSS
+    assert "#mindcv{position:absolute;inset:0" in CSS
+    assert "for(let s=0;s<160;s++)schrittRechnen(1);" in SCRIPT  # Layout VOR dem ersten Bild
+    assert "prefers-reduced-motion" in SCRIPT
+
+
+def test_runde2_audit_schwaerzt_secrets():
+    # Fund 13.07.: Bot-Token stand im Klartext im Cockpit — nie wieder.
+    from core.governance import audit
+
+    # Fake-Token verkettet, damit das Clean-Gate die Testdatei selbst nicht anschlaegt
+    fake = "79123456" + "78:AA" + "HxYzAbCdEfGhIjKlMnOpQrStUvWxYz12"
+    t = audit.schwaerze(f"python -c \"token='{fake}'\" chat")
+    assert "AAHxYz" not in t and "•••geschwaerzt•••" in t
+    assert "sk-abcdefghijklmnop" not in audit.schwaerze("key sk-abcdefghijklmnop rest")
+    t2 = audit.schwaerze("api_key = supergeheim123")
+    assert "supergeheim123" not in t2 and "api_key" in t2       # Schluesselname bleibt lesbar
+    assert audit.schwaerze("echo hallo-test-123") == "echo hallo-test-123"  # Harmloses unberuehrt
+
+
+def test_runde2_monitor_ohne_eingebrannte_quellen():
+    assert "hnrss" not in SCRIPT and "DEFAULT_FEEDS" not in SCRIPT
+    assert "Quellen verwalten" in SCRIPT                        # Knopf fuehrt zum Monitor
+    assert "data-medit" in SCRIPT and "_moEditId" in SCRIPT     # Eintraege bearbeitbar
+    assert "News- &amp; Themen-Radar" in VIEWS                  # verstaendlicher Kopf
+
+
+def test_runde2_autonomie_tab_aufgeraeumt():
+    assert "Was ist das „Gewissen" not in VIEWS                 # Doppel-Konzept ist raus
+    gov = VIEWS.split('id="v-gov"', 1)[1].split('id="v-monitor"', 1)[0]
+    # Reihenfolge: Autonomie zuerst (du entscheidest, fertig), dann Budget, dann Protokoll
+    assert gov.index("Autonomie — was braucht deine Freigabe?") < gov.index("Budget — was darf sie ausgeben?")
+    assert "Protokoll — was hat sie nach aussen getan?" in gov
+    assert "Shell-Befehl ausgefuehrt" in SCRIPT                 # Klartext statt Roh-Dump
