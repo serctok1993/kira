@@ -159,18 +159,40 @@ def test_runde4_board_empfang_layout():
 
 
 def test_runde5_befehl_im_chat_einstieg():
-    # Der "Befehl an Kira"-Kasten ist im Board-Chat aufgegangen: Voice, Sofort,
-    # Fokus, Schwarm + Modus-Wahl Chat·Work·Coding — ein Feld, viele Hebel.
+    # Runde IX schaerfte nach: der Einstieg ist ein NORMALES Chatfenster —
+    # + links, Mikro rechts, Schwarm+Modell+Modus darunter; Sofort/Fokus-Knoepfe
+    # sind raus (der Tages-Fokus lebt oben in der Fokus-Zeile).
     home = VIEWS.split('id="v-home"', 1)[1].split('id="v-chat"', 1)[0]
     assert 'class="direktive"' not in home
     bc = home.split('id="board-chat"', 1)[1]
-    for el in ('id="dir-mic"', 'id="dir-now"', 'id="dir-focus"', 'id="dir-schwarm"',
-               'id="bc-mode"', 'id="dir-result"'):
+    for el in ('id="bc-plus"', 'id="dir-mic"', 'id="dir-schwarm"',
+               'id="bc-model-btn"', 'id="bc-mode"'):
         assert el in bc, f"fehlt im Einstieg: {el}"
+    for weg in ('id="dir-now"', 'id="dir-focus"', 'id="dir-clear"', 'id="dir-result"'):
+        assert weg not in VIEWS, f"sollte raus sein: {weg}"
     assert 'simpleRecord("#dir-mic","#bc-in")' in SCRIPT
-    assert SCRIPT.count('$("#bc-in").value.trim()') >= 2        # Sofort + Fokus lesen bc-in
     assert '$$("#bc-mode a").forEach' in SCRIPT                 # eine Modus-Quelle fuer Board+Chat
     assert '#board-chat[data-mode="work"]::before' in CSS       # LED-Rand faerbt mit dem Modus
+
+
+def test_runde9_board_chat_pur_und_modus_farbe():
+    # Reihenfolge wie im Chat: + | Feld | Mikro | Senden; Mikro = SVG-Icon (rec-Klasse)
+    home = VIEWS.split('id="v-home"', 1)[1].split('id="v-chat"', 1)[0]
+    zeile = home.split('class="bc-zeile"', 1)[1].split('class="bc-werk"', 1)[0]
+    assert zeile.index('id="bc-plus"') < zeile.index('id="bc-in"') < zeile.index('id="dir-mic"') < zeile.index('id="bc-send"')
+    assert VIEWS.count('class="chip mic"') == 2 and 'classList.add("rec")' in SCRIPT
+    # Modell direkt im Board — EIN Bauteil (modellKnopf) fuer beide Docks, Pille synct
+    assert 'modellKnopf("#bc-model-btn","#bc-model-pop")' in SCRIPT
+    assert 'const b2=$("#bc-model-btn")' in SCRIPT
+    # Schwarm lebt im Senden-Knopf und wird im Chat NUR vorbereitet
+    assert '"/schwarm "+rang+" "' in SCRIPT
+    assert 'b.textContent=on?"⁂ An den Schwarm":"Senden"' in SCRIPT
+    # Der Modus faerbt ALLES (eine Variable), Senden ist schlank statt massiv
+    assert "--dock-acc:var(--accent-chat)" in CSS
+    assert '#board-chat[data-mode="work"]{--dock-acc:var(--work-accent)}' in CSS
+    assert "#chat-main #cform>button:last-child,#board-chat #bc-send{" in CSS
+    # + im Board beamt in den Chat und oeffnet die Dateiwahl
+    assert 'f&&f.click()' in SCRIPT
 
 
 def test_runde5_kira_heute_farbig_ohne_scroll():

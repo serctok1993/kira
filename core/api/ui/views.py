@@ -139,28 +139,32 @@ VIEWS = r"""</head><body>
          Runde V: die Befehl-Funktionen (Sofort/Fokus/Schwarm/Voice) leben hier, rechts
          die Modus-Wahl Chat·Work·Coding — dieselbe Quelle wie im Chat. -->
     <form id="board-chat" data-mode="chat">
+      <!-- Runde IX: ein STINKNORMALES Chatfenster — + links, Mikro rechts, Senden schlank;
+           die Fokus-Knoepfe sind raus (der Tages-Fokus lebt oben in der Fokus-Zeile) -->
       <div class="bc-zeile">
+        <label id="bc-plus" class="plus" title="Bild oder Datei hochladen — oeffnet das Gespraech mit Dateiwahl">+</label>
         <textarea id="bc-in" rows="1" placeholder="Schreib mir …  (Enter sendet — dein Satz gleitet direkt ins Gespraech)" autocomplete="off"></textarea>
+        <button type="button" class="chip mic" id="dir-mic" title="Auftrag diktieren (Voice)"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></button>
         <button id="bc-send" type="submit">Senden</button>
       </div>
       <div class="bc-werk">
-        <button type="button" class="ghost" id="dir-mic" title="Auftrag diktieren (Voice)">◉</button>
-        <button type="button" class="ghost" id="dir-now" title="Einmal-Auftrag sofort ausfuehren (ohne Chat-Wechsel)">↯ Sofort ausfuehren</button>
-        <button type="button" class="ghost" id="dir-focus" title="Text als Tages-Fokus setzen — __AGENT__ plant ihre Ticks darum herum">✧ Als Fokus setzen</button>
-        <button type="button" class="ghost" id="dir-clear" title="Fokus loeschen">Fokus loeschen</button>
-        <label class="chip tog" id="dir-schwarm-l" title="Als Schwarm-Auftrag an die Armee — landet im Chat, du drueckst Senden"><input type="checkbox" id="dir-schwarm"/> ⁂ Schwarm</label>
+        <label class="chip tog" id="dir-schwarm-l" title="Als Schwarm-Auftrag an die Armee — 1. Zeile der Auftrag mit {item}, je eine Zeile pro Ziel; landet vorbereitet im Chat, du drueckst Senden"><input type="checkbox" id="dir-schwarm"/> ⁂ Schwarm</label>
         <select id="dir-rang" title="Rang fuer den Schwarm" style="display:none">
           <option value="reflex">· reflex</option><option value="arbeiter" selected>⚒︎ arbeiter</option><option value="denker">◆ denker</option><option value="richter">⚖︎ richter</option>
         </select>
         <span class="muted" id="dir-hint" style="align-self:center"></span>
         <span style="flex:1"></span>
+        <!-- Runde IX: Modell direkt hier waehlen — zack, Prompt rein, senden, im Chat -->
+        <span style="position:relative;display:inline-block">
+          <button type="button" id="bc-model-btn" class="chip engine-pill" title="Modell fuer diesen Chat — klick fuer alle Modelle">Modell</button>
+          <div id="bc-model-pop" class="cmd-pop model-pop" style="display:none"></div>
+        </span>
         <!-- Runde VIII: dasselbe Bauteil wie im Chat — gleitende Pille + Icons -->
         <div id="bc-mode" title="Chat = Dialog · Work = laengerer Auftrag mit vollem Werkzeug-Budget · Coding = an __AGENT__ schrauben">
           <span class="pill"></span>
           <a data-m="chat" class="on"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>Chat</a><a data-m="work"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Work</a><a data-m="coding"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>Coding</a>
         </div>
       </div>
-      <div id="dir-result" style="white-space:pre-wrap;display:none;border-top:1px solid var(--line);padding-top:8px"></div>
     </form>
   </div>
 
@@ -216,7 +220,7 @@ VIEWS = r"""</head><body>
         <form id="cform">
           <label id="plusbtn" class="plus" title="Bild oder Datei (PDF, txt, md, csv) hochladen">+<input id="imgfile" type="file" accept="image/*,.pdf,.txt,.md,.markdown,.csv,.log,.json,.yaml,.yml,.html,.htm" style="display:none"/></label>
           <textarea id="cin" rows="1" placeholder="Schreib mir…  (Enter sendet · Shift+Enter = neue Zeile)" autocomplete="off" autofocus></textarea>
-          <button type="button" id="micbtn" class="chip mic" title="Sprachmemo aufnehmen — Kira hoert zu">◉</button>
+          <button type="button" id="micbtn" class="chip mic" title="Sprachmemo aufnehmen — Kira hoert zu"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></button>
           <button id="sendbtn">Senden</button>
         </form>
         </div>
