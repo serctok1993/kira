@@ -105,9 +105,9 @@ def test_zentrale_voice_und_schwarm():
     # Mikro + Schwarm-Toggle + Rang auf der Befehlskarte
     for m in ('id="dir-mic"', 'id="dir-schwarm"', 'id="dir-rang"'):
         assert m in VIEWS, f"Zentrale-Bedienelement fehlt: {m}"
-    # Diktier-Helfer und Schwarm-Routing im JS
+    # Diktier-Helfer und Schwarm-Routing im JS (Runde V: alles liest aus #bc-in)
     assert "function simpleRecord(" in SCRIPT
-    assert 'simpleRecord("#dir-mic","#dir-text")' in SCRIPT
+    assert 'simpleRecord("#dir-mic","#bc-in")' in SCRIPT
     assert '"/schwarm "+rang+" "' in SCRIPT and 'nav("chat")' in SCRIPT
 
 
@@ -249,7 +249,8 @@ def test_chatbutton_rechts_und_palette():
 def test_zentrale_epicness_ohne_grosse_emojis():
     # der Befehl-Header traegt keinen grossen Emoji mehr, sondern Glow/Typo
     assert "<h3>🎯 Befehl an __AGENT__</h3>" not in VIEWS
-    assert "<h3>Befehl an __AGENT__</h3>" in VIEWS   # W2: Server injiziert den Agenten-Namen
+    # Runde V: der Befehl-Kasten ist im Board-Chat aufgegangen — der Header ist Geschichte
+    assert "<h3>Befehl an __AGENT__</h3>" not in VIEWS
     assert ".direktive h3{margin:0 0 10px;color:var(--hud);text-transform:uppercase" in CSS
     # muted etwas heller fuer bessere Lesbarkeit (Inhalte verschwinden nicht mehr)
     assert "--muted:#9b97b0" in CSS

@@ -129,9 +129,10 @@ def test_runde3_puls_kompakt_und_farbig():
 
 
 def test_runde3_galaxie_ohne_woerter():
-    # Das Mind ist ein Sternsystem: KEINE Beschriftung, Nebel + Staub + Pings, HD, Theme-Farben
+    # Das Mind ist ein Sternsystem: Nebel + Staub + Pings, HD, Theme-Farben.
+    # Runde V: Begriffe kamen KLEIN und SCHALTBAR zurueck — Woerter nur hinterm Gate.
     mind = SCRIPT.split("async function loadMind()", 1)[1].split("/* ---- Chat ----", 1)[0]
-    assert "fillText" not in mind
+    assert "if(_mindWorte){" in mind.split("fillText", 1)[0]    # Beschriftung nur hinterm Schalter
     assert "pings" in mind and "staub" in mind and "createRadialGradient" in mind
     assert "devicePixelRatio" in mind
     assert 'getPropertyValue("--hud")' in mind                  # Galaxie folgt dem Theme
@@ -155,6 +156,37 @@ def test_runde4_board_empfang_layout():
     assert home.index('id="board-rechts"') < home.index('id="board-chat"')
     assert 'id="bc-in"' in home and 'id="tagewerk"' in home.split('id="board-rechts"', 1)[1]
     assert "#v-home .cmd-grid{display:grid" in CSS
+
+
+def test_runde5_befehl_im_chat_einstieg():
+    # Der "Befehl an Kira"-Kasten ist im Board-Chat aufgegangen: Voice, Sofort,
+    # Fokus, Schwarm + Modus-Wahl Chat·Work·Coding — ein Feld, viele Hebel.
+    home = VIEWS.split('id="v-home"', 1)[1].split('id="v-chat"', 1)[0]
+    assert 'class="direktive"' not in home
+    bc = home.split('id="board-chat"', 1)[1]
+    for el in ('id="dir-mic"', 'id="dir-now"', 'id="dir-focus"', 'id="dir-schwarm"',
+               'id="bc-mode"', 'id="dir-result"'):
+        assert el in bc, f"fehlt im Einstieg: {el}"
+    assert 'simpleRecord("#dir-mic","#bc-in")' in SCRIPT
+    assert SCRIPT.count('$("#bc-in").value.trim()') >= 2        # Sofort + Fokus lesen bc-in
+    assert '$$("#bc-mode a").forEach' in SCRIPT                 # eine Modus-Quelle fuer Board+Chat
+    assert '#board-chat[data-mode="work"]::before' in CSS       # LED-Rand faerbt mit dem Modus
+
+
+def test_runde5_kira_heute_farbig_ohne_scroll():
+    assert "#board-rechts{overflow-y:auto;scrollbar-width:none}" in CSS  # kein sichtbarer Balken
+    assert "#v-home .cmd-grid{grid-template-rows:minmax(0,1fr)}" in CSS  # Spalten wachsen nicht
+    assert 'row("✓","var(--ok)"' in SCRIPT and 'row("✉︎","var(--blau)"' in SCRIPT
+    assert "--blau:#38bdf8" in CSS                              # Ampel-Palette: gruen/blau/gelb/rot
+    assert 'dz2(d.tasks_done_count,"var(--ok)")' in SCRIPT      # Digest spricht mit
+
+
+def test_runde5_galaxie_zentriert_mit_begriffen():
+    mind = SCRIPT.split("async function loadMind()", 1)[1].split("/* ---- Chat ----", 1)[0]
+    assert 'const mit=$("#board-mitte")' in mind                # Herz liegt in der freien Mitte
+    assert "(cx-n.x)" in mind and "(cy-n.y)" in mind            # Gravitation zum Mitte-Zentrum
+    assert 'id="mind-worte"' in VIEWS                           # Begriffe-Knopf
+    assert 'localStorage.setItem("mind_worte"' in SCRIPT        # Wahl bleibt
 
 
 def test_runde4_chat_einstieg_mit_led_und_abflug():

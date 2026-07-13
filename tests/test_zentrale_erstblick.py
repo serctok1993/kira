@@ -10,8 +10,8 @@ import core.api.server as s
 def test_zentrale_erstblick():
     html = TestClient(s.app).get("/").text
     home = html.split('id="v-home"', 1)[1].split('id="v-chat"', 1)[0]
-    # Laufband direkt unterm HUD (Reihenfolge: hud-strip VOR ticker VOR direktive)
-    assert home.index('id="hud-strip"') < home.index('id="news-ticker"') < home.index("direktive")
+    # Laufband direkt unterm HUD (Reihenfolge: hud-strip VOR ticker VOR Board-Grid)
+    assert home.index('id="hud-strip"') < home.index('id="news-ticker"') < home.index('id="board-grid"')
     # grosses Intel-Panel + Schnellzugriff + home-side sind raus
     assert 'id="news-list"' not in html
     assert '"Schnellzugriff"' not in html        # Karte weg (nur noch Kommentar-Erwaehnung)
