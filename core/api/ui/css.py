@@ -921,6 +921,19 @@ select.engine-pill,button.engine-pill{box-shadow:none}
 .chip.mic.rec{color:var(--danger);border-color:var(--danger);animation:aurapulse 1.6s ease-in-out infinite}
 /* Board-Modell-Popup oeffnet nach OBEN (der Dock klebt unten) */
 #bc-model-pop{bottom:calc(100% + 6px);top:auto;right:0}
+
+/* ===== Runde X: das Denken ENDLICH richtig sichtbar =====
+   Live = Fenster ans ENDE des Denkstroms (die letzten Zeilen ziehen vorbei,
+   Fade nach oben) — mitlesen ohne Klick, wie im Claude-Code-Trace.
+   Manuell geoeffnet BLEIBT offen (das Auto-Zuklappen ist Geschichte).
+   Nach dem Lauf: nur noch die Kopfzeile (Dauer + Aktionen), Klick liest nach. */
+.think .c{max-height:0;-webkit-mask-image:none;mask-image:none}
+.think.live .c{max-height:7.5em;
+ -webkit-mask-image:linear-gradient(180deg,transparent,#000 36%);
+ mask-image:linear-gradient(180deg,transparent,#000 36%)}
+.think.show .c{max-height:46vh;overflow-y:auto;-webkit-mask-image:none;mask-image:none}
+.think.live{border-left-color:color-mix(in srgb,var(--accent) 75%,transparent)}
+.think{font-style:normal}
 </style>"""
 
 # Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt
