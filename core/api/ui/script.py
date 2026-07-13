@@ -28,7 +28,7 @@ function rndPhrase(){if(PHRASES.length<2)return PHRASES[0]||"ich denke kurz nach
  let p=PHRASES[Math.floor(Math.random()*PHRASES.length)],g=0;
  while(p===_lastPhrase&&g++<8)p=PHRASES[Math.floor(Math.random()*PHRASES.length)];
  _lastPhrase=p;return p;}
-let cur="home";
+let cur="chat";  /* Kommandobruecke: der Chat ist das Herzstueck und die Startflaeche */
 $$("#side a").forEach(a=>a.onclick=()=>{nav(a.dataset.v);document.body.classList.remove("side-open");});
 /* S6.4: mobiles Seitenmenue ein-/ausklappen */
 $("#burger")&&($("#burger").onclick=()=>document.body.classList.toggle("side-open"));
@@ -36,7 +36,7 @@ function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle(
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");};
  if(document.startViewTransition&&!matchMedia("(prefers-reduced-motion: reduce)").matches){document.startViewTransition(go);}else{go();}
  if(v==="home")loadCommand();
- if(v==="chat"){loadChatModels();loadChatSessions();}
+ if(v==="chat"){loadChatModels();loadChatSessions();loadChatSide();}
  if(v==="me")loadMe();
  if(SUBTABS[v])subnav(v,SUBTABS[v].cur);}
 
@@ -702,9 +702,140 @@ async function refreshStatus(){let s;try{s=await J("/api/status");}catch(e){retu
  k.textContent="Not-Aus: "+(s.kill_switch?"AKTIV":"aus");
  $("#b-kill").innerHTML=s.kill_switch?'<b style="color:var(--danger)">⛔ NOT-AUS</b>':'';
  const fb=$("#side-frei");if(fb){const n=s.freigaben_offen|0;fb.textContent=n||"";fb.style.display=n?"":"none";}
+ /* Kommandobruecke: Kopf-Chips — Motor, Freigaben (klickbar zur Inbox) */
+ const mb=$("#motor-b");if(mb){const on=!!s.heartbeat;mb.textContent=on?"AN":"aus";
+  const dt=$("#motor-dot");if(dt)dt.className="dot"+(on?" ok":"");}
+ const cf=$("#chip-frei");if(cf){const n=s.freigaben_offen|0;cf.style.display=n?"":"none";
+  const cn=$("#chip-frei-n");if(cn)cn.textContent=n;}
  return s;}
+$("#chip-frei")&&($("#chip-frei").onclick=()=>{nav("me");subnav("me","freigaben");});
 $("#kill").onclick=async()=>{const on=!$("#kill").classList.contains("active");
  await fetch("/api/kill",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({on})});refreshStatus();};
+
+/* ==== Kommandobruecke: Fokus-Zeile · Tag-Spalte im Chat · Freigabe-Karten · Briefing · Strg+K ==== */
+async function loadFokus(){const t=$("#fokus-text");if(!t)return;try{
+ const d=await (await fetch("/api/direktive")).json();const f=(d&&d.focus)||"";
+ t.textContent=f||"kein Fokus gesetzt";
+ const su=$("#fokus-sub");if(su)su.textContent=f?"— __AGENT__ plant ihre Ticks darum herum":"";
+}catch(e){t.textContent="—";}}
+$("#fokus-edit")&&($("#fokus-edit").onclick=async()=>{
+ const alt=$("#fokus-text").textContent;
+ const f=prompt("Tagesfokus (leer = loeschen):",alt==="kein Fokus gesetzt"?"":alt);
+ if(f===null)return;
+ await fetch("/api/direktive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({focus:f})});
+ toast(f?"Fokus gesetzt":"Fokus geloescht","ok");loadFokus();});
+
+let _ctDaten=null;  /* letzter Stand der Tag-Spalte — fuettert auch das Briefing */
+async function loadChatSide(){
+ const te=$("#ct-termine");if(!te)return;
+ try{
+  const [tm,lb,dg,ap]=await Promise.all([
+   fetch("/api/termine").then(r=>r.json()).catch(()=>({})),
+   fetch("/api/life/board").then(r=>r.json()).catch(()=>({})),
+   fetch("/api/digest").then(r=>r.json()).catch(()=>null),
+   fetch("/api/approvals").then(r=>r.json()).catch(()=>({}))]);
+  _ctDaten={tm,lb,dg,ap};
+  /* Termine (+ Kopf-Chip "naechster Termin") */
+  const ts=(tm&&tm.termine)||[];
+  te.innerHTML=ts.length?ts.slice(0,5).map(t=>{
+   const wann=t.tage_bis===0?'<b style="color:var(--accent)">HEUTE</b>':(t.tage_bis===1?'morgen':('in '+t.tage_bis+' Tagen'));
+   const kern='<span class="ct-zeit">'+esc(t.datum.slice(0,6))+(t.zeit?('<br>'+esc(t.zeit)):'')+'</span><span>'+esc(t.titel)+' <span class="muted" style="font-size:11px">— '+wann+'</span></span>';
+   return t.jaehrlich?('<div class="radar">🎂 '+esc(t.titel)+' — '+wann+'</div>'):('<div class="ct-row">'+kern+'</div>');
+  }).join(""):'<div class="emptybox">Keine Termine.<br>Sag mir: „trag ein: Zahnarzt am 15.08.“</div>';
+  const heute=ts.find(t=>t.tage_bis===0&&t.zeit);
+  const tc=$("#chip-termin");if(tc){tc.style.display=heute?"":"none";
+   const tb=$("#chip-termin-b");if(tb&&heute)tb.textContent=heute.zeit+" "+heute.titel.slice(0,18);}
+  /* Todos: heute faellig, direkt abhakbar */
+  const b=(lb&&lb.board)||{};const offen=(b.running||[]).concat(b.today||[]);
+  const td=$("#ct-todos");if(td){
+   td.innerHTML=offen.length?offen.slice(0,6).map(t=>
+    '<div class="ct-row"><a data-ctdone="'+esc(t.id)+'" style="cursor:pointer;color:var(--ok)" title="abhaken">✓</a><span>'+esc((t.description||"").slice(0,90))+'</span></div>').join("")
+    :'<div class="emptybox">Heute ist nichts faellig.</div>';
+   $$('#ct-todos [data-ctdone]').forEach(a=>a.onclick=async()=>{
+    await fetch("/api/mission/task/update",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.ctdone,status:"done"})});
+    toast("abgehakt","ok");loadChatSide();});}
+  /* Puls: was __AGENT__ heute schaffte */
+  const pu=$("#ct-puls");if(pu)pu.innerHTML=dg
+   ?('<div class="ct-row"><span class="ct-zeit">✔</span><span><b>'+(dg.tasks_done_count||0)+'</b> Schritte erledigt · <b>'+(dg.planned||0)+'</b> geplant'+(dg.errors?(' · <b style="color:var(--warn)">'+dg.errors+'</b> Fehler'):'')+'</span></div>'
+     +'<div class="ct-row"><span class="ct-zeit">$</span><span>'+(+dg.spend_usd||0).toFixed(2)+' heute ausgegeben</span></div>')
+   :'<span class="muted">Puls nicht ladbar.</span>';
+  /* Freigaben ALS KARTEN im Gespraech */
+  renderChatFrei((ap&&ap.pending)||[]);
+  briefingBubble();
+ }catch(e){te.innerHTML='<span class="muted">Tag nicht ladbar.</span>';}}
+
+function renderChatFrei(pend){const w=$("#chat-frei");if(!w)return;
+ w.innerHTML=(pend||[]).slice(0,3).map(p=>
+  '<div class="frei-karte" data-fid="'+esc(p.id)+'">'
+  +'<div class="fkopf">🔒 Freigabe noetig — '+esc(p.kind||"Aktion")+'</div>'
+  +'<div class="fwas">'+esc((p.title||"").slice(0,140))
+  +(p.detail?('<small>'+esc((""+p.detail).slice(0,180))+'</small>'):'')+'</div>'
+  +'<div class="fbtn"><button class="fgo" data-fgo="'+esc(p.id)+'">Freigeben</button>'
+  +'<button class="fno" data-fno="'+esc(p.id)+'">Ablehnen</button>'
+  +'<button class="fno" style="border:0" data-fall="1">alle ansehen ›</button></div></div>').join("");
+ const decide=async(id,ok)=>{
+  await fetch("/api/approvals/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id,approved:ok})});
+  toast(ok?"freigegeben":"abgelehnt","ok");loadChatSide();refreshStatus();};
+ $$('#chat-frei [data-fgo]').forEach(x=>x.onclick=()=>decide(x.dataset.fgo,true));
+ $$('#chat-frei [data-fno]').forEach(x=>x.onclick=()=>decide(x.dataset.fno,false));
+ $$('#chat-frei [data-fall]').forEach(x=>x.onclick=()=>{nav("me");subnav("me","freigaben");});}
+
+/* Nie-leerer Chat: __AGENT__ eroeffnet mit dem Tag (rein clientseitig, 0 Token) */
+function briefingBubble(){const lg=$("#log");if(!lg||lg.querySelector(".msg"))return;
+ if($("#brief-bubble"))return;
+ const d=_ctDaten||{};const ts=((d.tm||{}).termine)||[];const b=((d.lb||{}).board)||{};
+ const offen=(b.running||[]).concat(b.today||[]).length;
+ const heute=ts.filter(t=>t.tage_bis===0);
+ const h=new Date().getHours();const gruss=h<11?"Guten Morgen":(h<18?"Hallo":"Guten Abend");
+ let rows="";
+ heute.slice(0,3).forEach(t=>{rows+='<div class="kk"><span>🕑 '+(t.zeit?esc(t.zeit)+" ":"")+esc(t.titel)+'</span><b>heute</b></div>';});
+ const geb=ts.find(t=>t.jaehrlich&&t.tage_bis<=7);
+ if(geb)rows+='<div class="kk"><span>🎂 '+esc(geb.titel)+'</span><b>in '+geb.tage_bis+' Tagen</b></div>';
+ rows+='<div class="kk"><span>✅ offene Todos</span><b>'+offen+'</b></div>';
+ const div=document.createElement("div");div.className="msg bot";div.id="brief-bubble";
+ div.innerHTML='<div>'+gruss+' ☀️ Dein Tag in kurz:</div><div class="karte-mini">'+rows+'</div>'
+  +'<div class="muted" style="font-size:12px">Schreib mir einfach — oder klick rechts direkt ins Geschehen.</div>';
+ lg.appendChild(div);}
+
+/* "mehr ›"-Spruenge aus der Tag-Spalte */
+$$("#chat-tag .mehr").forEach(a=>a.onclick=()=>{const g=(a.dataset.go||"").split(":");
+ nav(g[0]);if(g[1])subnav(g[0],g[1]);});
+
+/* ==== Strg+K: Springen & Suchen (Sessions, Bereiche, Aktionen) ==== */
+let _sessCache=[];
+const _palAktionen=[
+ {k:"Bereich",t:"Chat",go:()=>nav("chat")},
+ {k:"Bereich",t:"Board (Zahlen, Ziele, Live-Ops)",go:()=>nav("home")},
+ {k:"Bereich",t:"__AGENT__ (Seele, Playbooks, Automatik)",go:()=>nav("kira")},
+ {k:"Bereich",t:"__USER__ — Tag & Todos",go:()=>{nav("me");subnav("me","tag");}},
+ {k:"Bereich",t:"Freigabe-Inbox",go:()=>{nav("me");subnav("me","freigaben");}},
+ {k:"Bereich",t:"Einstellungen (Modelle, Zugaenge)",go:()=>nav("settings")},
+ {k:"Aktion",t:"Neuer Chat",go:()=>{nav("chat");const b=$("#sess-new");b&&b.click();}},
+ {k:"Aktion",t:"Fokus setzen/aendern",go:()=>{const e=$("#fokus-edit");e&&e.click();}}];
+function palOpen(){const w=$("#pal-wrap");if(!w)return;w.style.display="";
+ const q=$("#pal-q");q.value="";palRender("");q.focus();}
+function palClose(){const w=$("#pal-wrap");if(w)w.style.display="none";}
+function palRender(f){const l=$("#pal-list");if(!l)return;const fl=f.toLowerCase();
+ const ses=_sessCache.filter(s=>((s.title||s.session_id||"")+"").toLowerCase().includes(fl)).slice(0,6)
+  .map(s=>({k:"Session",t:(s.title||s.session_id),go:()=>{nav("chat");const el=document.querySelector('[data-sid="'+s.session_id+'"]');el&&el.click();}}));
+ const akt=_palAktionen.filter(a=>a.t.toLowerCase().includes(fl));
+ const alle=ses.concat(akt).slice(0,12);
+ l.innerHTML=alle.map((a,i)=>'<div class="pal-row'+(i===0?" on":"")+'" data-pi="'+i+'"><span class="pk">'+a.k+'</span>'+esc(a.t)+'</div>').join("")
+  ||'<div class="pal-row"><span class="pk">—</span>nichts gefunden</div>';
+ l._alle=alle;
+ $$("#pal-list .pal-row").forEach(r=>r.onclick=()=>{const a=l._alle[+r.dataset.pi];if(a){palClose();a.go();}});}
+document.addEventListener("keydown",e=>{
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="k"){e.preventDefault();palOpen();return;}
+ const w=$("#pal-wrap");if(!w||w.style.display==="none")return;
+ if(e.key==="Escape"){palClose();}
+ else if(e.key==="Enter"){const l=$("#pal-list");const a=l&&l._alle&&l._alle[[...$$("#pal-list .pal-row")].findIndex(r=>r.classList.contains("on"))];
+  if(a){e.preventDefault();palClose();a.go();}}
+ else if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();
+  const rows=$$("#pal-list .pal-row");const i=rows.findIndex(r=>r.classList.contains("on"));
+  const j=e.key==="ArrowDown"?Math.min(rows.length-1,i+1):Math.max(0,i-1);
+  rows.forEach((r,x)=>r.classList.toggle("on",x===j));}});
+$("#pal-q")&&($("#pal-q").oninput=e=>palRender(e.target.value));
+$("#pal-wrap")&&($("#pal-wrap").onclick=e=>{if(e.target.id==="pal-wrap")palClose();});
 
 /* ---- Chat ---- */
 const log=$("#log");
@@ -867,6 +998,7 @@ let showArchived=false;
 function markActiveSession(){$$("#sess-items .sess").forEach(r=>r.classList.toggle("on",r.dataset.sid===curSid));}
 async function loadChatSessions(){const box=$("#sess-items");if(!box)return;
  const d=await (await fetch("/api/chat/sessions"+(showArchived?"?archived=1":""))).json();const ss=d.sessions||[];
+ _sessCache=ss;  /* Kommandobruecke: fuettert die Strg+K-Palette */
  let html="",lastDay=null;
  ss.forEach(s=>{const dl=dayLabel(s.last);
   if(dl!==lastDay){html+='<div class="sday">'+dl+'</div>';lastDay=dl;}
@@ -1942,7 +2074,7 @@ function renderBenchEvent(ev){const k=ev.kind,a=ev.ev||{};
   loadBenchResults();}
  else if(k==="error")benchLog('<span style="color:var(--danger)">Fehler: '+esc(ev.text||"")+'</span>');}
 
-refreshStatus();loadCommand();
+refreshStatus();loadFokus();nav("chat");  /* Kommandobruecke: Chat ist die Startflaeche */
 /* ---- S6.4: EIN Poll-Scheduler statt zweier nackter setInterval ----
    - pausiert bei document.hidden (kein Polling im Hintergrund-Tab)
    - Backoff x2 bis 60s bei Fehler-Serien (pollFails), sofort zurueck auf 5s bei Erfolg
