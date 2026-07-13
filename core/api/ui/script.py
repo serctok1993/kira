@@ -110,12 +110,15 @@ $("#wp-open")&&($("#wp-open").onclick=()=>window.open("/wall","_blank"));
 async function loadPlaybooks(){const el=$("#pb-list");if(!el)return;try{
  const d=await (await fetch("/api/playbooks")).json();const pbs=d.playbooks||[];
  if(!pbs.length){el.innerHTML='<span class="muted">Noch keine Playbooks — kopiere playbooks/_VORLAGE.md als Start.</span>';return;}
- const badge=g=>g==="autonom"?"kira":(g==="begleitet"?"you":"kind");
+ /* Feinschliff-Runde III: Reifegrad als Ampel (entwurf=gelb, begleitet=akzent, autonom=gruen),
+    Zaehler nur dann farbig, wenn sie etwas zu sagen haben */
+ const badge=g=>"pb-"+(g==="autonom"||g==="begleitet"?g:"entwurf");
+ const cnt=(n,wort,farbe)=>'<span style="color:'+((n|0)>0?farbe:'var(--muted)')+'">'+(n|0)+' '+wort+'</span>';
  el.innerHTML=pbs.map(p=>'<div class="memrow" data-pb="'+esc(p.name)+'" style="cursor:pointer" title="klicken: Playbook hier bearbeiten"><div class="mh">'
   +'<span class="badge '+badge(p.reifegrad)+'">'+esc(p.reifegrad)+'</span>'
   +'<b style="color:var(--ink);font-size:13px">'+esc(p.titel||p.name)+'</b>'
-  +'<span class="muted" style="font-size:11px">'+(p.erfolge|0)+' Erfolge · '+(p.fehlschlaege|0)+' Fehlschlaege · '
-  +(p.lektionen|0)+' Lektionen · Serie '+(p.serie|0)+'/'+(d.promote_after||5)
+  +'<span class="muted" style="font-size:11px">'+cnt(p.erfolge,'Erfolge','var(--ok)')+' · '+cnt(p.fehlschlaege,'Fehlschlaege','var(--danger)')+' · '
+  +cnt(p.lektionen,'Lektionen','var(--warn)')+' · Serie '+(p.serie|0)+'/'+(d.promote_after||5)
   +(p.letzte?(' · zuletzt '+esc(p.letzte)):'')+'</span>'
   +'<span style="flex:1"></span><a style="color:var(--muted);font-size:11px">bearbeiten ✎</a>'
   +'</div><div style="font-size:12.5px">'+esc(p.wann||'')+'</div></div>').join("");
@@ -397,19 +400,25 @@ async function loadPuls(){const el=$("#puls-body");if(!el)return;try{
   fetch("/api/tagewerk").then(r=>r.json()).catch(()=>null),
   fetch("/api/evolution").then(r=>r.json()).catch(()=>({}))]);
  let h="";
+ /* Feinschliff-Runde III: Zahlen in Ampelfarben (getan=gruen, gescheitert=rot, offen=gelb),
+    Lektionen/Skills fliessen in Spalten — der Puls soll OHNE Scrollen lesbar sein. */
+ const z=(n,farbe)=>'<b style="color:'+((n|0)>0?farbe:'var(--muted)')+'">'+n+'</b>';
  if(tw)h+='<div class="muted" style="font-size:11px;letter-spacing:1px;margin-bottom:4px">HEUTE GETAN</div>'
-  +'<div style="font-size:13px"><b>'+tw.tasks.done+'</b> Tasks'+(tw.tasks.avg_score!=null?(' (Ø '+tw.tasks.avg_score+')'):'')
-  +(tw.tasks.failed?(' · <b>'+tw.tasks.failed+'</b> gescheitert'):'')
-  +' · <b>'+tw.mails.anzahl+'</b> Mails · <b>'+tw.skills.anzahl+'</b> Skills · <b>'+tw.crons.anzahl+'</b> Crons'
-  +' · <b>'+tw.selbstverbesserung.ticks+'</b> Selbst-Ticks · '+tw.kosten_heute_usd.toFixed(2)+' $'
-  +(tw.freigaben_offen?(' · <b style="color:var(--warn)">'+tw.freigaben_offen+'</b> Freigaben offen'):'')+'</div>';
+  +'<div style="font-size:13px">'+z(tw.tasks.done,'var(--ok)')+' Tasks'+(tw.tasks.avg_score!=null?(' (Ø '+tw.tasks.avg_score+')'):'')
+  +(tw.tasks.failed?(' · '+z(tw.tasks.failed,'var(--danger)')+' gescheitert'):'')
+  +' · '+z(tw.mails.anzahl,'var(--ok)')+' Mails · '+z(tw.skills.anzahl,'var(--ok)')+' Skills · '+z(tw.crons.anzahl,'var(--hud)')+' Crons'
+  +' · '+z(tw.selbstverbesserung.ticks,'var(--hud)')+' Selbst-Ticks · '+tw.kosten_heute_usd.toFixed(2)+' $'
+  +(tw.freigaben_offen?(' · '+z(tw.freigaben_offen,'var(--warn)')+' Freigaben offen'):'')+'</div>';
  const mdel=id=>id?' <a data-pdel="'+esc(id)+'" style="cursor:pointer;color:var(--muted)" title="aus dem Gedaechtnis loeschen">&#10005;</a>':'';
+ /* Skill-Name als gruener Keybegriff — der Rest bleibt ruhig */
+ const skName=t=>{const m=/^SKILL\s*\[([^\]]+)\]:?\s*([\s\S]*)$/.exec(t);
+  return m?('<b style="color:var(--ok)">'+esc(m[1])+'</b> · '+esc(m[2].slice(0,150))):esc(t.slice(0,180));};
  const ls=(ev.lessons||[]);
- h+='<div class="muted" style="font-size:11px;letter-spacing:1px;margin:12px 0 4px">ZULETZT GELERNT — LEKTIONEN</div>';
- h+=ls.length?ls.map(l=>'<div class="memrow" style="font-size:12.5px">'+esc((""+(l.text||l)).slice(0,180))+mdel(l.id)+'</div>').join(""):'<span class="muted">(noch keine)</span>';
+ h+='<div class="muted" style="font-size:11px;letter-spacing:1px;margin:12px 0 4px">ZULETZT GELERNT — LEKTIONEN ('+ls.length+')</div>';
+ h+=ls.length?('<div class="puls-grid">'+ls.map(l=>'<div class="memrow lek">'+esc((""+(l.text||l)).slice(0,180))+mdel(l.id)+'</div>').join("")+'</div>'):'<span class="muted">(noch keine)</span>';
  const sk=(ev.skills||[]);
  h+='<div class="muted" style="font-size:11px;letter-spacing:1px;margin:12px 0 4px">SKILLS ('+sk.length+')</div>';
- h+=sk.length?sk.slice(0,10).map(s2=>'<div class="memrow" style="font-size:12.5px">'+esc((""+(s2.text||s2)).slice(0,180))+mdel(s2.id)+'</div>').join(""):'<span class="muted">(noch keine)</span>';
+ h+=sk.length?('<div class="puls-grid">'+sk.slice(0,12).map(s2=>'<div class="memrow ski">'+skName(""+(s2.text||s2))+mdel(s2.id)+'</div>').join("")+'</div>'):'<span class="muted">(noch keine)</span>';
  const tl=(ev.timeline||[]).slice(0,6);
  if(tl.length)h+='<div class="muted" style="font-size:11px;letter-spacing:1px;margin:12px 0 4px">EVOLUTION — ZULETZT AN SICH GEBAUT</div>'
   +tl.map(e=>'<div class="muted" style="font-size:12px">'+esc(e.label)+(e.detail?(' — '+esc((""+e.detail).slice(0,90))):'')+'</div>').join("");
@@ -880,7 +889,7 @@ function palRender(f){const l=$("#pal-list");if(!l)return;const fl=f.toLowerCase
   try{const d=await (await fetch("/api/suche?q="+encodeURIComponent(fl)+"&k=4")).json();
    _palSucheHits=[]
     .concat((d.vault||[]).map(x=>({k:"Vault",t:x.name+" — "+x.path,go:()=>{nav("kira");subnav("kira","files");}})))
-    .concat((d.archiv||[]).map(x=>({k:"Archiv",t:(x.title||"").slice(0,60),go:()=>{nav("kira");subnav("kira","wissen");setTimeout(()=>zeigeDoc(x.doc_id),400);}})));
+    .concat((d.archiv||[]).map(x=>({k:"Bibliothek",t:(x.title||"").slice(0,60),go:()=>{nav("kira");subnav("kira","wissen");setTimeout(()=>zeigeDoc(x.doc_id),400);}})));
    if($("#pal-wrap").style.display!=="none"&&$("#pal-q").value.toLowerCase()===fl)palRender(f);
   }catch(e){}},300);}
  else if(fl.length<3){_palSucheHits=[];_palSucheKey="";}
@@ -902,21 +911,31 @@ document.addEventListener("keydown",e=>{
 $("#pal-q")&&($("#pal-q").oninput=e=>palRender(e.target.value));
 $("#pal-wrap")&&($("#pal-wrap").onclick=e=>{if(e.target.id==="pal-wrap")palClose();});
 
-/* ==== MIND-Graph als BOARD-HINTERGRUND (Feedback-Runde II): kein Kasten, kein
-   Galaxienflug — das Layout wird UNSICHTBAR vorberechnet, dann sanft eingeblendet
-   und driftet nur noch ruhig. Das Board dreht sich ums Gehirn. ==== */
+/* ==== MIND als BOARD-HINTERGRUND, Feinschliff-Runde III: eine GALAXIE, keine Woerter.
+   Knoten sind leuchtende Sterne (Halo + heller Kern, leichtes Funkeln), Verbindungen
+   schimmern schwach, Lichtpunkte "pingen" die Kanten entlang; dahinter Nebel und
+   Sternenstaub in den Theme-Farben. Layout wird UNSICHTBAR vorberechnet (kein
+   Galaxienflug), HD ueber devicePixelRatio, reduced-motion = stehendes Bild. ==== */
 let _mindDaten=null,_mindLauf=null;
 async function loadMind(){const cv=$("#mindcv");if(!cv)return;
  try{if(!_mindDaten)_mindDaten=await (await fetch("/api/vault/graph")).json();}catch(e){return;}
  const d=_mindDaten||{};const nodes=(d.nodes||[]).slice(0,220);
  if(!nodes.length)return;
  const home=$("#v-home"),dpr=window.devicePixelRatio||1;
- const W=home.clientWidth||1100,H=Math.max(home.clientHeight,600);
+ /* Boot-Falle: wird die Board-Ansicht beim Start wiederhergestellt, hat v-home noch
+    keine Masse (clientWidth 0) — dann kurz warten statt mit Fallback-Groesse malen */
+ if(!home.clientWidth){setTimeout(loadMind,300);return;}
+ const W=home.clientWidth,H=Math.max(home.clientHeight,600);
  cv.width=W*dpr;cv.height=H*dpr;
  const ctx=cv.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);
+ const css=getComputedStyle(document.documentElement);
+ const HUD=(css.getPropertyValue("--hud").trim()||"#c084fc"),AK2=(css.getPropertyValue("--accent2").trim()||"#7c3aed");
+ const rgba=(hex,a)=>{if(!/^#[0-9a-fA-F]{6}$/.test(hex||""))hex="#b026ff";
+  const n=parseInt(hex.slice(1),16);return "rgba("+(n>>16&255)+","+(n>>8&255)+","+(n&255)+","+a+")";};
+ const staub=[];for(let i=0;i<150;i++)staub.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.2+.3,ph:Math.random()*6.283});
  const idx={};nodes.forEach((n,i)=>{idx[n.id]=i;
   const a=Math.random()*6.283,r=Math.random()*.38+.08;   /* Start als lockere Wolke um die Mitte */
-  n.x=W/2+Math.cos(a)*W*r;n.y=H/2+Math.sin(a)*H*r;n.vx=0;n.vy=0;});
+  n.x=W/2+Math.cos(a)*W*r;n.y=H/2+Math.sin(a)*H*r;n.vx=0;n.vy=0;n.ph=Math.random()*6.283;});
  const links=(d.links||[]).filter(l=>idx[l.source]!=null&&idx[l.target]!=null)
   .map(l=>[idx[l.source],idx[l.target]]);
  const grad=nodes.map(()=>0);links.forEach(([a,b])=>{grad[a]++;grad[b]++;});
@@ -933,24 +952,47 @@ async function loadMind(){const cv=$("#mindcv");if(!cv)return;
    n.x=Math.max(24,Math.min(W-24,n.x));n.y=Math.max(24,Math.min(H-24,n.y));});};
  /* 1) Layout FERTIG rechnen, bevor irgendwas sichtbar wird (kein wildes Fliegen) */
  for(let s=0;s<160;s++)schrittRechnen(1);
- const malen=(alpha)=>{ctx.clearRect(0,0,W,H);ctx.globalAlpha=alpha;
-  ctx.strokeStyle="rgba(139,92,246,.14)";ctx.lineWidth=1;
+ const pings=[];
+ const malen=(alpha,zeit)=>{ctx.clearRect(0,0,W,H);ctx.globalAlpha=alpha;
+  /* Nebel: zwei grosse, sehr dezente Farbwolken in den Theme-Toenen */
+  let g=ctx.createRadialGradient(W*.32,H*.4,0,W*.32,H*.4,W*.45);
+  g.addColorStop(0,rgba(AK2,.09));g.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  g=ctx.createRadialGradient(W*.74,H*.62,0,W*.74,H*.62,W*.38);
+  g.addColorStop(0,rgba(HUD,.05));g.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  /* Sternenstaub: winzige, leise funkelnde Punkte */
+  staub.forEach(s=>{ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);
+   ctx.fillStyle="rgba(236,238,244,"+(.10+.13*(1+Math.sin(zeit*.0009+s.ph))/2).toFixed(3)+")";ctx.fill();});
+  ctx.strokeStyle=rgba(HUD,.10);ctx.lineWidth=1;
   links.forEach(([ia,ib])=>{ctx.beginPath();ctx.moveTo(nodes[ia].x,nodes[ia].y);ctx.lineTo(nodes[ib].x,nodes[ib].y);ctx.stroke();});
-  nodes.forEach((n,i)=>{const r=Math.min(6,2+grad[i]*.6);
-   ctx.beginPath();ctx.arc(n.x,n.y,r,0,7);ctx.fillStyle=n.color||"#9d97b2";ctx.fill();});
-  ctx.font="10px 'Segoe UI',sans-serif";ctx.fillStyle="rgba(236,233,244,.6)";
-  nodes.forEach((n,i)=>{if(grad[i]>=4)ctx.fillText((n.id||"").slice(0,18),n.x+7,n.y+3);});
+  /* Sterne: farbiger Halo + heller Kern — KEINE Beschriftung */
+  nodes.forEach((n,i)=>{const tw=.75+.25*Math.sin(zeit*.0011+n.ph);
+   const r=Math.min(6,2+grad[i]*.6)*tw;
+   const halo=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,r*3.4);
+   halo.addColorStop(0,rgba(n.color,.5));halo.addColorStop(1,"rgba(0,0,0,0)");
+   ctx.beginPath();ctx.arc(n.x,n.y,r*3.4,0,7);ctx.fillStyle=halo;ctx.fill();
+   ctx.beginPath();ctx.arc(n.x,n.y,Math.max(1.1,r*.8),0,7);ctx.fillStyle="rgba(240,238,250,.9)";ctx.fill();});
+  /* Pings: Lichtpunkte wandern die Verbindungen entlang — max 3 gleichzeitig, nie penetrant */
+  if(links.length&&pings.length<3&&Math.random()<.02)pings.push({l:links[Math.random()*links.length|0],t:0});
+  for(let i=pings.length-1;i>=0;i--){const p=pings[i];p.t+=.014;if(p.t>=1){pings.splice(i,1);continue;}
+   const a=nodes[p.l[0]],b=nodes[p.l[1]],x=a.x+(b.x-a.x)*p.t,y=a.y+(b.y-a.y)*p.t,f=Math.sin(p.t*Math.PI);
+   const pg=ctx.createRadialGradient(x,y,0,x,y,9);pg.addColorStop(0,rgba(HUD,.85*f));pg.addColorStop(1,"rgba(0,0,0,0)");
+   ctx.beginPath();ctx.arc(x,y,9,0,7);ctx.fillStyle=pg;ctx.fill();
+   ctx.beginPath();ctx.arc(x,y,1.6,0,7);ctx.fillStyle="rgba(255,255,255,"+(.9*f).toFixed(3)+")";ctx.fill();}
   ctx.globalAlpha=1;};
  /* 2) sanft einblenden, dann nur noch ruhige Drift (reduced-motion: statisch) */
  if(_mindLauf)cancelAnimationFrame(_mindLauf);
  const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
- if(still){malen(1);return;}
+ if(still){malen(1,0);return;}
  let t=0;
- const atmen=()=>{t++;
-  if(t<=24){malen(t/24);}                    /* Fade-in */
-  else{schrittRechnen(.02);malen(1);}        /* Drift: 2% Kraft = kaum sichtbares Leben */
+ const atmen=()=>{t++;const zeit=performance.now();
+  if(t<=24){malen(t/24,zeit);}               /* Fade-in */
+  else{schrittRechnen(.02);malen(1,zeit);}   /* Drift: 2% Kraft = kaum sichtbares Leben */
   if(cur==="home")_mindLauf=requestAnimationFrame(atmen);};
  atmen();}
+/* Fenster-Groesse aendert sich -> Galaxie passt sich an (debounced) */
+let _mindResT=null;
+window.addEventListener("resize",()=>{clearTimeout(_mindResT);
+ _mindResT=setTimeout(()=>{if(cur==="home")loadMind();},250);});
 
 /* ---- Chat ---- */
 const log=$("#log");
@@ -2034,11 +2076,13 @@ async function loadTodoSecrets(){const el=$("#todo-secrets");if(!el)return;try{
 /* ---- Wissen (S5.4): fuettern, suchen, verwalten ---- */
 async function loadWissen(){try{const d=await (await fetch("/api/knowledge")).json();const docs=d.docs||[];
  const kc=$("#kn-count");if(kc)kc.textContent=docs.length?(docs.length+" Dokumente, "+docs.reduce((a,x)=>a+(x.chunks||0),0)+" Abschnitte"):"";
- $("#kn-docs").innerHTML=docs.length?docs.map(x=>'<div class="memrow" data-kopen="'+x.id+'" style="cursor:pointer" title="klicken: Inhalt ansehen"><div class="mh"><span class="badge kind">'+x.source+'</span><b>'+(x.title||"").replace(/</g,"&lt;").slice(0,80)+'</b><span style="flex:1"></span><span class="muted">'+Math.round((x.bytes||0)/1024)+' KB &middot; '+x.chunks+' Abschnitte</span> <a data-kdel="'+x.id+'" style="cursor:pointer;color:var(--muted)" title="loeschen">&#10005;</a></div></div>').join("")
-  :'<div class="emptybox">Archiv ist leer<br>Fuettere mich: Datei, Notiz oder Telegram-Anhang.</div>';
+ /* Feinschliff-Runde III: die Bibliothek erklaert sich selbst — Lese-Bestand, kein Ablage-Friedhof */
+ const erklaer='<div class="muted" style="font-size:12px;margin-bottom:8px">Alles, was du Kira zu lesen gibst (Dateien, Notizen, Dossiers, Telegram-Anhaenge), liegt hier durchsuchbar bereit — die Suche und Kiras Antworten greifen darauf zu. Klick auf einen Eintrag = Volltext.</div>';
+ $("#kn-docs").innerHTML=docs.length?(erklaer+docs.map(x=>'<div class="memrow" data-kopen="'+x.id+'" style="cursor:pointer" title="klicken: Inhalt ansehen"><div class="mh"><span class="badge kind">'+x.source+'</span><b>'+(x.title||"").replace(/</g,"&lt;").slice(0,80)+'</b><span style="flex:1"></span><span class="muted">'+Math.round((x.bytes||0)/1024)+' KB &middot; '+x.chunks+' Abschnitte</span> <a data-kdel="'+x.id+'" style="cursor:pointer;color:var(--muted)" title="loeschen">&#10005;</a></div></div>').join(""))
+  :'<div class="emptybox">Die Bibliothek ist leer<br>Gib mir etwas zu lesen: Datei, Notiz oder Telegram-Anhang.</div>';
  /* Feedback 13.07.: ansehen statt raetseln — Klick auf den Eintrag zeigt den Volltext */
  $$('#kn-docs [data-kopen]').forEach(r=>r.onclick=e=>{if(e.target.dataset.kdel)return;zeigeDoc(r.dataset.kopen);});
- $$('#kn-docs [data-kdel]').forEach(a=>a.onclick=async e=>{e.stopPropagation();if(!confirm("Dokument aus dem Archiv loeschen?"))return;await fetch("/api/knowledge/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.kdel})});loadWissen();});
+ $$('#kn-docs [data-kdel]').forEach(a=>a.onclick=async e=>{e.stopPropagation();if(!confirm("Dokument aus der Bibliothek loeschen?"))return;await fetch("/api/knowledge/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.kdel})});loadWissen();});
 }catch(e){}}
 $("#kn-add")&&($("#kn-add").onclick=async()=>{const txt=$("#kn-text").value.trim();if(!txt)return;
  $("#kn-hint").textContent="…";
@@ -2051,8 +2095,8 @@ $("#kn-file")&&($("#kn-file").onchange=async()=>{const f=$("#kn-file").files[0];
  const r=await (await fetch("/api/knowledge/upload",{method:"POST",body:fd})).json();
  $("#kn-file-hint").textContent=r.ok?(r.duplicate?"kenne ich schon (Duplikat)":"&#10003; "+f.name+" ("+r.chunks+" Abschnitte)"):("Fehler: "+(r.error||"?"));
  $("#kn-file").value="";loadWissen();});
-/* Feedback 13.07.: EIN Feld sucht UEBERALL — Archiv, Vault/Obsidian, Sessions, Gedaechtnis.
-   Treffer sind klickbar: Vault -> Datei-Editor, Session -> Chat, Archiv -> Volltext. */
+/* Feedback 13.07.: EIN Feld sucht UEBERALL — Bibliothek, Vault/Obsidian, Sessions, Gedaechtnis.
+   Treffer sind klickbar: Vault -> Datei-Editor, Session -> Chat, Bibliothek -> Volltext. */
 let knTimer=null;
 $("#kn-q")&&($("#kn-q").oninput=()=>{clearTimeout(knTimer);knTimer=setTimeout(async()=>{
  const q=$("#kn-q").value.trim();const el=$("#kn-results");
@@ -2060,7 +2104,7 @@ $("#kn-q")&&($("#kn-q").oninput=()=>{clearTimeout(knTimer);knTimer=setTimeout(as
  const d=await (await fetch("/api/suche?q="+encodeURIComponent(q))).json();
  const kopf=t=>'<div class="muted" style="margin:9px 2px 4px;font-size:10.5px;letter-spacing:.1em">'+t+'</div>';
  let h="";
- if((d.archiv||[]).length)h+=kopf("ARCHIV")+d.archiv.map(x=>'<div class="memrow" data-sdoc="'+esc(x.doc_id||x.id||"")+'" style="cursor:pointer"><div class="mh"><b>'+esc((x.title||"").slice(0,60))+'</b><span class="muted"> · Abschnitt '+((x.chunk_no|0)+1)+'</span></div><div class="muted" style="font-size:12px;margin-top:3px">'+esc((x.text||"").slice(0,220))+'&hellip;</div></div>').join("");
+ if((d.archiv||[]).length)h+=kopf("BIBLIOTHEK")+d.archiv.map(x=>'<div class="memrow" data-sdoc="'+esc(x.doc_id||x.id||"")+'" style="cursor:pointer"><div class="mh"><b>'+esc((x.title||"").slice(0,60))+'</b><span class="muted"> · Abschnitt '+((x.chunk_no|0)+1)+'</span></div><div class="muted" style="font-size:12px;margin-top:3px">'+esc((x.text||"").slice(0,220))+'&hellip;</div></div>').join("");
  if((d.vault||[]).length)h+=kopf("VAULT / OBSIDIAN")+d.vault.map(x=>'<div class="memrow" data-svault="'+esc(x.path)+'" style="cursor:pointer"><div class="mh"><b>'+esc(x.name)+'</b><span class="muted"> · '+esc(x.path)+'</span></div>'+(x.snippet?('<div class="muted" style="font-size:12px;margin-top:3px">&hellip;'+esc(x.snippet)+'&hellip;</div>'):'')+'</div>').join("");
  if((d.sessions||[]).length)h+=kopf("GESPRAECHE")+d.sessions.map(x=>'<div class="memrow" data-ssess="'+esc(x.session_id)+'" style="cursor:pointer"><div class="mh"><b>'+esc((x.title||"").slice(0,70))+'</b></div></div>').join("");
  if((d.gedaechtnis||[]).length)h+=kopf("GEDAECHTNIS")+d.gedaechtnis.map(x=>'<div class="memrow"><div class="mh"><span class="badge kind">'+esc(x.kind||"")+'</span><span style="font-size:12.5px">'+esc(x.text||"")+'</span></div></div>').join("");
@@ -2072,7 +2116,7 @@ $("#kn-q")&&($("#kn-q").oninput=()=>{clearTimeout(knTimer);knTimer=setTimeout(as
  $$('#kn-results [data-sdoc]').forEach(a=>a.onclick=()=>zeigeDoc(a.dataset.sdoc));
 },350);});
 
-/* Archiv-Dokument ANSEHEN (Feedback 13.07.): Klick auf die Zeile klappt den Volltext auf */
+/* Bibliotheks-Dokument ANSEHEN (Feedback 13.07.): Klick auf die Zeile klappt den Volltext auf */
 async function zeigeDoc(id){if(!id)return;
  const d=await (await fetch("/api/knowledge/doc?id="+encodeURIComponent(id))).json();
  if(d.error){toast(d.error,"err");return;}
