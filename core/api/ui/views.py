@@ -16,8 +16,8 @@ sitzt als Icon+Popover in der Topbar (nicht mehr in der Nav). Panel-IDs sind sta
 VIEWS = r"""</head><body>
 <!-- Kommandobruecke: schmale Icon-Rail — Chat ist das Herzstueck, Board/Kira/Du/Setup daneben -->
 <div id="side">
-  <a data-v="chat" class="on" title="Chat — das Herzstueck"><i class="ti">›</i> Chat</a>
-  <a data-v="home" title="Board: Zahlen, Ziele, Befehl, Live-Ops"><i class="ti">◈</i> Board</a>
+  <a data-v="home" class="on" title="Board: dein Empfang — Galaxie, Zahlen, Befehl, Live-Ops"><i class="ti">◈</i> Board</a>
+  <a data-v="chat" title="Chat — das Herzstueck"><i class="ti">›</i> Chat</a>
   <a data-v="kira" title="Wer ich bin: Seele, Gedaechtnis, Wissen, Gewissen, Automatik, Lernen"><i class="ti">✦</i> __AGENT__</a>
   <a data-v="me" title="Dein Bereich: Todos, Freigaben, was __AGENT__ von dir braucht, deine Routinen"><i class="ti">☰</i> __USER__ <b id="side-frei" class="frei-badge" style="display:none"></b></a>
   <div class="spacer"></div>
@@ -85,7 +85,7 @@ VIEWS = r"""</head><body>
   </div>
 
   <!-- ================= BOARD (Zentrale) ================= -->
-  <div class="view" id="v-home">
+  <div class="view on" id="v-home">
     <!-- Feedback-Runde II: das MIND ist kein Kasten, sondern der HINTERGRUND des Boards —
          der Vault-Graph liegt eingebettet unter allem, das Board dreht sich ums Gehirn -->
     <canvas id="mindcv"></canvas>
@@ -102,29 +102,27 @@ VIEWS = r"""</head><body>
       <div class="ticker" id="news-ticker" style="flex:1;min-width:0"><span>… Intel wird geladen …</span></div>
       <a id="news-seed" class="muted" style="cursor:pointer;font-size:10px;white-space:nowrap">+ Quellen</a>
     </div>
-    <!-- Feedback 09.07.: die Luecke neben dem Befehl gehoert den Widgets (Kira blendet
-         hier per widget_add Kacheln ein — Follower, Kennzahlen, Listen) -->
-    <div class="dir-row">
-    <div class="direktive">
-      <h3>Befehl an __AGENT__</h3>
-      <textarea id="dir-text" class="k" placeholder="Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…"></textarea>
-      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-        <button type="button" class="ghost" id="dir-mic" title="Auftrag diktieren (Voice)">◉</button>
-        <button id="dir-now">↯ Sofort ausfuehren</button>
-        <button class="ghost" id="dir-focus">✧ Als Fokus setzen</button>
-        <button class="ghost" id="dir-clear" title="Fokus loeschen">Fokus loeschen</button>
-        <label class="chip tog" id="dir-schwarm-l" title="Als Schwarm-Auftrag an die Armee — landet im Chat, du drueckst Senden"><input type="checkbox" id="dir-schwarm"/> ⁂ Schwarm</label>
-        <select id="dir-rang" title="Rang fuer den Schwarm" style="display:none">
-          <option value="reflex">· reflex</option><option value="arbeiter" selected>⚒︎ arbeiter</option><option value="denker">◆ denker</option><option value="richter">⚖︎ richter</option>
-        </select>
-        <span class="muted" id="dir-hint" style="align-self:center"></span>
-      </div>
-      <div id="dir-result" style="margin-top:8px;white-space:pre-wrap;display:none;border-top:1px solid var(--line);padding-top:8px"></div>
-    </div>
-    <div id="widgets-home" class="wslot"></div>
-    </div>
-    <div class="cmd-grid">
-      <div class="cmd-main">
+    <!-- Runde IV (Skizze des Nutzers, 13.07.): das Board ist der EMPFANG — links Befehl +
+         Live-Ops, die MITTE gehoert der Galaxie, rechts "__AGENT__ heute"; unten der
+         Chat-Einstieg: tippen, die Seiten gleiten weg, du landest im Gespraech. -->
+    <div class="cmd-grid" id="board-grid">
+      <div id="board-links" class="cmd-main">
+        <div class="direktive">
+          <h3>Befehl an __AGENT__</h3>
+          <textarea id="dir-text" class="k" placeholder="Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…"></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+            <button type="button" class="ghost" id="dir-mic" title="Auftrag diktieren (Voice)">◉</button>
+            <button id="dir-now">↯ Sofort ausfuehren</button>
+            <button class="ghost" id="dir-focus">✧ Als Fokus setzen</button>
+            <button class="ghost" id="dir-clear" title="Fokus loeschen">Fokus loeschen</button>
+            <label class="chip tog" id="dir-schwarm-l" title="Als Schwarm-Auftrag an die Armee — landet im Chat, du drueckst Senden"><input type="checkbox" id="dir-schwarm"/> ⁂ Schwarm</label>
+            <select id="dir-rang" title="Rang fuer den Schwarm" style="display:none">
+              <option value="reflex">· reflex</option><option value="arbeiter" selected>⚒︎ arbeiter</option><option value="denker">◆ denker</option><option value="richter">⚖︎ richter</option>
+            </select>
+            <span class="muted" id="dir-hint" style="align-self:center"></span>
+          </div>
+          <div id="dir-result" style="margin-top:8px;white-space:pre-wrap;display:none;border-top:1px solid var(--line);padding-top:8px"></div>
+        </div>
         <div class="panel">
           <div class="panel-h">◈ Live-Ops <span class="live"></span><span class="sp"></span>
             <span class="seg" id="ops-filter"><a data-of="all" class="on">alle <b class="ofc"></b></a><a data-of="action">aktionen <b class="ofc"></b></a><a data-of="info">info <b class="ofc"></b></a><a data-of="chat">chat <b class="ofc"></b></a><a data-of="error">fehler <b class="ofc"></b></a></span>
@@ -132,7 +130,11 @@ VIEWS = r"""</head><body>
           <div id="ops-feed"><span class="muted" style="padding:10px 13px;display:block">…</span></div>
         </div>
       </div>
-      <div class="cmd-side">
+      <!-- die Mitte bleibt frei: hier lebt die Galaxie; Widgets duerfen darueber schweben -->
+      <div id="board-mitte">
+        <div id="widgets-home" class="wslot"></div>
+      </div>
+      <div id="board-rechts" class="cmd-side">
         <!-- Werkbank PR 6: EIN Erst-Blick-Panel — was Kira heute tat, was ansteht, was sie lernte -->
         <div class="panel">
           <div class="panel-h">◈ __AGENT__ heute <span class="sp"></span><a id="go-tagewerk" class="muted" style="cursor:pointer;font-size:10px">→ Detail</a></div>
@@ -146,10 +148,15 @@ VIEWS = r"""</head><body>
         </div>
       </div>
     </div>
+    <!-- der Chat-Einstieg: 1:1 die Chat-Optik (LED-Rand), Absenden gleitet ins Gespraech -->
+    <form id="board-chat">
+      <textarea id="bc-in" rows="1" placeholder="Schreib mir …  (Enter sendet — dein Satz gleitet direkt ins Gespraech)" autocomplete="off"></textarea>
+      <button id="bc-send" type="submit">Senden</button>
+    </form>
   </div>
 
   <!-- ================= CHAT (Kommandobruecke: Sessions | Gespraech | Dein Tag) ================= -->
-  <div class="view on" id="v-chat">
+  <div class="view" id="v-chat">
     <div id="chat-wrap">
       <div id="sess-panel">
         <div class="sp-h"><span class="muted" style="font-size:11px;letter-spacing:1px">GESPRAECHE</span>

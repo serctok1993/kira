@@ -11,13 +11,16 @@ from core.api.ui.script import SCRIPT
 from core.api.ui.views import VIEWS
 
 
-def test_chat_ist_die_startflaeche():
-    # Chat traegt das 'on' — im Markup UND im Boot-Pfad
-    assert '<div class="view on" id="v-chat">' in VIEWS
-    assert '<div class="view" id="v-home">' in VIEWS          # Board nicht mehr default
-    assert '<a data-v="chat" class="on"' in VIEWS
-    assert 'let cur="chat"' in SCRIPT
-    assert 'nav("chat");  /* Kommandobruecke' in SCRIPT        # Boot startet im Chat
+def test_board_ist_der_empfang():
+    # Runde IV (Skizze des Nutzers, 13.07.): das Board empfaengt, der Chat bleibt Herzstueck.
+    assert '<div class="view on" id="v-home">' in VIEWS
+    assert '<div class="view" id="v-chat">' in VIEWS
+    assert '<a data-v="home" class="on"' in VIEWS
+    assert 'let cur="home"' in SCRIPT
+    assert 'nav("home");  /* Runde IV' in SCRIPT               # Boot startet im Board
+    # Rail: Board steht UEBER dem Chat
+    rail = VIEWS.split('id="main"', 1)[0]
+    assert rail.index('data-v="home"') < rail.index('data-v="chat"')
 
 
 def test_rail_hat_alle_bereiche():
