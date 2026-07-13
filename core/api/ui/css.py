@@ -715,6 +715,30 @@ button.ghost:hover{box-shadow:0 0 0 1px var(--accent);filter:none}
    Panels liegen drueber, der Graph lebt in Mitte + Zwischenraeumen, stoert nie. */
 #v-home{position:relative;isolation:isolate}
 #mindcv{position:absolute;inset:0;width:100%;height:100%;z-index:-1;opacity:.5;pointer-events:none}
+
+/* ===== Feinschliff-Runde III ===== */
+/* Wortmarke folgt dem Theme: Verlauf + Glow aus den Akzent-Variablen statt fest Lila —
+   wechselt der Nutzer die Theme-Farbe, wechselt KIRA mit. */
+#bar #brand .txt,#side h1 .txt{
+ background:linear-gradient(100deg,var(--amber),var(--hud),var(--accent),var(--hud),var(--accent2),var(--hud),var(--amber));
+ background-size:260% 100%;-webkit-background-clip:text;background-clip:text;
+ -webkit-text-fill-color:transparent;color:transparent;
+ filter:drop-shadow(0 0 3px color-mix(in srgb,var(--glow) 70%,transparent))
+        drop-shadow(0 0 12px color-mix(in srgb,var(--glow) 40%,transparent))}
+#side a:hover{background:color-mix(in srgb,var(--accent) 10%,transparent)}
+#side a.on{background:color-mix(in srgb,var(--accent) 14%,transparent)}
+/* Puls ohne Scrollen: Lektionen/Skills fliessen kompakt in Spalten,
+   Herkunft auf einen Blick — gelb = Lektion (gelernt), gruen = Skill (kann sie) */
+.puls-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:7px;margin:2px 0 4px}
+.puls-grid .memrow{margin:0;font-size:12px;padding:7px 10px}
+.puls-grid .memrow.lek{border-left:3px solid var(--warn)}
+.puls-grid .memrow.ski{border-left:3px solid var(--ok)}
+/* Playbooks: Reifegrad als Ampel */
+.badge.pb-entwurf{color:var(--warn);border-color:var(--warn)}
+.badge.pb-begleitet{color:var(--hud);border-color:var(--hud)}
+.badge.pb-autonom{color:var(--ok);border-color:var(--ok)}
+/* Galaxie einen Hauch praesenter (bleibt hinter allem) */
+#mindcv{opacity:.55}
 </style>"""
 
 # Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt

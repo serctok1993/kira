@@ -116,3 +116,41 @@ def test_runde2_autonomie_tab_aufgeraeumt():
     assert gov.index("Autonomie — was braucht deine Freigabe?") < gov.index("Budget — was darf sie ausgeben?")
     assert "Protokoll — was hat sie nach aussen getan?" in gov
     assert "Shell-Befehl ausgefuehrt" in SCRIPT                 # Klartext statt Roh-Dump
+
+
+def test_runde3_puls_kompakt_und_farbig():
+    # Lektionen/Skills fliessen in Spalten (kein Scrollen); Zahlen in Ampelfarben
+    assert '<div class="puls-grid">' in SCRIPT
+    assert ".puls-grid{display:grid" in CSS
+    assert 'class="memrow lek"' in SCRIPT and 'class="memrow ski"' in SCRIPT
+    assert "z(tw.tasks.done,'var(--ok)')" in SCRIPT             # getan = gruen
+    assert "z(tw.tasks.failed,'var(--danger)')" in SCRIPT       # gescheitert = rot
+    assert "z(tw.freigaben_offen,'var(--warn)')" in SCRIPT      # offen = gelb
+
+
+def test_runde3_galaxie_ohne_woerter():
+    # Das Mind ist ein Sternsystem: KEINE Beschriftung, Nebel + Staub + Pings, HD, Theme-Farben
+    mind = SCRIPT.split("async function loadMind()", 1)[1].split("/* ---- Chat ----", 1)[0]
+    assert "fillText" not in mind
+    assert "pings" in mind and "staub" in mind and "createRadialGradient" in mind
+    assert "devicePixelRatio" in mind
+    assert 'getPropertyValue("--hud")' in mind                  # Galaxie folgt dem Theme
+
+
+def test_runde3_bibliothek_statt_archiv():
+    # Der Wissens-Speicher heisst Bibliothek (Lese-Bestand) und erklaert sich;
+    # das Chat-Session-Archiv ist ein anderes Konzept und bleibt bewusst.
+    assert "◈ BIBLIOTHEK" in VIEWS and "+ In die Bibliothek" in VIEWS
+    assert "◈ ARCHIV" not in VIEWS
+    assert 'kopf("BIBLIOTHEK")' in SCRIPT and 'kopf("ARCHIV")' not in SCRIPT
+    assert "Die Bibliothek ist leer" in SCRIPT
+    assert "Archiv anzeigen" in VIEWS                           # Chat-Archiv unangetastet
+
+
+def test_runde3_theme_logo_und_playbook_ampel():
+    # Wortmarke haengt an den Akzent-Variablen — Theme-Wechsel faerbt KIRA mit
+    runde3 = CSS.split("Feinschliff-Runde III", 1)[1]
+    assert "#bar #brand .txt,#side h1 .txt" in runde3 and "var(--accent)" in runde3
+    assert ".badge.pb-entwurf{color:var(--warn)" in CSS
+    assert ".badge.pb-autonom{color:var(--ok)" in CSS
+    assert '"pb-"+(g==="autonom"||g==="begleitet"?g:"entwurf")' in SCRIPT
