@@ -310,12 +310,49 @@ async function loadMeCrons(){const el=$("#me-crons");if(!el)return;try{
  const mine=(d.jobs||[]).filter(j=>(j.scope||"system")==="me");
  el.innerHTML=mine.length?mine.map(j=>{
   const nxt=j.next_run?new Date(j.next_run*1000).toLocaleString([],{weekday:"short",hour:"2-digit",minute:"2-digit"}):"—";
-  return '<div class="memrow"><div class="mh"><span class="badge kind">'+(j.enabled?"AN":"aus")+'</span>'
-   +'<b>'+esc(j.label||"")+'</b><span class="muted" style="font-size:11px">'+esc(j.schedule_text||"")+' · naechster: '+nxt+'</span>'
-   +'<span style="flex:1"></span><a data-ctog="'+esc(j.id)+'" style="cursor:pointer;color:var(--hud)">'+(j.enabled?"pausieren":"aktivieren")+'</a></div></div>';}).join("")
+  return '<div class="memrow" data-cid="'+esc(j.id)+'"><div class="mh"><span class="badge kind">'+(j.enabled?"AN":"aus")+'</span>'
+   +'<b data-cedit="'+esc(j.id)+'" style="cursor:pointer" title="klicken: bearbeiten">'+esc(j.label||"")+'</b>'
+   +'<span class="muted" style="font-size:11px">'+esc(j.schedule_text||"")+' · naechster: '+nxt+'</span>'
+   +'<span style="flex:1"></span>'
+   +'<a data-cedit="'+esc(j.id)+'" style="cursor:pointer;color:var(--muted)" title="Name, Zeitplan und Auftrag aendern — im Auftrag sind URLs erlaubt (z.B. eine Tracking-Seite)">bearbeiten</a>'
+   +'<a data-ctog="'+esc(j.id)+'" style="cursor:pointer;color:var(--hud);margin-left:10px">'+(j.enabled?"pausieren":"aktivieren")+'</a></div>'
+   +'<div class="cron-edit" style="display:none"></div></div>';}).join("")
   :'<div class="emptybox">Noch keine Routinen.<br>Unten eine Automatisierung einrichten — oder sag es mir per Telegram.</div>';
  el.querySelectorAll("[data-ctog]").forEach(a=>a.onclick=async()=>{
   await fetch("/api/cron/toggle",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.ctog})});loadMeCrons();});
+ /* Kommandobruecke-Feedback: Routine anklicken -> inline bearbeiten (Name, Zeitplan,
+    Auftrag). Der Auftrag ist freier Text — URLs (Tracking-Seiten etc.) fahren einfach mit. */
+ el.querySelectorAll("[data-cedit]").forEach(a=>a.onclick=()=>{
+  const j=mine.find(x=>x.id===a.dataset.cedit);if(!j)return;
+  const row=el.querySelector('[data-cid="'+j.id+'"]');const box=row.querySelector(".cron-edit");
+  if(box.style.display!=="none"){box.style.display="none";return;}
+  el.querySelectorAll(".cron-edit").forEach(b=>b.style.display="none");
+  box.style.display="";
+  box.innerHTML='<div style="display:grid;gap:7px;padding:9px 4px 4px">'
+   +'<input class="k ce-label" placeholder="Name der Routine"/>'
+   +'<input class="k ce-sched" placeholder="Zeitplan — z.B. 07:30 · mo 20:00 · 60m"/>'
+   +'<textarea class="k ce-prompt" rows="3" placeholder="Was soll ich regelmaessig tun? URLs erlaubt — z.B. Oeffne https://… und melde mir die Zahl."></textarea>'
+   +'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="ce-save">Speichern</button>'
+   +'<button class="ghost ce-test" title="einmal sofort ausfuehren (Probelauf)">▶ testen</button>'
+   +'<button class="ghost ce-del" style="color:var(--danger)">loeschen</button>'
+   +'<span style="flex:1"></span><button class="ghost ce-cancel">abbrechen</button></div></div>';
+  box.querySelector(".ce-label").value=j.label||"";
+  box.querySelector(".ce-sched").value=j.schedule_text||"";
+  box.querySelector(".ce-prompt").value=j.prompt||"";
+  box.querySelector(".ce-cancel").onclick=()=>box.style.display="none";
+  box.querySelector(".ce-save").onclick=async()=>{
+   await fetch("/api/cron/update",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({id:j.id,label:box.querySelector(".ce-label").value,
+     schedule:box.querySelector(".ce-sched").value,prompt:box.querySelector(".ce-prompt").value})});
+   toast("Routine gespeichert","ok");loadMeCrons();};
+  box.querySelector(".ce-test").onclick=async()=>{toast("Probelauf gestartet …","ok");
+   await fetch("/api/cron/runnow",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:j.id})});
+   toast("Probelauf fertig — Ergebnis siehst du im Puls/Protokoll","ok");};
+  box.querySelector(".ce-del").onclick=async()=>{
+   if(!confirm('Routine "'+(j.label||"")+'" wirklich loeschen?'))return;
+   await fetch("/api/cron/remove",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:j.id})});
+   toast("Routine geloescht","ok");loadMeCrons();};
+ });
 }catch(e){}}
 /* Automatisierungspanel: Uhrzeit/Intervall + freier Auftrag -> Routine (scope me). */
 $$('.au-preset').forEach(a=>a.onclick=()=>{
