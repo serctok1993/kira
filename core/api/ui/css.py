@@ -777,6 +777,48 @@ button.ghost:hover{box-shadow:0 0 0 1px var(--accent);filter:none}
  #board-chat::before{animation:none}
  #board-links,#board-rechts,#board-chat{transition:none}}
 @media(max-width:1050px){#board-mitte{display:none}#board-chat{margin-top:12px}}
+
+/* ===== Runde V: Befehl im Chat-Einstieg aufgegangen, Farbe, Galaxie-Politur ===== */
+:root{--blau:#38bdf8}                     /* Info-Blau der Ampel-Palette (gruen/blau/gelb/rot) */
+/* Board-Chat traegt jetzt zwei Zeilen: Eingabe+Senden oben, Werkzeuge+Modus unten */
+#board-chat{flex-direction:column;align-items:stretch;gap:8px;width:min(980px,100%)}
+#board-chat .bc-zeile{display:flex;gap:10px;align-items:flex-end}
+#board-chat .bc-werk{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:12px}
+#board-chat .bc-werk .ghost{padding:6px 12px;font-size:12px}
+/* Modus-Wahl rechts — dieselbe Quelle wie im Chat, LED-Rand faerbt mit */
+#bc-mode{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+#bc-mode a{padding:6px 14px;cursor:pointer;color:var(--muted)}
+#bc-mode a.on{color:#fff;background:color-mix(in srgb,var(--accent-chat) 30%,transparent)}
+#board-chat[data-mode="work"] #bc-mode a.on{background:color-mix(in srgb,var(--work-accent) 30%,transparent)}
+#board-chat[data-mode="coding"] #bc-mode a.on{background:color-mix(in srgb,var(--coding-accent) 30%,transparent)}
+#board-chat[data-mode="work"]::before{background-image:linear-gradient(90deg,#0aff9d,#39ff14,#9bff3c,#00e5a8,#39ff14,#0aff9d)}
+#board-chat[data-mode="coding"]::before{background-image:linear-gradient(90deg,#ff004d,#ff8a00,#ffe600,#39ff14,#00e5ff,#b026ff,#ff004d);animation-duration:5.5s}
+/* Fester Kommandostand (breit): die Grid-Zeile waechst NICHT mit dem Inhalt —
+   Spalten = verfuegbare Hoehe, der Live-Ops-Feed scrollt IN sich, nicht das Board.
+   Schmal (<1050) stapelt weiter mit Seiten-Scroll (Basis-Regeln, 52vh-Feed). */
+@media(min-width:1050px){
+ #v-home .cmd-grid{grid-template-rows:minmax(0,1fr)}
+ #board-links,#board-mitte,#board-rechts{min-height:0}
+ /* Kira heute: kompakt genug fuer den Ganzblick — Scrollbalken unsichtbar (Notnagel) */
+ #board-rechts{overflow-y:auto;scrollbar-width:none}
+ #board-rechts::-webkit-scrollbar{display:none}
+ /* Live-Ops fuellt die linke Spalte (der Befehl-Kasten ist unten aufgegangen) */
+ #board-links{overflow:hidden}
+ #board-links .panel{flex:1;display:flex;flex-direction:column;min-height:0}
+ #board-links #ops-feed{flex:1;max-height:none;overflow-y:auto}
+}
+#board-rechts .panel-b{padding-top:7px;padding-bottom:9px}
+/* Live-Ops-Filterzaehler in Ampelfarben */
+#ops-filter [data-of="error"] .ofc{color:var(--danger)}
+#ops-filter [data-of="action"] .ofc{color:var(--ok)}
+#ops-filter [data-of="chat"] .ofc{color:var(--blau)}
+/* Begriffe-Knopf schwebt ueber der Galaxie-Mitte */
+#board-mitte{display:flex;flex-direction:column;align-items:center;gap:8px}
+#mind-worte{pointer-events:auto;align-self:flex-end;font-size:10.5px;color:var(--muted);cursor:pointer;
+ border:1px solid var(--line);border-radius:999px;padding:3px 10px;
+ background:color-mix(in srgb,var(--panel) 72%,transparent)}
+#mind-worte.on{color:var(--hud);border-color:color-mix(in srgb,var(--hud) 50%,var(--line))}
+#mind-worte:hover{color:var(--accent)}
 </style>"""
 
 # Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt

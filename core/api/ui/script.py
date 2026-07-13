@@ -725,30 +725,35 @@ async function loadInbox(){const el=$("#inbox-list");if(!el)return;
 /* ---- Tagewerk: was Kira HEUTE getan hat (Achievements, deterministisch aus Events) ---- */
 async function loadTagewerk(){const el=$("#tagewerk");if(!el)return;
  try{const d=await (await fetch("/api/tagewerk")).json();
-  const row=(ico,txt)=>'<div style="display:flex;gap:8px;padding:3px 0;font-size:12.5px"><span style="min-width:18px">'+ico+'</span><span>'+txt+'</span></div>';
+  /* Runde V: kompakt (kein Scrollen) + Ampel-Farben — Icon traegt die Kategorie-Farbe,
+     Zahlen leuchten nur, wenn sie etwas zu sagen haben */
+  const row=(ico,farbe,txt)=>'<div style="display:flex;gap:8px;padding:2px 0;font-size:12px"><span style="min-width:18px;color:'+farbe+'">'+ico+'</span><span>'+txt+'</span></div>';
+  const zahl=(n,farbe)=>'<b style="color:'+((n|0)>0?farbe:"var(--muted)")+'">'+n+'</b>';
   const dz=d.diagnose?new Date(d.diagnose.ts*1000).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"}):null;
   el.innerHTML=
-   row("✓","<b>"+d.tasks.done+"</b> Tasks erledigt"+(d.tasks.avg_score!=null?" (Ø "+d.tasks.avg_score+")":"")+(d.tasks.failed?' · <span style="color:var(--danger)">'+d.tasks.failed+" gescheitert</span>":""))
-  +row("✉︎","<b>"+d.mails.anzahl+"</b> Mails gesendet"+(d.mails.an.length?' <span class="muted">('+esc(d.mails.an.slice(0,2).join(", "))+")</span>":""))
-  +row("◆","<b>"+d.skills.anzahl+"</b> Skills gelernt · <b>"+d.lektionen+"</b> Lektionen")
-  +row("◷","<b>"+d.crons.anzahl+"</b> Cron-Laeufe"+(d.crons.labels.length?' <span class="muted">('+esc(d.crons.labels.slice(0,2).join(", "))+")</span>":""))
-  +row("⚒︎","<b>"+d.selbstverbesserung.ticks+"</b> Selbst-Optimierungen"+(d.selbstverbesserung.code_edits.length?" · "+d.selbstverbesserung.code_edits.length+" Code-Edits":""))
-  +row("✚",d.diagnose?("Diagnose "+dz+" — "+(d.diagnose.ok?'<span style="color:var(--ok)">alles ok</span>':'<span style="color:var(--warn)">'+d.diagnose.probleme+" Punkte</span>")):'<span class="muted">heute keine Diagnose</span>')
-  +row("⏸",d.freigaben_offen?('<b style="color:var(--warn)">'+d.freigaben_offen+"</b> Freigaben warten auf dich"):'<span class="muted">keine offenen Freigaben</span>')
-  +row("€",d.kosten_heute_usd.toFixed(2).replace(".",",")+" $ heute");
+   row("✓","var(--ok)",zahl(d.tasks.done,"var(--ok)")+" Tasks erledigt"+(d.tasks.avg_score!=null?" (Ø "+d.tasks.avg_score+")":"")+(d.tasks.failed?' · <span style="color:var(--danger)">'+d.tasks.failed+" gescheitert</span>":""))
+  +row("✉︎","var(--blau)",zahl(d.mails.anzahl,"var(--blau)")+" Mails gesendet"+(d.mails.an.length?' <span class="muted">('+esc(d.mails.an.slice(0,2).join(", "))+")</span>":""))
+  +row("◆","var(--ok)",zahl(d.skills.anzahl,"var(--ok)")+" Skills gelernt · "+zahl(d.lektionen,"var(--warn)")+" Lektionen")
+  +row("◷","var(--blau)",zahl(d.crons.anzahl,"var(--blau)")+" Cron-Laeufe"+(d.crons.labels.length?' <span class="muted">('+esc(d.crons.labels.slice(0,2).join(", "))+")</span>":""))
+  +row("⚒︎","var(--hud)",zahl(d.selbstverbesserung.ticks,"var(--hud)")+" Selbst-Optimierungen"+(d.selbstverbesserung.code_edits.length?" · "+d.selbstverbesserung.code_edits.length+" Code-Edits":""))
+  +row("✚",d.diagnose&&!d.diagnose.ok?"var(--warn)":"var(--ok)",d.diagnose?("Diagnose "+dz+" — "+(d.diagnose.ok?'<span style="color:var(--ok)">alles ok</span>':'<span style="color:var(--warn)">'+d.diagnose.probleme+" Punkte</span>")):'<span class="muted">heute keine Diagnose</span>')
+  +row("⏸",d.freigaben_offen?"var(--warn)":"var(--muted)",d.freigaben_offen?('<b style="color:var(--warn)">'+d.freigaben_offen+"</b> Freigaben warten auf dich"):'<span class="muted">keine offenen Freigaben</span>')
+  +row("€",d.kosten_heute_usd>0?"var(--warn)":"var(--ok)",d.kosten_heute_usd.toFixed(2).replace(".",",")+" $ heute");
   const g=$("#go-tagewerk");if(g)g.onclick=()=>{nav("kira");if(typeof subnav==="function")subnav("kira","checkliste");};
  }catch(e){}}
 async function loadDigest(){const el=$("#digest");if(!el)return;
  try{const d=await (await fetch("/api/digest")).json();const b=d.budget||{};
-  let h='<div class="muted" style="font-size:11px;letter-spacing:1px">'+d.date+'</div>';
-  h+='<div style="margin:6px 0"><b>'+d.tasks_done_count+'</b> Aufgaben erledigt · <b>'+d.planned+'</b> geplant · <b>'+d.news+'</b> News</div>';
+  /* Runde V: Ampelfarben + kompakt (Datum und Zahlen teilen sich EINE Zeile) */
+  const dz2=(n,farbe)=>'<b style="color:'+((n|0)>0?farbe:"var(--muted)")+'">'+n+'</b>';
+  let h='<div style="margin:2px 0"><span class="muted" style="font-size:11px;letter-spacing:1px">'+d.date+'</span> &nbsp; '
+   +dz2(d.tasks_done_count,"var(--ok)")+' erledigt · '+dz2(d.planned,"var(--blau)")+' geplant · '+dz2(d.news,"var(--hud)")+' News</div>';
   /* Feedback 09.07.: EINE Zeile pro Aufgabe (kein Scrollfenster) — Markdown-Reste und
      'Hier das Ergebnis'-Floskeln raus, voller Text im title-Tooltip */
   const zeile=t=>(""+t).replace(/^Ich habe (jetzt )?(ausreichend )?/i,"").replace(/Hier das Ergebnis\.?/gi," ")
     .replace(/[#*`>|-]+/g," ").replace(/\s+/g," ").trim();
-  if(d.tasks_done&&d.tasks_done.length){h+='<ul style="margin:4px 0;padding-left:16px;font-size:12px">'
-    +d.tasks_done.slice(0,4).map(t=>{const s=zeile(t);return '<li class="clamp1" title="'+esc(s.slice(0,300))+'">'+esc(s.slice(0,140))+'</li>';}).join("")+'</ul>';
-   if(d.tasks_done.length>4)h+='<div class="muted" style="font-size:11px">+ '+(d.tasks_done.length-4)+' weitere &middot; <span style="cursor:pointer;text-decoration:underline" onclick="nav(\'me\')">Me</span></div>';}
+  if(d.tasks_done&&d.tasks_done.length){h+='<ul style="margin:3px 0;padding-left:16px;font-size:12px">'
+    +d.tasks_done.slice(0,3).map(t=>{const s=zeile(t);return '<li class="clamp1" title="'+esc(s.slice(0,300))+'">'+esc(s.slice(0,140))+'</li>';}).join("")+'</ul>';
+   if(d.tasks_done.length>3)h+='<div class="muted" style="font-size:11px">+ '+(d.tasks_done.length-3)+' weitere &middot; <span style="cursor:pointer;text-decoration:underline" onclick="nav(\'me\')">Me</span></div>';}
   /* S11: heute angefasste Dateien (der greifbarste "was wurde gebaut"-Beleg) + Tagesausgabe */
   if(d.artifacts&&d.artifacts.length)h+='<div style="margin-top:6px;font-size:12px"><span class="muted">Heute angefasst ('+d.artifacts.length+'):</span> '+d.artifacts.slice(0,6).map(a=>'<code style="font-size:11px">'+(""+a).replace(/</g,"&lt;").split("/").pop()+'</code>').join(", ")+'</div>';
   if(d.spend_usd!=null&&d.spend_usd>0)h+='<div style="margin-top:4px;font-size:12px" class="muted">Ausgaben heute: '+(d.spend_usd).toFixed(2)+' $</div>';
@@ -916,7 +921,9 @@ $("#pal-wrap")&&($("#pal-wrap").onclick=e=>{if(e.target.id==="pal-wrap")palClose
    schimmern schwach, Lichtpunkte "pingen" die Kanten entlang; dahinter Nebel und
    Sternenstaub in den Theme-Farben. Layout wird UNSICHTBAR vorberechnet (kein
    Galaxienflug), HD ueber devicePixelRatio, reduced-motion = stehendes Bild. ==== */
-let _mindDaten=null,_mindLauf=null;
+let _mindDaten=null,_mindLauf=null,_mindMalen=null;
+/* Runde V: Begriffe an den wichtigsten Punkten — klein, per Knopf schaltbar */
+let _mindWorte=(localStorage.getItem("mind_worte")||"1")==="1";
 async function loadMind(){const cv=$("#mindcv");if(!cv)return;
  try{if(!_mindDaten)_mindDaten=await (await fetch("/api/vault/graph")).json();}catch(e){return;}
  const d=_mindDaten||{};const nodes=(d.nodes||[]).slice(0,220);
@@ -927,6 +934,11 @@ async function loadMind(){const cv=$("#mindcv");if(!cv)return;
  if(!home.clientWidth){setTimeout(loadMind,300);return;}
  const W=home.clientWidth,H=Math.max(home.clientHeight,600);
  cv.width=W*dpr;cv.height=H*dpr;
+ /* Runde V: das Herz der Galaxie liegt in der FREIEN Mitte (board-mitte),
+    nicht mehr unterm halben Board verschoben */
+ let cx=W/2,cy=H/2;const mit=$("#board-mitte");
+ if(mit&&mit.offsetWidth){const hr=home.getBoundingClientRect(),mr=mit.getBoundingClientRect();
+  cx=mr.left-hr.left+mr.width/2;cy=mr.top-hr.top+mr.height/2;}
  const ctx=cv.getContext("2d");ctx.setTransform(dpr,0,0,dpr,0,0);
  const css=getComputedStyle(document.documentElement);
  const HUD=(css.getPropertyValue("--hud").trim()||"#c084fc"),AK2=(css.getPropertyValue("--accent2").trim()||"#7c3aed");
@@ -935,7 +947,7 @@ async function loadMind(){const cv=$("#mindcv");if(!cv)return;
  const staub=[];for(let i=0;i<150;i++)staub.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.2+.3,ph:Math.random()*6.283});
  const idx={};nodes.forEach((n,i)=>{idx[n.id]=i;
   const a=Math.random()*6.283,r=Math.random()*.38+.08;   /* Start als lockere Wolke um die Mitte */
-  n.x=W/2+Math.cos(a)*W*r;n.y=H/2+Math.sin(a)*H*r;n.vx=0;n.vy=0;n.ph=Math.random()*6.283;});
+  n.x=cx+Math.cos(a)*W*r*.8;n.y=cy+Math.sin(a)*H*r*.8;n.vx=0;n.vy=0;n.ph=Math.random()*6.283;});
  const links=(d.links||[]).filter(l=>idx[l.source]!=null&&idx[l.target]!=null)
   .map(l=>[idx[l.source],idx[l.target]]);
  const grad=nodes.map(()=>0);links.forEach(([a,b])=>{grad[a]++;grad[b]++;});
@@ -947,30 +959,36 @@ async function loadMind(){const cv=$("#mindcv");if(!cv)return;
   links.forEach(([ia,ib])=>{const a=nodes[ia],b=nodes[ib];
    const dx=b.x-a.x,dy=b.y-a.y,dist=Math.sqrt(dx*dx+dy*dy)||1,f=(dist-64)*.011*kraft;
    a.vx+=dx/dist*f*50;a.vy+=dy/dist*f*50;b.vx-=dx/dist*f*50;b.vy-=dy/dist*f*50;});
-  nodes.forEach(n=>{n.vx+=(W/2-n.x)*.0035*kraft;n.vy+=(H/2-n.y)*.0035*kraft;
+  nodes.forEach(n=>{n.vx+=(cx-n.x)*.0035*kraft;n.vy+=(cy-n.y)*.0035*kraft;
    n.x+=n.vx*=.58;n.y+=n.vy*=.58;
    n.x=Math.max(24,Math.min(W-24,n.x));n.y=Math.max(24,Math.min(H-24,n.y));});};
  /* 1) Layout FERTIG rechnen, bevor irgendwas sichtbar wird (kein wildes Fliegen) */
  for(let s=0;s<160;s++)schrittRechnen(1);
  const pings=[];
  const malen=(alpha,zeit)=>{ctx.clearRect(0,0,W,H);ctx.globalAlpha=alpha;
-  /* Nebel: zwei grosse, sehr dezente Farbwolken in den Theme-Toenen */
-  let g=ctx.createRadialGradient(W*.32,H*.4,0,W*.32,H*.4,W*.45);
+  /* Nebel: zwei grosse, sehr dezente Farbwolken — ums Galaxie-Herz gelegt */
+  let g=ctx.createRadialGradient(cx-W*.08,cy-H*.08,0,cx-W*.08,cy-H*.08,W*.4);
   g.addColorStop(0,rgba(AK2,.09));g.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-  g=ctx.createRadialGradient(W*.74,H*.62,0,W*.74,H*.62,W*.38);
+  g=ctx.createRadialGradient(cx+W*.12,cy+H*.14,0,cx+W*.12,cy+H*.14,W*.32);
   g.addColorStop(0,rgba(HUD,.05));g.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
   /* Sternenstaub: winzige, leise funkelnde Punkte */
   staub.forEach(s=>{ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,7);
    ctx.fillStyle="rgba(236,238,244,"+(.10+.13*(1+Math.sin(zeit*.0009+s.ph))/2).toFixed(3)+")";ctx.fill();});
   ctx.strokeStyle=rgba(HUD,.10);ctx.lineWidth=1;
   links.forEach(([ia,ib])=>{ctx.beginPath();ctx.moveTo(nodes[ia].x,nodes[ia].y);ctx.lineTo(nodes[ib].x,nodes[ib].y);ctx.stroke();});
-  /* Sterne: farbiger Halo + heller Kern — KEINE Beschriftung */
+  /* Sterne: farbiger Halo + heller Kern; die groessten funkeln mit Kreuz-Glanz */
   nodes.forEach((n,i)=>{const tw=.75+.25*Math.sin(zeit*.0011+n.ph);
    const r=Math.min(6,2+grad[i]*.6)*tw;
    const halo=ctx.createRadialGradient(n.x,n.y,0,n.x,n.y,r*3.4);
    halo.addColorStop(0,rgba(n.color,.5));halo.addColorStop(1,"rgba(0,0,0,0)");
    ctx.beginPath();ctx.arc(n.x,n.y,r*3.4,0,7);ctx.fillStyle=halo;ctx.fill();
-   ctx.beginPath();ctx.arc(n.x,n.y,Math.max(1.1,r*.8),0,7);ctx.fillStyle="rgba(240,238,250,.9)";ctx.fill();});
+   ctx.beginPath();ctx.arc(n.x,n.y,Math.max(1.1,r*.8),0,7);ctx.fillStyle="rgba(240,238,250,.9)";ctx.fill();
+   if(grad[i]>=5){ctx.strokeStyle="rgba(255,255,255,"+(.26*tw).toFixed(3)+")";ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(n.x-r*2.6,n.y);ctx.lineTo(n.x+r*2.6,n.y);
+    ctx.moveTo(n.x,n.y-r*2.6);ctx.lineTo(n.x,n.y+r*2.6);ctx.stroke();}});
+  /* Begriffe (Runde V): NUR die wichtigsten Punkte, klein und leise — per Knopf schaltbar */
+  if(_mindWorte){ctx.font="9px 'Segoe UI',sans-serif";ctx.fillStyle="rgba(236,238,244,.42)";
+   nodes.forEach((n,i)=>{if(grad[i]>=4)ctx.fillText((n.id||"").slice(0,16),n.x+8,n.y+3);});}
   /* Pings: Lichtpunkte wandern die Verbindungen entlang — max 3 gleichzeitig, nie penetrant */
   if(links.length&&pings.length<3&&Math.random()<.02)pings.push({l:links[Math.random()*links.length|0],t:0});
   for(let i=pings.length-1;i>=0;i--){const p=pings[i];p.t+=.014;if(p.t>=1){pings.splice(i,1);continue;}
@@ -980,6 +998,7 @@ async function loadMind(){const cv=$("#mindcv");if(!cv)return;
    ctx.beginPath();ctx.arc(x,y,1.6,0,7);ctx.fillStyle="rgba(255,255,255,"+(.9*f).toFixed(3)+")";ctx.fill();}
   ctx.globalAlpha=1;};
  /* 2) sanft einblenden, dann nur noch ruhige Drift (reduced-motion: statisch) */
+ _mindMalen=malen;                        /* Begriffe-Knopf malt ohne Layout-Neustart */
  if(_mindLauf)cancelAnimationFrame(_mindLauf);
  const still=matchMedia("(prefers-reduced-motion: reduce)").matches;
  if(still){malen(1,0);return;}
@@ -993,6 +1012,12 @@ async function loadMind(){const cv=$("#mindcv");if(!cv)return;
 let _mindResT=null;
 window.addEventListener("resize",()=>{clearTimeout(_mindResT);
  _mindResT=setTimeout(()=>{if(cur==="home")loadMind();},250);});
+/* Begriffe-Knopf: an/aus ohne Layout-Neustart, Wahl bleibt (localStorage) */
+$("#mind-worte")&&($("#mind-worte").onclick=()=>{_mindWorte=!_mindWorte;
+ localStorage.setItem("mind_worte",_mindWorte?"1":"0");
+ $("#mind-worte").classList.toggle("on",_mindWorte);
+ if(_mindMalen)_mindMalen(1,performance.now());});
+$("#mind-worte")&&$("#mind-worte").classList.toggle("on",_mindWorte);
 
 /* ---- Chat ---- */
 const log=$("#log");
@@ -1211,10 +1236,13 @@ const MODE_HINT={
  work:"Work — echter Auftrag mit vollem Werkzeug-Budget auf GLM 5.2: Recherche, mehrere Schritte, Web/Dateien.",
  coding:"Coding — an Kira selbst schrauben (GLM 5.2): lesen → chirurgisch editieren → Tests + Diff-Review."};
 function applyChatMode(){const m=$("#chat-main");if(m)m.setAttribute("data-mode",chatMode);
- const seg=$("#chat-mode-seg");if(seg)seg.style.setProperty("--i",{chat:0,work:1,coding:2}[chatMode]||0);}  /* Slider gleitet */
-$$("#chat-mode-seg a").forEach(a=>a.onclick=()=>{chatMode=a.dataset.m;
- $$("#chat-mode-seg a").forEach(x=>x.classList.toggle("on",x===a));
- applyChatMode();});
+ const seg=$("#chat-mode-seg");if(seg)seg.style.setProperty("--i",{chat:0,work:1,coding:2}[chatMode]||0);  /* Slider gleitet */
+ /* Runde V: der Board-Einstieg traegt dieselbe Modus-Quelle — LED-Rand + Wahl folgen mit */
+ const bc=$("#board-chat");if(bc)bc.setAttribute("data-mode",chatMode);
+ $$("#bc-mode a").forEach(x=>x.classList.toggle("on",x.dataset.m===chatMode));
+ $$("#chat-mode-seg a").forEach(x=>x.classList.toggle("on",x.dataset.m===chatMode));}
+$$("#chat-mode-seg a").forEach(a=>a.onclick=()=>{chatMode=a.dataset.m;applyChatMode();});
+$$("#bc-mode a").forEach(a=>a.onclick=()=>{chatMode=a.dataset.m;applyChatMode();});
 applyChatMode();  /* Startzustand faerben (Chat) */
 /* S9.2: Befehls-Chips fuegen Kuerzel ins Eingabefeld ein (nicht sofort senden) */
 function chipInsert(txt,prefix){const i=$("#cin");
@@ -1873,16 +1901,18 @@ function simpleRecord(btnSel,targetSel){const btn=$(btnSel);if(!btn)return;let r
     rd.readAsDataURL(blob);};
    rec.start();btn.textContent="⏹";
   }catch(err){add("Mikrofon nicht verfuegbar: "+err,"sys");}};}
-simpleRecord("#dir-mic","#dir-text");
+/* Runde V: der Befehl-Kasten ist im Board-Chat aufgegangen — Voice, Schwarm,
+   Sofort und Fokus lesen jetzt ALLE aus #bc-in (ein Feld, viele Hebel). */
+simpleRecord("#dir-mic","#bc-in");
 /* Schwarm-Umschalter: blendet den Rang ein, ändert den Knopf */
 $("#dir-schwarm")&&($("#dir-schwarm").onchange=()=>{const on=$("#dir-schwarm").checked;
  const rg=$("#dir-rang");if(rg)rg.style.display=on?"":"none";
  const b=$("#dir-now");if(b)b.textContent=on?"⁂ An den Schwarm":"↯ Sofort ausfuehren";
- const t=$("#dir-text");if(t)t.placeholder=on
+ const t=$("#bc-in");if(t)t.placeholder=on
    ?"1. Zeile = Auftrag mit {item}  (z.B. „Finde 5 Telefonnummern fuer {item} in Berlin“)\ndann je eine Zeile pro Ziel:\nFriseure\nHotels"
-   :"Sag mir, worauf ich mich konzentrieren soll — oder gib mir einen Sofort-Auftrag…";
+   :"Schreib mir …  (Enter sendet — dein Satz gleitet direkt ins Gespraech)";
  $("#dir-hint").textContent=on?"⁂ Jede Zeile unter dem Auftrag wird ein eigener Agent (bis schwarm_max, sonst in Wellen).":"";});
-$("#dir-now")&&($("#dir-now").onclick=async()=>{const p=$("#dir-text").value.trim();if(!p)return;
+$("#dir-now")&&($("#dir-now").onclick=async()=>{const p=$("#bc-in").value.trim();if(!p)return;
  if($("#dir-schwarm")&&$("#dir-schwarm").checked){                       /* Schwarm-Auftrag -> im Chat vorbereiten (Finger am Abzug bleibt bei dir) */
   const rang=($("#dir-rang")&&$("#dir-rang").value)||"arbeiter";
   /* 1. Zeile = Vorlage (mit {item}), weitere Zeilen = Ziele -> korrektes "/schwarm rang vorlage | a | b" */
@@ -1894,10 +1924,10 @@ $("#dir-now")&&($("#dir-now").onclick=async()=>{const p=$("#dir-text").value.tri
  $("#dir-hint").textContent="… Kira arbeitet daran (kann ~1 min dauern) …";
  const r=await (await fetch("/api/direktive/now",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({prompt:p})})).json();
  $("#dir-hint").textContent="✓ erledigt";const rr=$("#dir-result");rr.style.display="block";rr.textContent=(r.result||"(keine Antwort)");});
-$("#dir-focus")&&($("#dir-focus").onclick=async()=>{const p=$("#dir-text").value.trim();
+$("#dir-focus")&&($("#dir-focus").onclick=async()=>{const p=$("#bc-in").value.trim();
  await fetch("/api/direktive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({focus:p})});
- $("#dir-hint").textContent="✧ Fokus gesetzt — ich ziehe ihn in meinen naechsten Schritt.";loadHome();});
-$("#dir-clear")&&($("#dir-clear").onclick=async()=>{await fetch("/api/direktive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({focus:""})});$("#dir-text").value="";$("#dir-hint").textContent="Fokus geloescht.";loadHome();});
+ $("#dir-hint").textContent="✧ Fokus gesetzt — ich ziehe ihn in meinen naechsten Schritt.";loadHome();loadFokus();});
+$("#dir-clear")&&($("#dir-clear").onclick=async()=>{await fetch("/api/direktive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({focus:""})});$("#bc-in").value="";$("#dir-hint").textContent="Fokus geloescht.";loadHome();loadFokus();});
 
 /* ---- Leben (S5.3b): Todos, Ziele, Metrik-Sparklines ---- */
 function spark(series){if(!series||series.length<2)return'<span class="muted" style="margin-right:8px">&mdash;</span>';

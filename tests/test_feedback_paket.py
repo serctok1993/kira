@@ -80,7 +80,8 @@ def test_dir_row_fuellt_die_luecke():
     # Widgets schweben in der Galaxie-Mitte, "Kira heute" rechts.
     home = VIEWS.split('id="v-home"', 1)[1].split('id="v-chat"', 1)[0]
     links = home.split('id="board-links"', 1)[1].split('id="board-mitte"', 1)[0]
-    assert 'class="direktive"' in links and 'id="ops-feed"' in links
+    # Runde V: der Befehl-Kasten ist im Chat-Einstieg aufgegangen — links nur noch Live-Ops
+    assert 'id="ops-feed"' in links and 'class="direktive"' not in home
     mitte = home.split('id="board-mitte"', 1)[1].split('id="board-rechts"', 1)[0]
     assert 'id="widgets-home"' in mitte
     # der Slot haengt nicht in der Seitenspalte
