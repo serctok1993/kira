@@ -189,6 +189,19 @@ def test_runde5_galaxie_zentriert_mit_begriffen():
     assert 'localStorage.setItem("mind_worte"' in SCRIPT        # Wahl bleibt
 
 
+def test_runde6_chat_dock_und_farbdiaet():
+    # Der Chat wohnt im Dock wie der Board-Einstieg: Chips oben, + links, Mikro rechts;
+    # die Modus-Farbe bleibt, die Grelle geht (Rand halbtransparent, Streifen weg).
+    chat = VIEWS.split('id="v-chat"', 1)[1].split('id="chat-tag"', 1)[0]
+    dock = chat.split('id="chat-dock"', 1)[1]
+    assert 'id="chat-tools"' in dock and 'id="cform"' in dock
+    form = dock.split('id="cform"', 1)[1].split("</form>", 1)[0]
+    assert form.index('id="plusbtn"') < form.index('id="cin"') < form.index('id="micbtn"') < form.index('id="sendbtn"')
+    assert "#chat-dock::before" in CSS and "#chat-main::before{display:none}" in CSS
+    assert "#chat-dock::before,#board-chat::before{opacity:.5;filter:none}" in CSS
+    assert '#chat-main[data-mode="work"] #chat-dock::before' in CSS
+
+
 def test_runde4_chat_einstieg_mit_led_und_abflug():
     # Der Einstieg traegt den LED-Rand (wie der Chat-Streifen) und das Absenden
     # laesst die Seiten dissipieren, bevor der ECHTE Chat die Nachricht uebernimmt.
