@@ -934,6 +934,12 @@ select.engine-pill,button.engine-pill{box-shadow:none}
 .think.show .c{max-height:46vh;overflow-y:auto;-webkit-mask-image:none;mask-image:none}
 .think.live{border-left-color:color-mix(in srgb,var(--accent) 75%,transparent)}
 .think{font-style:normal}
+/* Schwarm-Toggle + Rang-Wahl passen sich dem Dunkel an (kein weisses OS-Kaestchen/-Dropdown):
+   der Chip zeigt den Zustand wie beim Vorlesen-Toggle, das Select traegt Panel-Farben. */
+#dir-schwarm-l input{display:none}
+#dir-rang{background:var(--panel);color:var(--ink);border:1px solid var(--line);
+ border-radius:9px;padding:4px 8px;font-size:11.5px;color-scheme:dark;outline:none;cursor:pointer}
+#dir-rang:focus,#dir-rang:hover{border-color:color-mix(in srgb,var(--dock-acc,var(--accent)) 60%,var(--line))}
 </style>"""
 
 # Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt
