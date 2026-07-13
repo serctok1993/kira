@@ -154,8 +154,10 @@ VIEWS = r"""</head><body>
         </select>
         <span class="muted" id="dir-hint" style="align-self:center"></span>
         <span style="flex:1"></span>
+        <!-- Runde VIII: dasselbe Bauteil wie im Chat — gleitende Pille + Icons -->
         <div id="bc-mode" title="Chat = Dialog · Work = laengerer Auftrag mit vollem Werkzeug-Budget · Coding = an __AGENT__ schrauben">
-          <a data-m="chat" class="on">Chat</a><a data-m="work">Work</a><a data-m="coding">Coding</a>
+          <span class="pill"></span>
+          <a data-m="chat" class="on"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>Chat</a><a data-m="work"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Work</a><a data-m="coding"><svg class="mi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>Coding</a>
         </div>
       </div>
       <div id="dir-result" style="white-space:pre-wrap;display:none;border-top:1px solid var(--line);padding-top:8px"></div>
