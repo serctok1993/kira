@@ -55,9 +55,10 @@ def test_find_duplicate_roundtrip(monkeypatch, tmp_path):
 
 
 def test_gedaechtnis_ui_default_wichtig():
-    # Standard-Filter zeigt nur bewusst Gemerktes; Chat-Verlauf liegt hinter 'chat'
+    # Standard-Filter zeigt nur bewusst Gemerktes; der rohe Chat-Verlauf ist seit der
+    # Feedback-Runde 13.07. GANZ raus aus dem Tab (Verlauf lebt im Chat selbst)
     assert '<a data-mf="wichtig" class="on">' in VIEWS
-    assert 'data-mf="episodic"' in VIEWS and 'data-mf="all"' in VIEWS
+    assert 'data-mf="episodic"' not in VIEWS and 'data-mf="all"' in VIEWS
     assert 'let memFilter="wichtig"' in SCRIPT
     assert 'MEM_WICHTIG=["fact","lesson","skill","semantic"]' in SCRIPT
     assert 'if(memFilter==="wichtig"){if(!MEM_WICHTIG.includes(m.kind||""))return false;}' in SCRIPT

@@ -11,7 +11,7 @@ from __future__ import annotations
 from core.config import MIND_DIR
 from core.kernel.fs import atomic_write
 
-TEMPLATES = ("SOUL.md", "GOAL.md", "USER.md", "PERSONA.md", "BODY.md")
+TEMPLATES = ("SOUL.md", "GOAL.md", "USER.md", "PERSONA.md", "BODY.md", "ARBEITSWEISE.md")
 
 
 def render_mind(agent: str | None = None, user: str | None = None,

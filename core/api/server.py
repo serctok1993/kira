@@ -108,6 +108,7 @@ FILES: dict[str, dict] = {
     "GOAL.md": {"path": MIND_DIR / "GOAL.md", "editable": True, "label": "Ziel — wofuer sie da ist (Nordstern; die Meilensteine gehoeren Dir)"},
     "USER.md": {"path": MIND_DIR / "USER.md", "editable": True, "label": "Ueber Dich — dein Agent baut sein Bild von Dir daraus; kurz halten"},
     "PERSONA.md": {"path": MIND_DIR / "PERSONA.md", "editable": True, "label": "Verhalten & Ton — der Verhaltens-Kern (schlank halten, ~4200 Zeichen; wirkt sofort)"},
+    "ARBEITSWEISE.md": {"path": MIND_DIR / "ARBEITSWEISE.md", "editable": True, "label": "Deine Arbeits-Direktiven — eigene Denk-/Ablauf-Regeln, die in JEDEN Prompt einfliessen (leer = neutral)"},
     "config.yaml": {"path": ROOT / "config.yaml", "editable": True, "label": "Konfiguration (Vorsicht: YAML)"},
     # Gedaechtnis + Handbuch (frei editierbar — nie im Prompt, siehe HANDBUCH §7)
     "HANDBUCH.md": {"path": ROOT / "docs" / "HANDBUCH.md", "editable": True, "label": "HANDBUCH (Bedienbuch)"},
@@ -281,6 +282,18 @@ def _vault_resolve(path: str):
     return p
 
 
+# Bauphasen-/Privat-Journale: liegen nur auf der Dev-Platte (gitignored) und
+# stiften im Datei-Browser nur Doppler-Verwirrung (Feedback 13.07.).
+_VAULT_AUSGEBLENDET = ("KIRA-IST.md", "cockpit-redesign.md", "harness-diaet.md")
+
+
+def _vault_sichtbar(key: str, p, rel_in_base: str) -> bool:
+    if key != "docs":
+        return True
+    return not (p.name in _VAULT_AUSGEBLENDET or p.name.endswith("_neu.md")
+                or rel_in_base.startswith("radar/"))
+
+
 @app.get("/api/vault")
 def api_vault() -> dict:
     """Alle .md-Dateien des Vaults (gedaechtnis/playbooks/docs), sortiert nach Pfad."""
@@ -289,11 +302,73 @@ def api_vault() -> dict:
         if not base.exists():
             continue
         for p in sorted(base.rglob("*.md")):
-            rel = f"{key}/{p.relative_to(base).as_posix()}"
-            out.append({"path": rel, "name": p.name})
+            rel_in_base = p.relative_to(base).as_posix()
+            if not _vault_sichtbar(key, p, rel_in_base):
+                continue
+            out.append({"path": f"{key}/{rel_in_base}", "name": p.name})
             if len(out) >= 500:  # Schutz gegen ausgeartete Vaults
                 break
     return {"files": out}
+
+
+@app.get("/api/suche")
+def api_suche(q: str, k: int = 6) -> dict:
+    """Universal-Suche (Feedback 13.07.): EIN Feld fuer alles — Wissens-Archiv,
+    Vault/Obsidian (Dateiname + Inhalt), Chat-Sessions und Gedaechtnis."""
+    q = (q or "").strip()
+    k = max(1, min(10, int(k or 6)))
+    if len(q) < 2:
+        return {"archiv": [], "vault": [], "sessions": [], "gedaechtnis": []}
+    ql = q.lower()
+    from core.mind import knowledge
+    try:
+        archiv = knowledge.search(q, k=k)
+    except Exception:  # noqa: BLE001
+        archiv = []
+    vault = []
+    for key, base in _VAULT_ROOTS.items():
+        if len(vault) >= k or not base.exists():
+            continue
+        for p in sorted(base.rglob("*.md")):
+            rel_in_base = p.relative_to(base).as_posix()
+            if not _vault_sichtbar(key, p, rel_in_base):
+                continue
+            snippet = ""
+            treffer = ql in p.name.lower()
+            if not treffer:
+                try:
+                    text = p.read_text(encoding="utf-8", errors="ignore")[:60000]
+                except Exception:  # noqa: BLE001
+                    continue
+                i = text.lower().find(ql)
+                if i >= 0:
+                    treffer = True
+                    snippet = " ".join(text[max(0, i - 60):i + 100].split())
+            if treffer:
+                vault.append({"path": f"{key}/{rel_in_base}", "name": p.name, "snippet": snippet})
+            if len(vault) >= k:
+                break
+    sessions = []
+    try:
+        for s in memory.sessions(limit=60):
+            if ql in str(s.get("title") or s.get("session_id") or "").lower():
+                sessions.append({"session_id": s["session_id"], "title": s.get("title") or s["session_id"]})
+            if len(sessions) >= k:
+                break
+    except Exception:  # noqa: BLE001
+        pass
+    ged = []
+    try:
+        for m in memory.recent(800):
+            if (m.get("kind") or "") == "episodic":
+                continue  # roher Chat-Verlauf gehoert nicht in die Suche
+            if ql in str(m.get("text") or "").lower():
+                ged.append({"id": m.get("id"), "kind": m.get("kind"), "text": str(m.get("text") or "")[:160]})
+            if len(ged) >= k:
+                break
+    except Exception:  # noqa: BLE001
+        pass
+    return {"archiv": archiv, "vault": vault, "sessions": sessions, "gedaechtnis": ged}
 
 
 @app.get("/api/vault/file")
@@ -1125,6 +1200,14 @@ def api_knowledge_search(q: str, k: int = 5) -> dict:
     from core.mind import knowledge
 
     return {"hits": knowledge.search(q, k=max(1, min(10, k)))}
+
+
+@app.get("/api/knowledge/doc")
+def api_knowledge_doc(id: str) -> dict:
+    """Volltext eines Archiv-Dokuments (Feedback 13.07.: ansehen statt nur loeschen)."""
+    from core.mind import knowledge
+
+    return knowledge.get_doc(id)
 
 
 @app.post("/api/knowledge/add")

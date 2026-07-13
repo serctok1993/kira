@@ -99,6 +99,12 @@ VIEWS = r"""</head><body>
       <div class="ticker" id="news-ticker" style="flex:1;min-width:0"><span>… Intel wird geladen …</span></div>
       <a id="news-seed" class="muted" style="cursor:pointer;font-size:10px;white-space:nowrap">+ Quellen</a>
     </div>
+    <!-- Feedback 13.07.: das Mind visuell — der Vault als lebender Graph mitten im Board
+         (gleiche Daten wie das /wall-Wallpaper; Knoten = Notizen, Faeden = [[Links]]) -->
+    <div class="panel" id="mind-panel">
+      <div class="panel-h">◆ MIND <span class="sp"></span><span class="muted" style="font-size:10px;letter-spacing:0;text-transform:none">dein Vault als Graph — gross: /wall</span></div>
+      <div class="panel-b" style="padding:0"><canvas id="mindcv" style="width:100%;height:290px;display:block;cursor:crosshair"></canvas></div>
+    </div>
     <!-- Feedback 09.07.: die Luecke neben dem Befehl gehoert den Widgets (Kira blendet
          hier per widget_add Kacheln ein — Follower, Kennzahlen, Listen) -->
     <div class="dir-row">
@@ -406,7 +412,7 @@ VIEWS = r"""</head><body>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:4px 0 12px;max-width:980px">
         <!-- Gedaechtnis-Diaet (Praxis-Fund): Standard = nur bewusst Gemerktes; der rohe
              Chat-Verlauf liegt hinter 'chat' und flutet die Liste nicht mehr -->
-        <span class="seg" id="mem-filter"><a data-mf="wichtig" class="on">★ wichtig</a><a data-mf="fact">Fakten</a><a data-mf="lesson">Lektionen</a><a data-mf="skill">Skills</a><a data-mf="episodic">chat</a><a data-mf="partner">◆ __AGENT__</a><a data-mf="user">● Du</a><a data-mf="all">alles</a></span>
+        <span class="seg" id="mem-filter"><a data-mf="wichtig" class="on">★ wichtig</a><a data-mf="fact">Fakten</a><a data-mf="lesson">Lektionen</a><a data-mf="skill">Skills</a><a data-mf="partner">◆ __AGENT__</a><a data-mf="user">● Du</a><a data-mf="all">alles</a></span>
         <input id="mem-search" placeholder="⌕ suchen…" style="flex:1;min-width:150px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);outline:none"/>
       </div>
       <div id="mem-selbar" style="display:none;gap:10px;align-items:center;margin:0 0 10px;max-width:980px;
@@ -415,8 +421,12 @@ VIEWS = r"""</head><body>
         <button class="ghost" id="mem-del-batch" style="font-size:12px">✕ Auswahl loeschen</button>
         <a id="mem-sel-clear" class="muted" style="cursor:pointer;font-size:12px">abwaehlen</a>
       </div>
-      <div id="memlist" style="max-width:980px"></div>
-      <div class="panel" style="margin-top:16px;max-width:980px"><div class="panel-h">◈ Verlauf · Aenderungen (vorher → nachher)</div><div id="memhist" class="panel-b"><span class="muted">…</span></div></div>
+      <!-- Feedback 13.07.: zwei gleichwertige Spalten — links WAS gemerkt ist (gruppiert,
+           mit Quelle), rechts WER zuletzt WAS geaendert hat (ging vorher unter) -->
+      <div class="mem-cols">
+        <div id="memlist"></div>
+        <div class="panel" id="memhist-panel"><div class="panel-h">◈ WER HAT WAS GEAENDERT <span class="sp"></span><span class="muted" style="font-size:10px;letter-spacing:0;text-transform:none">vorher → nachher</span></div><div id="memhist" class="panel-b"><span class="muted">…</span></div></div>
+      </div>
     </div>
 
     <div class="subview" id="v-wissen">
@@ -432,9 +442,9 @@ VIEWS = r"""</head><body>
             <div class="row" style="margin-top:6px"><button id="kn-add">+ Ins Archiv</button><span class="muted" id="kn-hint" style="align-self:center"></span></div>
           </div>
         </div>
-        <div class="panel"><div class="panel-h">◈ IM ARCHIV SUCHEN</div>
+        <div class="panel"><div class="panel-h">◈ UEBERALL SUCHEN <span class="sp"></span><span class="muted" style="font-size:10px;letter-spacing:0;text-transform:none">Archiv · Vault/Obsidian · Sessions · Gedaechtnis</span></div>
           <div class="panel-b">
-            <input id="kn-q" placeholder="⌕ Was suchst du im Archiv?" style="width:100%"/>
+            <input id="kn-q" placeholder="⌕ Ein Feld fuer alles — Notizen, Dateien, Gespraeche, Fakten …" style="width:100%"/>
             <div id="kn-results" style="margin-top:8px"><span class="muted">…</span></div>
           </div>
         </div>
@@ -451,6 +461,16 @@ VIEWS = r"""</head><body>
         Befoerderung NUR ueber deine Freigabe (5 Erfolge in Serie); ein Fehlschlag stuft automatisch
         zurueck. Lektionen schreibt Kira in die Datei zurueck.</div>
         <div id="pb-list" style="margin-top:12px"><span class="muted">…</span></div>
+        <!-- Feedback 13.07.: Playbooks direkt HIER bearbeiten (Markdown), ohne Obsidian -->
+        <div id="pb-edit" style="display:none;margin-top:12px">
+          <div style="padding:0 0 6px"><b id="pb-file"></b></div>
+          <textarea id="pb-text" class="k" style="min-height:300px;width:100%;font-family:ui-monospace,Consolas,monospace;font-size:12.5px"></textarea>
+          <div class="row" style="margin-top:8px">
+            <button id="pb-save">Speichern</button>
+            <button class="ghost" id="pb-cancel">schliessen</button>
+            <span class="muted" id="pb-hint" style="align-self:center"></span>
+          </div>
+        </div>
       </div>
     </div>
 

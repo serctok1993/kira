@@ -35,7 +35,7 @@ $("#burger")&&($("#burger").onclick=()=>document.body.classList.toggle("side-ope
 function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle("on",a.dataset.v===v));
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");};
  if(document.startViewTransition&&!matchMedia("(prefers-reduced-motion: reduce)").matches){document.startViewTransition(go);}else{go();}
- if(v==="home")loadCommand();
+ if(v==="home"){loadCommand();loadMind();}
  if(v==="chat"){loadChatModels();loadChatSessions();loadChatSide();}
  if(v==="me")loadMe();
  if(SUBTABS[v])subnav(v,SUBTABS[v].cur);}
@@ -111,14 +111,30 @@ async function loadPlaybooks(){const el=$("#pb-list");if(!el)return;try{
  const d=await (await fetch("/api/playbooks")).json();const pbs=d.playbooks||[];
  if(!pbs.length){el.innerHTML='<span class="muted">Noch keine Playbooks — kopiere playbooks/_VORLAGE.md als Start.</span>';return;}
  const badge=g=>g==="autonom"?"kira":(g==="begleitet"?"you":"kind");
- el.innerHTML=pbs.map(p=>'<div class="memrow"><div class="mh">'
+ el.innerHTML=pbs.map(p=>'<div class="memrow" data-pb="'+esc(p.name)+'" style="cursor:pointer" title="klicken: Playbook hier bearbeiten"><div class="mh">'
   +'<span class="badge '+badge(p.reifegrad)+'">'+esc(p.reifegrad)+'</span>'
   +'<b style="color:var(--ink);font-size:13px">'+esc(p.titel||p.name)+'</b>'
   +'<span class="muted" style="font-size:11px">'+(p.erfolge|0)+' Erfolge · '+(p.fehlschlaege|0)+' Fehlschlaege · '
   +(p.lektionen|0)+' Lektionen · Serie '+(p.serie|0)+'/'+(d.promote_after||5)
   +(p.letzte?(' · zuletzt '+esc(p.letzte)):'')+'</span>'
+  +'<span style="flex:1"></span><a style="color:var(--muted);font-size:11px">bearbeiten ✎</a>'
   +'</div><div style="font-size:12.5px">'+esc(p.wann||'')+'</div></div>').join("");
+ /* Feedback 13.07.: Playbook anklicken -> Markdown direkt hier schaerfen (z.B. WIE
+    genau Mails formuliert werden) — gespeichert wird die echte Datei in playbooks/ */
+ $$('#pb-list [data-pb]').forEach(r=>r.onclick=async()=>{
+  const pfad="playbooks/"+r.dataset.pb+".md";
+  const f=await (await fetch("/api/vault/file?path="+encodeURIComponent(pfad))).json();
+  if(f.error){toast(f.error,"err");return;}
+  $("#pb-file").textContent=pfad;$("#pb-text").value=f.content||"";
+  $("#pb-hint").textContent="";$("#pb-edit").style.display="";
+  $("#pb-edit").scrollIntoView({behavior:"smooth",block:"nearest"});});
 }catch(e){el.innerHTML='<span class="muted">Playbooks nicht ladbar.</span>';}}
+$("#pb-cancel")&&($("#pb-cancel").onclick=()=>{$("#pb-edit").style.display="none";});
+$("#pb-save")&&($("#pb-save").onclick=async()=>{
+ const r=await (await fetch("/api/vault/file",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({path:$("#pb-file").textContent,content:$("#pb-text").value})})).json();
+ $("#pb-hint").textContent=r.ok?"gespeichert ✓":("Fehler: "+(r.error||"?"));
+ if(r.ok)loadPlaybooks();});
 
 /* ---- System-Checkliste (HANDBUCH-Paragraphen als Live-Ampeln) ---- */
 async function loadCheckliste(){const el=$("#ck-list");if(!el)return;
@@ -852,11 +868,21 @@ const _palAktionen=[
 function palOpen(){const w=$("#pal-wrap");if(!w)return;w.style.display="";
  const q=$("#pal-q");q.value="";palRender("");q.focus();}
 function palClose(){const w=$("#pal-wrap");if(w)w.style.display="none";}
+let _palSucheTimer=null,_palSucheHits=[],_palSucheKey="";
 function palRender(f){const l=$("#pal-list");if(!l)return;const fl=f.toLowerCase();
  const ses=_sessCache.filter(s=>((s.title||s.session_id||"")+"").toLowerCase().includes(fl)).slice(0,6)
   .map(s=>({k:"Session",t:(s.title||s.session_id),go:()=>{nav("chat");const el=document.querySelector('[data-sid="'+s.session_id+'"]');el&&el.click();}}));
  const akt=_palAktionen.filter(a=>a.t.toLowerCase().includes(fl));
- const alle=ses.concat(akt).slice(0,12);
+ /* Universal-Suche fliesst mit ein (debounced; _palSucheKey verhindert Refetch-Schleife) */
+ if(fl.length>=3&&fl!==_palSucheKey){_palSucheKey=fl;clearTimeout(_palSucheTimer);_palSucheTimer=setTimeout(async()=>{
+  try{const d=await (await fetch("/api/suche?q="+encodeURIComponent(fl)+"&k=4")).json();
+   _palSucheHits=[]
+    .concat((d.vault||[]).map(x=>({k:"Vault",t:x.name+" — "+x.path,go:()=>{nav("kira");subnav("kira","files");}})))
+    .concat((d.archiv||[]).map(x=>({k:"Archiv",t:(x.title||"").slice(0,60),go:()=>{nav("kira");subnav("kira","wissen");setTimeout(()=>zeigeDoc(x.doc_id),400);}})));
+   if($("#pal-wrap").style.display!=="none"&&$("#pal-q").value.toLowerCase()===fl)palRender(f);
+  }catch(e){}},300);}
+ else if(fl.length<3){_palSucheHits=[];_palSucheKey="";}
+ const alle=ses.concat(akt).concat(fl.length>=3?_palSucheHits:[]).slice(0,14);
  l.innerHTML=alle.map((a,i)=>'<div class="pal-row'+(i===0?" on":"")+'" data-pi="'+i+'"><span class="pk">'+a.k+'</span>'+esc(a.t)+'</div>').join("")
   ||'<div class="pal-row"><span class="pk">—</span>nichts gefunden</div>';
  l._alle=alle;
@@ -873,6 +899,46 @@ document.addEventListener("keydown",e=>{
   rows.forEach((r,x)=>r.classList.toggle("on",x===j));}});
 $("#pal-q")&&($("#pal-q").oninput=e=>palRender(e.target.value));
 $("#pal-wrap")&&($("#pal-wrap").onclick=e=>{if(e.target.id==="pal-wrap")palClose();});
+
+/* ==== MIND-Graph im Board (Feedback 13.07.): der Vault als lebendes Gehirn —
+   gleiche Daten wie /wall (Knoten = Notizen, Faeden = [[Links]]), kompakter Renderer. ==== */
+let _mindDaten=null,_mindLauf=null;
+async function loadMind(){const cv=$("#mindcv");if(!cv)return;
+ try{if(!_mindDaten)_mindDaten=await (await fetch("/api/vault/graph")).json();}catch(e){return;}
+ const d=_mindDaten||{};const nodes=(d.nodes||[]).slice(0,220);
+ if(!nodes.length)return;
+ const dpr=window.devicePixelRatio||1,W=cv.clientWidth||900,H=290;
+ cv.width=W*dpr;cv.height=H*dpr;
+ const ctx=cv.getContext("2d");ctx.scale(dpr,dpr);
+ const idx={};nodes.forEach((n,i)=>{idx[n.id]=i;
+  n.x=W/2+(Math.random()-.5)*W*.7;n.y=H/2+(Math.random()-.5)*H*.7;n.vx=0;n.vy=0;});
+ const links=(d.links||[]).filter(l=>idx[l.source]!=null&&idx[l.target]!=null)
+  .map(l=>[idx[l.source],idx[l.target]]);
+ const grad=nodes.map(()=>0);links.forEach(([a,b])=>{grad[a]++;grad[b]++;});
+ const farbe=n=>n.color||"#9d97b2";
+ /* kleine Kraft-Simulation: Abstossung + Federn + Mitte-Anker, ~90 Schritte, dann still */
+ let schritt=0;if(_mindLauf)cancelAnimationFrame(_mindLauf);
+ const tick=()=>{schritt++;
+  for(let i=0;i<nodes.length;i++){const a=nodes[i];
+   for(let j=i+1;j<nodes.length;j++){const b=nodes[j];
+    let dx=a.x-b.x,dy=a.y-b.y,q=dx*dx+dy*dy||1;if(q>90*90)continue;
+    const f=420/q;dx*=f;dy*=f;a.vx+=dx;a.vy+=dy;b.vx-=dx;b.vy-=dy;}}
+  links.forEach(([ia,ib])=>{const a=nodes[ia],b=nodes[ib];
+   const dx=b.x-a.x,dy=b.y-a.y,dist=Math.sqrt(dx*dx+dy*dy)||1,f=(dist-46)*.012;
+   a.vx+=dx/dist*f*46;a.vy+=dy/dist*f*46;b.vx-=dx/dist*f*46;b.vy-=dy/dist*f*46;});
+  nodes.forEach(n=>{n.vx+=(W/2-n.x)*.004;n.vy+=(H/2-n.y)*.004;
+   n.x+=n.vx*=.62;n.y+=n.vy*=.62;
+   n.x=Math.max(8,Math.min(W-8,n.x));n.y=Math.max(8,Math.min(H-8,n.y));});
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle="rgba(139,92,246,.16)";ctx.lineWidth=1;
+  links.forEach(([ia,ib])=>{ctx.beginPath();ctx.moveTo(nodes[ia].x,nodes[ia].y);ctx.lineTo(nodes[ib].x,nodes[ib].y);ctx.stroke();});
+  nodes.forEach((n,i)=>{const r=Math.min(6,2+grad[i]*.6);
+   ctx.beginPath();ctx.arc(n.x,n.y,r,0,7);ctx.fillStyle=farbe(n);ctx.fill();});
+  ctx.font="10px 'Segoe UI',sans-serif";ctx.fillStyle="rgba(236,233,244,.75)";
+  nodes.forEach((n,i)=>{if(grad[i]>=4)ctx.fillText((n.id||"").slice(0,18),n.x+7,n.y+3);});
+  if(schritt<90)_mindLauf=requestAnimationFrame(tick);};
+ tick();}
+$("#mindcv")&&($("#mindcv").onclick=()=>{_mindDaten=null;loadMind();});
 
 /* ---- Chat ---- */
 const log=$("#log");
@@ -1313,6 +1379,10 @@ async function attachFile(f){
 /* ---- Files ---- */
 let fcur=null;
 async function loadFiles(){const fs=await (await fetch("/api/files")).json();const el=$("#flist");el.innerHTML="";
+ /* Feedback 13.07.: klare Gruppen — oben was WIRKT (Prompt), unten der freie Vault */
+ const h0=document.createElement("div");h0.className="muted";
+ h0.style.cssText="margin:2px 4px 6px;font-size:11px;letter-spacing:.08em";
+ h0.textContent="◆ CHARAKTER & STEUERUNG — wirkt in jedem Prompt";el.appendChild(h0);
  fs.forEach(f=>{const d=document.createElement("div");d.className="f";
   d.innerHTML="<b>"+f.name+"</b><small>"+f.label+(f.editable?"":" · nur lesen")+"</small>";
   d.onclick=()=>openFile(f.name,d);el.appendChild(d);});
@@ -1594,12 +1664,23 @@ async function loadMem(){bindMemFilter();memSel.clear();memSelBar();
    return true;});
  const hint=$("#mem-hint");
  if(hint){const n=k=>ms.filter(m=>(m.kind||"")===k).length;
-  hint.textContent=rows.length+" von "+ms.length+" · "+n("fact")+" Fakten · "+n("lesson")+" Lektionen · "+n("skill")+" Skills"
-   +(memFilter==="wichtig"?" · Chat-Verlauf unter 'chat'":"");}
+  hint.textContent=rows.length+" von "+ms.length+" · "+n("fact")+" Fakten · "+n("lesson")+" Lektionen · "+n("skill")+" Skills";}
  if(!rows.length){el.innerHTML='<span class=muted>(keine passenden Erinnerungen)</span>';}
- rows.forEach(m=>{const d=document.createElement("div");d.className="memrow";const ts=new Date(m.ts*1000).toLocaleString();
+ /* Feedback 13.07.: 'wichtig' zeigt GRUPPIERT (Skills/Lektionen/Fakten) mit Kopfzeilen —
+    man sieht sofort WAS zuletzt gemerkt wurde und von WEM (◆/●, Zeit, Session im Tooltip) */
+ const reihen=memFilter==="wichtig"?["skill","lesson","fact"]:null;
+ const sortiert=reihen?[...rows].sort((a,b)=>(reihen.indexOf(a.kind||"")-reihen.indexOf(b.kind||""))||(b.ts-a.ts)):rows;
+ const kTitel={skill:"SKILLS — einmal richtig gemacht, dauerhaft abrufbar",
+               lesson:"LEKTIONEN — aus Fehlern gelernt",
+               fact:"FAKTEN — dauerhaftes Wissen"};
+ let lastKind=null;
+ sortiert.forEach(m=>{const d=document.createElement("div");d.className="memrow";const ts=new Date(m.ts*1000).toLocaleString();
+  if(reihen&&(m.kind||"")!==lastKind){lastKind=m.kind||"";
+   const gh=document.createElement("div");gh.className="muted";
+   gh.style.cssText="margin:12px 2px 5px;font-size:11px;letter-spacing:.1em";
+   gh.textContent="◆ "+(kTitel[lastKind]||lastKind.toUpperCase());el.appendChild(gh);}
   d.innerHTML='<div class="mh"><input type="checkbox" data-sel style="accent-color:var(--accent)"/>'
-   +memBadge(m.role)+'<span class="badge kind">'+(m.kind||"")+'</span><span>'+ts+'</span><span style="flex:1"></span>'
+   +memBadge(m.role)+'<span class="badge kind">'+(m.kind||"")+'</span><span'+(m.session_id?' title="aus Session '+esc(m.session_id)+'"':'')+'>'+ts+'</span><span style="flex:1"></span>'
    +'<button class="ghost" data-edit title="bearbeiten" style="padding:1px 8px">✎</button>'
    +'<button class="ghost" data-del title="loeschen" style="padding:1px 8px">✕</button></div>'
    +'<div data-txt style="white-space:pre-wrap"></div>';
@@ -1936,9 +2017,11 @@ async function loadTodoSecrets(){const el=$("#todo-secrets");if(!el)return;try{
 /* ---- Wissen (S5.4): fuettern, suchen, verwalten ---- */
 async function loadWissen(){try{const d=await (await fetch("/api/knowledge")).json();const docs=d.docs||[];
  const kc=$("#kn-count");if(kc)kc.textContent=docs.length?(docs.length+" Dokumente, "+docs.reduce((a,x)=>a+(x.chunks||0),0)+" Abschnitte"):"";
- $("#kn-docs").innerHTML=docs.length?docs.map(x=>'<div class="memrow"><div class="mh"><span class="badge kind">'+x.source+'</span><b>'+(x.title||"").replace(/</g,"&lt;").slice(0,80)+'</b><span style="flex:1"></span><span class="muted">'+Math.round((x.bytes||0)/1024)+' KB &middot; '+x.chunks+' Abschnitte</span> <a data-kdel="'+x.id+'" style="cursor:pointer;color:var(--muted)" title="loeschen">&#10005;</a></div></div>').join("")
+ $("#kn-docs").innerHTML=docs.length?docs.map(x=>'<div class="memrow" data-kopen="'+x.id+'" style="cursor:pointer" title="klicken: Inhalt ansehen"><div class="mh"><span class="badge kind">'+x.source+'</span><b>'+(x.title||"").replace(/</g,"&lt;").slice(0,80)+'</b><span style="flex:1"></span><span class="muted">'+Math.round((x.bytes||0)/1024)+' KB &middot; '+x.chunks+' Abschnitte</span> <a data-kdel="'+x.id+'" style="cursor:pointer;color:var(--muted)" title="loeschen">&#10005;</a></div></div>').join("")
   :'<div class="emptybox">Archiv ist leer<br>Fuettere mich: Datei, Notiz oder Telegram-Anhang.</div>';
- $$('#kn-docs [data-kdel]').forEach(a=>a.onclick=async()=>{await fetch("/api/knowledge/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.kdel})});loadWissen();});
+ /* Feedback 13.07.: ansehen statt raetseln — Klick auf den Eintrag zeigt den Volltext */
+ $$('#kn-docs [data-kopen]').forEach(r=>r.onclick=e=>{if(e.target.dataset.kdel)return;zeigeDoc(r.dataset.kopen);});
+ $$('#kn-docs [data-kdel]').forEach(a=>a.onclick=async e=>{e.stopPropagation();if(!confirm("Dokument aus dem Archiv loeschen?"))return;await fetch("/api/knowledge/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:a.dataset.kdel})});loadWissen();});
 }catch(e){}}
 $("#kn-add")&&($("#kn-add").onclick=async()=>{const txt=$("#kn-text").value.trim();if(!txt)return;
  $("#kn-hint").textContent="…";
@@ -1951,13 +2034,40 @@ $("#kn-file")&&($("#kn-file").onchange=async()=>{const f=$("#kn-file").files[0];
  const r=await (await fetch("/api/knowledge/upload",{method:"POST",body:fd})).json();
  $("#kn-file-hint").textContent=r.ok?(r.duplicate?"kenne ich schon (Duplikat)":"&#10003; "+f.name+" ("+r.chunks+" Abschnitte)"):("Fehler: "+(r.error||"?"));
  $("#kn-file").value="";loadWissen();});
+/* Feedback 13.07.: EIN Feld sucht UEBERALL — Archiv, Vault/Obsidian, Sessions, Gedaechtnis.
+   Treffer sind klickbar: Vault -> Datei-Editor, Session -> Chat, Archiv -> Volltext. */
 let knTimer=null;
 $("#kn-q")&&($("#kn-q").oninput=()=>{clearTimeout(knTimer);knTimer=setTimeout(async()=>{
  const q=$("#kn-q").value.trim();const el=$("#kn-results");
  if(q.length<3){el.innerHTML='<span class="muted">&hellip;</span>';return;}
- const d=await (await fetch("/api/knowledge/search?q="+encodeURIComponent(q))).json();
- el.innerHTML=(d.hits||[]).length?d.hits.map(h=>'<div class="memrow"><div class="mh"><b>'+(h.title||"").replace(/</g,"&lt;").slice(0,60)+'</b><span class="muted"> &middot; Abschnitt '+(h.chunk_no+1)+(h.score!=null?(' &middot; '+h.score):'')+'</span></div><div class="muted" style="font-size:12px;margin-top:3px">'+(h.text||"").replace(/</g,"&lt;").slice(0,260)+'&hellip;</div></div>').join("")
-  :'<span class="muted">nichts gefunden</span>';},350);});
+ const d=await (await fetch("/api/suche?q="+encodeURIComponent(q))).json();
+ const kopf=t=>'<div class="muted" style="margin:9px 2px 4px;font-size:10.5px;letter-spacing:.1em">'+t+'</div>';
+ let h="";
+ if((d.archiv||[]).length)h+=kopf("ARCHIV")+d.archiv.map(x=>'<div class="memrow" data-sdoc="'+esc(x.doc_id||x.id||"")+'" style="cursor:pointer"><div class="mh"><b>'+esc((x.title||"").slice(0,60))+'</b><span class="muted"> · Abschnitt '+((x.chunk_no|0)+1)+'</span></div><div class="muted" style="font-size:12px;margin-top:3px">'+esc((x.text||"").slice(0,220))+'&hellip;</div></div>').join("");
+ if((d.vault||[]).length)h+=kopf("VAULT / OBSIDIAN")+d.vault.map(x=>'<div class="memrow" data-svault="'+esc(x.path)+'" style="cursor:pointer"><div class="mh"><b>'+esc(x.name)+'</b><span class="muted"> · '+esc(x.path)+'</span></div>'+(x.snippet?('<div class="muted" style="font-size:12px;margin-top:3px">&hellip;'+esc(x.snippet)+'&hellip;</div>'):'')+'</div>').join("");
+ if((d.sessions||[]).length)h+=kopf("GESPRAECHE")+d.sessions.map(x=>'<div class="memrow" data-ssess="'+esc(x.session_id)+'" style="cursor:pointer"><div class="mh"><b>'+esc((x.title||"").slice(0,70))+'</b></div></div>').join("");
+ if((d.gedaechtnis||[]).length)h+=kopf("GEDAECHTNIS")+d.gedaechtnis.map(x=>'<div class="memrow"><div class="mh"><span class="badge kind">'+esc(x.kind||"")+'</span><span style="font-size:12.5px">'+esc(x.text||"")+'</span></div></div>').join("");
+ el.innerHTML=h||'<span class="muted">nichts gefunden</span>';
+ $$('#kn-results [data-svault]').forEach(a=>a.onclick=()=>{subnav("kira","files");
+  setTimeout(()=>{const t=[...$$("#flist .f")].find(x=>x.querySelector("small")&&x.querySelector("small").textContent===a.dataset.svault);t&&t.click();},400);});
+ $$('#kn-results [data-ssess]').forEach(a=>a.onclick=()=>{nav("chat");
+  setTimeout(()=>{const t=document.querySelector('[data-sid="'+a.dataset.ssess+'"]');t&&t.click();},400);});
+ $$('#kn-results [data-sdoc]').forEach(a=>a.onclick=()=>zeigeDoc(a.dataset.sdoc));
+},350);});
+
+/* Archiv-Dokument ANSEHEN (Feedback 13.07.): Klick auf die Zeile klappt den Volltext auf */
+async function zeigeDoc(id){if(!id)return;
+ const d=await (await fetch("/api/knowledge/doc?id="+encodeURIComponent(id))).json();
+ if(d.error){toast(d.error,"err");return;}
+ const alt=document.querySelector("#kn-doc-view");if(alt)alt.remove();
+ const v=document.createElement("div");v.id="kn-doc-view";v.className="panel";
+ v.style.cssText="margin-top:10px";
+ v.innerHTML='<div class="panel-h">▤ '+esc((d.title||"").slice(0,80))+' <span class="sp"></span><a id="kn-doc-close" style="cursor:pointer;color:var(--muted)">schliessen ✕</a></div>'
+  +'<div class="panel-b" style="white-space:pre-wrap;font-size:12.5px;max-height:46vh;overflow-y:auto"></div>';
+ v.querySelector(".panel-b").textContent=d.text||"(leer)";
+ $("#kn-docs").parentElement.appendChild(v);
+ v.querySelector("#kn-doc-close").onclick=()=>v.remove();
+ v.scrollIntoView({behavior:"smooth",block:"nearest"});}
 
 /* ---- S6.6a: neue Quer-Verdrahtungen ---- */
 $("#m-or-add")&&($("#m-or-add").onclick=async()=>{const id=$("#m-or").value.trim();if(!id)return;

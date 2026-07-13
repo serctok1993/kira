@@ -118,6 +118,11 @@ def _identity() -> str:
         _antrieb = antrieb_direktive()
     except Exception:  # noqa: BLE001
         _antrieb = ""
+    try:  # Nutzer-Direktiven (ARBEITSWEISE.md) — leer = kein Block, Prompt unveraendert
+        from core.mind.agent import arbeitsweise_block
+        _arbeitsweise = arbeitsweise_block()
+    except Exception:  # noqa: BLE001
+        _arbeitsweise = ""
     from core import identity as _ident
 
     # W2: Platzhalter ({{AGENT_NAME}}/{{USER_NAME}}) im GANZEN Prompt zentral fuellen —
@@ -131,6 +136,7 @@ def _identity() -> str:
         + (f"{pb}\n\n" if pb else "")
         + lernen
         + (f"{_antrieb}\n\n" if _antrieb else "")
+        + _arbeitsweise
         + f"{persona_text()}"
     )
 

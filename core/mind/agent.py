@@ -74,6 +74,23 @@ def persona_text() -> str:
     return _read("PERSONA.md") or PERSONA_DIRECTIVE
 
 
+def arbeitsweise_text() -> str:
+    """Nutzer-Direktiven (Feedback 13.07.): eigene Denk-/Ablauf-Regeln aus ARBEITSWEISE.md,
+    die in JEDEN Prompt einfliessen — der Nutzer steuert damit den Harness selbst.
+    Anleitungszeilen ('>'-Zitate, '#'-Ueberschriften, HTML-Kommentare) werden ignoriert;
+    eine leere/unangetastete Datei ergibt KEINEN Block (Prompt bleibt byte-identisch)."""
+    raw = _read("ARBEITSWEISE.md") or ""
+    zeilen = [z for z in raw.splitlines()
+              if z.strip() and not z.lstrip().startswith((">", "#", "<!--"))]
+    return "\n".join(zeilen).strip()
+
+
+def arbeitsweise_block() -> str:
+    """Fertiger Prompt-Block ('' wenn der Nutzer nichts eingetragen hat)."""
+    aw = arbeitsweise_text()
+    return f"# DEINE ARBEITSWEISE (vom Nutzer festgelegt — bindend)\n{aw}\n\n" if aw else ""
+
+
 def _body_compact() -> str:
     """Kompakt-Kopf aus BODY.md (Anatomie-Selbstwissen, S5) — fail-soft."""
     try:
@@ -149,7 +166,7 @@ def build_system_prompt(user_message: str, session_id: str | None = None) -> str
 
 {antrieb_direktive()}
 
----
+{arbeitsweise_block()}---
 {persona_text()}
 
 Antworte auf Deutsch. Nutze deine Erinnerungen, wenn sie relevant sind.""")
