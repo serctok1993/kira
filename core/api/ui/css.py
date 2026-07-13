@@ -616,6 +616,96 @@ button.ghost:hover{box-shadow:0 0 0 1px var(--accent);filter:none}
 /* Inline-Rename: editierbare Beschriftungen erkennbar machen. */
 .panel-h[data-lblkey],.card h3[data-lblkey]{cursor:text}
 .panel-h[data-lblkey]:hover,.card h3[data-lblkey]:hover{color:var(--accent2)}
+
+/* ===== Kommandobruecke (UI-Umbau): Rail + Chip-Kopf + Fokus-Zeile + Chat-3-Spalten =====
+   Bewusst als Override-Block am Ende — die alte Schale bleibt oben unangetastet,
+   hier gewinnt die Kaskade. */
+/* Rail: schmale Icon-Leiste, Label unterm Icon */
+#side{width:76px;padding-top:6px}
+#side a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px;margin:2px 6px;
+        border-radius:11px;border-left:none;font-size:10px;letter-spacing:.04em;text-align:center;
+        white-space:nowrap;overflow:hidden}
+#side a .ti{width:auto;margin:0;font-size:17px}
+#side a:hover{padding-left:4px}
+#side a.on{box-shadow:inset 0 0 0 1px var(--accent),inset 0 0 18px color-mix(in srgb,var(--glow) 12%,transparent);
+           background:rgba(139,92,246,.14)}
+#side .frei-badge{position:absolute;transform:translate(16px,-26px)}
+#side a{position:relative}
+#side .kill{font-size:9px;text-align:center;padding:6px 2px}
+/* Wortmarke wohnt jetzt im Kopf — gleicher Neon-Verlauf, kompakter */
+#bar #brand{margin:0 8px 0 0;padding:0;line-height:1}
+#bar #brand img{display:none}
+#bar #brand .txt{display:block;font-family:'Audiowide',ui-sans-serif,system-ui,sans-serif;font-size:19px;
+ letter-spacing:2px;padding:0;line-height:1;
+ background:linear-gradient(100deg,#e9d5ff,#c084fc,#b026ff,#d946ef,#9333ea,#c084fc,#e9d5ff);
+ background-size:260% 100%;-webkit-background-clip:text;background-clip:text;
+ -webkit-text-fill-color:transparent;color:transparent;
+ filter:drop-shadow(0 0 3px rgba(176,38,255,.7)) drop-shadow(0 0 12px rgba(176,38,255,.4));
+ animation:kiraflow 8s linear infinite}
+@media (prefers-reduced-motion: reduce){#bar #brand .txt{animation:none}}
+/* Status-Chips: die Zahlen im Kopf */
+.chip.st{display:inline-flex;gap:6px;align-items:center;padding:4px 11px;border-radius:999px;
+         border:1px solid var(--line);background:var(--panel);font-size:12px;color:var(--muted);
+         white-space:nowrap}
+.chip.st b{color:var(--ink);font-weight:600}
+.chip.st .dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.chip.st .dot.ok{background:var(--ok);box-shadow:0 0 6px var(--ok)}
+.chip.st.warnc{border-color:color-mix(in srgb,var(--warn) 50%,var(--line))}
+.chip.st.warnc b{color:var(--warn)}
+@media(max-width:1100px){#chip-termin,#chip-motor{display:none!important}}
+/* Fokus-Zeile: der Tages-Hebel */
+#fokus-line{display:flex;align-items:center;gap:10px;padding:5px 18px;font-size:12.5px;color:var(--muted);
+            border-bottom:1px solid var(--line);
+            background:linear-gradient(90deg,rgba(139,92,246,.12),rgba(139,92,246,.04) 55%,transparent)}
+#fokus-line .fk{font-size:10.5px;letter-spacing:.16em;color:var(--accent);font-weight:700}
+#fokus-line b{color:var(--ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#fokus-line #fokus-edit{margin-left:auto;cursor:pointer;color:var(--muted);font-size:11.5px;white-space:nowrap}
+#fokus-line #fokus-edit:hover{color:var(--accent)}
+/* Chat = 3 Spalten: Sessions fest links, Gespraech, Dein Tag rechts */
+#sess-panel{order:0;width:236px;margin-left:0;margin-right:14px;opacity:1;border-color:var(--line)}
+#sess-toggle{display:none}
+#chat-tag{width:296px;flex-shrink:0;margin-left:14px;display:flex;flex-direction:column;gap:12px;
+          overflow-y:auto;min-height:0}
+#chat-tag .panel{margin:0}
+#chat-tag .panel-b{padding:9px 13px 12px;font-size:13px}
+#chat-tag .mehr{cursor:pointer;color:var(--muted);font-size:11px;letter-spacing:0;text-transform:none}
+#chat-tag .mehr:hover{color:var(--accent)}
+#chat-tag .ct-row{display:flex;gap:9px;padding:4px 0;align-items:baseline}
+#chat-tag .ct-zeit{color:var(--accent);font-weight:600;font-size:12px;flex:none;min-width:42px}
+#chat-tag .radar{margin-top:7px;padding:7px 10px;border-radius:8px;background:rgba(139,92,246,.14);
+                 border:1px solid rgba(139,92,246,.4);font-size:12.5px}
+@media(max-width:1250px){#chat-tag{display:none}}
+@media(max-width:1000px){#sess-panel{display:none}#sess-toggle{display:inline-block}}
+/* Freigabe-Karten im Gespraech */
+#chat-frei:empty{display:none}
+.frei-karte{border:1px solid rgba(139,92,246,.4);border-radius:11px;background:rgba(139,92,246,.12);
+            padding:11px 13px;margin:0 0 10px;font-size:13px}
+.frei-karte .fkopf{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);
+                   font-weight:700;margin-bottom:5px}
+.frei-karte .fwas{color:var(--ink);margin-bottom:9px}
+.frei-karte .fwas small{display:block;color:var(--muted);margin-top:2px}
+.frei-karte .fbtn{display:flex;gap:8px}
+.frei-karte .fgo{padding:5px 15px;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;font-size:12.5px;border:0;cursor:pointer}
+.frei-karte .fgo:hover{filter:brightness(1.12)}
+.frei-karte .fno{padding:5px 13px;border-radius:8px;border:1px solid var(--line);background:none;color:var(--muted);font-size:12.5px;cursor:pointer}
+.frei-karte .fno:hover{border-color:var(--danger);color:var(--danger)}
+/* Begruessungs-Briefing (leerer Chat) */
+#brief-bubble .karte-mini{border:1px solid var(--line);border-radius:10px;background:var(--panel);
+                          padding:9px 12px;margin:7px 0;font-size:13px}
+#brief-bubble .kk{display:flex;justify-content:space-between;gap:10px;padding:2px 0;color:var(--muted)}
+#brief-bubble .kk b{color:var(--ink)}
+/* Strg+K Palette */
+#pal-wrap{position:fixed;inset:0;background:rgba(5,4,10,.6);backdrop-filter:blur(3px);z-index:2000;
+          display:flex;align-items:flex-start;justify-content:center;padding-top:14vh}
+#pal{width:min(560px,92vw);background:var(--panel);border:1px solid var(--accent);border-radius:13px;
+     box-shadow:0 18px 60px rgba(0,0,0,.55),0 0 30px rgba(139,92,246,.25);overflow:hidden}
+#pal-q{width:100%;padding:13px 16px;background:none;border:0;outline:none;color:var(--ink);font-size:15px;
+       border-bottom:1px solid var(--line)}
+#pal-list{max-height:46vh;overflow-y:auto;padding:6px}
+.pal-row{display:flex;gap:10px;align-items:center;padding:8px 11px;border-radius:8px;cursor:pointer;
+         font-size:13.5px;color:var(--ink)}
+.pal-row .pk{font-size:10px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;min-width:64px}
+.pal-row:hover,.pal-row.on{background:rgba(139,92,246,.16)}
 </style>"""
 
 # Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt
