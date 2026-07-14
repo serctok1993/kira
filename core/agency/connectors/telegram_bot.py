@@ -21,7 +21,7 @@ import httpx
 
 from core import identity as _identity
 from core.config import CONFIG, DATA_DIR
-from core.kernel import events
+from core.kernel import events, instance_lock
 from core.kernel.phrases import next_phrase
 from core.kernel.scheduler import kill_switch_active, kill_switch_path
 from core.mind.agent import Agent
@@ -1345,6 +1345,14 @@ def _register_commands(client: httpx.Client) -> None:
 
 
 def run() -> None:
+    # Instanz-Lock ZUERST (noch vor dem Token-Check): der Bot ist der schlimmste
+    # Doppelgaenger — zwei getUpdates-Poller klauen sich gegenseitig die Nachrichten
+    # (Telegram-409). Ein zweiter Start (Autostart + manuell + Dev-Preview) beendet
+    # sich hier sofort und sauber. Das Objekt lebt bis zum Prozessende (haelt den Lock).
+    lock = instance_lock.acquire("telegram_bot")  # noqa: F841 — Besitz = Lock
+    if lock is None:
+        print(instance_lock.blocked_msg("telegram_bot", "Ein Telegram-Bot"))
+        return
     if not TOKEN:
         # W3: SCHLAFEN statt beenden — sonst startet der Supervisor den Bot alle paar
         # Sekunden neu und flutet einen frischen Klon mit service_crash-Events. Nach dem
