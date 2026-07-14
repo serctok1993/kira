@@ -5,7 +5,11 @@ Startet Cockpit, Telegram-Bot und Mission-Runner und ueberwacht sie. Stirbt eine
 (data/restart.flag) erlaubt einen SICHEREN Bounce nach self_edit, ohne dass Kira
 sich selbst killt (Self-Kill ist in shelltool zusaetzlich gesperrt).
 
-Singleton: laeuft nur, wenn Port 8000 frei ist (sonst ist schon ein System aktiv).
+Singleton: Instanz-Lock via core.kernel.instance_lock (Loopback-Port 8009 + Lock-Datei
+data/supervisor.lock mit PID) — ein zweiter Start (Autostart + manueller Start) erkennt
+die laufende Instanz und beendet sich sauber. Beim Start werden ausserdem Waisen eines
+frueheren Laufs (PC-Absturz, harter Kill) erkannt und beendet, bevor frische Kinder
+starten — sonst laufen Bot/Runner doppelt.
 Start:  uv run python -m core.kernel.supervisor   (oder via start-all.ps1 / Autostart)
 """
 from __future__ import annotations
@@ -13,14 +17,14 @@ from __future__ import annotations
 import datetime
 import json
 import os
-import socket
 import subprocess
 import sys
 import time
 from pathlib import Path
 
+from core import config
 from core.config import ROOT
-from core.kernel import events
+from core.kernel import events, instance_lock
 
 PY = sys.executable  # der (venv-)Python, mit dem der Supervisor laeuft
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
@@ -68,30 +72,6 @@ def _alert(text: str) -> None:
         pass
 
 
-def _port_in_use(port: int = 8000) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.settimeout(1)
-        return s.connect_ex(("127.0.0.1", port)) == 0
-
-
-_LOCK_PORT = 8009  # fixer Loopback-Port NUR als Singleton-Lock (nichts lauscht inhaltlich darauf)
-
-
-def _acquire_lock(port: int = _LOCK_PORT):
-    """Exklusiver Singleton-Lock OHNE Race: bindet SOFORT einen Loopback-Port und haelt
-    ihn fuer die Lebenszeit des Supervisors. Ein zweiter Supervisor (Autostart + manueller
-    Start) scheitert beim bind -> beendet sich. Schliesst die Luecke, dass frueher erst das
-    Cockpit-Kind Port 8000 band (Sekunden spaeter -> zwei Bots gleichzeitig -> Telegram-409)."""
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        s.bind(("127.0.0.1", port))
-        s.listen(1)
-        return s  # offen halten -> Lock bleibt aktiv, solange der Supervisor lebt
-    except OSError:
-        s.close()
-        return None
-
-
 def _launch(name: str) -> subprocess.Popen:
     log = ROOT / "data" / "logs" / f"{name}.log"
     log.parent.mkdir(parents=True, exist_ok=True)
@@ -99,8 +79,72 @@ def _launch(name: str) -> subprocess.Popen:
     f.write(f"\n===== {name} gestartet {datetime.datetime.now():%Y-%m-%d %H:%M:%S} =====\n")
     f.flush()
     env = {**os.environ, "PYTHONUNBUFFERED": "1"}  # Logs sofort sichtbar (kein Puffer)
-    return subprocess.Popen(COMPONENTS[name], cwd=str(ROOT), creationflags=_NO_WINDOW,
-                            stdout=f, stderr=subprocess.STDOUT, env=env)
+    p = subprocess.Popen(COMPONENTS[name], cwd=str(ROOT), creationflags=_NO_WINDOW,
+                         stdout=f, stderr=subprocess.STDOUT, env=env)
+    p.kira_launched = time.time()  # echte Startzeit -> Waisen-Check gegen PID-Wiederverwendung
+    return p
+
+
+def _children_file() -> Path:
+    return config.DATA_DIR / "supervisor_children.json"
+
+
+def _marker(name: str) -> str:
+    """Eindeutiges Kommandozeilen-Token eines Dienstes (fuer die Waisen-Erkennung)."""
+    for a in COMPONENTS[name]:
+        if a.startswith("core."):
+            return a
+    return COMPONENTS[name][-1]
+
+
+def _record_children(procs: dict[str, subprocess.Popen]) -> None:
+    """Kinder-PIDs festhalten (data/supervisor_children.json): stirbt der Supervisor hart
+    (PC-Absturz, Kill), findet der naechste Start die Waisen darueber wieder und beendet
+    sie, statt Duplikate danebenzustellen."""
+    try:
+        reg = {n: {"pid": p.pid, "marker": _marker(n),
+                   "ts": getattr(p, "kira_launched", None) or time.time()}
+               for n, p in procs.items()}
+        f = _children_file()
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(reg), encoding="utf-8")
+    except Exception:  # noqa: BLE001 — Registry ist Best-Effort, darf den Betrieb nie brechen
+        pass
+
+
+def _adopt_orphans() -> None:
+    """Waisen frueherer Supervisor-Laeufe uebernehmen = beenden. Ohne das laufen alter und
+    neuer Bot/Runner parallel: zwei getUpdates-Poller klauen sich die Nachrichten
+    (Telegram-409), Crons feuern doppelt, mehrere Cockpits halten Modelle im Speicher.
+    Fremde Prozesse (PID-Wiederverwendung) bleiben unangetastet (looks_like_ours)."""
+    f = _children_file()
+    try:
+        reg = json.loads(f.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 — keine/kaputte Registry -> nichts zu uebernehmen
+        reg = {}
+    for name, ent in (reg or {}).items():
+        ent = ent or {}
+        try:
+            pid = int(ent.get("pid") or 0)
+        except (TypeError, ValueError):
+            continue
+        if pid <= 0 or pid == os.getpid() or not instance_lock.pid_alive(pid):
+            continue
+        if not instance_lock.looks_like_ours(pid, ent.get("marker"), ent.get("ts")):
+            print(f"[supervisor] PID {pid} ('{name}') lebt, passt aber nicht zum Protokoll "
+                  "-> bleibt unangetastet (PID-Wiederverwendung?).")
+            continue
+        ok = instance_lock.terminate(pid)
+        print(f"[supervisor] Waise '{name}' (PID {pid}) aus frueherem Lauf "
+              + ("uebernommen und beendet." if ok else "NICHT beendet — bitte manuell pruefen."))
+        try:
+            events.emit("orphan_child_terminated", {"service": name, "pid": pid, "ok": ok})
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        f.unlink(missing_ok=True)  # die frischen Kinder werden gleich neu eingetragen
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _log_tail(name: str, lines: int = 12) -> str:
@@ -113,11 +157,13 @@ def _log_tail(name: str, lines: int = 12) -> str:
 
 
 def main() -> None:
-    lock = _acquire_lock()
+    lock = instance_lock.acquire("supervisor")
     if lock is None:
-        print("Ein Kira-Supervisor laeuft bereits -> dieser beendet sich (Singleton-Lock 8009).")
+        print(instance_lock.blocked_msg("supervisor", "Ein Kira-Supervisor"))
         return
     # 'lock' bleibt als lokale Variable offen -> haelt den Singleton fuer die Lebenszeit des Supervisors
+
+    _adopt_orphans()  # Waisen eines frueheren Laufs beenden, BEVOR frische Kinder starten
 
     RESTART_FLAG.parent.mkdir(parents=True, exist_ok=True)
     if RESTART_FLAG.exists():
@@ -129,6 +175,7 @@ def main() -> None:
     alerted: set[str] = set()                                       # schon per Telegram gewarnt?
     for name in COMPONENTS:
         procs[name] = _launch(name)
+        _record_children(procs)  # nach JEDEM Start sofort festhalten (Absturz-Fenster klein halten)
         time.sleep(1)  # Cockpit zuerst -> Port belegen, bevor andere starten
     print("Supervisor laeuft. Bewacht:", ", ".join(COMPONENTS))
 
@@ -171,6 +218,7 @@ def main() -> None:
                       f"(Absturz {recent}, naechster Versuch fruehestens +{int(wait_s)}s)")
                 if relaunch:
                     procs[name] = _launch(name)
+                    _record_children(procs)
 
             # 1b) Herzschlag fuers Dashboard: welche Dienste leben gerade?
             try:
@@ -201,6 +249,7 @@ def main() -> None:
                 time.sleep(2)
                 for name in targets:
                     procs[name] = _launch(name)
+                _record_children(procs)
                 print("[supervisor] Bounce per Flag:", targets)
         except KeyboardInterrupt:
             print("\nSupervisor gestoppt.")
@@ -208,6 +257,7 @@ def main() -> None:
         except Exception as e:  # noqa: BLE001
             print("[supervisor] Fehler:", e)
             time.sleep(5)
+    lock.release()  # sauberer Stopp: Lock-Datei aufraeumen (den Socket schliesst das OS ohnehin)
 
 
 if __name__ == "__main__":
