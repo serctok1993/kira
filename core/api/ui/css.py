@@ -940,6 +940,17 @@ select.engine-pill,button.engine-pill{box-shadow:none}
 #dir-rang{background:var(--panel);color:var(--ink);border:1px solid var(--line);
  border-radius:9px;padding:4px 8px;font-size:11.5px;color-scheme:dark;outline:none;cursor:pointer}
 #dir-rang:focus,#dir-rang:hover{border-color:color-mix(in srgb,var(--dock-acc,var(--accent)) 60%,var(--line))}
+
+/* ===== Runde XI: Politur — Live-Ops-Filter lesbar, ALLE Chips exakt gleich hoch ===== */
+/* Der Filter bekommt eine EIGENE Zeile unterm Titel: nichts quetscht, nichts bricht um */
+#board-links .panel-h{flex-wrap:wrap}
+#board-links #ops-filter{flex:1 1 100%;order:9;margin-top:7px;display:flex}
+#board-links #ops-filter a{flex:1;display:inline-flex;justify-content:center;align-items:center;gap:5px;
+ white-space:nowrap;padding:4px 4px;font-size:10.5px}
+/* EINE Chip-Hoehe fuer alles in den Dock-Werkzeugzeilen — auch Modell-Pille und Rang-Wahl */
+#board-chat .bc-werk .chip,#board-chat .bc-werk button.ghost,#board-chat .engine-pill,
+#chat-dock .toolbox .chip,#chat-dock .engine-pill,#dir-rang{
+ height:27px;line-height:1;display:inline-flex;align-items:center;box-sizing:border-box}
 </style>"""
 
 # Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt

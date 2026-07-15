@@ -197,6 +197,9 @@ def test_runde9_board_chat_pur_und_modus_farbe():
     assert "#dir-schwarm-l input{display:none}" in CSS
     assert '$("#dir-schwarm-l").classList.toggle("on",on)' in SCRIPT
     assert "#dir-rang{background:var(--panel)" in CSS
+    # Runde XI: Live-Ops-Filter in eigener Zeile (nichts quetscht), EINE Chip-Hoehe ueberall
+    assert "#board-links #ops-filter{flex:1 1 100%" in CSS
+    assert "height:27px" in CSS.split("Runde XI", 1)[1]
 
 
 def test_runde5_kira_heute_farbig_ohne_scroll():
