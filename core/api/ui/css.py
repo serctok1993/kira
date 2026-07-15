@@ -951,6 +951,18 @@ select.engine-pill,button.engine-pill{box-shadow:none}
 #board-chat .bc-werk .chip,#board-chat .bc-werk button.ghost,#board-chat .engine-pill,
 #chat-dock .toolbox .chip,#chat-dock .engine-pill,#dir-rang{
  height:27px;line-height:1;display:inline-flex;align-items:center;box-sizing:border-box}
+
+/* ===== Runde XII: Zeilen-Buttons rahmenlos, Filter-Segmente einheitlich, Mikro flach ===== */
+/* ✎/✕ in Erinnerungs-Zeilen: KEIN doppelter Rand mehr — nur die Glyphe, Hover toent */
+.memrow .mh button.ghost{border:none;background:none;box-shadow:none;padding:2px 8px;color:var(--muted)}
+.memrow .mh button.ghost:hover{border:none;background:color-mix(in srgb,var(--accent) 15%,transparent);
+ color:var(--ink);border-radius:7px;box-shadow:none;filter:none}
+/* Filter-Segmente im Modus-Segment-Look: EIN Rahmen aussen, Items flach, Aktiv = getoent */
+#mem-filter,#ops-filter{border:1px solid var(--line);border-radius:11px;background:var(--panel);padding:3px;gap:2px}
+#mem-filter a,#ops-filter a{border:none;border-radius:8px;padding:4px 11px}
+#mem-filter a.on,#ops-filter a.on{background:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--ink)}
+/* das Board-Mikro war noch Basis-Lila (sass in bc-zeile, nicht bc-werk) — jetzt flach wie alle */
+#board-chat .chip.mic{background:var(--panel);border:1px solid var(--line);color:var(--muted)}
 </style>"""
 
 # Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt

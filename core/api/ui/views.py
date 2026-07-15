@@ -428,7 +428,9 @@ VIEWS = r"""</head><body>
         <textarea id="mem-new" class="k" style="margin-top:8px" placeholder="z.B. __USER__ bevorzugt kurze, direkte Antworten."></textarea>
         <div class="row" style="margin-top:8px"><button id="mem-add">+ Merken</button><span class="muted" id="mem-hint" style="align-self:center"></span></div>
       </div>
-      <div class="muted" style="margin:6px 0 8px;max-width:980px">Was Kira sich merkt — ◆ = sie selbst, ● = du. ✎ bearbeiten, ✕ loeschen. (Verfassung/Seele/Ziel sind Dateien und bleiben unberuehrt.)</div>
+      <!-- Runde XII: die Zeile erklaert den GEWAEHLTEN Filter (JS setzt den Text) —
+           selbsterklaerend statt Legende: was ist das, wer schreibt es, wann entsteht es -->
+      <div class="muted" id="mem-erkl" style="margin:6px 0 8px;max-width:980px"></div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:4px 0 12px;max-width:980px">
         <!-- Gedaechtnis-Diaet (Praxis-Fund): Standard = nur bewusst Gemerktes; der rohe
              Chat-Verlauf liegt hinter 'chat' und flutet die Liste nicht mehr -->
