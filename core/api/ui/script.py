@@ -1969,6 +1969,7 @@ function simpleRecord(btnSel,targetSel){const btn=$(btnSel);if(!btn)return;let r
 simpleRecord("#dir-mic","#bc-in");
 /* Schwarm-Umschalter: blendet den Rang ein, macht Senden zum Schwarm-Knopf */
 $("#dir-schwarm")&&($("#dir-schwarm").onchange=()=>{const on=$("#dir-schwarm").checked;
+ $("#dir-schwarm-l").classList.toggle("on",on);   /* Chip zeigt den Zustand — das OS-Kaestchen ist versteckt */
  const rg=$("#dir-rang");if(rg)rg.style.display=on?"":"none";
  const b=$("#bc-send");if(b)b.textContent=on?"⁂ An den Schwarm":"Senden";
  const t=$("#bc-in");if(t)t.placeholder=on
