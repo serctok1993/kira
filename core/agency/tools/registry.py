@@ -77,26 +77,28 @@ def all_tools(include_disabled: bool = False) -> list[Tool]:
     return [t for t in tools if _enabled(t)]
 
 
-def manifest() -> str:
+def manifest(nur: frozenset[str] | set[str] | None = None) -> str:
     # Snapshot: die MCP-Bruecke registriert Werkzeuge zur LAUFZEIT (anderer Thread) —
     # direkte Dict-Iteration kann dann 'dictionary changed size' werfen.
+    # P5: 'nur' = Rollen-Toolset (rollen.toolset) — None bleibt byte-identisch zur Vollflotte.
     lines = []
     for t in list(_REGISTRY.values()):
-        if not _enabled(t):
+        if not _enabled(t) or (nur is not None and t.name not in nur):
             continue
         params = ", ".join(f'"{k}": {_render(v)}' for k, v in t.params.items()) or "keine"
         lines.append(f"- {t.name} (Argumente: {params}): {_render(t.description)}")
     return "\n".join(lines) if lines else "(keine Werkzeuge verfuegbar)"
 
 
-def tool_schemas() -> list[dict]:
+def tool_schemas(nur: frozenset[str] | set[str] | None = None) -> list[dict]:
     """OpenAI-Function-Calling-Schema fuer alle Werkzeuge (natives Tool-Calling).
 
     Alle Argumente als String (die Tool-Funktionen casten selbst). 'required' ohne
-    als optional markierte Parameter (Beschreibung enthaelt 'optional'/'Standard')."""
+    als optional markierte Parameter (Beschreibung enthaelt 'optional'/'Standard').
+    P5: 'nur' filtert auf ein Rollen-Toolset; None = volle Flotte (unveraendert)."""
     schemas: list[dict] = []
     for t in list(_REGISTRY.values()):  # Snapshot (Laufzeit-Registrierung, s. manifest)
-        if not _enabled(t):
+        if not _enabled(t) or (nur is not None and t.name not in nur):
             continue
         props = {k: {"type": "string", "description": _render(v)} for k, v in t.params.items()}
         required = [k for k, v in t.params.items()

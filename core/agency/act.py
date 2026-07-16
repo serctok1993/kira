@@ -513,10 +513,11 @@ def _parse_leaked_tool_calls(text: str) -> list[dict]:
     return out
 
 
-def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, emit, max_steps: int = _MAX_STEPS, task_type: str = "reason", reasoning: str | None = None) -> str:
+def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, emit, max_steps: int = _MAX_STEPS, task_type: str = "reason", reasoning: str | None = None, erlaubt: frozenset | None = None, rolle: str = "") -> str:
     """Nativer Function-Calling-Loop fuer Cloud-Modelle: strukturierte tool_calls statt
-    ACT-Text — robust, kein Leak. Streamt Schritte ueber emit({'kind':'tool'|'obs'|...})."""
-    schemas = registry.tool_schemas()
+    ACT-Text — robust, kein Leak. Streamt Schritte ueber emit({'kind':'tool'|'obs'|...}).
+    P5: 'erlaubt' = Rollen-Toolset eines Unteragenten (None = volle Flotte)."""
+    schemas = registry.tool_schemas(nur=erlaubt)
     obs_cap = _budget("obs_max_chars", _OBS_MAX, task_type, escalate)  # starkes Modell -> sieht mehr
     used_tools = False
     nudged = False
@@ -578,7 +579,10 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
             name, args, cid = c["name"], c["args"], (c["id"] or f"call_{step}_{i}")
             emit({"kind": "tool", "name": name, "args": args})
             tool = registry.get(name)
-            if tool is None:
+            if erlaubt is not None and name not in erlaubt:
+                from core.agency import rollen as _rollen
+                obs = _rollen.verweigert(name, rolle)
+            elif tool is None:
                 obs = f"Fehler: Werkzeug '{name}' existiert nicht."
             else:
                 try:
@@ -600,15 +604,23 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
             or "Ich habe die Werkzeuge genutzt, aber keine saubere Schluss-Antwort hinbekommen — frag mich gern konkret nach, dann liefere ich dir das Ergebnis.")
 
 
-def act(task: str, session_id: str | None = None, max_steps: int | None = None, escalate: bool = False, task_type: str = "reason") -> dict:
+def act(task: str, session_id: str | None = None, max_steps: int | None = None, escalate: bool = False, task_type: str = "reason", rolle: str = "") -> dict:
     if max_steps is None:  # kein expliziter Deckel -> Budget passend zum realen Modell
         max_steps = _budget("max_steps", _MAX_STEPS, task_type, escalate)
-    events.emit("act_start", {"task": task}, session_id=session_id)
+    events.emit("act_start", {"task": task, **({"rolle": rolle} if rolle else {})}, session_id=session_id)
+
+    # P5 (Rolle=Toolset=Modell): Unteragenten sehen NUR das Toolset ihres Rangs —
+    # kleineres Manifest, treffsicherere kleine Modelle. Ohne Rolle: volle Flotte.
+    erlaubt = None
+    if rolle:
+        from core.agency import rollen as _rollen
+        erlaubt = _rollen.toolset(rolle)
 
     # Cloud-Modelle: natives Function-Calling (robust, kein ACT-Text-Leak)
     if _cloud(escalate, task_type):
         text = _native_loop([{"role": "user", "content": task}], _identity() + _NATIVE_TOOLS_HINT,
-                            session_id, escalate, emit=lambda ev: None, max_steps=max_steps, task_type=task_type)
+                            session_id, escalate, emit=lambda ev: None, max_steps=max_steps, task_type=task_type,
+                            erlaubt=erlaubt, rolle=rolle)
         events.emit("act_done", {"native": True}, session_id=session_id)
         return {"text": text, "steps": max_steps}
 
@@ -617,7 +629,7 @@ def act(task: str, session_id: str | None = None, max_steps: int | None = None, 
 
 # WERKZEUGE
 Du kannst Werkzeuge benutzen, um Aufgaben in der echten Welt zu erledigen:
-{registry.manifest()}
+{registry.manifest(nur=erlaubt)}
 
 So benutzt du ein Werkzeug — antworte mit GENAU einer Zeile, sonst nichts:
 ACT <werkzeug_name> {{"argument": "wert"}}
@@ -649,8 +661,12 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
 
         name, args = call
         tool = registry.get(name)
-        if tool is None:
-            obs = f"Fehler: Werkzeug '{name}' existiert nicht. Verfuegbar: {[t.name for t in registry.all_tools()]}"
+        if erlaubt is not None and name not in erlaubt:
+            from core.agency import rollen as _rollen
+            obs = _rollen.verweigert(name, rolle)
+        elif tool is None:
+            verf = sorted(erlaubt) if erlaubt is not None else [t.name for t in registry.all_tools()]
+            obs = f"Fehler: Werkzeug '{name}' existiert nicht. Verfuegbar: {verf}"
         else:
             try:
                 obs = _run_tool_guarded(name, tool, args, session_id)
