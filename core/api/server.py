@@ -2230,6 +2230,16 @@ def api_prompt_context(message: str = "") -> dict:
     return {"sections": prompt_context(message), "rendered": build_system_prompt(message)}
 
 
+@app.get("/api/rollen")
+def api_rollen() -> dict:
+    # P5 (Werkstatt-Vertrag): die Pyramiden-Etagen als ABFRAGBARE Datenstruktur —
+    # pro Rang Toolset, Manifest, Schemas, Routing. Die LLM-Werkstatt generiert
+    # ihre etagen-spezifischen Trainingsdatensaetze DIREKT hieraus (kein Nachbau).
+    from core.agency import rollen
+
+    return {"rollen": rollen.uebersicht()}
+
+
 @app.get("/api/auftrag")
 def api_auftrag() -> dict:
     # P2 (Working-Pod): der aktive Auftrag fuers Cockpit — Live-Haekchen je Schritt.
