@@ -268,9 +268,92 @@ def _parse_edit_blocks(text: str) -> list[tuple]:
     return blocks
 
 
+def _einzug(zeile: str) -> int:
+    return len(zeile) - len(zeile.lstrip())
+
+
+def _tolerante_fenster(c_lines: list[str], s_lines: list[str]) -> list[int]:
+    """Startindizes aller Zeilenfolgen, die dem SEARCH bis auf Einrueckung entsprechen
+    (jede Zeile strip-gleich). Innen-Whitespace muss stimmen — bewusst konservativ."""
+    s_strip = [z.strip() for z in s_lines]
+    return [i for i in range(len(c_lines) - len(s_lines) + 1)
+            if all(c_lines[i + j].strip() == s_strip[j] for j in range(len(s_lines)))]
+
+
+def _kern_zeilen(search: str) -> list[str]:
+    """SEARCH als Zeilenliste ohne fuehrende/abschliessende Leerzeilen."""
+    s = search.split("\n")
+    while s and not s[0].strip():
+        s.pop(0)
+    while s and not s[-1].strip():
+        s.pop()
+    return s
+
+
+def _tolerant_ersetzen(content: str, search: str, replace: str) -> str | None:
+    """Fallback, wenn der exakte SEARCH scheitert: EIN eindeutiges tolerantes Fenster
+    wird ersetzt; uniformer Einrueckungs-Drift wandert auf REPLACE mit (das
+    Sicherheitsnetz py_compile/Suite faengt den Rest)."""
+    c_lines, s_lines = content.split("\n"), _kern_zeilen(search)
+    if not s_lines:
+        return None
+    fenster = _tolerante_fenster(c_lines, s_lines)
+    if len(fenster) != 1:
+        return None
+    i = fenster[0]
+    drifts = {_einzug(c_lines[i + j]) - _einzug(s_lines[j])
+              for j in range(len(s_lines)) if s_lines[j].strip()}
+    delta = drifts.pop() if len(drifts) == 1 else 0
+    r_lines = replace.split("\n")
+    if delta:
+        r_lines = [((" " * delta + z) if delta > 0 else z[min(-delta, _einzug(z)):])
+                   if z.strip() else z for z in r_lines]
+    return "\n".join(c_lines[:i] + r_lines + c_lines[i + len(s_lines):])
+
+
+def _fund_zeilen(content: str, search: str) -> list[int]:
+    """1-basierte Startzeilen aller exakten Fundstellen (max. 8)."""
+    zeilen, start = [], 0
+    while len(zeilen) < 8:
+        pos = content.find(search, start)
+        if pos < 0:
+            break
+        zeilen.append(content.count("\n", 0, pos) + 1)
+        start = pos + 1
+    return zeilen
+
+
+def _anker_vorschlag(content: str, search: str) -> str:
+    """Frische Anker nach dem hashline-Muster: der Fehler ZITIERT die echten
+    Datei-Zeilen um die wahrscheinlichste Stelle — das Modell ruft direkt mit dem
+    Zitat erneut auf, statt die Datei neu zu lesen (spart Kontext)."""
+    c_lines = content.split("\n")
+    kern = [z.strip() for z in search.split("\n") if z.strip()]
+    if not kern or not any(z.strip() for z in c_lines):
+        return ""
+    leit = max(kern, key=len)
+    idx = next((i for i, z in enumerate(c_lines) if z.strip() == leit), None)
+    if idx is None:
+        import difflib
+        nah = difflib.get_close_matches(leit, [z.strip() for z in c_lines if z.strip()],
+                                        n=1, cutoff=0.6)
+        if nah:
+            idx = next((i for i, z in enumerate(c_lines) if z.strip() == nah[0]), None)
+    if idx is None:
+        return ""
+    a = max(0, idx - 1)
+    b = min(len(c_lines), idx + max(2, min(len(kern) + 1, 5)))
+    zitat = "\n".join(c_lines[a:b])[:600]
+    return (f" So steht die Stelle WIRKLICH in der Datei (Zeilen {a + 1}-{b}):\n{zitat}\n"
+            "Rufe erneut auf mit GENAU diesen Zeilen als suche — die Datei NICHT neu lesen.")
+
+
 def _apply_edits(original: str, blocks: list[tuple]) -> tuple[str | None, str | None]:
     """Wendet die Bloecke auf 'original' an (all-or-nothing, in Reihenfolge).
-    Rueckgabe: (neuer_inhalt, None) oder (None, fehlermeldung)."""
+    Rueckgabe: (neuer_inhalt, None) oder (None, fehlermeldung).
+    P3 (Anker-Edits): exakter Match zuerst; scheitert er, repariert ein eindeutiges
+    Einrueckungs-tolerantes Fenster den Drift; jeder Fehlschlag LEHRT mit frischen
+    Ankern aus der Datei (Zeilennummern + Zitat) statt nur 'nicht gefunden'."""
     content = original
     for i, b in enumerate(blocks, 1):
         if b[0] == "append":
@@ -278,11 +361,31 @@ def _apply_edits(original: str, blocks: list[tuple]) -> tuple[str | None, str | 
             continue
         _, search, replace = b
         n = content.count(search)
-        if n != 1:
-            why = "nicht gefunden" if n == 0 else f"{n}x gefunden (nicht eindeutig)"
-            return None, (f"Edit-Block {i}: SEARCH {why} — nimm einen groesseren, EINDEUTIGEN "
-                          "Ausschnitt (wortgenau inkl. Einrueckung).")
-        content = content.replace(search, replace, 1)
+        if n == 1:
+            content = content.replace(search, replace, 1)
+            continue
+        if n > 1:
+            zn = _fund_zeilen(content, search)
+            c_lines = content.split("\n")
+            a = max(0, zn[0] - 2)
+            e = min(len(c_lines), zn[0] - 1 + search.count("\n") + 2)
+            beispiel = "\n".join(c_lines[a:e])[:400]
+            return None, (f"Edit-Block {i}: SEARCH {n}x gefunden (Zeilen "
+                          f"{', '.join(map(str, zn))}) — nicht eindeutig. Erweitere suche um "
+                          f"Nachbarzeilen, zeichengenau z.B. (Umfeld von Zeile {zn[0]}):\n{beispiel}")
+        neu = _tolerant_ersetzen(content, search, replace)
+        if neu is not None:
+            content = neu                      # Drift repariert — der Diff belegt das Ergebnis
+            continue
+        fenster = _tolerante_fenster(content.split("\n"), _kern_zeilen(search) or [""])
+        if len(fenster) > 1:
+            zn = ", ".join(str(f + 1) for f in fenster[:8])
+            return None, (f"Edit-Block {i}: SEARCH passt (bis auf Einrueckung) an "
+                          f"{len(fenster)} Stellen (Zeilen {zn}) — nicht eindeutig. "
+                          "Erweitere suche um Nachbarzeilen.")
+        return None, (f"Edit-Block {i}: SEARCH nicht gefunden."
+                      + (_anker_vorschlag(content, search)
+                         or " Lies die Stelle (read_file) und kopiere sie zeichengenau."))
     return content, None
 
 
