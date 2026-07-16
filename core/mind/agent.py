@@ -111,65 +111,92 @@ def _playbooks_block() -> str:
         return ""
 
 
-def build_system_prompt(user_message: str, session_id: str | None = None) -> str:
-    constitution = _read("constitution.md")
-    soul = _read("SOUL.md")
-    goal = _read("GOAL.md")
-    user = _read("USER.md")
-    koerper = _body_compact()
-    playbooks_block = _playbooks_block()
+def prompt_context(user_message: str, session_id: str | None = None) -> dict:
+    """P6 (Werkstatt-Vertrag): der System-Prompt als INSPIZIERBARES Sektions-Objekt.
+
+    Die LLM-Werkstatt generiert ihre Trainingsdatensaetze direkt aus diesem Objekt
+    (Dump: GET /api/prompt/context) statt den Aufbau nachzubauen — Vertragsdrift
+    zwischen Harness und Training ist damit strukturell unmoeglich.
+    build_system_prompt() rendert BYTE-IDENTISCH aus genau diesem Objekt
+    (bewiesen durch tests/golden_system_prompt.txt, VOR dem Umbau eingefroren).
+    Schluessel-Reihenfolge = Prompt-Reihenfolge. Werte sind UNgerendert
+    (Platzhalter wie im Template); identity.render laeuft wie immer am Ende
+    ueber den Gesamt-Prompt.
+    """
+    from core import identity
+
     recalled = memory.recall(user_message, limit=6, exclude_session=session_id)
     if recalled:
         mem_block = "\n".join(f"- ({m['role']}) {m['text']}" for m in recalled)
     else:
         mem_block = "(noch keine frueheren Erinnerungen)"
-
     lessons = memory.recall_lessons(limit=5)
-    lessons_block = "\n".join(f"- {l}" for l in lessons) if lessons else "(noch keine Lektionen)"
-
     skills = memory.recall_skills(limit=6)
-    skills_block = "\n".join(f"- {s}" for s in skills) if skills else "(noch keine Skills)"
+    return {
+        "jetzt": jetzt_zeile(),
+        "verfassung": _read("constitution.md"),
+        "seele": _read("SOUL.md"),
+        "ziel": _read("GOAL.md"),
+        "partner": _read("USER.md"),
+        "koerper": _body_compact(),
+        "playbooks": _playbooks_block(),
+        "lektionen": "\n".join(f"- {l}" for l in lessons) if lessons else "(noch keine Lektionen)",
+        "skills": "\n".join(f"- {s}" for s in skills) if skills else "(noch keine Skills)",
+        "erinnerungen": mem_block,
+        "antrieb": antrieb_direktive(),
+        "arbeitsweise": arbeitsweise_block(),
+        "persona": persona_text(),
+        "user_name": identity.user_name(),
+    }
 
-    from core import identity
 
-    # W2: Platzhalter im ganzen Prompt zentral fuellen (Templates bleiben neutral).
-    return identity.render(f"""{jetzt_zeile()}
+def _prompt_zusammenbauen(c: dict) -> str:
+    """Das Prompt-Geruest — EXAKT der historische f-String, nur mit Werten aus dem
+    Kontext-Objekt. Jede Aenderung hier bricht den Golden-Test (absichtlich)."""
+    return f"""{c["jetzt"]}
 
 # DEINE VERFASSUNG (unveraenderlich, hoechste Prioritaet)
-{constitution}
+{c["verfassung"]}
 
 # DEINE SEELE (wer du bist)
-{soul}
+{c["seele"]}
 
 # DEIN ZIEL (wofuer du existierst)
-{goal}
+{c["ziel"]}
 
 # DEIN PARTNER (mit wem du arbeitest)
-{user}
+{c["partner"]}
 
 # DEIN KOERPER (Anatomie dieses Harness — Details: read_file("core/mind/BODY.md"))
-{koerper}
+{c["koerper"]}
 
-{playbooks_block}
+{c["playbooks"]}
 
 # DEINE GELERNTEN LEKTIONEN (aus eigener Reflexion)
-{lessons_block}
+{c["lektionen"]}
 
 # DEINE SKILLS (wiederverwendbare Faehigkeiten — nutze sie, wenn passend)
-{skills_block}
+{c["skills"]}
 
 # FRUEHERE ERINNERUNGEN (nur Hintergrund-Kontext, teils VERALTET — NICHT abschreiben!)
 # Bei Widerspruch zu "WAS DU WIRKLICH KANNST" gilt immer dein aktuelles Selbstwissen.
 # Abgeschlossene Fix-/Diagnose-/Debug-Threads sind ERLEDIGT — greife sie NICHT von dir aus wieder auf,
-# nur weil sie hier oder im Verlauf auftauchen. Reagiere auf die AKTUELLE Nachricht von {identity.user_name()}.
-{mem_block}
+# nur weil sie hier oder im Verlauf auftauchen. Reagiere auf die AKTUELLE Nachricht von {c["user_name"]}.
+{c["erinnerungen"]}
 
-{antrieb_direktive()}
+{c["antrieb"]}
 
-{arbeitsweise_block()}---
-{persona_text()}
+{c["arbeitsweise"]}---
+{c["persona"]}
 
-Antworte auf Deutsch. Nutze deine Erinnerungen, wenn sie relevant sind.""")
+Antworte auf Deutsch. Nutze deine Erinnerungen, wenn sie relevant sind."""
+
+
+def build_system_prompt(user_message: str, session_id: str | None = None) -> str:
+    from core import identity
+
+    # W2: Platzhalter im ganzen Prompt zentral fuellen (Templates bleiben neutral).
+    return identity.render(_prompt_zusammenbauen(prompt_context(user_message, session_id)))
 
 
 class Agent:

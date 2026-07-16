@@ -2219,6 +2219,16 @@ def wall() -> str:
     return _ident_tokens(WALL_HTML.replace("/*__PHRASES__*/", inner))
 
 
+@app.get("/api/prompt/context")
+def api_prompt_context(message: str = "") -> dict:
+    # P6 (Werkstatt-Vertrag): der System-Prompt als inspizierbares Sektions-Objekt.
+    # Die LLM-Werkstatt generiert Trainingsdatensaetze DIREKT hieraus (kein Nachbau,
+    # kein Drift). sections = ungerenderte Bausteine in Prompt-Reihenfolge,
+    # rendered = der exakte finale Prompt (byte-identisch zum Chat-Pfad).
+    from core.mind.agent import build_system_prompt, prompt_context
+    return {"sections": prompt_context(message), "rendered": build_system_prompt(message)}
+
+
 @app.get("/api/vault/graph")
 def api_vault_graph() -> dict:
     # Live-Obsidian-Vault als Graph (rein lesend): Notizen + [[Verlinkungen]] -> Knoten + Faeden.
