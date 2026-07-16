@@ -2,9 +2,10 @@
 
 code_suche   : Python-natives grep unter ROOT (run_shell blockiert grep bewusst).
 datei_finden : Glob unter ROOT.
-edit_datei   : chirurgischer Edit OHNE LLM-Umweg — exakter, EINDEUTIGER Suchtext wird
-               ersetzt (selfdev._apply_edits) und laeuft durch das volle Sicherheitsnetz
-               (Verfassungs-Block, py_compile, Truncation-Guard, Verify + Rollback).
+edit_datei   : chirurgischer Edit OHNE LLM-Umweg — eindeutiger Suchtext wird ersetzt
+               (selfdev._apply_edits; P3 Anker-Edits: Einrueckungs-Drift wird repariert,
+               Fehlschlaege zitieren frische Anker-Zeilen aus der Datei) und laeuft durch
+               das volle Sicherheitsnetz (py_compile, Truncation-Guard, Verify + Rollback).
 
 Windows-first: reine pathlib/os.walk-Implementierung, utf-8 mit errors=replace,
 Ausgaben als posix-Relativpfade. Alle Werkzeuge liefern Strings und raisen nie.
@@ -111,11 +112,13 @@ def datei_finden(muster: str) -> str:
 
 
 @tool("edit_datei",
-      "Chirurgischer Edit einer BESTEHENDEN Datei: 'suche' muss ZEICHENGENAU (inkl. "
-      "Einrueckung) und GENAU EINMAL in der Datei stehen, sonst schlaegt der Edit laut "
-      "fehl (nichts wird still zerschossen). suche='' haengt ans Dateiende an. Bei "
-      "Code-Dateien laufen automatisch Syntax-Check + Testsuite; rot -> Datei kommt "
-      "zurueck. Ganze Funktionen loeschen lehnt der Guard ab -> kleiner editieren.",
+      "Chirurgischer Edit einer BESTEHENDEN Datei: 'suche' muss GENAU EINMAL in der "
+      "Datei stehen, sonst schlaegt der Edit laut fehl (nichts wird still zerschossen); "
+      "leichte Einrueckungs-Abweichungen repariert das Werkzeug selbst. Schlaegt er "
+      "fehl, ZITIERT die Fehlermeldung frische Anker-Zeilen aus der Datei — direkt "
+      "damit erneut aufrufen, die Datei NICHT neu lesen. suche='' haengt ans Dateiende "
+      "an. Bei Code-Dateien laufen automatisch Syntax-Check + Testsuite; rot -> Datei "
+      "kommt zurueck. Ganze Funktionen loeschen lehnt der Guard ab -> kleiner editieren.",
       {"pfad": "Datei im Projekt (relativ oder absolut)",
        "suche": "wortgenauer, eindeutiger Ausschnitt ('' = anhaengen)",
        "ersetze": "der neue Text"})
