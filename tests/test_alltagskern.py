@@ -258,9 +258,26 @@ def test_neue_tools_im_manifest():
     for name in ("termin_add", "termin_list", "vault_note", "vault_dossier", "person_fakt"):
         assert f"- {name} (" in m, f"{name} fehlt im Manifest"
     schemas = [s for s in registry.tool_schemas() if not s["function"]["name"].startswith("mcp_")]
-    assert len(schemas) <= 74  # 71 aktiv (P1 todo +3, P4 symbol/umriss +2), Luft fuer Synthese
+    assert len(schemas) <= 74  # 72 aktiv (P1 todo-Trio +3, P4 symbol/umriss +2; Kollision aufgeloest), Luft fuer Synthese
     # Registry-Konvention: optionale Parameter tragen "optional"/"Standard" -> nicht required
     ta = next(s for s in schemas if s["function"]["name"] == "termin_add")
     assert set(ta["function"]["parameters"]["required"]) == {"datum", "titel"}
     pf = next(s for s in schemas if s["function"]["name"] == "person_fakt")
     assert set(pf["function"]["parameters"]["required"]) == {"name", "feld", "wert"}
+
+
+def test_tool_namen_kollisionsfrei():
+    # Wache gegen stille Namenskollisionen (aus PR #180 uebernommen): _REGISTRY ist ein
+    # dict, die letzte @tool-Registrierung gewinnt — ein doppelter Name laesst ein
+    # Werkzeug lautlos verschwinden (so geschehen bei todo_list: der P1-Plan verdeckte
+    # das Lebens-Board, bis #179 die Plan-Ansicht in todo_stand umbenannte).
+    import re
+    from pathlib import Path
+
+    tools_dir = Path(registry.__file__).parent
+    namen: dict[str, list[str]] = {}
+    for py in sorted(tools_dir.glob("*.py")):
+        for m in re.finditer(r'@tool\(\s*"([^"]+)"', py.read_text(encoding="utf-8")):
+            namen.setdefault(m.group(1), []).append(py.name)
+    doppelt = {n: orte for n, orte in namen.items() if len(orte) > 1}
+    assert not doppelt, f"Tool-Namen doppelt registriert: {doppelt}"
