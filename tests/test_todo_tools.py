@@ -45,9 +45,9 @@ def test_huerde_und_lehrende_fehler():
 
 def test_tools_registriert_und_flow():
     namen = [t.name for t in registry.all_tools(include_disabled=True)]
-    for n in ("todo_plan", "todo_update", "todo_list"):
+    for n in ("todo_plan", "todo_update", "todo_stand"):
         assert n in namen, f"Tool fehlt im Manifest: {n}"
-    assert "kein aktiver Auftrag" in todo_tools.todo_list()
+    assert "kein aktiver Auftrag" in todo_tools.todo_stand()
     out = todo_tools.todo_plan("Report", "Daten sammeln\nEntwurf schreiben")
     assert out.startswith("Plan steht (2 Schritte).")
     # zweiter Plan ohne 'ersetzen' -> lehrender Fehler statt stillem Ueberschreiben
@@ -56,7 +56,14 @@ def test_tools_registriert_und_flow():
     assert "[>]" in todo_tools.todo_update("1", "laeuft")       # nr als String toleriert
     out = todo_tools.todo_update("Schritt zwei", "fertig")
     assert out.startswith("Fehlgeschlagen") and "Zahl" in out   # lehrt das Zahlformat
-    assert "-> Naechster Schritt" in todo_tools.todo_list()
+    assert "-> Naechster Schritt" in todo_tools.todo_stand()
+    # die Kollisions-Wache: todo_list gehoert dem Lebens-Board, todo_stand dem Plan —
+    # beide muessen NEBENEINANDER in der Registry leben (P1-Erstfassung ueberschrieb!)
+    from core.agency.tools import life_tools  # noqa: F401 -> registriert
+    beide = {t.name: t for t in registry.all_tools(include_disabled=True)}
+    assert {"todo_list", "todo_stand"} <= set(beide)
+    assert "Lebens-Board" in beide["todo_list"].description
+    assert "Arbeitsplan" in beide["todo_stand"].description
 
 
 def test_prompt_bekommt_auftrag_ans_ende(monkeypatch):
