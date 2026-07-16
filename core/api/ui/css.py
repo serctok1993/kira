@@ -982,6 +982,17 @@ select.engine-pill,button.engine-pill{box-shadow:none}
 .au-huerde{color:var(--warn);font-size:12px;padding:5px 4px 2px}
 .au-done{color:var(--ok);font-size:12px;padding:5px 4px 2px}
 @keyframes auPuls{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ===== Fix: .live-Kollision — der 7px-Status-Punkt frass den Denk-Trace =====
+   .live ist der pulsierende Punkt in den Panel-Koepfen (7x7px, Ping-Animation).
+   Der Live-Peek (class="think live") und die Rainbow-Phrase (class="tx live")
+   matchen dieselbe Klasse: width/height:7px quetschten den Container auf 0 Inhalt,
+   die Kopfzeile brach als Ein-Wort-pro-Zeile-Wurst um (nur solange .live dran ist —
+   nach settleTrace sah alles wieder normal aus). Masse zurueckgeben; Punkt-Optik
+   (Ping + Gruen-Glow) bleibt den echten Dots. */
+.think.live{width:auto;height:auto;min-width:min(240px,84%);animation:none;
+ box-shadow:inset 0 0 0 1px rgba(139,92,246,.06)}  /* der .think-Ring, den .lives Glow verdeckte */
+.tx.live{width:auto;height:auto;box-shadow:none}   /* rainflow gewinnt schon (spezifischer) — Animation nicht anfassen */
 </style>"""
 
 # Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt
