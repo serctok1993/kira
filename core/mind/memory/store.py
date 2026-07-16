@@ -146,8 +146,8 @@ def recall(query: str, limit: int = 6, exclude_session: str | None = None) -> li
                 except Exception:
                     continue
                 sc = cosine(qv, v)
-                if kind in ("fact", "lesson"):
-                    sc += 0.05  # Wichtiges bevorzugt erinnern
+                if kind in ("fact", "lesson", "dream"):
+                    sc += 0.05  # Wichtiges bevorzugt erinnern (dream = verdichtete Kerne, P7)
                 scored.append((sc, ts, role, text, sid))
             scored.sort(key=lambda x: x[0], reverse=True)
             top = [x for x in scored if x[0] > 0.35][:limit]
