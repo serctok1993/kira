@@ -59,11 +59,12 @@ def test_toggle_reaktiviert_ohne_neustart(monkeypatch, tmp_path):
 
 def test_manifest_ist_getrimmt():
     # W1: Venture (5) + Radar (5) sind GELOESCHT (waren als Flags schon aus dem Manifest,
-    # jetzt auch aus der Registry). Aktiv bleiben ~67 Alltags-Werkzeuge. MCP-Tools
-    # (Praefix mcp_) rausrechnen, damit parallel laufende Bridge-Tests die Zaehlung
-    # nicht kippen. Obergrenze = Wachstums-Wache gegen schleichende Aufblaehung.
+    # jetzt auch aus der Registry). Aktiv: 71 (Alltagskern + P1 todo-Trio + P4 Navigation).
+    # MCP-Tools (Praefix mcp_) rausrechnen, damit parallel laufende Bridge-Tests die
+    # Zaehlung nicht kippen. Obergrenze = Wachstums-Wache gegen schleichende Aufblaehung;
+    # Anheben ist eine BEWUSSTE Entscheidung je Fahrplan-Baustein (P5 trimmt pro Rolle).
     schemas = [s for s in registry.tool_schemas() if not s["function"]["name"].startswith("mcp_")]
-    assert len(schemas) < 70
+    assert len(schemas) < 75
     zeilen = [z for z in registry.manifest().splitlines()
               if z.startswith("- ") and not z.startswith("- mcp_")]
     assert len(zeilen) == len(schemas)  # Prompt-Manifest und Schemata sehen dieselbe Flotte
