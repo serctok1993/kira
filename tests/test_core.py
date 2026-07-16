@@ -49,6 +49,18 @@ def test_parse_act_leak_recovery():
     assert _parse_act('```bash\nfoo {}\n```\nACT health {}') == ("health", {})
 
 
+def test_cron_add_lehrt_statt_typeerror():
+    # Live-Fund 16.07.: cron_add {"label": "sport"} -> roher Python-TypeError
+    # ("missing 2 required positional arguments") statt lehrendem Fehler.
+    from core.agency.tools.builtin import cron_add
+
+    out = cron_add(label="sport")
+    assert out.startswith("Fehler: cron_add braucht") and "Beispiel" in out
+    assert "19:00" in out and "missing" not in out
+    assert "braucht" in cron_add()                       # ganz ohne Argumente
+    assert "braucht" in cron_add(label="x", prompt="y", schedule="08:00", quatsch=1)
+
+
 def test_shell_danger_filter():
     from core.agency.shelltool import _is_dangerous
 

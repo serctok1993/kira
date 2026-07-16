@@ -483,11 +483,20 @@ def set_context(num_ctx: int = 0, max_tokens: int = 0) -> str:
       {"label": "kurzer Name", "prompt": "was du dann jeweils tun sollst",
        "schedule": "z.B. '30m', '2h' oder '08:00'",
        "scope": "optional: 'me' | 'system' (Default system)"})
-def cron_add(label: str, prompt: str, schedule: str, scope: str = "system") -> str:
+def cron_add(label: str = "", prompt: str = "", schedule: str = "", scope: str = "system",
+             **falsche_args) -> str:
     import datetime as _dt
 
     from core.agency.missions import cron
 
+    # Lehrender Fehler statt Python-TypeError (Live-Fund 16.07.: cron_add {"label":
+    # "sport"} lieferte 'missing 2 required positional arguments' — das Modell
+    # konnte damit nichts anfangen und fragte den Nutzer nach laengst Gesagtem).
+    if falsche_args or not str(label).strip() or not str(prompt).strip() or not str(schedule).strip():
+        return ("Fehler: cron_add braucht 'label', 'prompt' UND 'schedule'. Beispiel: "
+                'ACT cron_add {"label": "Sport-Erinnerung", "prompt": "Erinnere deinen '
+                'Partner per Nachricht ans Sport machen", "schedule": "19:00", '
+                '"scope": "me"}')
     scope = (scope or "system").strip().lower()
     if scope not in ("me", "system"):
         scope = "system"
