@@ -574,6 +574,13 @@ def run_forever(interval: int | None = None) -> None:
                     n = _mem.backfill_embeddings()
                     if n:
                         events.emit("embed_backfill", {"count": n})
+                # P7 dream: alte Sessions -> wenige Kern-Erinnerungen (cheapest gate
+                # first: enabled/Reife/Lock prueft dream selbst, das Zeit-Gate haelt
+                # maybe_run — enabled() davor, damit AUS gar nicht erst stempelt).
+                from core.mind import dream as _dream
+
+                if _dream.enabled() and maintenance.maybe_run("dream", interval_s=_dream.intervall_s()):
+                    _dream.dream()
                 if maintenance.maybe_run("body_refresh"):
                     from core.mind import body
 
