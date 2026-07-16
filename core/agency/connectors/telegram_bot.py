@@ -774,6 +774,21 @@ def _maybe_melde_buendel(client: httpx.Client) -> None:
         pass
 
 
+def _maybe_erinnerungen(client: httpx.Client) -> None:
+    """Faellige Einmal-Wecker (erinnerung-Tool) per Telegram zustellen. Raist nie.
+    Der Bot ist DER Zusteller, sobald Telegram konfiguriert ist — der Runner stellt
+    nur ohne Telegram zu (Cockpit-Event), damit kein Prozess-Rennen entsteht."""
+    chat = _cfg().get("allowed_chat_id")
+    if not chat:
+        return
+    try:
+        from core.agency import erinnerungen
+
+        erinnerungen.zustellen(lambda t: _send(client, chat, t))
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _maybe_evening_resuemee(client: httpx.Client) -> None:
     """Einmal am Abend das Tagewerk pushen — Feierabend-Blick ohne Nachfragen. Raist nie."""
     chat = _cfg().get("allowed_chat_id")
@@ -1384,6 +1399,7 @@ def run() -> None:
             _push_new_approvals(client)  # jede Runde (~60s): neue Freigaben proaktiv schicken
             _maybe_evening_resuemee(client)  # einmal am Abend: Tagewerk von selbst
             _maybe_melde_buendel(client)     # Missions-Meldungen gebuendelt statt Flut
+            _maybe_erinnerungen(client)      # faellige Einmal-Wecker aktiv zustellen
             try:
                 resp = client.get(f"{API}/getUpdates", params={"timeout": 60, "offset": offset})
                 for update in resp.json().get("result", []):
