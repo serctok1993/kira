@@ -32,6 +32,23 @@ def test_parse_act():
     assert _parse_act("nur normaler text ohne werkzeug") is None
 
 
+def test_parse_act_leak_recovery():
+    # c4-Vorfall (16.07., Telegram-Live-Chat): Tool-Calls als Code-Fence OHNE
+    # ACT-Praefix gingen als ANTWORT raus. Beide Leaks woertlich aus der events-DB:
+    from core.agency.act import _parse_act
+
+    assert _parse_act('🔍 **Check** – ich pruefe mein aktueller Status:\n\n'
+                      '```bash\nhealth {}\n```') == ("health", {})
+    assert _parse_act('🚀 **Gehen wir an**:\n\n```bash\n'
+                      'telegram {"action": "status"}\n```') == ("telegram", {"action": "status"})
+    # unbekannter Name im Fence -> trotzdem Call: der Dispatcher LEHRT dann
+    # ("existiert nicht. Verfuegbar: ..."), statt den Leak durchzureichen
+    # Prosa mit Python-Codebeispiel bleibt Prosa (Fence-Sprache nicht neutral)
+    assert _parse_act('So gehts in Python:\n```python\nd = {"a": 1}\n```') is None
+    # ACT-Zeile gewinnt weiterhin vor jedem Fence
+    assert _parse_act('```bash\nfoo {}\n```\nACT health {}') == ("health", {})
+
+
 def test_shell_danger_filter():
     from core.agency.shelltool import _is_dangerous
 
