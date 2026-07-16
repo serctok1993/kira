@@ -258,7 +258,7 @@ def test_neue_tools_im_manifest():
     for name in ("termin_add", "termin_list", "vault_note", "vault_dossier", "person_fakt"):
         assert f"- {name} (" in m, f"{name} fehlt im Manifest"
     schemas = [s for s in registry.tool_schemas() if not s["function"]["name"].startswith("mcp_")]
-    assert len(schemas) <= 74  # 72 aktiv (P1 todo-Trio +3, P4 symbol/umriss +2; Kollision aufgeloest), Luft fuer Synthese
+    assert len(schemas) <= 74  # 73 aktiv (P1 +3, P4 +2, erinnerung +1; Kollision aufgeloest), Luft fuer Synthese
     # Registry-Konvention: optionale Parameter tragen "optional"/"Standard" -> nicht required
     ta = next(s for s in schemas if s["function"]["name"] == "termin_add")
     assert set(ta["function"]["parameters"]["required"]) == {"datum", "titel"}
