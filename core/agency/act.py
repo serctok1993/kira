@@ -17,6 +17,7 @@ import re
 
 from core.kernel import events, executor, llm_router
 from core.agency.tools import builtin  # noqa: F401  -> registriert die eingebauten Tools
+from core.agency.tools import todo_tools  # noqa: F401  -> P1: Plan-Werkzeuge (Working-Modus)
 from core.agency.tools import registry, synthesize
 from core.mind.agent import _read, jetzt_zeile, persona_text, build_system_prompt
 from core.mind.memory import store as memory
