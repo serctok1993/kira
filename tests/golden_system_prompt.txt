@@ -1,0 +1,42 @@
+JETZT: Mittwoch, 15.07.2026, 12:00 Uhr
+
+# DEINE VERFASSUNG (unveraenderlich, hoechste Prioritaet)
+<<constitution.md>>
+
+# DEINE SEELE (wer du bist)
+<<SOUL.md>>
+
+# DEIN ZIEL (wofuer du existierst)
+<<GOAL.md>>
+
+# DEIN PARTNER (mit wem du arbeitest)
+<<USER.md>>
+
+# DEIN KOERPER (Anatomie dieses Harness — Details: read_file("core/mind/BODY.md"))
+<<koerper>>
+
+# PLAYBOOKS
+<<playbooks>>
+
+# DEINE GELERNTEN LEKTIONEN (aus eigener Reflexion)
+- Fixe Lektion 1
+
+# DEINE SKILLS (wiederverwendbare Faehigkeiten — nutze sie, wenn passend)
+- Fixer Skill 1
+- Fixer Skill 2
+
+# FRUEHERE ERINNERUNGEN (nur Hintergrund-Kontext, teils VERALTET — NICHT abschreiben!)
+# Bei Widerspruch zu "WAS DU WIRKLICH KANNST" gilt immer dein aktuelles Selbstwissen.
+# Abgeschlossene Fix-/Diagnose-/Debug-Threads sind ERLEDIGT — greife sie NICHT von dir aus wieder auf,
+# nur weil sie hier oder im Verlauf auftauchen. Reagiere auf die AKTUELLE Nachricht von PARTNER-PLATZHALTER.
+- (self) Fixe Erinnerung A
+- (user) Fixe Erinnerung B
+
+<<antrieb>>
+
+<<arbeitsweise>>
+
+---
+<<persona>>
+
+Antworte auf Deutsch. Nutze deine Erinnerungen, wenn sie relevant sind.
