@@ -1,10 +1,14 @@
-"""P1 (Working-Modus): der Plan als Werkzeug — todo_plan / todo_update / todo_list.
+"""P1 (Working-Modus): der Plan als Werkzeug — todo_plan / todo_update / todo_stand.
 
 Das Modell fuehrt seine eigene Schritt-Liste (Store: core/agency/auftrag.py);
 der Harness legt sie bei jedem Zug ans Prompt-ENDE. Drei SCHLANKE Werkzeuge
 statt eines komplexen: nummerierte Einzel-Updates sind fuer kleine Modelle
 (4B) deutlich robuster als Array-Argumente. Fehlertexte LEHREN den naechsten
 korrekten Aufruf (Trainings-Kategorie "Schritt-Disziplin").
+
+Die Plan-Ansicht heisst todo_stand, NICHT todo_list: todo_list gehoert dem
+Lebens-Board (persoenliche Todos, life_tools.py) — die P1-Erstfassung hatte
+den Namen ueberschrieben (Registry: letzte Registrierung gewinnt).
 """
 from __future__ import annotations
 
@@ -57,8 +61,9 @@ def todo_update(nr, status: str = "", notiz: str = "") -> str:
     return auftrag.klartext()
 
 
-@tool("todo_list",
-      "Zeigt deinen aktuellen Arbeitsplan (Ziel, Schritte mit Status, naechster Schritt).",
+@tool("todo_stand",
+      "Zeigt deinen aktuellen Arbeitsplan (Ziel, Schritte mit Status, naechster "
+      "Schritt). Fuer persoenliche Todos vom Lebens-Board stattdessen todo_list nutzen.",
       {})
-def todo_list() -> str:
+def todo_stand() -> str:
     return auftrag.klartext()
