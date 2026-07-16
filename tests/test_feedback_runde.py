@@ -202,6 +202,23 @@ def test_runde9_board_chat_pur_und_modus_farbe():
     assert "height:27px" in CSS.split("Runde XI", 1)[1]
 
 
+def test_runde12_gedaechtnis_selbsterklaerend_und_galaxie_ruhig():
+    # Das Gedaechtnis erklaert SICH: Klartext-Badges + Erklaerzeile je Filter
+    assert 'id="mem-erkl"' in VIEWS
+    assert "MEM_ERKL" in SCRIPT and "KIND_KLAR" in SCRIPT
+    assert "Chat-Notiz" in SCRIPT and "Rezepte" in SCRIPT       # Skills = Kiras eigene Anleitungen
+    # Galaxie: Rueckkehr wirbelt nicht — Layout klebt an den Nodes, neu nur bei Massen-Wechsel
+    mind = SCRIPT.split("async function loadMind()", 1)[1].split("/* ---- Chat ----", 1)[0]
+    assert "_mindDim" in mind and "const frisch=" in mind
+    assert "if(frisch){for(let s=0;s<160;s++)schrittRechnen(1);_mindDim=dim;}" in mind
+    # Pings: haeufiger, intensiver, mit Blau-Hauch
+    assert "pings.length<5" in mind and "rgba(56,189,248," in mind
+    # Zeilen-Buttons rahmenlos, Filter-Segmente einheitlich, Board-Mikro flach
+    assert ".memrow .mh button.ghost{border:none" in CSS
+    assert "#mem-filter a.on,#ops-filter a.on{background:color-mix" in CSS
+    assert "#board-chat .chip.mic{background:var(--panel)" in CSS
+
+
 def test_runde5_kira_heute_farbig_ohne_scroll():
     assert "#board-rechts{overflow-y:auto;scrollbar-width:none}" in CSS  # kein sichtbarer Balken
     assert "#v-home .cmd-grid{grid-template-rows:minmax(0,1fr)}" in CSS  # Spalten wachsen nicht
