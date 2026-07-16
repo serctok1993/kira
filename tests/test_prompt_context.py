@@ -33,6 +33,9 @@ def _nageln(monkeypatch):
         {"role": "user", "text": "Fixe Erinnerung B"}])
     monkeypatch.setattr(memory, "recall_lessons", lambda *a, **k: ["Fixe Lektion 1"])
     monkeypatch.setattr(memory, "recall_skills", lambda *a, **k: ["Fixer Skill 1", "Fixer Skill 2"])
+    # P1: ohne aktiven Auftrag ist der Block leer -> Prompt bleibt byte-identisch zum Golden
+    from core.agency import auftrag
+    monkeypatch.setattr(auftrag, "prompt_block", lambda: "")
 
 
 def test_golden_byte_identitaet(monkeypatch):
@@ -51,7 +54,7 @@ def test_kontext_objekt_traegt_alle_sektionen(monkeypatch):
     c = agent.prompt_context("Probe")
     assert list(c) == ["jetzt", "verfassung", "seele", "ziel", "partner", "koerper",
                        "playbooks", "lektionen", "skills", "erinnerungen",
-                       "antrieb", "arbeitsweise", "persona", "user_name"]
+                       "antrieb", "arbeitsweise", "persona", "auftrag", "user_name"]
     assert all(isinstance(v, str) for v in c.values())
     # der Zusammenbau nutzt GENAU dieses Objekt
     assert "<<constitution.md>>" in agent._prompt_zusammenbauen(c)
