@@ -1,4 +1,4 @@
-"""P1 (Working-Modus): der Plan als Werkzeug — todo_plan / todo_update / todo_list.
+"""P1 (Working-Modus): der Plan als Werkzeug — todo_plan / todo_update / plan_list.
 
 Das Modell fuehrt seine eigene Schritt-Liste (Store: core/agency/auftrag.py);
 der Harness legt sie bei jedem Zug ans Prompt-ENDE. Drei SCHLANKE Werkzeuge
@@ -57,8 +57,9 @@ def todo_update(nr, status: str = "", notiz: str = "") -> str:
     return auftrag.klartext()
 
 
-@tool("todo_list",
-      "Zeigt deinen aktuellen Arbeitsplan (Ziel, Schritte mit Status, naechster Schritt).",
+@tool("plan_list",
+      "Zeigt deinen aktuellen Arbeitsplan (Ziel, Schritte mit Status, naechster Schritt). "
+      "Persoenliche Todos vom Lebens-Board zeigt stattdessen todo_list.",
       {})
-def todo_list() -> str:
+def plan_list() -> str:
     return auftrag.klartext()
