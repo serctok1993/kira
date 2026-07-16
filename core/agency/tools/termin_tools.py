@@ -1,8 +1,11 @@
-"""Termin-Werkzeuge (Phase 2): der kleinste nuetzliche Kalender.
+"""Termin-Werkzeuge (Phase 2) + Einmal-Wecker (c4-Nachzug).
 
-Bewusst NUR 2 Werkzeuge (Manifest-Diaet fuer kleine Modelle): eintragen + ansehen.
-Loeschen macht der Nutzer im Cockpit (Tag -> TERMINE). Fehler lehren mit
-Beispiel-ACT-Zeile — die Texte sind Trainingsmaterial fuer die LLM-Werkstatt.
+Bewusst schlank (Manifest-Diaet fuer kleine Modelle): eintragen + ansehen +
+EIN aktiver Wecker. Loeschen macht der Nutzer im Cockpit (Tag -> TERMINE).
+Fehler lehren mit Beispiel-ACT-Zeile — die Texte sind Trainingsmaterial fuer
+die LLM-Werkstatt. Abgrenzung (Kern des c4-Vorfalls vom 16.07.):
+termin_add = passiver Kalender (Radar/Briefing) · erinnerung = EINMALIGE
+aktive Nachricht zur Uhrzeit · cron_add = wiederkehrende Routine.
 """
 from __future__ import annotations
 
@@ -57,3 +60,25 @@ def termin_list(tage: str = "", **falsche_args) -> str:
         j = " (jaehrlich)" if e.get("jaehrlich") else ""
         lines.append(f"- ({e['id']}) {e['datum']}{zeit}: {e['titel']} — {wann}{j}")
     return "\n".join(lines)
+
+
+@tool("erinnerung",
+      "Stellt einen EINMALIGEN Wecker: {{USER_NAME}} bekommt zur angegebenen Zeit die "
+      "Nachricht aktiv per Telegram (und im Cockpit), danach ist der Wecker weg. Das "
+      "heutige Datum steht in deiner JETZT-Zeile. Fuer wiederkehrende Routinen cron_add, "
+      "fuer Kalender-Eintraege ohne Weckruf termin_add.",
+      {"text": "die Weck-Nachricht, z.B. 'Aufstehen — Termin um 16 Uhr'",
+       "datum": "TT.MM.JJJJ, z.B. 16.07.2026",
+       "zeit": "HH:MM, z.B. 15:00"})
+def erinnerung(text: str = "", datum: str = "", zeit: str = "", **falsche_args) -> str:
+    from core.agency import erinnerungen
+
+    if falsche_args:
+        return ("Fehler: erinnerung kennt nur text, datum, zeit. Beispiel: "
+                'ACT erinnerung {"text": "Aufstehen", "datum": "16.07.2026", "zeit": "15:00"}')
+    e, fehler = erinnerungen.add(text, datum, zeit)
+    if fehler:
+        return "Fehler: " + fehler
+    kanal = ("per Telegram" if erinnerungen.telegram_konfiguriert()
+             else "im Cockpit (Telegram ist nicht eingerichtet)")
+    return f"Wecker gestellt: {e['wann']} — „{e['text']}“. Zustellung {kanal}."
