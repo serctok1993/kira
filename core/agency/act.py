@@ -1451,11 +1451,17 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
                             task_type=_tt, reasoning=reasoning_level)
         return _finalize(text)
 
-    # Lokale Modelle: bewaehrtes Text-Protokoll (ACT <tool> {json}) mit Streaming
+    # Lokale Modelle: bewaehrtes Text-Protokoll (ACT <tool> {json}) mit Streaming.
+    # Hauptrollen-Manifest (c5-Hebel): das LOKALE Chat-Modell sieht die kuratierte
+    # Alltags-Speisekarte (rollen "haupt", ~halber Prompt statt ~8k Token) — die
+    # Kueche bleibt voll: KEIN Ausfuehrungs-Gate, jedes registrierte Werkzeug ist
+    # weiter aufrufbar; Coding laeuft ueber code:/plan (volle Flotte), Cloud-Chat
+    # (nativer FC-Pfad oben) unveraendert mit allen Schemas.
+    from core.agency import rollen as _hrollen
     system = build_system_prompt(user_message, session_id=session_id) + _vstyle + f"""
 
 # WERKZEUGE (nutze sie, wenn die Aufgabe es braucht)
-{registry.manifest()}
+{registry.manifest(nur=_hrollen.toolset("haupt"))}
 
 Brauchst du ein Werkzeug, antworte mit GENAU einer Zeile (sonst nichts):
 ACT <werkzeug_name> {{"argument": "wert"}}
