@@ -13,7 +13,13 @@ from core.agency.tools import registry
 # ---------- Termine (data/kalender.json) ----------------------------------------------
 
 def _kalender(monkeypatch, tmp_path):
+    # termine.add/remove emittieren Events -> eigene tmp-DB, sonst haengen die Tests
+    # an der Reihenfolge (ein FRUEHERER Test muesste die events-Tabelle anlegen).
+    from core.kernel import events
+
     monkeypatch.setattr(termine, "_PATH", tmp_path / "kalender.json")
+    monkeypatch.setattr(events, "DB_PATH", str(tmp_path / "state.db"))
+    events.init_db()
 
 
 def test_termin_add_list_remove(monkeypatch, tmp_path):
