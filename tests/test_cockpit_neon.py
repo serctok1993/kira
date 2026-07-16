@@ -572,6 +572,19 @@ def test_trace_klappt_bei_neuem_schritt_zu():
     assert 'dieser.classList.toggle("show")' in SCRIPT
 
 
+def test_live_trace_nicht_vom_status_punkt_gequetscht():
+    # Fund 16.07. (Screenshot, kira-c4 streamt): der Live-Peek brach als Ein-Wort-
+    # pro-Zeile-Wurst um. Wurzel war KEIN Flex-Shrink: class="think live" und
+    # class="tx live" matchen auch den 7px-Status-PUNKT (.live der Panel-Koepfe) —
+    # dessen width/height:7px quetschten den Container auf 0 Inhalt. Nach settleTrace
+    # (live faellt weg) sah alles normal aus, darum traf es NUR das Streamen.
+    assert ".live{width:7px;height:7px" in CSS                    # der echte Punkt bleibt Punkt
+    fix = CSS.split(".live-Kollision", 1)[1]                      # Override steht NACH der Punkt-Regel
+    assert ".think.live{width:auto;height:auto;min-width:min(240px,84%);animation:none" in fix
+    assert ".tx.live{width:auto;height:auto;box-shadow:none}" in fix
+    assert "box-shadow:inset 0 0 0 1px rgba(139,92,246,.06)" in fix  # .think-Ring statt Gruen-Glow
+
+
 def test_chat_kein_ueberlappen():
     # Ueberlappen von Chat-Ende und Werkzeugleiste: der Log-Flex darf schrumpfen (min-height:0),
     # sonst waechst er ueber die Leiste hinweg statt intern zu scrollen
