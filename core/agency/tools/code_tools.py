@@ -2,6 +2,8 @@
 
 code_suche   : Python-natives grep unter ROOT (run_shell blockiert grep bewusst).
 datei_finden : Glob unter ROOT.
+code_symbol  : P4 — wo ist ein Symbol DEFINIERT, wo VERWENDET (ast-Index, mtime-Cache).
+code_umriss  : P4 — Landkarte einer Python-Datei (Klassen/Funktionen/Zeilen/Docstring).
 edit_datei   : chirurgischer Edit OHNE LLM-Umweg — eindeutiger Suchtext wird ersetzt
                (selfdev._apply_edits; P3 Anker-Edits: Einrueckungs-Drift wird repariert,
                Fehlschlaege zitieren frische Anker-Zeilen aus der Datei) und laeuft durch
@@ -151,3 +153,153 @@ def edit_datei(pfad: str, suche: str, ersetze: str) -> str:
         return head + (("\n" + diff) if diff else "")
     detail = r.get("verify", "")
     return f"Fehlgeschlagen: {r.get('error', 'unbekannt')}" + (f"\n{detail[:800]}" if detail else "")
+
+
+# ---- P4: Symbol-Navigation (ast-basiert, 0 Abhaengigkeiten) --------------------------
+# Der groesste Kontext-Hebel fuer kleine Modelle: EINE praezise Antwort "wo definiert /
+# wo verwendet" bzw. die Datei-Landkarte — statt Dateien zu raten und zu stapeln.
+# Index-Cache pro Datei mit mtime-Invalidierung; SyntaxError-Dateien fallen still raus.
+
+_SYM_CACHE: dict[str, tuple[float, dict]] = {}
+
+
+def _def_kopf(node) -> str:
+    import ast
+    try:
+        args = ast.unparse(node.args)
+    except Exception:  # noqa: BLE001
+        args = "..."
+    a = "async " if node.__class__.__name__ == "AsyncFunctionDef" else ""
+    return f"{a}def {node.name}({args})"
+
+
+def _datei_symbole(f: Path, rel: str) -> dict:
+    """{'defs': [(zeile, name, kopf)], 'verw': {name: [zeilen]}} — raist nie."""
+    import ast
+    try:
+        mtime = f.stat().st_mtime
+        hit = _SYM_CACHE.get(rel)
+        if hit and hit[0] == mtime:
+            return hit[1]
+        baum = ast.parse(f.read_text(encoding="utf-8", errors="replace"))
+    except Exception:  # noqa: BLE001
+        return {"defs": [], "verw": {}}
+    defs: list[tuple] = []
+    verw: dict[str, list[int]] = {}
+    for node in ast.walk(baum):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            defs.append((node.lineno, node.name, _def_kopf(node)))
+        elif isinstance(node, ast.ClassDef):
+            defs.append((node.lineno, node.name, f"class {node.name}"))
+        elif isinstance(node, ast.Name):
+            verw.setdefault(node.id, []).append(node.lineno)
+        elif isinstance(node, ast.Attribute):
+            verw.setdefault(node.attr, []).append(node.lineno)
+    for node in baum.body:                      # Modul-Konstanten als Definition
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name):
+                    defs.append((node.lineno, t.id, f"{t.id} = …"))
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            defs.append((node.lineno, node.target.id, f"{node.target.id}: …"))
+    ergebnis = {"defs": defs, "verw": verw}
+    _SYM_CACHE[rel] = (mtime, ergebnis)
+    return ergebnis
+
+
+def _py_dateien():
+    for wurzel, dirs, dateien in os.walk(ROOT):
+        dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
+        for name in sorted(dateien):
+            if not name.endswith(".py"):
+                continue
+            f = Path(wurzel) / name
+            try:
+                if f.stat().st_size <= _MAX_DATEI_BYTES:
+                    yield f, f.relative_to(ROOT).as_posix()
+            except Exception:  # noqa: BLE001
+                continue
+
+
+@tool("code_symbol",
+      "Findet ein Python-Symbol im PROJEKT: wo DEFINIERT (Datei:Zeile + Kopfzeile) und "
+      "wo VERWENDET — eine Anfrage statt mehrerer code_suche. Vor jedem Edit aufrufen, "
+      "statt Dateien zu raten. Bei Tippfehlern schlaegt die Antwort aehnliche Namen vor.",
+      {"name": "Funktions-, Klassen- oder Variablenname, z.B. 'resolve_model'"})
+def code_symbol(name: str) -> str:
+    n = (name or "").strip().split("(")[0].strip()
+    if not n:
+        return 'Kein Symbolname angegeben. Beispiel: code_symbol("resolve_model").'
+    defs: list[str] = []
+    verw: list[str] = []
+    verw_zeilen = 0
+    alle_namen: set[str] = set()
+    for f, rel in _py_dateien():
+        sym = _datei_symbole(f, rel)
+        for zeile, nm, kopf in sym["defs"]:
+            alle_namen.add(nm)
+            if nm == n:
+                defs.append(f"{rel}:{zeile}  {kopf}")
+        z = sorted(set(sym["verw"].get(n, [])))
+        if z and len(verw) < 20:
+            verw.append(f"{rel}: {', '.join(map(str, z[:12]))}")
+            verw_zeilen += len(z)
+    if not defs and not verw:
+        import difflib
+        nah = difflib.get_close_matches(n, sorted(alle_namen), n=3, cutoff=0.6)
+        return (f"Symbol '{n}' nicht gefunden."
+                + (f" Meintest du: {', '.join(nah)}? Erneut mit dem exakten Namen aufrufen."
+                   if nah else " Fuer Textmuster code_suche nutzen."))
+    out = []
+    if defs:
+        out.append("DEFINITION:")
+        out.extend(defs[:8])
+    if verw:
+        out.append(f"VERWENDUNGEN ({verw_zeilen} Zeilen in {len(verw)} Dateien):")
+        out.extend(verw)
+    return "\n".join(out)[:2500]
+
+
+@tool("code_umriss",
+      "Die LANDKARTE einer Python-Datei, ohne sie ganz zu lesen: Klassen, Funktionen, "
+      "Signaturen, Zeilennummern und erste Docstring-Zeile. Der richtige erste Blick "
+      "vor read_file/edit_datei — spart Kontext.",
+      {"pfad": "Python-Datei im Projekt (relativ oder absolut)"})
+def code_umriss(pfad: str) -> str:
+    import ast
+    p = _unter_root(pfad)
+    if p is None:
+        return "Pfad ausserhalb des Projekts."
+    if not p.exists() or not p.is_file():
+        return f"Datei nicht gefunden: {pfad} (datei_finden hilft beim Suchen)."
+    rel = p.relative_to(ROOT).as_posix()
+    if p.suffix != ".py":
+        return f"{rel} ist keine Python-Datei — fuer andere Formate read_file nutzen."
+    text = p.read_text(encoding="utf-8", errors="replace")
+    try:
+        baum = ast.parse(text)
+    except SyntaxError as e:
+        return f"Syntaxfehler in {rel} (Zeile {e.lineno}): {e.msg} — erst reparieren."
+
+    def _doc1(node) -> str:
+        d = ast.get_docstring(node) or ""
+        return f'  — "{d.splitlines()[0][:80]}"' if d else ""
+
+    zeilen = [f"{rel} — {len(text.splitlines())} Zeilen"]
+    for node in baum.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            zeilen.append(f"{node.lineno:>5} {_def_kopf(node)}{_doc1(node)}")
+        elif isinstance(node, ast.ClassDef):
+            zeilen.append(f"{node.lineno:>5} class {node.name}{_doc1(node)}")
+            for m in node.body:
+                if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    zeilen.append(f"{m.lineno:>5}   {_def_kopf(m)}")
+        elif isinstance(node, ast.Assign):
+            namen = [t.id for t in node.targets if isinstance(t, ast.Name)]
+            if namen:
+                zeilen.append(f"{node.lineno:>5} {', '.join(namen)} = …")
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            zeilen.append(f"{node.lineno:>5} {node.target.id}: …")
+    if len(zeilen) == 1:
+        zeilen.append("(keine Top-Level-Definitionen)")
+    return "\n".join(zeilen)[:_MAX_ZEICHEN]

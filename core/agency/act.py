@@ -363,11 +363,13 @@ def _rbe_record(session_id: str | None, name: str, args: dict, obs: str) -> None
         seen = _rbe_seen(session_id)
         if name in ("read_file",) and args.get("path"):
             seen.add(_rbe_norm(args["path"]))
-        elif name in ("code_suche", "datei_finden"):
+        elif name in ("code_suche", "datei_finden", "code_symbol"):
             for m in _OBS_PATH_RE.finditer(obs or ""):
                 seen.add(_rbe_norm(m.group(1)))
                 if len(seen) > 400:
                     break
+        elif name == "code_umriss" and args.get("pfad"):
+            seen.add(_rbe_norm(args["pfad"]))   # Landkarte gesehen = Datei bekannt
         elif name in _EDIT_TOOLS and args.get(_EDIT_TOOLS[name]):
             seen.add(_rbe_norm(args[_EDIT_TOOLS[name]]))  # einmal editiert = bekannt
     except Exception:  # noqa: BLE001 — Buchhaltung darf nie stoeren
@@ -1148,7 +1150,8 @@ _MODEL_ROLES = ("chat", "reason", "bulk", "escalation", "default", "classify", "
 # Bewusst klein (~600 Zeichen) — sie fliessen in den Plan UND in jeden Teilschritt.
 _CODING_REGELN = (
     "CODING-REGELN (bindend):\n"
-    "1. ERST suchen, dann aendern: code_suche/datei_finden statt raten oder ganze Dateien lesen.\n"
+    "1. ERST navigieren, dann aendern: code_symbol (wo definiert/verwendet) und code_umriss "
+    "(Datei-Landkarte) vor code_suche/datei_finden — nie Dateien raten oder ganze Dateien stapeln.\n"
     "2. Aenderungen an BESTEHENDEN Dateien NUR mit edit_datei (exakter, eindeutiger Suchtext) "
     "oder self_edit — NIE write_file (blindes Ueberschreiben).\n"
     "3. Jeder Edit laeuft automatisch durch Syntax-Check + Testsuite; ROT heisst: Datei kam "
