@@ -7,16 +7,20 @@ Werkzeuge (kleines Manifest = kleiner Kontext = treffsichere kleine Modelle),
 und die LLM-Werkstatt erzeugt ihre Trainingsdatensaetze pro Etage DIREKT aus
 uebersicht() / GET /api/rollen — kein Nachbau, kein Drift.
 
-Kira selbst (Chat/Working/Coding) faehrt OHNE Rolle = volle Flotte; die Raenge
-gelten fuer Unteragenten (delegate/schwarm). Schreibpfade in Kiras Stores
-(Gedaechtnis, todo-Plan, Playbooks, Termine, Aussenwirkung wie E-Mail/Post)
-bleiben bewusst Kira vorbehalten.
+Die vier ETAGEN (reflex/arbeiter/denker/richter) gelten fuer Unteragenten
+(delegate/schwarm). Dazu kommt die Rolle "haupt" (unteragent=False): das
+kuratierte Manifest fuer Kiras LOKALEN Haupt-Chat — kleine Modelle sehen die
+Speisekarte des Alltags (~halber Prompt statt ~8k Token Voll-Manifest), die
+Kueche bleibt voll (KEIN Ausfuehrungs-Gate; jedes registrierte Werkzeug ist
+weiter aufrufbar, Coding laeuft eh ueber code:/plan mit voller Flotte).
+Cloud-Chat (natives Function-Calling) faehrt unveraendert die volle Flotte.
 """
 from __future__ import annotations
 
 # Rang -> Etage. "tools" sind NAMENSLISTEN (Wache: test_rollen prueft jede gegen
 # die Registry). task_type/escalate speisen resolve_model (Modellwechsel = config),
 # "schritte" ist der Default-Deckel (config agency.delegate.schritte uebersteuert).
+# unteragent=False (haupt) nimmt die Rolle aus delegate/schwarm heraus.
 ROLLEN: dict[str, dict] = {
     "reflex": {
         "beschreibung": "1B-Etage: triviale Zuarbeit — lesen, suchen, nachschlagen. Kein Schreiben.",
@@ -58,6 +62,25 @@ ROLLEN: dict[str, dict] = {
             "code_suche", "datei_finden", "code_symbol", "code_umriss",
             "read_logs", "health", "run_command", "db_query",
             "knowledge_search", "metric_list", "objective_list",
+        ],
+    },
+    "haupt": {
+        "beschreibung": ("Kiras lokaler Haupt-Chat: die kuratierte Alltags-Speisekarte "
+                         "(Assistenz, Wissen, Zeit, Delegation) — kleines Manifest fuer "
+                         "kleine Modelle; Coding/Systemtiefe laeuft ueber code:/plan (volle Flotte)."),
+        "task_type": "chat", "escalate": False, "unteragent": False,
+        "tools": [
+            "jetzt", "health", "web_search", "web_fetch", "browse",
+            "read_file", "list_dir", "write_file",
+            "remember_fact", "erinnerung", "termin_add", "termin_list",
+            "cron_add", "cron_list",
+            "todo_add", "todo_done", "todo_list",
+            "todo_plan", "todo_update", "todo_stand",
+            "knowledge_search", "knowledge_note",
+            "delegate", "schwarm",
+            "email_check", "email_send", "email_reply",
+            "playbook_list", "playbook_read", "vault_note", "person_fakt",
+            "request_approval", "switch_model",
         ],
     },
 }
@@ -105,7 +128,8 @@ def uebersicht() -> dict:
             "beschreibung": d["beschreibung"],
             "task_type": d["task_type"],
             "escalate": d["escalate"],
-            "schritte": d["schritte"],
+            "schritte": d.get("schritte"),          # haupt: kein Delegations-Deckel -> null
+            "unteragent": d.get("unteragent", True),
             "eskalation": _ESKALATION.get(rang),
             "tools": sorted(d["tools"]),
             "manifest": manifest(rang),

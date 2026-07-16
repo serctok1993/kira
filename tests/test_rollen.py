@@ -25,13 +25,33 @@ def test_jedes_rollen_tool_existiert_wirklich():
 
 def test_etagen_schnitt_und_schreibschutz():
     assert rollen.toolset("reflex") < rollen.toolset("arbeiter") < rollen.toolset("denker")
-    # Unteragenten fassen Kiras Stores und die Aussenwirkung nicht an
+    # UNTERAGENTEN fassen Kiras Stores und die Aussenwirkung nicht an ("haupt" ist
+    # bewusst KEIN Unteragent — Kiras eigener Chat-Hut darf delegieren/mailen/merken)
     verboten = {"delegate", "schwarm", "restart_self", "email_send", "bluesky_post",
                 "todo_plan", "todo_update", "remember_fact", "request_secret", "switch_model"}
-    for rang in rollen.ROLLEN:
+    for rang in ("reflex", "arbeiter", "denker", "richter"):
         schnitt = verboten & rollen.toolset(rang)
         assert not schnitt, f"Rolle {rang} traegt verbotene Werkzeuge: {schnitt}"
     assert "self_edit" not in rollen.toolset("reflex") | rollen.toolset("arbeiter")
+
+
+def test_hauptrolle_fuer_den_lokalen_chat():
+    # "haupt" = kuratiertes Alltags-Manifest fuer Kiras lokalen Chat (c5-Hebel):
+    # klein genug fuer kleine Modelle, traegt aber Delegation + Aussenwirkung.
+    ts = rollen.toolset("haupt")
+    assert 20 <= len(ts) <= 40
+    for muss in ("web_search", "erinnerung", "cron_add", "todo_stand", "todo_list",
+                 "delegate", "schwarm", "email_send", "remember_fact", "request_approval"):
+        assert muss in ts, f"haupt braucht {muss}"
+    for nie in ("restart_self", "request_secret", "run_command", "edit_datei",
+                "self_edit", "db_query"):
+        assert nie not in ts, f"{nie} gehoert nicht in den Plain-Chat (Coding/System via code:)"
+    # kein delegierbarer Rang, keine Eskalationsstufe, aber voll in der Uebersicht
+    from core.agency.tools import delegate_tools as dt
+    assert "haupt" not in dt._RANG
+    assert rollen.eskalation("haupt") is None
+    assert rollen.ROLLEN["haupt"].get("unteragent") is False
+    assert rollen.uebersicht()["haupt"]["schritte"] is None
     # der Richter urteilt READONLY (+ Tests via run_command), er schreibt keine Dateien
     for schreib in ("write_file", "edit_datei", "make_dir", "knowledge_note"):
         assert schreib not in rollen.toolset("richter")
@@ -83,7 +103,7 @@ def test_api_rollen_traegt_die_etagen():
     import core.api.server as s
 
     r = TestClient(s.app).get("/api/rollen").json()["rollen"]
-    assert set(r) == {"reflex", "arbeiter", "denker", "richter"}
+    assert set(r) == {"reflex", "arbeiter", "denker", "richter", "haupt"}
     for rang, d in r.items():
         assert d["tools"] and d["manifest"] and d["schemas"]
         assert {s2["function"]["name"] for s2 in d["schemas"]} == set(d["tools"])
