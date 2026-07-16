@@ -1,6 +1,6 @@
 """Thinking-Runde: der Denkprozess im Chat ist live beobachtbar.
 
-Sergens Wunsch (16.07.): beim Arbeiten sehen, WAS gerade laeuft und WO die
+Wunsch des Nutzers (16.07.): beim Arbeiten sehen, WAS gerade laeuft und WO die
 Fehler passieren. Marker-Tests nach dem Feedback-Runden-Muster.
 """
 from __future__ import annotations
