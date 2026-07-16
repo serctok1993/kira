@@ -36,7 +36,7 @@ function nav(v){cur=v;const go=()=>{$$("#side a").forEach(a=>a.classList.toggle(
  $$(".view").forEach(x=>x.classList.remove("on"));$("#v-"+v).classList.add("on");};
  if(document.startViewTransition&&!matchMedia("(prefers-reduced-motion: reduce)").matches){document.startViewTransition(go);}else{go();}
  if(v==="home"){loadCommand();loadMind();}
- if(v==="chat"){loadChatModels();loadChatSessions();loadChatSide();}
+ if(v==="chat"){loadChatModels();loadChatSessions();loadChatSide();loadAuftrag();}
  if(v==="me")loadMe();
  if(SUBTABS[v])subnav(v,SUBTABS[v].cur);}
 
@@ -808,6 +808,31 @@ $("#fokus-edit")&&($("#fokus-edit").onclick=async()=>{
  toast(f?"Fokus gesetzt":"Fokus geloescht","ok");loadFokus();});
 
 let _ctDaten=null;  /* letzter Stand der Tag-Spalte — fuettert auch das Briefing */
+/* ---- P2 Working-Pod: der aktive Auftrag (data/auftrag.json) live im Cockpit.
+   Der Harness fuehrt die Liste (todo_plan/todo_update) — hier nur lesen; ✕ ist die Notbremse. */
+const AU_MARK={offen:["○","au-o"],laeuft:["▸","au-l"],fertig:["✓","au-f"],verworfen:["−","au-v"]};
+function renderAuftrag(box,d){
+ const next=(d.schritte||[]).find(s=>s.status==="offen"||s.status==="laeuft");
+ box.innerHTML='<div class="au-ziel">'+esc(d.ziel||"")+'</div>'
+  +(d.schritte||[]).map(s=>{const mk=AU_MARK[s.status]||AU_MARK.offen;
+   return '<div class="au-row'+(next&&s.nr===next.nr?" au-next":"")+'"><span class="au-mark '+mk[1]+'">'+mk[0]+'</span><span class="au-txt">'+esc(s.text)
+    +(s.notiz?' <span class="au-notiz">— '+esc(s.notiz)+'</span>':'')+'</span></div>';}).join("")
+  +(d.huerde?'<div class="au-huerde">! Huerde: '+esc(d.huerde)+'</div>':"")
+  +(next?"":'<div class="au-done">✓ Alle Schritte erledigt.</div>');
+}
+async function loadAuftrag(){
+ const ziele=[["#ct-auftrag-panel","#ct-auftrag","#ct-au-stand"],["#bd-auftrag-panel","#bd-auftrag","#bd-au-stand"]];
+ if(!ziele.some(z=>$(z[0])))return;
+ let d=null;try{d=(await (await fetch("/api/auftrag")).json()).auftrag;}catch(e){}
+ const an=!!(d&&d.ziel),fertig=an?d.schritte.filter(s=>s.status==="fertig").length:0;
+ for(const z of ziele){const p=$(z[0]);if(!p)continue;
+  p.style.display=an?"":"none";
+  if(an){const b=$(z[1]);if(b)renderAuftrag(b,d);const st=$(z[2]);if(st)st.textContent=fertig+"/"+d.schritte.length;}}
+}
+$$(".au-stop").forEach(a=>a.onclick=async()=>{
+ if(!confirm("Aktiven Auftrag verwerfen? Der Plan wird geleert."))return;
+ await fetch("/api/auftrag/clear",{method:"POST"});toast("Auftrag verworfen","ok");loadAuftrag();});
+loadAuftrag();
 async function loadChatSide(){
  const te=$("#ct-termine");if(!te)return;
  try{
@@ -1220,7 +1245,7 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
   traceC.appendChild(row);traceScroll();}
  ws.onmessage=ev=>{const m=JSON.parse(ev.data);
   if(m.role==="system"){add(m.text,"sys");return;}
-  if(m.done){stopThinking();settleTrace();setStreaming(false);curBot=null;curThink=null;traceC=null;curThinkLine=null;loadChatSessions();return;}
+  if(m.done){stopThinking();settleTrace();setStreaming(false);curBot=null;curThink=null;traceC=null;curThinkLine=null;loadChatSessions();loadAuftrag();return;}
   if(m.kind==="think"){traceThink(m.text);return;}
   if(m.kind==="tool"){traceTool(m.name,m.args);return;}
   if(m.kind==="obs"){traceObs(m.name,m.text);return;}
@@ -2416,6 +2441,7 @@ function pollTick(){
    if(cur==="kira"&&SUBTABS.kira.cur==="log"&&logRaw.length<=100)loadEvents();
    if(cur==="kira"&&SUBTABS.kira.cur==="gov")loadGov();
    if(cur==="home"){loadHud();loadOps();}   /* 'Von Kira'-Panel lebt im Me-Tab (loadInbox); loadNeeds war toter Code -> ReferenceError */
+   if(cur==="home"||cur==="chat")loadAuftrag();  /* P2: Live-Haekchen im Working-Pod */
    if(cur==="home"&&(_pollN%6===0))loadNews();  // News seltener (~alle 30s)
    _pollN++;
  }
