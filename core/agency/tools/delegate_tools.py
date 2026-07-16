@@ -30,9 +30,11 @@ from core.agency.tools.registry import tool
 
 # P5: Rang -> (task_type, escalate) kommt aus der EINEN Rollen-Quelle (core/agency/rollen.py
 # — dort stehen auch Toolset + Schritte je Etage, abfragbar fuer die Werkstatt).
+# Nur ETAGEN sind delegierbar — "haupt" (unteragent=False) ist Kiras eigener Chat-Hut.
 from core.agency import rollen as _rollen
 
-_RANG = {r: (d["task_type"], d["escalate"]) for r, d in _rollen.ROLLEN.items()}
+_RANG = {r: (d["task_type"], d["escalate"]) for r, d in _rollen.ROLLEN.items()
+         if d.get("unteragent", True)}
 
 _DOSSIER = DATA_DIR / "workspace" / "richter-dossier.md"
 _DOSSIER_CAP = 8000
@@ -57,7 +59,8 @@ def _cfg() -> dict:
 
 
 def _steps_for(rang: str) -> int:
-    defaults = {r: d["schritte"] for r, d in _rollen.ROLLEN.items()}
+    defaults = {r: d["schritte"] for r, d in _rollen.ROLLEN.items()
+                if d.get("unteragent", True)}
     try:
         return int(_cfg().get("schritte", {}).get(rang, defaults[rang]))
     except Exception:  # noqa: BLE001
