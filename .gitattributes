@@ -4,3 +4,7 @@
 *.service  text eol=lf
 *.bat      text eol=crlf
 *.ps1      text eol=crlf
+# P6-Golden-Datei: BYTE-identisch auf jeder Plattform — Git darf die
+# Zeilenenden nie anfassen, sonst bricht der Golden-Test nach frischem
+# Windows-Checkout (autocrlf wuerde LF -> CRLF wandeln).
+tests/golden_system_prompt.txt -text
