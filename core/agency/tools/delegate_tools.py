@@ -28,14 +28,11 @@ from core.kernel import events
 from core.kernel.fs import atomic_write
 from core.agency.tools.registry import tool
 
-# Rang -> (task_type fuer resolve_model, escalate). Neue routing-Keys brauchen
-# KEINE Code-Aenderung (resolve_model faellt sonst auf default zurueck).
-_RANG = {
-    "reflex":   ("classify", False),
-    "arbeiter": ("worker", False),
-    "denker":   ("reason", False),
-    "richter":  ("reason", True),   # escalate -> escalation_model (der Richter)
-}
+# P5: Rang -> (task_type, escalate) kommt aus der EINEN Rollen-Quelle (core/agency/rollen.py
+# — dort stehen auch Toolset + Schritte je Etage, abfragbar fuer die Werkstatt).
+from core.agency import rollen as _rollen
+
+_RANG = {r: (d["task_type"], d["escalate"]) for r, d in _rollen.ROLLEN.items()}
 
 _DOSSIER = DATA_DIR / "workspace" / "richter-dossier.md"
 _DOSSIER_CAP = 8000
@@ -60,7 +57,7 @@ def _cfg() -> dict:
 
 
 def _steps_for(rang: str) -> int:
-    defaults = {"reflex": 6, "arbeiter": 12, "denker": 20, "richter": 12}
+    defaults = {r: d["schritte"] for r, d in _rollen.ROLLEN.items()}
     try:
         return int(_cfg().get("schritte", {}).get(rang, defaults[rang]))
     except Exception:  # noqa: BLE001
@@ -153,7 +150,9 @@ def _run_agent(auftrag: str, rang: str, session_id: str | None, schritte: str = 
     try:
         from core.agency.act import act  # lazy: act.py importiert builtin (Zirkularitaet)
 
-        res = act(prompt, session_id=sid, max_steps=max_steps, escalate=escalate, task_type=task_type)
+        # P5: der Unteragent sieht NUR das Toolset seines Rangs (rollen.py)
+        res = act(prompt, session_id=sid, max_steps=max_steps, escalate=escalate,
+                  task_type=task_type, rolle=rang)
         text = (res.get("text") or "").strip() or "(kein Ergebnis)"
     except Exception as e:  # noqa: BLE001 — Werkzeuge liefern Strings, raisen nie
         events.emit("delegate_error", {"sub": sid, "error": str(e)[:200]}, session_id=session_id)
@@ -187,6 +186,16 @@ def _delegiere(auftrag: str, rang: str, session_id: str | None, schritte: str = 
     _AKTIV = True
     try:
         r = _run_agent(auftrag, rang, session_id, schritte)
+        # P5 spawn-and-retry-once (grok-Muster): scheitert der Rang HART (Exception im
+        # Unteragenten), GENAU EIN neuer Versuch eine Etage hoeher — danach ist Schluss.
+        if not r["ok"]:
+            hoeher = _rollen.eskalation(rang)
+            if hoeher:
+                events.emit("delegate_retry", {"von": rang, "nach": hoeher, "sub": r["sid"]},
+                            session_id=session_id)
+                r = _run_agent(auftrag, hoeher, session_id, schritte)
+                if r["ok"]:
+                    r["rang"] = f"{hoeher} (eskaliert von {rang})"
     finally:
         _AKTIV = False
 
