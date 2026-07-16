@@ -57,14 +57,16 @@ def test_delegation_brief_traegt_berichtsformat(tmp_path, monkeypatch):
     from core.agency.tools import delegate_tools as dt
     seen: dict = {}
 
-    def fake_act(task, session_id=None, max_steps=None, escalate=False, task_type="reason"):
+    def fake_act(task, session_id=None, max_steps=None, escalate=False, task_type="reason", rolle=""):
         seen["task"] = task
+        seen["rolle"] = rolle
         return {"text": "FAKT: x (Quelle y). VERMUTUNG: keine.", "steps": 1}
 
     monkeypatch.setattr(act_mod, "act", fake_act)
     dt.delegate("recherchiere Betrieb X", rang="arbeiter")
     assert "BERICHTSFORMAT" in seen["task"]
     assert "NIE erfinden" in seen["task"]
+    assert seen["rolle"] == "arbeiter"      # P5: der Rang reicht sein Toolset an act durch
 
 
 # ---- /api/checkliste + FILES -----------------------------------------------------------
