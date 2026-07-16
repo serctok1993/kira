@@ -993,6 +993,17 @@ select.engine-pill,button.engine-pill{box-shadow:none}
 .think.live{width:auto;height:auto;min-width:min(240px,84%);animation:none;
  box-shadow:inset 0 0 0 1px rgba(139,92,246,.06)}  /* der .think-Ring, den .lives Glow verdeckte */
 .tx.live{width:auto;height:auto;box-shadow:none}   /* rainflow gewinnt schon (spezifischer) — Animation nicht anfassen */
+
+/* ===== Thinking-Runde: der Denkprozess ist live beobachtbar =====
+   Kopfzeile traegt Status (was laeuft GERADE) + Sekundenzaehler; jede Aktion
+   hat einen Zustands-Punkt (laeuft -> ✓/✕); Fehler stehen gezaehlt im Summary. */
+.trow .tst{flex:none;width:13px;text-align:center;font-size:10px;color:var(--muted)}
+.trow .tst.run{color:var(--accent);animation:auPuls 1.2s ease-in-out infinite}
+.trow .tst.ok{color:#7fd88a}
+.trow .tst.err{color:#ff8f8f;font-weight:700}
+.think .h .tnow{color:var(--fg);opacity:.85;font-size:11.5px;margin-left:8px;font-style:normal}
+.think .h .tsecs{color:var(--muted);font-size:10.5px;margin-left:8px;font-variant-numeric:tabular-nums}
+.think .h .terr{color:#ff8f8f;font-weight:600}
 </style>"""
 
 # Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt

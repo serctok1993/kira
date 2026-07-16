@@ -1179,7 +1179,13 @@ const TOOLMAP={read_file:["▤","Lesen","path"],code_suche:["⌕","Suche","muste
  harness_report:["◫","Selbst-Report","window"],cron_add:["◷","Routine+","label"],cron_list:["◷","Routinen",""],
  cron_remove:["◷","Routine−","job_id"],learn_skill:["✦","Skill lernen","name"],list_skills:["✦","Skills",""],
  plan_and_execute:["▤","Plan & Los","task"],switch_model:["≣","Modell","model"],restart_self:["↻","Neustart","which"],
- request_secret:["≡","Zugang","name"],watch_add:["◉","Monitor+","value"],jetzt:["◷","Uhrzeit",""]};
+ request_secret:["≡","Zugang","name"],watch_add:["◉","Monitor+","value"],jetzt:["◷","Uhrzeit",""],
+ todo_plan:["▤","Plan anlegen","ziel"],todo_update:["✓","Plan-Schritt","nr"],todo_stand:["▤","Plan-Stand",""],
+ todo_add:["✓","Todo+","text"],todo_done:["✓","Todo fertig","todo_id"],todo_list:["✓","Todos",""],
+ code_symbol:["⌕","Symbol","name"],code_umriss:["▤","Landkarte","pfad"],
+ erinnerung:["◷","Wecker","zeit"],termin_add:["◷","Termin+","titel"],termin_list:["◷","Termine",""],
+ delegate:["⁂","Delegation","rang"],schwarm:["⁂","Schwarm","rang"],email_send:["✉︎","Mail","to"],
+ knowledge_search:["⌕","Wissen","query"]};
 function shortArgs(a){try{const s=JSON.stringify(a||{});return s==="{}"?"":s.slice(0,90);}catch(e){return "";}}
 function toolLabel(name,args){const t=TOOLMAP[name];
  if(!t)return {icon:"⚒︎",label:name,target:shortArgs(args)};
@@ -1195,23 +1201,35 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
  /* Runde X: NICHTS klappt mehr von allein zu. Live laeuft der Denkstrom in einem
     End-Fenster mit (die letzten Zeilen ziehen vorbei — mitlesen ohne Klick);
     manuell Geoeffnetes bleibt offen; nach dem Lauf bleibt nur die Kopfzeile. */
+ let lastToolRow=null;   /* Thinking-Runde: die letzte Aktion wartet auf ihr Ergebnis (● -> ✓/✕) */
  function settleTrace(){if(!curThink)return;
   curThink.classList.remove("live");
+  if(curThink._tick){clearInterval(curThink._tick);curThink._tick=null;}
   const sek=curThink._t0?Math.max(1,Math.round((Date.now()-curThink._t0)/1000)):0;
   const n=curThink.querySelectorAll(".trow").length;
+  const f=curThink.querySelectorAll(".ostat.err").length;   /* Fehler zaehlen — DAS will man sehen */
   const tx=curThink.querySelector(".h .tx");
   if(tx){tx.classList.remove("live");
-   tx.textContent="Gedanken & Schritte"+(sek?" · "+sek+"s":"")+(n?" · "+n+" Aktion"+(n===1?"":"en"):"");}
+   tx.innerHTML=esc("Gedanken & Schritte"+(sek?" · "+sek+"s":"")+(n?" · "+n+" Aktion"+(n===1?"":"en"):""))
+    +(f?' <span class="terr">· '+f+" Fehler</span>":"");}
+  const now=curThink.querySelector(".h .tnow");if(now)now.textContent="";
+  const se=curThink.querySelector(".h .tsecs");if(se)se.textContent="";
   const hint=curThink.querySelector(".h .hint");if(hint)hint.textContent="— klick zum Nachlesen";}
  function ensureTrace(){if(!curThink){curThink=document.createElement("div");curThink.className="think live";
     curThink._t0=Date.now();
-    curThink.innerHTML='<span class="h"><span class="chev">▸</span> <span class="tx live">…</span> <span class="hint">— live · klick fuer den ganzen Verlauf</span></span><div class="c"></div>';
+    curThink.innerHTML='<span class="h"><span class="chev">▸</span> <span class="tx live">…</span><span class="tnow"></span><span class="tsecs"></span> <span class="hint">— live · klick fuer den ganzen Verlauf</span></span><div class="c"></div>';
     /* ALTBUG-Fix: der Klick band die GLOBALE curThink-Variable — nach dem Lauf (null)
        warf jeder Klick still einen TypeError, der Trace liess sich NIE mehr oeffnen.
        Jetzt haelt der Handler sein eigenes Element. */
     const dieser=curThink;
     curThink.querySelector(".h").onclick=()=>dieser.classList.toggle("show");log.appendChild(curThink);
-    traceC=curThink.querySelector(".c");curThinkLine=null;
+    /* Thinking-Runde: laufender Sekundenzaehler im Kopf — selbstheilend (raeumt sich
+       auf, wenn das Element den Live-Status verliert oder aus dem DOM faellt) */
+    dieser._tick=setInterval(()=>{
+     if(!dieser.isConnected||!dieser.classList.contains("live")){clearInterval(dieser._tick);return;}
+     const se=dieser.querySelector(".h .tsecs");
+     if(se)se.textContent="· "+Math.round((Date.now()-dieser._t0)/1000)+"s";},1000);
+    traceC=curThink.querySelector(".c");curThinkLine=null;lastToolRow=null;
     if(thinkEl){thinkEl.remove();thinkEl=null;}   /* Vor-Trace-Puls in die Trace-Ueberschrift falten (Timer laeuft weiter) */
     refreshPhrase();}return curThink;}
  function traceScroll(){if(traceC)traceC.scrollTop=traceC.scrollHeight;  /* das Live-Fenster haengt am ENDE des Denkstroms */
@@ -1231,13 +1249,21 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
    el._raf=requestAnimationFrame(tick);}}
  function traceTool(name,args){ensureTrace();curThinkLine=null;
   const L=toolLabel(name,args);const row=document.createElement("div");row.className="trow";
-  row.innerHTML='<span class="ti">'+esc(L.icon)+'</span><span class="tl">'+esc(L.label)+'</span>'
+  row.innerHTML='<span class="tst run">●</span><span class="ti">'+esc(L.icon)+'</span><span class="tl">'+esc(L.label)+'</span>'
    +(L.target?'<span class="tt">'+esc(L.target)+'</span>':'');
+  lastToolRow=row;
+  /* Kopf zeigt LIVE, was gerade laeuft — man sieht ohne Aufklappen, wo es hakt */
+  const now=curThink.querySelector(".h .tnow");
+  if(now)now.textContent="· "+L.icon+" "+L.label+(L.target?" · "+String(L.target).slice(0,42):"");
   traceC.appendChild(row);traceScroll();}
  function traceObs(name,text){ensureTrace();curThinkLine=null;
   const t=text||"";const m=t.match(/```diff\n([\s\S]*?)```/);
   const head=(m?t.slice(0,m.index):t).trim();
   const bad=/Fehlgeschlagen|ROT|⚠︎|Fehler|blockiert|nicht gefunden/i.test(head);
+  if(lastToolRow){const st=lastToolRow.querySelector(".tst");   /* ● -> ✓/✕ an der Aktion */
+   if(st){st.classList.remove("run");st.classList.add(bad?"err":"ok");st.textContent=bad?"✕":"✓";}
+   lastToolRow=null;}
+  const now=curThink.querySelector(".h .tnow");if(now)now.textContent="";
   const row=document.createElement("div");row.className="orow";
   if(head){const hd=document.createElement("div");hd.className="ostat "+(bad?"err":"ok");
    hd.textContent="↳ "+head.slice(0,240);row.appendChild(hd);}
