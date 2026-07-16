@@ -935,7 +935,7 @@ $("#pal-wrap")&&($("#pal-wrap").onclick=e=>{if(e.target.id==="pal-wrap")palClose
    frisch beruehrte Notizen leuchten WEISSER (heat aus dem Graph — "brighter &
    whiter = more recently touched"). Layout unsichtbar vorberechnet, HD via
    devicePixelRatio, reduced-motion = stehendes Bild ohne Flug. ==== */
-let _mindDaten=null,_mindLauf=null,_mindMalen=null;
+let _mindDaten=null,_mindLauf=null,_mindMalen=null,_mindDim="";
 /* Runde V: Begriffe an den wichtigsten Punkten — klein, per Knopf schaltbar */
 let _mindWorte=(localStorage.getItem("mind_worte")||"1")==="1";
 async function loadMind(){const cv=$("#mindcv");if(!cv)return;
@@ -962,9 +962,14 @@ async function loadMind(){const cv=$("#mindcv");if(!cv)return;
   if(/^#[0-9a-fA-F]{6}$/.test(f)){const n=parseInt(f.slice(1),16);
    return "rgba("+(n>>16&255)+","+(n>>8&255)+","+(n&255)+","+a+")";}
   return "rgba(176,38,255,"+a+")";};
+ /* Runde XII: Rueckkehr WIRBELT nicht mehr — das Layout klebt an den Node-Objekten;
+    neu gewuerfelt wird nur beim ersten Mal oder wenn sich die Board-Masse aendern. */
+ const dim=W+"x"+H+"@"+Math.round(cx)+","+Math.round(cy);
+ const frisch=(_mindDim!==dim)||nodes.some(n=>n.x==null);
  const staub=[];for(let i=0;i<150;i++)staub.push({x:Math.random()*W,y:Math.random()*H,
   z:Math.random()*440-220,r:Math.random()*1.2+.3,ph:Math.random()*6.283});
  const idx={};nodes.forEach((n,i)=>{idx[n.id]=i;
+  if(!frisch)return;                                      /* Positionen behalten */
   const a=Math.random()*6.283,r=Math.random()*.38+.08;   /* Start als lockere Wolke um die Mitte */
   n.x=cx+Math.cos(a)*W*r*.8;n.y=cy+Math.sin(a)*H*r*.8;n.vx=0;n.vy=0;
   n.z=Math.random()*440-220;n.ph=Math.random()*6.283;});  /* z = feste Tiefe je Stern */
@@ -982,8 +987,9 @@ async function loadMind(){const cv=$("#mindcv");if(!cv)return;
   nodes.forEach(n=>{n.vx+=(cx-n.x)*.0035*kraft;n.vy+=(cy-n.y)*.0035*kraft;
    n.x+=n.vx*=.58;n.y+=n.vy*=.58;
    n.x=Math.max(24,Math.min(W-24,n.x));n.y=Math.max(24,Math.min(H-24,n.y));});};
- /* 1) Layout FERTIG rechnen, bevor irgendwas sichtbar wird (kein wildes Fliegen) */
- for(let s=0;s<160;s++)schrittRechnen(1);
+ /* 1) Layout FERTIG rechnen, bevor irgendwas sichtbar wird (kein wildes Fliegen) —
+    bei Rueckkehr entfaellt das komplett, die Galaxie steht wo sie stand */
+ if(frisch){for(let s=0;s<160;s++)schrittRechnen(1);_mindDim=dim;}
  /* 3D-Kamera: langsamer Orbit ums Galaxie-Herz + sanftes Nicken — der "Flug" */
  let kam=0;const F=760;
  const proj=(x,y,z)=>{const c=Math.cos(kam),s=Math.sin(kam);
@@ -1025,15 +1031,17 @@ async function loadMind(){const cv=$("#mindcv");if(!cv)return;
    if(_mindWorte&&grad[i]>=4&&sc>.92){ctx.font="9px 'Segoe UI',sans-serif";
     ctx.fillStyle="rgba(236,238,244,"+(.42*sc).toFixed(3)+")";
     ctx.fillText((n.id||"").slice(0,16),px+8,py+3);}});
-  /* Pings: Lichtpunkte wandern die Faeden entlang — max 3 gleichzeitig, nie penetrant */
-  if(links.length&&pings.length<3&&Math.random()<.02)pings.push({l:links[Math.random()*links.length|0],t:0});
+  /* Pings: Lichtpunkte wandern die Faeden entlang — Runde XII: haeufiger, intensiver,
+     mit einem Hauch Blau (Signal-Licht), aber weiter dezent */
+  if(links.length&&pings.length<5&&Math.random()<.045)pings.push({l:links[Math.random()*links.length|0],t:0});
   for(let i=pings.length-1;i>=0;i--){const p=pings[i];p.t+=.014;if(p.t>=1){pings.splice(i,1);continue;}
    const A=nodes[p.l[0]],B=nodes[p.l[1]];
    const [ax,ay,asc]=proj(A.x,A.y,A.z),[bx,by,bsc]=proj(B.x,B.y,B.z);
    const x=ax+(bx-ax)*p.t,y=ay+(by-ay)*p.t,f=Math.sin(p.t*Math.PI)*((asc+bsc)/2);
-   const pg=ctx.createRadialGradient(x,y,0,x,y,9);pg.addColorStop(0,rgba(HUD,(.85*f).toFixed(3)));pg.addColorStop(1,"rgba(0,0,0,0)");
-   ctx.beginPath();ctx.arc(x,y,9,0,7);ctx.fillStyle=pg;ctx.fill();
-   ctx.beginPath();ctx.arc(x,y,1.6,0,7);ctx.fillStyle="rgba(255,255,255,"+(.9*f).toFixed(3)+")";ctx.fill();}
+   const pg=ctx.createRadialGradient(x,y,0,x,y,11);
+   pg.addColorStop(0,"rgba(56,189,248,"+(.95*f).toFixed(3)+")");pg.addColorStop(1,"rgba(0,0,0,0)");
+   ctx.beginPath();ctx.arc(x,y,11,0,7);ctx.fillStyle=pg;ctx.fill();
+   ctx.beginPath();ctx.arc(x,y,1.8,0,7);ctx.fillStyle="rgba(255,255,255,"+(.95*f).toFixed(3)+")";ctx.fill();}
   ctx.globalAlpha=1;};
  /* 2) sanft einblenden, dann Orbit-Flug + ruhige Drift (reduced-motion: statisch) */
  _mindMalen=malen;                        /* Begriffe-Knopf malt ohne Layout-Neustart */
@@ -1816,10 +1824,22 @@ let memFilter="wichtig",memQuery="",memBound=false;  /* Gedaechtnis-Diaet: Stand
 const MEM_WICHTIG=["fact","lesson","skill","semantic"];
 const memSel=new Set();   /* Mehrfachauswahl (Werkbank PR 5): EIN Loeschen fuer N Eintraege */
 function memBadge(role){return role==="partner"?'<span class="badge kira">◆ Kira</span>':'<span class="badge you">● Du</span>';}
+/* Runde XII: Klartext statt Fachwort — jede Kategorie sagt, was sie ist */
+const KIND_KLAR={fact:"Fakt",lesson:"Lektion",skill:"Skill · Rezept",episodic:"Chat-Notiz",semantic:"Wissen"};
+/* … und der gewaehlte Filter erklaert sich selbst: wer schreibt das, wann entsteht es */
+const MEM_ERKL={
+ wichtig:"Bewusst Gemerktes, gruppiert: Skills (Rezepte, die Kira sich selbst schreibt, wenn etwas funktioniert hat) · Lektionen (aus Fehlern) · Fakten (Dauerwissen). ✎ bearbeiten, ✕ loeschen.",
+ fact:"Dauerwissen ueber dich und deine Welt — entsteht, wenn du sagst „merk dir: …“ oder Kira etwas Wichtiges festhaelt.",
+ lesson:"Aus Fehlern gelernt — schreibt Kira sich selbst, wenn ein Schritt schiefging. Fliesst in ihre naechsten Entscheidungen ein.",
+ skill:"Erprobte Vorgehens-Rezepte: hat etwas einmal richtig funktioniert, schreibt Kira sich die Schritte auf und ruft sie beim naechsten Mal ab — darum lesen sie sich wie Anleitungen.",
+ partner:"Alles, was Kira selbst festgehalten hat (◆).",
+ user:"Alles, was aus deinen Nachrichten stammt (●) — auch Roh-Notizen aus dem Chat.",
+ all:"Wirklich alles — inklusive fluechtiger Chat-Notizen (Rohmaterial aus dem Gespraech, kein bewusstes Merken). Verfassung/Seele/Ziel sind Dateien und bleiben unberuehrt."};
 function memSelBar(){const b=$("#mem-selbar");if(!b)return;
  b.style.display=memSel.size?"flex":"none";
  const c=$("#mem-selcount");if(c)c.textContent=memSel.size+" ausgewaehlt";}
 async function loadMem(){bindMemFilter();memSel.clear();memSelBar();
+ const ek=$("#mem-erkl");if(ek)ek.textContent=MEM_ERKL[memFilter]||"";
  const ms=await (await fetch("/api/memory?limit=300")).json();const el=$("#memlist");el.innerHTML="";
  const q=memQuery.toLowerCase();
  const rows=ms.filter(m=>{
@@ -1846,7 +1866,7 @@ async function loadMem(){bindMemFilter();memSel.clear();memSelBar();
    gh.style.cssText="margin:12px 2px 5px;font-size:11px;letter-spacing:.1em";
    gh.textContent="◆ "+(kTitel[lastKind]||lastKind.toUpperCase());el.appendChild(gh);}
   d.innerHTML='<div class="mh"><input type="checkbox" data-sel style="accent-color:var(--accent)"/>'
-   +memBadge(m.role)+'<span class="badge kind">'+(m.kind||"")+'</span><span'+(m.session_id?' title="aus Session '+esc(m.session_id)+'"':'')+'>'+ts+'</span><span style="flex:1"></span>'
+   +memBadge(m.role)+'<span class="badge kind">'+(KIND_KLAR[m.kind]||m.kind||"")+'</span><span'+(m.session_id?' title="aus Session '+esc(m.session_id)+'"':'')+'>'+ts+'</span><span style="flex:1"></span>'
    +'<button class="ghost" data-edit title="bearbeiten" style="padding:1px 8px">✎</button>'
    +'<button class="ghost" data-del title="loeschen" style="padding:1px 8px">✕</button></div>'
    +'<div data-txt style="white-space:pre-wrap"></div>';
