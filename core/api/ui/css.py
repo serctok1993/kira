@@ -963,6 +963,25 @@ select.engine-pill,button.engine-pill{box-shadow:none}
 #mem-filter a.on,#ops-filter a.on{background:color-mix(in srgb,var(--accent) 20%,transparent);color:var(--ink)}
 /* das Board-Mikro war noch Basis-Lila (sass in bc-zeile, nicht bc-werk) — jetzt flach wie alle */
 #board-chat .chip.mic{background:var(--panel);border:1px solid var(--line);color:var(--muted)}
+
+/* ===== P2 Working-Pod: der aktive Auftrag im Cockpit (Chat-Seite + Board rechts) ===== */
+.au-stand{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.panel-h .au-stop{cursor:pointer;color:var(--muted);font-size:11px;margin-left:8px}
+.panel-h .au-stop:hover{color:var(--warn)}
+.au-ziel{font-weight:600;font-size:12.5px;padding:2px 0 6px;color:var(--ink)}
+.au-row{display:flex;gap:7px;align-items:flex-start;padding:2px 4px;font-size:12.5px;line-height:1.45;border-radius:6px}
+.au-row.au-next{background:color-mix(in srgb,var(--accent) 9%,transparent)}
+.au-mark{flex:0 0 14px;text-align:center;color:var(--muted)}
+.au-mark.au-f{color:var(--ok)}
+.au-mark.au-l{color:var(--accent);animation:auPuls 1.6s ease-in-out infinite}
+.au-mark.au-v{opacity:.55}
+.au-row .au-txt{min-width:0}
+.au-row.au-next .au-txt{color:var(--ink)}
+.au-mark.au-f+.au-txt,.au-mark.au-v+.au-txt{color:var(--muted)}
+.au-notiz{color:var(--muted);font-size:11px}
+.au-huerde{color:var(--warn);font-size:12px;padding:5px 4px 2px}
+.au-done{color:var(--ok);font-size:12px;padding:5px 4px 2px}
+@keyframes auPuls{0%,100%{opacity:1}50%{opacity:.35}}
 </style>"""
 
 # Wordmark-Schrift (Audiowide, subsettet, base64) direkt in den <style> injizieren — laedt
