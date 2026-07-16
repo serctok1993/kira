@@ -122,6 +122,11 @@ VIEWS = r"""</head><body>
         <div id="widgets-home" class="wslot"></div>
       </div>
       <div id="board-rechts" class="cmd-side">
+        <!-- P2 Working-Pod: der aktive Auftrag mit Live-Haekchen — nur sichtbar, wenn einer laeuft -->
+        <div class="panel" id="bd-auftrag-panel" style="display:none">
+          <div class="panel-h">▤ Auftrag <span class="live"></span><span class="sp"></span><span id="bd-au-stand" class="au-stand"></span><a class="au-stop" title="Auftrag verwerfen">✕</a></div>
+          <div id="bd-auftrag" class="panel-b"></div>
+        </div>
         <!-- Werkbank PR 6: EIN Erst-Blick-Panel — was Kira heute tat, was ansteht, was sie lernte -->
         <div class="panel">
           <div class="panel-h">◈ __AGENT__ heute <span class="sp"></span><a id="go-tagewerk" class="muted" style="cursor:pointer;font-size:10px">→ Detail</a></div>
@@ -227,6 +232,8 @@ VIEWS = r"""</head><body>
       </div>
       <!-- Kommandobruecke: DEIN TAG als dritte Spalte — Termine, Todos, Puls, ohne Tab-Wechsel -->
       <aside id="chat-tag">
+        <div class="panel" id="ct-auftrag-panel" style="display:none"><div class="panel-h">▤ AUFTRAG <span class="live"></span><span class="sp"></span><span id="ct-au-stand" class="au-stand"></span><a class="au-stop" title="Auftrag verwerfen">✕</a></div>
+          <div class="panel-b" id="ct-auftrag"></div></div>
         <div class="panel"><div class="panel-h">◈ TERMINE <span class="sp"></span><a class="mehr" data-go="me:tag">mehr ›</a></div>
           <div class="panel-b" id="ct-termine"><span class="muted">…</span></div></div>
         <div class="panel"><div class="panel-h">✓ TODOS <span class="sp"></span><a class="mehr" data-go="me:todos">alle ›</a></div>

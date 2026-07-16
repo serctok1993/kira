@@ -2230,6 +2230,23 @@ def api_prompt_context(message: str = "") -> dict:
     return {"sections": prompt_context(message), "rendered": build_system_prompt(message)}
 
 
+@app.get("/api/auftrag")
+def api_auftrag() -> dict:
+    # P2 (Working-Pod): der aktive Auftrag fuers Cockpit — Live-Haekchen je Schritt.
+    from core.agency import auftrag
+
+    return {"auftrag": auftrag.get(), "klartext": auftrag.klartext()}
+
+
+@app.post("/api/auftrag/clear")
+async def api_auftrag_clear() -> dict:
+    # Notbremse im Pod: der Nutzer verwirft einen haengenden Plan.
+    from core.agency import auftrag
+
+    auftrag.clear()
+    return {"ok": True}
+
+
 @app.get("/api/vault/graph")
 def api_vault_graph() -> dict:
     # Live-Obsidian-Vault als Graph (rein lesend): Notizen + [[Verlinkungen]] -> Knoten + Faeden.
