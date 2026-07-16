@@ -1850,7 +1850,7 @@ const MEM_WICHTIG=["fact","lesson","skill","semantic"];
 const memSel=new Set();   /* Mehrfachauswahl (Werkbank PR 5): EIN Loeschen fuer N Eintraege */
 function memBadge(role){return role==="partner"?'<span class="badge kira">◆ Kira</span>':'<span class="badge you">● Du</span>';}
 /* Runde XII: Klartext statt Fachwort — jede Kategorie sagt, was sie ist */
-const KIND_KLAR={fact:"Fakt",lesson:"Lektion",skill:"Skill · Rezept",episodic:"Chat-Notiz",semantic:"Wissen"};
+const KIND_KLAR={fact:"Fakt",lesson:"Lektion",skill:"Skill · Rezept",episodic:"Chat-Notiz",semantic:"Wissen",dream:"Kern · verdichtet"};
 /* … und der gewaehlte Filter erklaert sich selbst: wer schreibt das, wann entsteht es */
 const MEM_ERKL={
  wichtig:"Bewusst Gemerktes, gruppiert: Skills (Rezepte, die Kira sich selbst schreibt, wenn etwas funktioniert hat) · Lektionen (aus Fehlern) · Fakten (Dauerwissen). ✎ bearbeiten, ✕ loeschen.",

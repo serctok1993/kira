@@ -2240,6 +2240,15 @@ def api_rollen() -> dict:
     return {"rollen": rollen.uebersicht()}
 
 
+@app.post("/api/dream")
+async def api_dream() -> dict:
+    # P7: manueller Verdichtungs-Lauf aus dem Cockpit — ueberspringt enabled/Reife-
+    # Minimum (force), respektiert aber den Lock. Der Beleg steht in der Rueckgabe.
+    from core.mind import dream
+
+    return dream.dream(force=True)
+
+
 @app.get("/api/auftrag")
 def api_auftrag() -> dict:
     # P2 (Working-Pod): der aktive Auftrag fuers Cockpit — Live-Haekchen je Schritt.
