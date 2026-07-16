@@ -10,10 +10,11 @@ from core.api.ui.script import SCRIPT
 
 
 def test_kopfzeile_traegt_status_und_zaehler():
-    # Kopf: Live-Status (tnow) + Sekundenzaehler (tsecs, selbstheilender Interval)
-    for m in ('<span class="tnow">', '<span class="tsecs">', "dieser._tick=setInterval"):
+    # Kopf: Live-Status (tnow) + Sekundenzaehler (tsecs) — der Zaehler faehrt auf dem
+    # BESTEHENDEN Phrasen-Timer mit (S6.4-Wache: kein neuer nackter setInterval!)
+    for m in ('<span class="tnow">', '<span class="tsecs">', '".think.live"'):
         assert m in SCRIPT, f"Kopf-Marker fehlt: {m}"
-    assert 'classList.contains("live")' in SCRIPT          # Ticker raeumt sich selbst auf
+    assert SCRIPT.count("thinkTimer=setInterval") == 1     # weiterhin EIN Denk-Timer
     # Summary zaehlt Fehler und zeigt sie rot
     assert '".ostat.err"' in SCRIPT and 'class="terr"' in SCRIPT
     assert '" Fehler</span>"' in SCRIPT

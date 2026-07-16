@@ -1159,7 +1159,11 @@ log.addEventListener("click",e=>{const a=e.target.closest&&e.target.closest(".cb
 let thinkTimer=null,thinkEl=null;
 /* Eine rotierende Phrase, ueberall live: der Vor-Trace-Puls UND die Rainbow-Ueberschrift des Traces
    (Thinking/Cooking/Clauding…) lesen dieselbe Phrase — nur EIN Timer, kein Flackern. */
-function refreshPhrase(){const p=rndPhrase()+"…";document.querySelectorAll(".tx.live").forEach(t=>{t.textContent=p;});}
+function refreshPhrase(){const p=rndPhrase()+"…";document.querySelectorAll(".tx.live").forEach(t=>{t.textContent=p;});
+ /* Thinking-Runde: der Sekundenzaehler faehrt auf DIESEM Timer mit (S6.4: EIN
+    Scheduler, kein nackter setInterval) — 2.6s-Takt reicht fuer eine Dauer-Anzeige */
+ document.querySelectorAll(".think.live").forEach(th=>{const se=th.querySelector(".h .tsecs");
+  if(se&&th._t0)se.textContent="· "+Math.round((Date.now()-th._t0)/1000)+"s";});}
 function startThinking(){stopThinking();thinkEl=document.createElement("div");thinkEl.className="thinking";
  thinkEl.innerHTML='<span class="sh"></span><span class="tx live"></span>';
  log.appendChild(thinkEl);log.scrollTop=log.scrollHeight;refreshPhrase();
@@ -1204,7 +1208,6 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
  let lastToolRow=null;   /* Thinking-Runde: die letzte Aktion wartet auf ihr Ergebnis (● -> ✓/✕) */
  function settleTrace(){if(!curThink)return;
   curThink.classList.remove("live");
-  if(curThink._tick){clearInterval(curThink._tick);curThink._tick=null;}
   const sek=curThink._t0?Math.max(1,Math.round((Date.now()-curThink._t0)/1000)):0;
   const n=curThink.querySelectorAll(".trow").length;
   const f=curThink.querySelectorAll(".ostat.err").length;   /* Fehler zaehlen — DAS will man sehen */
@@ -1223,12 +1226,6 @@ function connect(){wsIntentional=false;const url=proto+"://"+location.host+"/ws/
        Jetzt haelt der Handler sein eigenes Element. */
     const dieser=curThink;
     curThink.querySelector(".h").onclick=()=>dieser.classList.toggle("show");log.appendChild(curThink);
-    /* Thinking-Runde: laufender Sekundenzaehler im Kopf — selbstheilend (raeumt sich
-       auf, wenn das Element den Live-Status verliert oder aus dem DOM faellt) */
-    dieser._tick=setInterval(()=>{
-     if(!dieser.isConnected||!dieser.classList.contains("live")){clearInterval(dieser._tick);return;}
-     const se=dieser.querySelector(".h .tsecs");
-     if(se)se.textContent="· "+Math.round((Date.now()-dieser._t0)/1000)+"s";},1000);
     traceC=curThink.querySelector(".c");curThinkLine=null;lastToolRow=null;
     if(thinkEl){thinkEl.remove();thinkEl=null;}   /* Vor-Trace-Puls in die Trace-Ueberschrift falten (Timer laeuft weiter) */
     refreshPhrase();}return curThink;}
