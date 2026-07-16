@@ -132,6 +132,8 @@ def prompt_context(user_message: str, session_id: str | None = None) -> dict:
         mem_block = "(noch keine frueheren Erinnerungen)"
     lessons = memory.recall_lessons(limit=5)
     skills = memory.recall_skills(limit=6)
+    from core.agency import auftrag
+
     return {
         "jetzt": jetzt_zeile(),
         "verfassung": _read("constitution.md"),
@@ -146,6 +148,9 @@ def prompt_context(user_message: str, session_id: str | None = None) -> dict:
         "antrieb": antrieb_direktive(),
         "arbeitsweise": arbeitsweise_block(),
         "persona": persona_text(),
+        # P1: der aktive Auftrag ans PROMPT-ENDE (Werkstatt-Messung: +11 Punkte);
+        # ohne Auftrag "" -> byte-identischer Prompt (Golden-Test bleibt gueltig)
+        "auftrag": auftrag.prompt_block(),
         "user_name": identity.user_name(),
     }
 
@@ -189,7 +194,7 @@ def _prompt_zusammenbauen(c: dict) -> str:
 {c["arbeitsweise"]}---
 {c["persona"]}
 
-Antworte auf Deutsch. Nutze deine Erinnerungen, wenn sie relevant sind."""
+Antworte auf Deutsch. Nutze deine Erinnerungen, wenn sie relevant sind.{c["auftrag"]}"""
 
 
 def build_system_prompt(user_message: str, session_id: str | None = None) -> str:

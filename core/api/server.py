@@ -13,6 +13,7 @@ from fastapi import FastAPI, File, Form, Request, UploadFile, WebSocket, WebSock
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 
 from core.agency.tools import builtin as _builtin  # noqa: F401  (registriert eingebaute Tools)
+from core.agency.tools import todo_tools as _todo  # noqa: F401  (P1: Plan-Werkzeuge)
 from core.agency.tools import registry
 from core.agency.tools import synthesize as _synth
 from core.config import CONFIG, MIND_DIR, ROOT
