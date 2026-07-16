@@ -550,6 +550,15 @@ def run_forever(interval: int | None = None) -> None:
             except Exception as e:  # noqa: BLE001
                 events.emit("cron_error", {"error": str(e)})
             try:
+                # Einmal-Wecker OHNE Telegram: Cockpit-Zustellung als Fallback (mit
+                # Telegram stellt der Bot zu — genau EIN Zusteller, kein Datei-Rennen).
+                from core.agency import erinnerungen
+
+                if not erinnerungen.telegram_konfiguriert():
+                    erinnerungen.zustellen(None)
+            except Exception as e:  # noqa: BLE001
+                events.emit("erinnerung_error", {"error": str(e)})
+            try:
                 # Proaktive Trigger (S4): neue Events gegen Wenn-Dann-Reflexe matchen.
                 from core.agency.missions import triggers as _triggers
 
