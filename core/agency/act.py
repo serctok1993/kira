@@ -88,6 +88,13 @@ def _budget(name: str, base: int, task_type: str = "chat", escalate: bool = Fals
         return base
 
 _ACT_RE = re.compile(r"ACT\s+([a-zA-Z_]\w*)\s*\{")
+# Leak-Recovery (c4-Vorfall 16.07.): Modelle schreiben Tool-Calls manchmal als
+# Code-Fence OHNE ACT-Praefix ("```bash\nhealth {}\n```") — der Aufruf ging dann
+# als normale ANTWORT an den Nutzer raus ("sagt sie ruft auf, tut es nicht").
+# Bewusst eng: nur direkt nach einem Fence-Start neutraler Sprache (bash/json/
+# act/tool/text oder leer) — Python-/JS-Codebeispiele in Prosa bleiben Prosa.
+_FENCE_CALL_RE = re.compile(
+    r"```(?:bash|json|act|tool|text)?[ \t]*\r?\n\s*([a-zA-Z_]\w*)\s*(\{)")
 
 
 def _identity() -> str:
@@ -145,13 +152,22 @@ def _identity() -> str:
 def _parse_act(text: str):
     """Findet 'ACT <tool> {json}' robust — auch mit Prosa oder Code-Fences drumherum,
     damit Tool-Aufrufe nie als Antwort durchsickern. JSON wird ab der '{'-Position
-    dekodiert (raw_decode ignoriert nachfolgenden Text)."""
+    dekodiert (raw_decode ignoriert nachfolgenden Text).
+    Fallback (Leak-Recovery): ein gefencter '<name> {json}'-Block OHNE ACT-Praefix
+    zaehlt ebenfalls als Aufruf — existiert das Werkzeug nicht, greift dadurch der
+    lehrende Dispatcher-Fehler ('existiert nicht. Verfuegbar: …') statt dass der
+    Leak als Antwort beim Nutzer landet."""
     t = text.replace("`", " ").replace("*", " ")  # Fences/Deko entschaerfen, Laenge bleibt 1:1
     m = _ACT_RE.search(t)
-    if not m:
-        return None
-    name = m.group(1)
-    brace = m.end() - 1  # Index des '{'
+    if m:
+        name = m.group(1)
+        brace = m.end() - 1  # Index des '{'
+    else:
+        fm = _FENCE_CALL_RE.search(text)
+        if not fm:
+            return None
+        name = fm.group(1)
+        brace = fm.start(2)
     try:
         args, _ = json.JSONDecoder().raw_decode(text[brace:])
     except json.JSONDecodeError:
