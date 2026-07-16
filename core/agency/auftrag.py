@@ -97,7 +97,7 @@ def _zeile(s: dict) -> str:
 
 
 def klartext() -> str:
-    """Der Plan als lesbarer Block — fuer todo_list, Tool-Rueckgaben und die UI."""
+    """Der Plan als lesbarer Block — fuer todo_stand, Tool-Rueckgaben und die UI."""
     d = get()
     if not d:
         return "(kein aktiver Auftrag)"
