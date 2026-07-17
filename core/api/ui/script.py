@@ -1632,7 +1632,8 @@ $("#fsave").onclick=async()=>{if(!fcur)return;
  const body=fcur.vault?{path:fcur.name,content:$("#farea").value}:{name:fcur.name,content:$("#farea").value};
  const r=await (await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},
   body:JSON.stringify(body)})).json();
- $("#ftitle").textContent=fcur.label+(r.ok?" — gespeichert ✓":" — Fehler");};
+ /* Persona-Budget-Wache: sanfter Hinweis statt Suite-Fail (W0) — der Server meldet ihn mit */
+ $("#ftitle").textContent=fcur.label+(r.ok?" — gespeichert ✓":" — Fehler")+(r.hinweis?" · ⚠ "+r.hinweis:"");};
 
 /* ---- Models ---- */
 function showLoaded(el,ld){if(ld&&ld.context){const col=(ld.gpu_pct!=null&&ld.gpu_pct>=99)?"var(--ok)":"var(--warn)";

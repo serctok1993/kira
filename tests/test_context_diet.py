@@ -1,8 +1,9 @@
 """S4.1: Kontext-Diät — Persona-Budget, Lektionen-Curator, Embedding-Backfill. Offline."""
 from __future__ import annotations
 
+from core.config import MIND_DIR
 from core.mind import curator
-from core.mind.agent import PERSONA_DIRECTIVE
+from core.mind.agent import PERSONA_BUDGET
 from core.mind.memory import store as memory
 import core.mind.memory.embed as embed_mod
 from core.kernel import events, llm_router
@@ -24,6 +25,19 @@ def _fake_complete(text: str):
 
 
 # --- Persona: Budget + alle Verhaltensregeln erhalten -------------------------
+# Gemessen wird der WERKSZUSTAND (core/mind/templates/PERSONA.md) — NICHT die
+# live-editierbare core/mind/PERSONA.md: die schreiben Charakter-Editor + Agent
+# fort, und die Suite haengt nie an Live-Daten (W0; Praxis-Fund 17.07.: Live-
+# Persona 4999 Zeichen -> Suite kippte rot, obwohl der Werkszustand im Budget lag).
+# Die LIVE-Groesse bewacht das Cockpit sanft (test_persona_wache_* unten).
+
+def _werks_persona() -> str:
+    raw = (MIND_DIR / "templates" / "PERSONA.md").read_text(encoding="utf-8")
+    # Werksnamen hart statt identity.render(): CONFIG traegt Live-Overrides.
+    return (raw.replace("{{USER_NAME_S}}", "Partners")
+               .replace("{{USER_NAME}}", "Partner")
+               .replace("{{AGENT_NAME}}", "Kira")).strip()
+
 
 def test_persona_size_budget():
     # Diaet-Ziel (vorher 5378, dann 3800). Bewusst auf 4200 angehoben fuer zwei
@@ -31,11 +45,11 @@ def test_persona_size_budget():
     # Karte->Adresse-Nachschau statt Vault-Scan) und "WIE DU MITDENKST" (1 Mitdenk-
     # Schritt). Bestehende Bloecke wurden dafuer gestrafft; geht bei JEDEM LLM-Call
     # mit, in Chat UND Mission (_identity).
-    assert len(PERSONA_DIRECTIVE) < 4200
+    assert len(_werks_persona()) < PERSONA_BUDGET
 
 
 def test_persona_keeps_all_rules():
-    p = PERSONA_DIRECTIVE
+    p = _werks_persona()
     for marker in ("Kira", "weiblich", "Basismodell", "remember_fact",
                    "web_search", "SPRACHMEMOS", "Not-Aus",
                    "Ketten ab", "FREMDE", "GELD", "Audit", "read_file", "Get-Content",
@@ -49,9 +63,46 @@ def test_persona_plus_body_cover_capabilities():
     BODY-Kopf umgezogen — Persona + BODY zusammen muessen es tragen."""
     from core.mind import body
 
-    combined = PERSONA_DIRECTIVE + body.compact()
+    combined = _werks_persona() + body.compact()
     for marker in ("self_edit", "run_command", "BODY.md"):
         assert marker in combined, f"Faehigkeits-Marker fehlt im Verbund: {marker}"
+
+
+def test_persona_wache_meldet_budget_ueberzug(monkeypatch, tmp_path):
+    """Sanfte Wache fuer die LIVE-Persona: ueber Budget -> Cockpit-Hinweis im
+    Persona-Label + in der Speicher-Antwort, aber KEIN Suite-Fail. Persona-Quelle,
+    Datei-Pfad und DBs sind auf tmp umgebogen — nichts Lebendes wird angefasst."""
+    from fastapi.testclient import TestClient
+    from core.api import server
+
+    _use_tmp_db(monkeypatch, tmp_path)
+    monkeypatch.setattr(server, "persona_text", lambda: "X" * (PERSONA_BUDGET + 799))
+    c = TestClient(server.app)
+    label = {f["name"]: f["label"] for f in c.get("/api/files").json()}["PERSONA.md"]
+    assert "ueber dem" in label and str(PERSONA_BUDGET + 799) in label
+
+    monkeypatch.setitem(server.FILES["PERSONA.md"], "path", tmp_path / "PERSONA.md")
+    monkeypatch.setattr(server, "MIND_DIR", tmp_path)  # Backup-Ziel (history/) -> tmp
+    r = c.post("/api/file", json={"name": "PERSONA.md", "content": "egal"}).json()
+    assert r["ok"] is True and "Prompt-Kosten" in r["hinweis"]
+    assert (tmp_path / "PERSONA.md").read_text(encoding="utf-8") == "egal"
+
+
+def test_persona_wache_still_im_budget(monkeypatch, tmp_path):
+    """Im Budget bleibt alles beim Alten: Label ohne Warnung, Antwort ohne Hinweis."""
+    from fastapi.testclient import TestClient
+    from core.api import server
+
+    _use_tmp_db(monkeypatch, tmp_path)
+    monkeypatch.setattr(server, "persona_text", lambda: "schlank")
+    c = TestClient(server.app)
+    label = {f["name"]: f["label"] for f in c.get("/api/files").json()}["PERSONA.md"]
+    assert "⚠" not in label and "ueber dem" not in label
+
+    monkeypatch.setitem(server.FILES["PERSONA.md"], "path", tmp_path / "PERSONA.md")
+    monkeypatch.setattr(server, "MIND_DIR", tmp_path)
+    r = c.post("/api/file", json={"name": "PERSONA.md", "content": "kurz"}).json()
+    assert r == {"ok": True}  # kein hinweis-Feld
 
 
 # --- Lektionen-Curator ----------------------------------------------------------
