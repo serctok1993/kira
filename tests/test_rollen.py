@@ -41,10 +41,13 @@ def test_hauptrolle_fuer_den_lokalen_chat():
     ts = rollen.toolset("haupt")
     assert 20 <= len(ts) <= 40
     for muss in ("web_search", "erinnerung", "cron_add", "todo_stand", "todo_list",
-                 "delegate", "schwarm", "email_send", "remember_fact", "request_approval"):
+                 "delegate", "schwarm", "email_send", "remember_fact", "request_approval",
+                 "watch_add", "watch_list", "screenshot_url", "read_logs"):   # c5b-Befund (1)
         assert muss in ts, f"haupt braucht {muss}"
+    # code_suche bewusst NICHT: die Coding-Familie bleibt KOMPLETT im code:-Modus —
+    # halbe Werkzeug-Familien verwirren kleine Modelle (todo_list-Lehre).
     for nie in ("restart_self", "request_secret", "run_command", "edit_datei",
-                "self_edit", "db_query"):
+                "self_edit", "db_query", "code_suche"):
         assert nie not in ts, f"{nie} gehoert nicht in den Plain-Chat (Coding/System via code:)"
     # kein delegierbarer Rang, keine Eskalationsstufe, aber voll in der Uebersicht
     from core.agency.tools import delegate_tools as dt
