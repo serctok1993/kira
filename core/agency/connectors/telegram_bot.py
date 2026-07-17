@@ -774,6 +774,19 @@ def _maybe_melde_buendel(client: httpx.Client) -> None:
         pass
 
 
+def _maybe_config_refresh() -> None:
+    """Dashboard-Aenderungen (Modellwechsel/set_override) erreichen diesen Prozess:
+    Overrides per mtime nachladen (Live-Fund 17.07.: Bot fuhr nach model_role_set
+    bis zum Neustart auf dem alten Modell). Raist nie."""
+    try:
+        from core import config
+
+        if config.refresh_overrides():
+            events.emit("config_refreshed", {"prozess": "telegram_bot"})
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _maybe_erinnerungen(client: httpx.Client) -> None:
     """Faellige Einmal-Wecker (erinnerung-Tool) per Telegram zustellen. Raist nie.
     Der Bot ist DER Zusteller, sobald Telegram konfiguriert ist — der Runner stellt
@@ -1396,6 +1409,7 @@ def run() -> None:
             if kill_switch_active():
                 print("KILL-SWITCH aktiv — Bot haelt an.")
                 break
+            _maybe_config_refresh()          # Dashboard-Modellwechsel wirkt OHNE Neustart
             _push_new_approvals(client)  # jede Runde (~60s): neue Freigaben proaktiv schicken
             _maybe_evening_resuemee(client)  # einmal am Abend: Tagewerk von selbst
             _maybe_melde_buendel(client)     # Missions-Meldungen gebuendelt statt Flut
