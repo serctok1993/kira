@@ -161,6 +161,47 @@ def set_override(path: str, value) -> None:
     _apply_overrides(CONFIG, {path: value})
 
 
+def _ov_mtime(p) -> float:
+    try:
+        return p.stat().st_mtime
+    except OSError:
+        return 0.0
+
+
+_OV_MTIMES: dict[str, float] = {}
+
+
+def refresh_overrides() -> bool:
+    """Laufzeit-Overrides (data/models.json + data/overrides.json) per mtime nachladen.
+
+    Fuer LANGLAEUFER-Prozesse (Telegram-Bot, Runner): set_role/set_override schreiben
+    die Dateien im SERVER-Prozess und patchen nur DESSEN CONFIG — ohne diesen Refresh
+    fuhr der Bot bis zum Neustart auf dem alten Modell (Live-Fund 17.07.:
+    model_role_set um 10:57, alle Bot-Calls liefen weiter auf dem Vorgaenger).
+    Billig: zwei stat()-Aufrufe; neu gebaut wird nur bei echter Aenderung.
+    True = CONFIG wurde in place neu aufgebaut (alle Import-Referenzen sehen es)."""
+    import json as _jr
+
+    m1, m2 = _ov_mtime(_MODEL_OVERRIDE), _ov_mtime(_OVERRIDE_FILE)
+    if _OV_MTIMES.get("models") == m1 and _OV_MTIMES.get("overrides") == m2:
+        return False
+    _OV_MTIMES["models"], _OV_MTIMES["overrides"] = m1, m2
+    frisch = load_config()
+    CONFIG.clear()
+    CONFIG.update(frisch)
+    if _MODEL_OVERRIDE.exists():
+        try:
+            apply_model_overrides(_jr.loads(_MODEL_OVERRIDE.read_text(encoding="utf-8")))
+        except Exception:  # noqa: BLE001
+            pass
+    if _OVERRIDE_FILE.exists():
+        try:
+            _apply_overrides(CONFIG, _jr.loads(_OVERRIDE_FILE.read_text(encoding="utf-8")))
+        except Exception:  # noqa: BLE001
+            pass
+    return True
+
+
 def remove_overrides(prefixes: tuple[str, ...] | list[str]) -> int:
     """Overrides entfernen (W3 Werkszustand): exakter Pfad ODER Praefix ('identity'
     trifft 'identity.user'). CONFIG wird danach IN PLACE frisch aufgebaut (config.yaml
@@ -200,6 +241,9 @@ if _OVERRIDE_FILE.exists():
         _apply_overrides(CONFIG, _json3.loads(_OVERRIDE_FILE.read_text(encoding="utf-8")))
     except Exception:
         pass
+
+# Stand der Override-Dateien stempeln: refresh_overrides() baut nur bei ECHTER Aenderung neu
+_OV_MTIMES.update({"models": _ov_mtime(_MODEL_OVERRIDE), "overrides": _ov_mtime(_OVERRIDE_FILE)})
 
 # Zugaenge/Secrets aus data/secrets.json in die Umgebung laden (write-only, gitignored)
 _SECRETS_FILE = DATA_DIR / "secrets.json"

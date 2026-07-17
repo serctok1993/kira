@@ -511,12 +511,18 @@ def cron_list() -> str:
       "Loescht eine geplante (Cron-)Aufgabe dauerhaft. Die id kommt aus cron_list "
       "(auch 8-Zeichen-Kurzform reicht).",
       {"job_id": "die id der zu loeschenden Aufgabe (aus cron_list)"})
-def cron_remove(job_id: str) -> str:
+def cron_remove(job_id: str = "", id: str = "", **falsche_args) -> str:
     from core.agency.missions import cron
 
-    jid = (job_id or "").strip()
+    # 'id' als Alias annehmen: cron_list druckt "(id=…)", also rufen Modelle natuerlich
+    # {"id": …} — das warf vorher einen ROHEN TypeError (Live-Fund 17.07., c4 hatte
+    # sich die id vorbildlich aus cron_list geholt). Unbekannte Argumente LEHREN.
+    jid = (str(job_id).strip() or str(id).strip())
+    if falsche_args or not jid:
+        return ("Fehler: cron_remove braucht die job_id aus cron_list (8-Zeichen-Kurzform "
+                'reicht). Beispiel: ACT cron_remove {"job_id": "c7d0cd15"}')
     js = cron.list_jobs()
-    match = next((j for j in js if j["id"] == jid or j["id"].startswith(jid)), None) if jid else None
+    match = next((j for j in js if j["id"] == jid or j["id"].startswith(jid)), None)
     if not match:
         return f"Keine geplante Aufgabe mit id '{jid}' gefunden. cron_list zeigt die aktuellen ids."
     cron.remove_job(match["id"])

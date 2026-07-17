@@ -544,6 +544,15 @@ def run_forever(interval: int | None = None) -> None:
             except Exception as e:  # noqa: BLE001
                 events.emit("monitor_error", {"error": str(e)})
             try:
+                # Dashboard-Aenderungen (Modellwechsel/set_override) auch hier live
+                # nachladen — der Runner ist wie der Bot ein Langlaeufer-Prozess.
+                from core import config as _cfg_mod
+
+                if _cfg_mod.refresh_overrides():
+                    events.emit("config_refreshed", {"prozess": "runner"})
+            except Exception as e:  # noqa: BLE001
+                events.emit("config_refresh_error", {"error": str(e)})
+            try:
                 from core.agency.missions import cron
 
                 cron.run_due()
