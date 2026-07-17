@@ -31,6 +31,14 @@ def _is_ephemeral(session_id: str | None) -> bool:
     return bool(session_id) and str(session_id).startswith(_EPHEMERAL_PREFIXES)
 
 
+def ist_testfahrt(session_id: str | None) -> bool:
+    """Oeffentlicher Alias: ephemere Sessions sind TESTFAHRTEN — sie bekommen im
+    Prompt keine episodischen Alt-Erinnerungen serviert (agent.prompt_context),
+    damit neue Modelle objektiv bewertet werden koennen (Werkstatt-Wunsch 17.07.:
+    keine Alt-Chat-Kontamination, z.B. gespeicherte Fabrikationen als Kontext)."""
+    return _is_ephemeral(session_id)
+
+
 def _conn() -> sqlite3.Connection:
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA journal_mode=WAL")
@@ -118,11 +126,14 @@ def _fts_query(query: str) -> str:
     return " OR ".join(f'"{t}"' for t in tokens[:12])
 
 
-def recall(query: str, limit: int = 6, exclude_session: str | None = None) -> list[dict]:
+def recall(query: str, limit: int = 6, exclude_session: str | None = None,
+           nur_dauerhaft: bool = False) -> list[dict]:
     """Holt relevante Erinnerungen.
 
     Zuerst SEMANTISCH (Embeddings/Cosine) — findet Relevantes auch ohne gleiche
     Woerter. Fallback: Stichwort (FTS) bzw. Recency, wenn keine Embeddings da sind.
+    nur_dauerhaft=True (Testfahrt): episodische Chat-Erinnerungen bleiben draussen,
+    Fakten/Lektionen/Skills/Kerne duerfen weiter in den Prompt.
     """
     try:
         import json
@@ -140,6 +151,8 @@ def recall(query: str, limit: int = 6, exclude_session: str | None = None) -> li
                 if exclude_session and sid == exclude_session:
                     continue
                 if _is_ephemeral(sid):  # Test-/Benchmark-Chatter nie in andere Sessions einschleppen
+                    continue
+                if nur_dauerhaft and kind == "episodic":
                     continue
                 try:
                     v = json.loads(emb)
@@ -168,6 +181,8 @@ def recall(query: str, limit: int = 6, exclude_session: str | None = None) -> li
                 "AND (m.session_id IS NULL OR (m.session_id NOT LIKE 'test-%' "
                 "AND m.session_id NOT LIKE 'bench-%')) "  # ephemere Test-Chats ausschliessen
             )
+            if nur_dauerhaft:
+                sql += "AND m.kind != 'episodic' "
             params: list = [terms]
             if exclude_session:
                 sql += "AND m.session_id IS NOT ? "
@@ -182,6 +197,8 @@ def recall(query: str, limit: int = 6, exclude_session: str | None = None) -> li
             sql = ("SELECT ts, role, text, session_id FROM memory "
                    "WHERE (session_id IS NULL OR (session_id NOT LIKE 'test-%' "
                    "AND session_id NOT LIKE 'bench-%')) ")  # ephemere Test-Chats ausschliessen
+            if nur_dauerhaft:
+                sql += "AND kind != 'episodic' "
             params = []
             if exclude_session:
                 sql += "AND session_id IS NOT ? "
@@ -205,18 +222,48 @@ def recent_dialogue(session_id: str, limit: int = 10) -> list[dict]:
     return [{"role": r[0], "text": r[1]} for r in rows]
 
 
-def clear_session(session_id: str) -> int:
-    """Loescht das episodische Gedaechtnis EINER Session (frischer Start im Chat).
+def clear_session(session_id: str, backup: bool = True) -> int:
+    """RADIERGUMMI: loescht das episodische Gedaechtnis EINER Session — damit
+    Fehl-Sessions (z.B. eine gespeicherte Fabrikation) nicht per Recall ins
+    Gedaechtnis der naechsten Modelle bluten.
 
-    S7c-Haertung: NUR kind='episodic' wird geloescht — semantisches Wissen
-    (Fakten/Lektionen/Skills) ist damit technisch garantiert sicher, selbst wenn
-    es je eine session_id truege. Gibt die Anzahl geloeschter Eintraege zurueck.
-    """
+    S7c-Haertung: NUR kind='episodic' faellt — semantisches Wissen (Fakten/
+    Lektionen/Skills) ist technisch garantiert sicher. Sichert vorher zeilenweise
+    (data/backups/, wie reset_episodic) und raeumt den FTS-Index mit ab (vorher
+    blieben Stichwort-Leichen zurueck). Gibt die Anzahl geloeschter Eintraege."""
+    import json as _j
+    from pathlib import Path
+
+    from core.config import DATA_DIR
     with _conn() as c:
-        n = c.execute("SELECT COUNT(*) FROM memory WHERE session_id=? AND kind='episodic'",
-                      (session_id,)).fetchone()[0]
+        rows = c.execute(
+            "SELECT id, ts, session_id, role, kind, text FROM memory "
+            "WHERE session_id=? AND kind='episodic'", (session_id,),
+        ).fetchall()
+        backup_path = ""
+        if backup and rows:
+            bdir = Path(DATA_DIR) / "backups"
+            bdir.mkdir(parents=True, exist_ok=True)
+            sid8 = "".join(ch for ch in str(session_id) if ch.isalnum())[:16] or "session"
+            backup_path = str(bdir / f"session-{sid8}-{int(time.time())}.jsonl")
+            cols = ["id", "ts", "session_id", "role", "kind", "text"]
+            with open(backup_path, "w", encoding="utf-8") as f:
+                for r in rows:
+                    f.write(_j.dumps(dict(zip(cols, r)), ensure_ascii=False) + "\n")
         c.execute("DELETE FROM memory WHERE session_id=? AND kind='episodic'", (session_id,))
-    return int(n)
+        if _HAS_FTS:
+            for r in rows:
+                try:
+                    c.execute("DELETE FROM memory_fts WHERE mem_id=?", (r[0],))
+                except sqlite3.OperationalError:
+                    pass
+    if rows:
+        try:
+            events.emit("session_vergessen", {"sid": str(session_id)[:40],
+                                              "deleted": len(rows), "backup": backup_path})
+        except Exception:  # noqa: BLE001
+            pass
+    return len(rows)
 
 
 def reset_episodic(backup: bool = True) -> dict:

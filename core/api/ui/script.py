@@ -1303,7 +1303,7 @@ async function loadChatSessions(){const box=$("#sess-items");if(!box)return;
    const wasArch=r.classList.contains("arch");
    await fetch("/api/chat/archive",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sid:r.dataset.sid,archived:!wasArch})});
    loadChatSessions();};
-  r.querySelector(".sx").onclick=async e=>{e.stopPropagation();if(!confirm("Diese Unterhaltung loeschen? (Verlauf weg — Kiras Fakten/Lektionen bleiben)"))return;
+  r.querySelector(".sx").onclick=async e=>{e.stopPropagation();if(!confirm("Diese Unterhaltung vergessen? (Verlauf faellt aus dem Gedaechtnis — mit Sicherung in data/backups; Kiras Fakten/Lektionen bleiben)"))return;
    await fetch("/api/chat/delete",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sid:r.dataset.sid})});
    if(curSid===r.dataset.sid){curSid=null;log.innerHTML="";}
    loadChatSessions();};});
@@ -1316,7 +1316,7 @@ async function openSession(sid){curSid=sid;log.innerHTML="";curBot=null;curThink
 function newSession(){curSid="cockpit-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;markActiveSession();reconnect();}
 $("#sess-new")&&($("#sess-new").onclick=()=>newSession());
 /* Test-Chat: sid mit 'test-'-Praefix -> gefahrloses Ausprobieren, leckt NICHT ins Langzeit-Gedaechtnis */
-function newTestSession(){curSid="test-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;markActiveSession();reconnect();try{toast("✱ Test-Chat — dieser Verlauf bleibt aussen vor (kein Langzeit-Gedaechtnis)");}catch(e){}}
+function newTestSession(){curSid="test-"+Math.random().toString(16).slice(2,10);log.innerHTML="";curBot=null;curThink=null;traceC=null;curThinkLine=null;markActiveSession();reconnect();try{toast("✱ Testfahrt — frische Session: kein Alt-Chat im Prompt, nichts leckt zurueck (Fakten/Lektionen bleiben)");}catch(e){}}
 $("#sess-test")&&($("#sess-test").onclick=()=>newTestSession());
 /* Gespraeche: Hover-Intent — Drueberfahren oeffnet, Klick PINNT (bleibt offen bis zum
    naechsten Klick). Bleibt offen solange die Maus ueber Button ODER Panel ist; schliesst

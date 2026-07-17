@@ -125,7 +125,12 @@ def prompt_context(user_message: str, session_id: str | None = None) -> dict:
     """
     from core import identity
 
-    recalled = memory.recall(user_message, limit=6, exclude_session=session_id)
+    # TESTFAHRT: ephemere Sessions (test-/bench-/desktop-) bekommen keine episodischen
+    # Alt-Erinnerungen in den Prompt — neue Modelle objektiv bewerten, ohne dass
+    # Alt-Chat-Kontext (inkl. gespeicherter Fehl-Antworten) hineinblutet. Fakten/
+    # Lektionen/Skills bleiben. Normale Sessions: unveraendert (Golden-Test gruen).
+    recalled = memory.recall(user_message, limit=6, exclude_session=session_id,
+                             nur_dauerhaft=memory.ist_testfahrt(session_id))
     if recalled:
         mem_block = "\n".join(f"- ({m['role']}) {m['text']}" for m in recalled)
     else:
