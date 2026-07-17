@@ -48,6 +48,13 @@ def jetzt_zeile() -> str:
 # kann, ohne Code anzufassen. Der hier geladene Wert ist der Default/Fallback.
 PERSONA_DIRECTIVE = _read("PERSONA.md")
 
+# Werks-Budget der Persona in Zeichen — sie geht bei JEDEM LLM-Zug mit (Chat UND
+# Mission). Die Suite bewacht damit NUR das Template (Werkszustand); die LIVE-Datei
+# darf der Nutzer/der Agent bewusst ueberziehen — dann warnt das Cockpit sanft
+# (Persona-Label + Speicher-Hinweis in core/api/server.py), KEIN Suite-Fail (W0:
+# Tests haengen nie an Live-Daten).
+PERSONA_BUDGET = 4200
+
 # Antrieb (mitdenken, sammeln, erweitern — als CHARAKTER, nicht nur Faehigkeit).
 # Bewusst kurz: kleine lokale Modelle muessen das tragen. Fliesst in Chat- UND
 # Handlungs-Prompt (act._identity) ein. W2: neutral formuliert, Namen kommen aus
