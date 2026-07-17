@@ -6,17 +6,21 @@ from __future__ import annotations
 
 
 def test_persona_datei_existiert_mit_markern():
-    # W3: die gelebte PERSONA.md ist Privatsache — _read faellt auf frischen Klonen
-    # aufs Template zurueck; beide Fassungen muessen die Marker tragen.
-    from core.mind import agent
-    t = agent._read("PERSONA.md")
+    # Werkszustand-Kontrakt: das TEMPLATE traegt die Struktur-Marker; auf frischen
+    # Klonen rendert agent._read() genau dieses Template in-memory (W3). Die gelebte
+    # PERSONA.md ist Nutzer-/Agenten-Eigentum und darf frei umgeschrieben werden —
+    # die Suite haengt nie an Live-Daten (W0, Praxis-Fund 17.07.).
+    from core.config import MIND_DIR
+    t = (MIND_DIR / "templates" / "PERSONA.md").read_text(encoding="utf-8")
     for m in ("WER DU BIST", "WIE DU MITDENKST", "WO DU NACHSCHAUST", "WIE DU SPRICHST"):
         assert m in t, m
 
 
 def test_persona_text_liest_frisch(monkeypatch):
     from core.mind import agent
-    assert "WER DU BIST" in agent.persona_text()  # Default aus PERSONA.md
+    # nur Mechanik, kein Content-Marker: die Live-PERSONA.md darf frei umgeschrieben
+    # sein (W0) — hier zaehlt, DASS etwas kommt und dass Aenderungen sofort wirken.
+    assert agent.persona_text()
     # simuliert eine Charakter-Aenderung in der Datei -> wirkt sofort (kein Neustart)
     monkeypatch.setattr(agent, "_read",
                         lambda name: "NEUER TON" if name == "PERSONA.md" else "")
@@ -85,8 +89,10 @@ def test_dateien_liste_hat_alle_charakter_dateien():
 
 
 def test_persona_traegt_kommandeurs_prinzip():
-    from core.mind.agent import persona_text
-    t = persona_text()
+    # Werkszustand statt persona_text(): die Live-Persona darf das Prinzip
+    # umformulieren, ohne dass die Suite kippt (W0 — siehe Marker-Test oben).
+    from core.config import MIND_DIR
+    t = (MIND_DIR / "templates" / "PERSONA.md").read_text(encoding="utf-8")
     assert "Kommandeurin" in t and "schwarm" in t
 
 

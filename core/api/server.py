@@ -22,7 +22,7 @@ from core.kernel import events, models
 from core.kernel.llm_router import today_spend_usd
 from core.kernel.phrases import THINKING_PHRASES
 from core.kernel.scheduler import heartbeat_on, kill_switch_active, kill_switch_path, set_heartbeat
-from core.mind.agent import Agent
+from core.mind.agent import Agent, PERSONA_BUDGET, persona_text
 from core.mind.memory import store as memory
 
 app = FastAPI(title="Kira Cockpit")
@@ -108,7 +108,7 @@ FILES: dict[str, dict] = {
     "SOUL.md": {"path": MIND_DIR / "SOUL.md", "editable": True, "label": "Seele — wer Kira ist (Identitaet, Haltung; Aenderung wirkt sofort, Backup automatisch)"},
     "GOAL.md": {"path": MIND_DIR / "GOAL.md", "editable": True, "label": "Ziel — wofuer sie da ist (Nordstern; die Meilensteine gehoeren Dir)"},
     "USER.md": {"path": MIND_DIR / "USER.md", "editable": True, "label": "Ueber Dich — dein Agent baut sein Bild von Dir daraus; kurz halten"},
-    "PERSONA.md": {"path": MIND_DIR / "PERSONA.md", "editable": True, "label": "Verhalten & Ton — der Verhaltens-Kern (schlank halten, ~4200 Zeichen; wirkt sofort)"},
+    "PERSONA.md": {"path": MIND_DIR / "PERSONA.md", "editable": True, "label": f"Verhalten & Ton — der Verhaltens-Kern (schlank halten, ~{PERSONA_BUDGET} Zeichen; wirkt sofort)"},
     "ARBEITSWEISE.md": {"path": MIND_DIR / "ARBEITSWEISE.md", "editable": True, "label": "Deine Arbeits-Direktiven — eigene Denk-/Ablauf-Regeln, die in JEDEN Prompt einfliessen (leer = neutral)"},
     "config.yaml": {"path": ROOT / "config.yaml", "editable": True, "label": "Konfiguration (Vorsicht: YAML)"},
     # Gedaechtnis + Handbuch (frei editierbar — nie im Prompt, siehe HANDBUCH §7)
@@ -117,6 +117,29 @@ FILES: dict[str, dict] = {
     _stammbaum_wurzel_name(): {"path": _stammbaum_wurzel_pfad(), "editable": True, "label": "Stammbaum-Wurzel"},
     "gedaechtnis-regeln.md": {"path": ROOT / "gedaechtnis" / "LIES-MICH.md", "editable": True, "label": "Gedaechtnis-Regeln"},
 }
+
+
+def _persona_hinweis() -> str:
+    """Sanfte Budget-Wache fuer die LIVE-Persona: die Suite bewacht nur das Template
+    (W0: Tests haengen nie an Live-Daten) — ueberzieht die gelebte PERSONA.md das
+    Werks-Budget, sagt es das Cockpit hier (Label + Speicher-Antwort), KEIN Fehler.
+    Gemessen wird persona_text(): exakt das, was bei jedem LLM-Zug mitgeht."""
+    try:
+        n = len(persona_text())
+        if n >= PERSONA_BUDGET:
+            return (f"Persona {n} Zeichen — ueber dem {PERSONA_BUDGET}er-Budget, "
+                    "geht bei jedem LLM-Zug mit (Prompt-Kosten steigen)")
+    except Exception:  # noqa: BLE001
+        pass
+    return ""
+
+
+def _label_mit_wache(name: str, f: dict) -> str:
+    if name == "PERSONA.md":
+        h = _persona_hinweis()
+        if h:
+            return f"{f['label']} · ⚠ {h}"
+    return f["label"]
 
 
 # ---------- REST ----------
@@ -230,7 +253,7 @@ async def api_autonomy_set(body: dict) -> dict:
 
 @app.get("/api/files")
 def api_files() -> list[dict]:
-    return [{"name": n, "label": f["label"], "editable": f["editable"]} for n, f in FILES.items()]
+    return [{"name": n, "label": _label_mit_wache(n, f), "editable": f["editable"]} for n, f in FILES.items()]
 
 
 @app.get("/api/file")
@@ -240,7 +263,7 @@ def api_file(name: str) -> dict:
         return {"error": "unbekannte Datei"}
     p = f["path"]
     content = p.read_text(encoding="utf-8") if p.exists() else ""
-    return {"name": name, "label": f["label"], "editable": f["editable"], "content": content}
+    return {"name": name, "label": _label_mit_wache(name, f), "editable": f["editable"], "content": content}
 
 
 @app.post("/api/file")
@@ -258,7 +281,12 @@ async def api_file_save(body: dict) -> dict:
         (hist / f"{name}.{ts}.bak").write_text(p.read_text(encoding="utf-8"), encoding="utf-8")
     p.write_text(body.get("content", ""), encoding="utf-8")
     events.emit("file_edited", {"file": name, "via": "dashboard"})
-    return {"ok": True}
+    out: dict = {"ok": True}
+    if name == "PERSONA.md":
+        h = _persona_hinweis()
+        if h:
+            out["hinweis"] = h
+    return out
 
 
 # Gedaechtnis-Browser (B-024): der ganze Vault im Cockpit — nicht nur die 10 FILES.
