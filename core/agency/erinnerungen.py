@@ -57,13 +57,18 @@ def add(text: str, datum: str, zeit: str) -> tuple[dict | None, str]:
     if not (text or "").strip():
         return None, ('text fehlt. Beispiel: erinnerung("Aufstehen — Termin um 16 Uhr", '
                       '"16.07.2026", "15:00").')
+    from core.agency import termine as _termine
+
+    datum = _termine.datum_aufloesen(datum)     # "heute"/"morgen" direkt annehmen (Live-Fund 17.07.)
     try:
         wann = datetime.strptime(f"{(datum or '').strip()} {(zeit or '').strip()}",
                                  "%d.%m.%Y %H:%M")
     except ValueError:
+        morgen = time.strftime("%d.%m.%Y", time.localtime(time.time() + 86400))
         return None, (f"datum braucht TT.MM.JJJJ und zeit HH:MM (bekam datum='{datum}', "
-                      f"zeit='{zeit}'). Heute ist {jetzt.split()[0]} — steht auch in deiner "
-                      'JETZT-Zeile. Beispiel: erinnerung("Anruf Mama", "16.07.2026", "15:00").')
+                      f"zeit='{zeit}'). Heute ist der {jetzt.split()[0]}, morgen der {morgen} "
+                      '— siehe auch deine JETZT-Zeile. Beispiel: '
+                      'erinnerung("Anruf Mama", "16.07.2026", "15:00").')
     ts = wann.timestamp()
     if ts < time.time() - 60:
         return None, (f"{datum} {zeit} liegt in der Vergangenheit (JETZT: {jetzt}). "

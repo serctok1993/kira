@@ -58,6 +58,48 @@ def test_langlaeufer_haben_den_refresh_eingehaengt():
     assert "refresh_overrides()" in run_src
 
 
+def test_relativdatum_wird_aufgeloest(tmp_path, monkeypatch):
+    # Live-Fund Runde 2: Modelle verrechnen sich bei "morgen" (Erinnerung 1 Tag zu
+    # spaet). Eindeutige Relativ-Angaben loest der Harness jetzt selbst auf.
+    import datetime as dt
+    import time
+
+    from core.agency import erinnerungen, termine
+
+    morgen = (dt.date.today() + dt.timedelta(days=1)).strftime("%d.%m.%Y")
+    assert termine.datum_aufloesen("morgen") == morgen
+    assert termine.datum_aufloesen("Heute") == dt.date.today().strftime("%d.%m.%Y")
+    assert termine.datum_aufloesen("15.08.2026") == "15.08.2026"
+
+    monkeypatch.setattr(termine, "_PATH", tmp_path / "kalender.json")
+    monkeypatch.setattr(termine.events, "emit", lambda *a, **k: None)
+    res = termine.add("morgen", "Zahnarzt")
+    assert res["ok"] and res["datum"] == morgen
+
+    monkeypatch.setattr(erinnerungen, "_PATH", tmp_path / "erinnerungen.json")
+    monkeypatch.setattr(erinnerungen, "_melden", lambda *a, **k: None)
+    e, err = erinnerungen.add("Aufstehen", "morgen", time.strftime("%H:%M"))
+    assert not err and e["wann"].startswith(morgen)
+
+
+def test_datumsfehler_nennen_die_aufgeloesten_daten(tmp_path, monkeypatch):
+    # der Ein-Zeilen-Hebel der Werkstatt: der Fehler liefert heute+morgen gleich mit
+    import datetime as dt
+
+    from core.agency import erinnerungen, termine
+
+    heute = dt.date.today().strftime("%d.%m.%Y")
+    morgen = (dt.date.today() + dt.timedelta(days=1)).strftime("%d.%m.%Y")
+    err = termine.add("Freitag", "x")["error"]
+    assert f"Heute ist der {heute}, morgen der {morgen}" in err
+
+    monkeypatch.setattr(erinnerungen, "_PATH", tmp_path / "erinnerungen.json")
+    monkeypatch.setattr(erinnerungen, "_melden", lambda *a, **k: None)
+    _, err = erinnerungen.add("x", "Freitag", "15:00")
+    assert f"Heute ist der {heute}, morgen der {morgen}" in err
+    assert "TT.MM.JJJJ" in err and "JETZT-Zeile" in err       # die Alt-Anker bleiben
+
+
 def test_cron_remove_id_alias_und_lehrt(monkeypatch):
     from core.agency.missions import cron
     from core.agency.tools.builtin import cron_remove

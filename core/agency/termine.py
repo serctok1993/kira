@@ -32,10 +32,24 @@ def _save(items: list[dict]) -> None:
     atomic_write(_PATH, json.dumps(items, indent=2, ensure_ascii=False))
 
 
+_RELATIV = {"heute": 0, "morgen": 1, "uebermorgen": 2, "übermorgen": 2}
+
+
+def datum_aufloesen(s: str) -> str:
+    """Eindeutige Relativ-Angaben ('heute'/'morgen'/'uebermorgen') -> TT.MM.JJJJ,
+    alles andere unveraendert. Live-Fund 17.07.: Modelle rechnen Relativdaten
+    selbst — und verrechnen sich (Erinnerung einen Tag zu spaet). Eindeutiges
+    loest der Harness auf, der Rest lehrt mit den aufgeloesten Daten."""
+    t = str(s or "").strip().lower()
+    if t in _RELATIV:
+        return (datetime.date.today() + datetime.timedelta(days=_RELATIV[t])).strftime("%d.%m.%Y")
+    return str(s or "").strip()
+
+
 def parse_datum(s: str) -> datetime.date | None:
-    """'TT.MM.JJJJ' -> date; None bei Unfug (31.02.2026 gibt es nicht)."""
+    """'TT.MM.JJJJ' (oder 'heute'/'morgen'/'uebermorgen') -> date; None bei Unfug."""
     try:
-        t, m, j = str(s).strip().split(".")
+        t, m, j = datum_aufloesen(s).split(".")
         return datetime.date(int(j), int(m), int(t))
     except Exception:  # noqa: BLE001
         return None
@@ -45,8 +59,11 @@ def add(datum: str, titel: str, zeit: str = "", jaehrlich: bool = False,
         quelle: str = "chat") -> dict:
     d = parse_datum(datum)
     if d is None:
+        heute = datetime.date.today()
+        morgen = heute + datetime.timedelta(days=1)
         return {"ok": False,
-                "error": f"Datum '{datum}' ergibt keinen Kalendertag (Format TT.MM.JJJJ)"}
+                "error": (f"Datum '{datum}' ergibt keinen Kalendertag (Format TT.MM.JJJJ). "
+                          f"Heute ist der {heute:%d.%m.%Y}, morgen der {morgen:%d.%m.%Y}")}
     titel = (titel or "").strip()
     if not titel:
         return {"ok": False, "error": "titel fehlt"}
