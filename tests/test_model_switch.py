@@ -162,15 +162,17 @@ def test_roles_enthaelt_reflex_und_arbeiter():
 
 
 def test_catalog_hat_aimlapi_gruppe(monkeypatch):
-    """Der Live-Katalog fuehrt alle drei Quellen: OpenRouter + lokal + AIMLAPI."""
+    """Der Live-Katalog fuehrt alle Quellen: OpenRouter + lokal + AIMLAPI —
+    plus die kuratierte Vorauswahl (Katalog-Runde)."""
     import httpx
     from core.kernel import models
     monkeypatch.setattr(models, "ollama_models", lambda: ["qwen3.5:9b"])
     monkeypatch.setattr(models, "aimlapi_models",
                         lambda: [{"id": "aimlapi/openai/gpt-4o", "name": "GPT-4o", "in": 0, "out": 0, "ctx": 128000}])
     monkeypatch.setattr(httpx, "get", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("offline")))
+    monkeypatch.setattr(models, "_CATALOG_FILE", models._CATALOG_FILE.with_name("gibtsnicht.json"))
     cat = models.catalog(force=True)
-    assert set(cat.keys()) == {"openrouter", "local", "aimlapi"}
+    assert set(cat.keys()) == {"openrouter", "local", "aimlapi", "kuratiert"}
     assert cat["local"][0]["id"] == "ollama_chat/qwen3.5:9b"
     assert cat["aimlapi"][0]["id"].startswith("aimlapi/")
     models._CATALOG_CACHE.update(ts=0.0, data=None)  # Cache nicht vergiften

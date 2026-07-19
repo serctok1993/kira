@@ -524,7 +524,8 @@ async function renderModelRows(term,box){box=box||$("#model-rows");if(!box)retur
    const badge=rc?'<span class="rbadge" style="color:var(--ok)">◆ denkt</span>':'<span class="rbadge muted">kein Reasoning</span>';
    const act=(m.id===cur)?' style="border:1px solid var(--chat-accent)"':'';
    const tip=rc?'Reasoning-faehig — der Denk-Tiefe-Regler wird aktiv':'Kein eingebautes Reasoning';
-   return '<div class="cmd-row" data-mid="'+esc(m.id)+'" title="'+tip+'"'+act+'><span class="cmd-k">'+esc((m.name||m.id).slice(0,44))+'</span><span style="flex:1"></span>'+badge+'</div>';}).join("")
+   const preis=(m.in!=null&&m.in!==0)?'<small class="muted" style="margin-right:7px;font-variant-numeric:tabular-nums">'+money(m.in)+'·'+money(m.out)+'</small>':'';
+   return '<div class="cmd-row" data-mid="'+esc(m.id)+'" title="'+tip+'"'+act+'><span class="cmd-k">'+esc((m.name||m.id).slice(0,44))+'</span><span style="flex:1"></span>'+preis+badge+'</div>';}).join("")
   :'<div class="muted" style="padding:8px">nichts gefunden</div>';
  box.querySelectorAll(".cmd-row").forEach(r=>r.onclick=()=>useChatModel(r.dataset.mid));}
 function modellKnopf(btnSel,popSel){const b=$(btnSel);if(!b)return;
@@ -1670,14 +1671,22 @@ const ROLE_LABEL={chat:"› Chat",reason:"◆ Denker (Reason/Coding)",bulk:"◷ 
 let MCAT={openrouter:[],local:[],aimlapi:[]};
 function money(x){return (x==null||x===0)?"0€":("$"+(x*1e6).toFixed(2)+"/M");}
 function renderRoles(roles){const el=$("#m-roles");if(!el)return;
- el.innerHTML=Object.keys(ROLE_LABEL).map(r=>'<div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px solid var(--line)"><span style="min-width:150px">'+ROLE_LABEL[r]+'</span><b style="flex:1;color:var(--accent)">'+((roles[r]||"—")+"").replace(/^openrouter\//,"").replace(/</g,"&lt;")+'</b></div>').join("");}
+ /* Katalog-Runde: Preis direkt neben der Rollen-Zuweisung — DA faellt die Entscheidung */
+ const px={};((MCAT.openrouter||[]).concat(MCAT.aimlapi||[])).forEach(m=>{px[m.id]=m;});
+ el.innerHTML=Object.keys(ROLE_LABEL).map(r=>{const mid=(roles[r]||"—")+"";const m=px[mid];
+  const preis=(m&&m.in!=null)?'<small class="muted" style="font-variant-numeric:tabular-nums">'+money(m.in)+' · '+money(m.out)+'</small>':'';
+  return '<div style="display:flex;gap:10px;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--line)"><span style="min-width:150px">'+ROLE_LABEL[r]+'</span><b style="flex:1;color:var(--accent)">'+mid.replace(/^openrouter\//,"").replace(/</g,"&lt;")+'</b>'+preis+'</div>';}).join("");}
 function renderCat(){const el=$("#cat-list");if(!el)return;const q=(($("#cat-search")||{}).value||"").toLowerCase().trim();
  const all=(MCAT.local||[]).concat(MCAT.openrouter||[]).concat(MCAT.aimlapi||[]);
- const hits=all.filter(m=>!q||(m.id||"").toLowerCase().includes(q)||(m.name||"").toLowerCase().includes(q)).slice(0,80);
- el.innerHTML=hits.length?hits.map(m=>'<div style="display:flex;gap:8px;align-items:center;padding:4px 2px;border-bottom:1px solid var(--line)">'
+ /* Katalog-Runde: OHNE Suchbegriff die kuratierte Vorauswahl (lokal + Haus-Provider) —
+    die Suche sieht weiterhin ALLE ~300 Modelle inkl. jeder Neuerscheinung */
+ const basis=q?all:(MCAT.local||[]).concat(MCAT.kuratiert&&MCAT.kuratiert.length?MCAT.kuratiert:MCAT.openrouter||[]);
+ const hits=basis.filter(m=>!q||(m.id||"").toLowerCase().includes(q)||(m.name||"").toLowerCase().includes(q)).slice(0,80);
+ const kopf=(!q&&MCAT.kuratiert&&MCAT.kuratiert.length)?'<div class="muted" style="padding:3px 2px;font-size:10.5px">★ Kuratierte Auswahl — tippen, um alle '+((MCAT.openrouter||[]).length)+' Modelle zu durchsuchen</div>':'';
+ el.innerHTML=kopf+(hits.length?hits.map(m=>'<div style="display:flex;gap:8px;align-items:center;padding:4px 2px;border-bottom:1px solid var(--line)">'
    +'<span style="flex:1"><b>'+(m.id||"").replace(/^openrouter\//,"").replace(/</g,"&lt;")+'</b>'+(m.ctx?' <small class=muted>'+Math.round(m.ctx/1000)+'K</small>':'')+'</span>'
    +'<small class=muted style="min-width:120px">'+money(m.in)+' · '+money(m.out)+'</small>'
-   +'<button class=ghost data-mid="'+m.id+'" style="padding:3px 9px">→ zuweisen</button></div>').join(""):'<span class=muted>(keine Treffer)</span>';
+   +'<button class=ghost data-mid="'+m.id+'" style="padding:3px 9px">→ zuweisen</button></div>').join(""):'<span class=muted>(keine Treffer)</span>');
  el.querySelectorAll('button[data-mid]').forEach(b=>b.onclick=async()=>{const role=$("#cat-role").value;
    $("#cat-hint").textContent="… setze "+role+" …";
    await fetch("/api/model/role",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role,model:b.dataset.mid})});
