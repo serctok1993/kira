@@ -152,6 +152,13 @@ def set_params(num_ctx: int | None = None, max_tokens: int | None = None,
 
 
 _CATALOG_CACHE = {"ts": 0.0, "data": None}
+_CATALOG_FILE = DATA_DIR / "openrouter_models.json"   # Datei-Cache: ueberlebt Neustarts, traegt offline
+_CATALOG_FRISCH_S = 6 * 3600
+# Kuratierte Vorauswahl (Praefixe der OpenRouter-IDs): das Steuerpult zeigt diese
+# zuerst, ALLES andere findet die Suche — Neuerscheinungen (Kimi K3 & Co.) sind
+# damit sofort zuweisbar, ohne dass je ein Katalog-PR noetig wird.
+_KURATIERT_PRAEFIXE = ("deepseek/", "z-ai/", "moonshotai/", "anthropic/",
+                       "qwen/", "google/gemini")
 
 
 def _local_catalog() -> list[dict]:
@@ -162,24 +169,66 @@ def _local_catalog() -> list[dict]:
             for n in ollama_models() if not any(x in n.lower() for x in ("embed", "hf.co", "gguf"))]
 
 
+def _openrouter_fetch() -> list[dict] | None:
+    """Live-Liste von OpenRouter (IDs + Preise pro Token, in/out) — None bei Netzfehler."""
+    try:
+        data = httpx.get("https://openrouter.ai/api/v1/models", timeout=15).json().get("data", [])
+    except Exception:  # noqa: BLE001
+        return None
+    ors = []
+    for m in data:
+        pr = m.get("pricing", {})
+        ors.append({"id": "openrouter/" + (m.get("id") or ""), "name": m.get("name") or m.get("id"),
+                    "in": pr.get("prompt"), "out": pr.get("completion"), "ctx": m.get("context_length")})
+    return sorted(ors, key=lambda x: x["id"])
+
+
+def _openrouter_liste(force: bool = False) -> list[dict]:
+    """OpenRouter-Katalog mit Datei-Cache (Config-Muster: Frische per mtime).
+
+    Frische Datei (< 6h) -> lesen, kein Netz. Sonst live holen und wegschreiben.
+    Netzfehler -> Datei-Fallback egal wie alt (offline bleibt der Katalog nutzbar)."""
+    import time as _t
+
+    try:
+        frisch = _CATALOG_FILE.exists() and (_t.time() - _CATALOG_FILE.stat().st_mtime) < _CATALOG_FRISCH_S
+    except OSError:
+        frisch = False
+    if frisch and not force:
+        try:
+            return json.loads(_CATALOG_FILE.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            pass
+    live = _openrouter_fetch()
+    if live is not None:
+        try:
+            atomic_write(_CATALOG_FILE, json.dumps(live, ensure_ascii=False))
+        except Exception:  # noqa: BLE001
+            pass
+        return live
+    try:
+        return json.loads(_CATALOG_FILE.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _kuratiert(ors: list[dict]) -> list[dict]:
+    praefixe = tuple(CONFIG.get("models", {}).get("kuratiert") or _KURATIERT_PRAEFIXE)
+    return [m for m in ors
+            if str(m.get("id", "")).removeprefix("openrouter/").startswith(praefixe)]
+
+
 def catalog(force: bool = False) -> dict:
-    """Alle verfuegbaren Modelle: OpenRouter/AIML (live, 10 min gecacht) + lokal (Ollama,
-    ungecacht — neue Downloads erscheinen sofort)."""
+    """Alle verfuegbaren Modelle: OpenRouter (live, Datei-Cache 6h + offline-Fallback),
+    AIML, lokal (Ollama, ungecacht — neue Downloads erscheinen sofort). 'kuratiert'
+    ist die Vorauswahl fuers Steuerpult; die Suche sieht weiterhin alles."""
     import time as _t
 
     if not force and _CATALOG_CACHE["data"] and (_t.time() - _CATALOG_CACHE["ts"]) < 600:
         return {**_CATALOG_CACHE["data"], "local": _local_catalog()}
-    ors = []
-    try:
-        data = httpx.get("https://openrouter.ai/api/v1/models", timeout=15).json().get("data", [])
-        for m in data:
-            pr = m.get("pricing", {})
-            ors.append({"id": "openrouter/" + (m.get("id") or ""), "name": m.get("name") or m.get("id"),
-                        "in": pr.get("prompt"), "out": pr.get("completion"), "ctx": m.get("context_length")})
-    except Exception:  # noqa: BLE001
-        pass
+    ors = _openrouter_liste(force=force)
     aimlapi_list = sorted(aimlapi_models(), key=lambda x: x["id"])
-    out = {"openrouter": sorted(ors, key=lambda x: x["id"]), "aimlapi": aimlapi_list}
+    out = {"openrouter": ors, "aimlapi": aimlapi_list, "kuratiert": _kuratiert(ors)}
     _CATALOG_CACHE.update(ts=_t.time(), data=out)
     return {**out, "local": _local_catalog()}
 
