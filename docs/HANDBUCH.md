@@ -72,7 +72,8 @@ Ebene 4  Destillat                  gedaechtnis/stammbaum/ + Lektionen/Playbooks
 | `/code <auftrag>` (Chat & Telegram) | Coding-Modus — **erbt den Chat davor** (erst brainstormen, dann `/code`) |
 | `plan:` / Coding-Modus | erst Plan, dann Schritte (Coding erzwingt zusätzlich Regeln) |
 | `@ziel:<name>` | Arbeit auf ein Ziel buchen — **wirkt nur zusammen mit `/work`** (`/work @ziel:beispiel-projekt …`) |
-| `denk:aus` · `niedrig` · `mittel` · `hoch` | Reasoning-Tiefe des Modells regeln (mehr Denken = besser + teurer) |
+| `denk:aus` · `niedrig` · `mittel` · `hoch` | Reasoning-Tiefe NUR fuer diese eine Nachricht (mehr Denken = besser + teurer) |
+| `/denk hoch` (Chat & Telegram) | Denk-Tiefe DAUERHAFT setzen (`/denk standard` = zuruecksetzen; wirkt bei allen denk-faehigen Modellen) |
 | Fokus (Zentrale) | Daueranweisung für den Motor |
 | JETZT-Eimer (`loop/BACKLOG.md`) | Befehl an den Cloud-Loop — die Datei liegt **im `kira/loop`-Checkout**, nicht in diesem Repo |
 

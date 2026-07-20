@@ -14,7 +14,8 @@ from core.kernel import models
 
 _FIXTURE = {"data": [
     {"id": "moonshotai/kimi-k3", "name": "Kimi K3",
-     "pricing": {"prompt": "0.0000006", "completion": "0.0000025"}, "context_length": 262144},
+     "pricing": {"prompt": "0.0000006", "completion": "0.0000025"}, "context_length": 262144,
+     "supported_parameters": ["include_reasoning", "reasoning", "temperature"]},
     {"id": "deepseek/deepseek-chat", "name": "DeepSeek Chat",
      "pricing": {"prompt": "0.0000001", "completion": "0.0000004"}, "context_length": 131072},
     {"id": "exotisch/nischenmodell", "name": "Nische",
@@ -26,6 +27,8 @@ _FIXTURE = {"data": [
 def _iso(tmp_path, monkeypatch):
     monkeypatch.setattr(models, "_CATALOG_FILE", tmp_path / "openrouter_models.json")
     monkeypatch.setattr(models, "_CATALOG_CACHE", {"ts": 0.0, "data": None})
+    monkeypatch.setattr(models, "_HISTORY_FILE", tmp_path / "model_history.json")
+    monkeypatch.setattr(models, "_RC_MEMO", {"mtime": -1.0, "ids": frozenset()})
     monkeypatch.setattr(models, "ollama_models", lambda: [])
     monkeypatch.setattr(models, "aimlapi_models", lambda: [])
     return tmp_path
@@ -52,12 +55,15 @@ def test_live_fetch_schreibt_cache_und_kuratiert(monkeypatch, _iso):
     assert "openrouter/moonshotai/kimi-k3" in kur                     # Neuerscheinung sofort da
     assert "openrouter/deepseek/deepseek-chat" in kur
     assert "openrouter/exotisch/nischenmodell" not in kur             # Nische nur ueber Suche
+    assert kimi["rc"] is True                                         # Denk-Faehigkeit = Katalog-Fakt
+    ds = next(m for m in c["openrouter"] if "deepseek-chat" in m["id"])
+    assert ds["rc"] is False
 
 
 def test_frische_datei_spart_das_netz(monkeypatch, _iso):
     (_iso / "openrouter_models.json").write_text(
         json.dumps([{"id": "openrouter/deepseek/deepseek-chat", "name": "DS",
-                     "in": "0.0000001", "out": "0.0000004", "ctx": 1}]), encoding="utf-8")
+                     "in": "0.0000001", "out": "0.0000004", "ctx": 1, "rc": False}]), encoding="utf-8")
     def _explodiert(*a, **k):
         raise AssertionError("Netz darf bei frischer Datei nicht gefragt werden")
     monkeypatch.setattr(models.httpx, "get", _explodiert)

@@ -506,27 +506,39 @@ function setChatModel(id){const h=$("#chat-model");if(h)h.value=id||"";
  syncDenk();}
 async function loadChatModels(){const s=await (await fetch("/api/status")).json();
  REASON_MARKERS=s.reasoning_markers||REASON_MARKERS;
+ RC_IDS=new Set(s.reasoning_ids||[]);   /* Katalog-Fakt: welche Cloud-Modelle wirklich denken */
  setChatModel(s.resolved_model||s.model);}   /* das Modell, das der Chat WIRKLICH nutzt */
 async function useChatModel(id){
  /* NUR die Chat-Rolle setzen — NICHT default (das wuerde reason/bulk mitreissen und den GLM-Denker kapern). */
  await fetch("/api/model/role",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({role:"chat",model:id})});
  setChatModel(id);["#model-pop","#bc-model-pop"].forEach(s=>{const p=$(s);if(p)p.style.display="none";});refreshStatus();}
-/* Modell-Popover: ALLE Modelle (wie in den Einstellungen), mit ehrlichem Reasoning-Hinweis pro Modell.
+/* Modell-Popover: ohne Suchbegriff Zuletzt-genutzt + lokal + kuratierte Vorauswahl
+   (statt 300er-Scroll); die Suche sieht weiterhin ALLES. Reasoning-Badge = Katalog-Fakt
+   (m.rc von OpenRouter), Preise stehen an jeder Zeile mit dran.
    Runde IX: EIN Bauteil fuer Chat UND Board (box-Parameter statt fester IDs). */
-let MODEL_CACHE=null;
+let MODEL_CACHE=null,MODEL_CAT=null;
 async function renderModelRows(term,box){box=box||$("#model-rows");if(!box)return;
  if(!MODEL_CACHE){try{const d=await (await fetch("/api/model/catalog")).json();const c=d.catalog||{};
-   MODEL_CACHE=[].concat(c.local||[],c.openrouter||[],c.aimlapi||[]);}catch(e){MODEL_CACHE=[];}}
+   MODEL_CAT=c;MODEL_CACHE=[].concat(c.local||[],c.openrouter||[],c.aimlapi||[]);
+   (c.openrouter||[]).forEach(m=>{if(m.rc)RC_IDS.add(m.id);});}catch(e){MODEL_CACHE=[];}}
  const cur=($("#chat-model")&&$("#chat-model").value)||"";
  term=(term||"").toLowerCase();
- const rows=MODEL_CACHE.filter(m=>!term||((m.id+" "+(m.name||"")).toLowerCase().includes(term))).slice(0,60);
- box.innerHTML=rows.length?rows.map(m=>{const rc=isReasoningModel(m.id);
+ const zeile=m=>{const rc=(m.rc!=null)?!!m.rc:isReasoningModel(m.id);
    const badge=rc?'<span class="rbadge" style="color:var(--ok)">◆ denkt</span>':'<span class="rbadge muted">kein Reasoning</span>';
    const act=(m.id===cur)?' style="border:1px solid var(--chat-accent)"':'';
    const tip=rc?'Reasoning-faehig — der Denk-Tiefe-Regler wird aktiv':'Kein eingebautes Reasoning';
    const preis=(m.in!=null&&m.in!==0)?'<small class="muted" style="margin-right:7px;font-variant-numeric:tabular-nums">'+money(m.in)+'·'+money(m.out)+'</small>':'';
-   return '<div class="cmd-row" data-mid="'+esc(m.id)+'" title="'+tip+'"'+act+'><span class="cmd-k">'+esc((m.name||m.id).slice(0,44))+'</span><span style="flex:1"></span>'+preis+badge+'</div>';}).join("")
-  :'<div class="muted" style="padding:8px">nichts gefunden</div>';
+   return '<div class="cmd-row" data-mid="'+esc(m.id)+'" title="'+tip+'"'+act+'><span class="cmd-k">'+esc((m.name||m.id).slice(0,44))+'</span><span style="flex:1"></span>'+preis+badge+'</div>';};
+ let html;
+ if(term){const rows=MODEL_CACHE.filter(m=>((m.id+" "+(m.name||"")).toLowerCase().includes(term))).slice(0,60);
+  html=rows.length?rows.map(zeile).join(""):'<div class="muted" style="padding:8px">nichts gefunden</div>';}
+ else{const c=MODEL_CAT||{};const seen=new Set();
+  const grp=(titel,liste)=>{const l=(liste||[]).filter(m=>m&&m.id&&!seen.has(m.id)&&seen.add(m.id));
+   return l.length?('<div class="cmd-grp">'+titel+'</div>'+l.map(zeile).join("")):"";};
+  html=grp("★ Zuletzt genutzt",c.zuletzt)+grp("Lokal",c.local)
+   +grp("Kuratierte Auswahl — tippen fuer alle "+((c.openrouter||[]).length)+" Modelle",(c.kuratiert&&c.kuratiert.length)?c.kuratiert:c.openrouter)
+   ||'<div class="muted" style="padding:8px">nichts gefunden</div>';}
+ box.innerHTML=html;
  box.querySelectorAll(".cmd-row").forEach(r=>r.onclick=()=>useChatModel(r.dataset.mid));}
 function modellKnopf(btnSel,popSel){const b=$(btnSel);if(!b)return;
  b.onclick=async e=>{e.stopPropagation();const el=$(popSel);if(!el)return;
@@ -1365,6 +1377,7 @@ const CMDS=[
  ["grp","Denken & Planen"],
  ["/plan ","Erst planen, dann Schritt fuer Schritt",false],
  ["reason: ","Staerkstes Modell (Richter/Fable)",false],
+ ["/denk ","Denk-Tiefe dauerhaft: hoch|mittel|niedrig|aus",false],
  ["grp","Abfragen"],
  ["/status","Heartbeat, Budget & Modell auf einen Blick",true],
  ["/mission","Missions- & Ziel-Lage abfragen",true],
@@ -1383,9 +1396,11 @@ $("#cmd-help")&&($("#cmd-help").onclick=e=>{e.stopPropagation();const el=$("#cmd
  const show=el.style.display==="none";if(show)renderCmdPop();el.style.display=show?"block":"none";});
 document.addEventListener("click",e=>{const p=$("#cmd-pop");
  if(p&&p.style.display!=="none"&&!e.target.closest("#cmd-pop")&&e.target.id!=="cmd-help")p.style.display="none";});
-/* S11: Denk-Tiefe-Regler ist LIVE — nur sichtbar, wenn das aktuelle Modell wirklich denken kann. */
-let REASON_MARKERS=[];
-function isReasoningModel(id){id=(id||"").toLowerCase();return REASON_MARKERS.some(m=>id.includes(m));}
+/* S11: Denk-Tiefe-Regler ist LIVE — nur sichtbar, wenn das aktuelle Modell wirklich denken kann.
+   Reasoning-Runde: RC_IDS ist der Katalog-Fakt von OpenRouter (via /api/status); die
+   Marker bleiben nur als Fallback fuer lokale/Provider-Modelle ausserhalb des Katalogs. */
+let REASON_MARKERS=[];let RC_IDS=new Set();
+function isReasoningModel(id){id=(id||"");return RC_IDS.has(id)||REASON_MARKERS.some(m=>id.toLowerCase().includes(m));}
 function syncDenk(){const chip=$("#chip-denk");if(!chip)return;
  const sel=$("#chat-model");const id=sel?sel.value:"";
  chip.style.display=isReasoningModel(id)?"inline-flex":"none";}
@@ -1646,6 +1661,7 @@ async function loadModels(){const s=await (await fetch("/api/status")).json();
  $("#m-ctx").value=s.num_ctx||""; $("#m-maxtok").value=s.max_tokens||"";
  if($("#s-temp")&&document.activeElement!==$("#s-temp"))$("#s-temp").value=s.temperature!=null?s.temperature:"";
  if($("#s-keep")&&document.activeElement!==$("#s-keep"))$("#s-keep").value=s.keep_alive||"";
+ if($("#s-denk")&&document.activeElement!==$("#s-denk"))$("#s-denk").value=s.reasoning_level||"";
  if($("#s-voice"))$("#s-voice").checked=!!s.voice;
  if($("#s-whisper")&&s.whisper)$("#s-whisper").value=s.whisper;
  fetch("/api/model/loaded").then(r=>r.json()).then(ld=>showLoaded($("#m-loaded"),ld));
@@ -1678,13 +1694,15 @@ function renderRoles(roles){const el=$("#m-roles");if(!el)return;
   return '<div style="display:flex;gap:10px;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--line)"><span style="min-width:150px">'+ROLE_LABEL[r]+'</span><b style="flex:1;color:var(--accent)">'+mid.replace(/^openrouter\//,"").replace(/</g,"&lt;")+'</b>'+preis+'</div>';}).join("");}
 function renderCat(){const el=$("#cat-list");if(!el)return;const q=(($("#cat-search")||{}).value||"").toLowerCase().trim();
  const all=(MCAT.local||[]).concat(MCAT.openrouter||[]).concat(MCAT.aimlapi||[]);
- /* Katalog-Runde: OHNE Suchbegriff die kuratierte Vorauswahl (lokal + Haus-Provider) —
-    die Suche sieht weiterhin ALLE ~300 Modelle inkl. jeder Neuerscheinung */
- const basis=q?all:(MCAT.local||[]).concat(MCAT.kuratiert&&MCAT.kuratiert.length?MCAT.kuratiert:MCAT.openrouter||[]);
+ /* Katalog-Runde: OHNE Suchbegriff Zuletzt-genutzt + kuratierte Vorauswahl (lokal +
+    Haus-Provider) — die Suche sieht weiterhin ALLE ~300 Modelle inkl. jeder Neuerscheinung */
+ const seen=new Set();
+ const basis=(q?all:(MCAT.zuletzt||[]).concat(MCAT.local||[],MCAT.kuratiert&&MCAT.kuratiert.length?MCAT.kuratiert:MCAT.openrouter||[]))
+  .filter(m=>m&&m.id&&!seen.has(m.id)&&seen.add(m.id));
  const hits=basis.filter(m=>!q||(m.id||"").toLowerCase().includes(q)||(m.name||"").toLowerCase().includes(q)).slice(0,80);
- const kopf=(!q&&MCAT.kuratiert&&MCAT.kuratiert.length)?'<div class="muted" style="padding:3px 2px;font-size:10.5px">★ Kuratierte Auswahl — tippen, um alle '+((MCAT.openrouter||[]).length)+' Modelle zu durchsuchen</div>':'';
+ const kopf=(!q&&MCAT.kuratiert&&MCAT.kuratiert.length)?'<div class="muted" style="padding:3px 2px;font-size:10.5px">★ Zuletzt genutzt + Kuratierte Auswahl — tippen, um alle '+((MCAT.openrouter||[]).length)+' Modelle zu durchsuchen · ◆ = denkt (Reasoning)</div>':'';
  el.innerHTML=kopf+(hits.length?hits.map(m=>'<div style="display:flex;gap:8px;align-items:center;padding:4px 2px;border-bottom:1px solid var(--line)">'
-   +'<span style="flex:1"><b>'+(m.id||"").replace(/^openrouter\//,"").replace(/</g,"&lt;")+'</b>'+(m.ctx?' <small class=muted>'+Math.round(m.ctx/1000)+'K</small>':'')+'</span>'
+   +'<span style="flex:1"><b>'+(m.id||"").replace(/^openrouter\//,"").replace(/</g,"&lt;")+'</b>'+(m.ctx?' <small class=muted>'+Math.round(m.ctx/1000)+'K</small>':'')+(m.rc?' <small style="color:var(--ok)">◆</small>':'')+'</span>'
    +'<small class=muted style="min-width:120px">'+money(m.in)+' · '+money(m.out)+'</small>'
    +'<button class=ghost data-mid="'+m.id+'" style="padding:3px 9px">→ zuweisen</button></div>').join(""):'<span class=muted>(keine Treffer)</span>');
  el.querySelectorAll('button[data-mid]').forEach(b=>b.onclick=async()=>{const role=$("#cat-role").value;
@@ -1696,6 +1714,7 @@ $("#cat-search")&&($("#cat-search").oninput=()=>renderCat());
 $("#s-behav-save")&&($("#s-behav-save").onclick=async()=>{const tp=parseFloat($("#s-temp").value);
  if(!isNaN(tp))await cfgSet("models.temperature",tp);
  if($("#s-keep").value.trim())await cfgSet("models.keep_alive",$("#s-keep").value.trim());
+ if($("#s-denk"))await cfgSet("models.reasoning_level",$("#s-denk").value);  /* Standard-Denk-Tiefe (leer = Modell entscheidet) */
  $("#s-sys-hint")&&($("#s-sys-hint").textContent="live gesetzt ✓");});
 $("#s-sys-save")&&($("#s-sys-save").onclick=async()=>{await cfgSet("channels.telegram.voice",$("#s-voice").checked);
  await cfgSet("channels.telegram.whisper_model",$("#s-whisper").value);
