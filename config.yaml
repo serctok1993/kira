@@ -33,9 +33,12 @@ models:
   # escalate=True (reason:-Prefix, /plan-/code:-Denkschritte, Richter-Delegation) laeuft jetzt auf GLM.
   vision_model: openrouter/z-ai/glm-4.6v         # fuer Bild-Erkennung im Chat (/api/vision)
   embeddings: ollama/nomic-embed-text       # 0 EUR Gedaechtnis (optional)
-  # Denk-faehige Modelle (extended reasoning). Nur bei diesen zeigt das Cockpit den
-  # Denk-Tiefe-Regler UND schickt den reasoning-Parameter mit; sonst wird nichts angezeigt.
+  # Denk-faehige Modelle: Katalog-Fakt von OpenRouter (kommt live mit der Modell-Liste).
+  # Die Marker sind nur noch der FALLBACK fuer lokale/Provider-Modelle ausserhalb des Katalogs.
   reasoning_markers: ["glm", "anthropic", "claude", "fable", "qwen3"]
+  # reasoning_level: hoch   # dauerhafte Denk-Tiefe (aus|niedrig|mittel|hoch); leer/fehlend =
+  #                         # Modell entscheidet. Bequemer: /denk hoch (Chat/Telegram) oder
+  #                         # Einstellungen -> Denk-Tiefe — beides ueberlebt Neustarts (overrides).
   temperature: 0.7
   request_timeout: 120                      # hartes Timeout pro LLM-Call (Sek.) -> kein Einfrieren
   max_tokens: 8192                          # Ausgabe-Grenze pro Antwort (inkl. think-Phase)

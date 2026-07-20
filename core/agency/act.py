@@ -21,7 +21,7 @@ from core.agency.tools import todo_tools  # noqa: F401  -> P1: Plan-Werkzeuge (W
 from core.agency.tools import registry, synthesize
 from core.mind.agent import _read, jetzt_zeile, persona_text, build_system_prompt
 from core.mind.memory import store as memory
-from core.config import CONFIG
+from core.config import CONFIG, refresh_overrides, set_override
 
 # Frueher von Kira selbst gebaute Werkzeuge wieder verfuegbar machen.
 synthesize.load_synthesized()
@@ -1262,6 +1262,47 @@ def _handle_model_command(text: str) -> str:
         return f"Modell-Befehl fehlgeschlagen: {str(e)[:200]}"
 
 
+_DENK_STUFEN = ("aus", "niedrig", "mittel", "hoch")
+
+
+def _default_reasoning() -> str | None:
+    """Dauerhafte Denk-Tiefe aus der Config (models.reasoning_level, gesetzt via /denk
+    oder Cockpit-Einstellungen). Ungueltiges/Leeres -> None (Modell entscheidet)."""
+    lvl = str(CONFIG.get("models", {}).get("reasoning_level") or "").strip().lower()
+    return lvl if lvl in _DENK_STUFEN else None
+
+
+def _handle_denk_command(text: str) -> str:
+    """Deterministische Denk-Tiefe OHNE LLM (/denk im Web-Chat und auf Telegram).
+
+    Setzt den DAUERHAFTEN Standard (ueberlebt Neustarts via overrides.json und erreicht
+    alle Prozesse per refresh_overrides); pro Nachricht uebersteuert 'denk:<stufe>'.
+    Liefert IMMER einen String, raist nie."""
+    try:
+        args = text.strip().split()[1:]  # [0] ist /denk
+        arg = args[0].lower() if args else ""
+        if not arg:
+            akt = _default_reasoning()
+            return ("Denk-Tiefe aktuell: " + (akt or "Standard (Modell entscheidet)") + ".\n"
+                    "  /denk hoch|mittel|niedrig|aus   (dauerhaft, Web-Chat + Telegram)\n"
+                    "  /denk standard                  (zuruecksetzen: Modell entscheidet)\n"
+                    "  denk:hoch <nachricht>           (nur diese eine Nachricht)")
+        if arg in ("standard", "auto", "reset"):
+            set_override("models.reasoning_level", "")
+            events.emit("denk_level_set", {"level": ""})
+            return "Denk-Tiefe zurueckgesetzt: Standard (Modell entscheidet)."
+        if arg in _DENK_STUFEN:
+            set_override("models.reasoning_level", arg)
+            events.emit("denk_level_set", {"level": arg})
+            return (f"Denk-Tiefe dauerhaft auf '{arg}' gesetzt — gilt im Web-Chat und auf "
+                    "Telegram (bei denk-faehigen Modellen). Pro Nachricht uebersteuerbar "
+                    "mit denk:<stufe>, zuruecksetzen mit /denk standard.")
+        return (f"'{arg}' ist keine Denk-Stufe. Stufen: hoch, mittel, niedrig, aus — "
+                "z.B. /denk hoch. Zuruecksetzen mit /denk standard.")
+    except Exception as e:  # noqa: BLE001 — Steuerbefehle liefern Strings, raisen nie
+        return f"Denk-Befehl fehlgeschlagen: {str(e)[:200]}"
+
+
 def _handle_swarm_command(text: str, session_id: str | None) -> str:
     """Direkter Draht zur Schwarmintelligenz OHNE LLM (/delegiere, /schwarm).
 
@@ -1321,6 +1362,10 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
             except Exception:
                 pass
 
+    # Reasoning-Runde: /denk (Telegram-Prozess) schreibt overrides.json — der mtime-Check
+    # ist billig (2 stat) und laesst JEDEN Prozess die dauerhafte Denk-Tiefe sofort sehen.
+    refresh_overrides()
+
     # S9.2: Reasoning-Regler — Prefix "reason:" hebt auf das staerkere Modell (escalate),
     # komponierbar mit den Modi (z.B. "reason: plan: ..."). Wird hier abgestreift.
     if user_message.lstrip().lower().startswith("reason:"):
@@ -1334,6 +1379,8 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     if _dm:
         reasoning_level = _dm.group(1).lower()
         user_message = user_message[_dm.end():]
+    if reasoning_level is None:
+        reasoning_level = _default_reasoning()  # dauerhafter Standard (/denk bzw. Cockpit)
 
     # Assistenz-/Sprich-Modus: Prefix "sprich:" markiert eine Voice-Eingabe aus dem Cockpit.
     # -> Antwort wird knapp/neutral gehalten (wird vorgelesen). Wird hier abgestreift.
@@ -1354,6 +1401,14 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     if _mc_first in ("/model", "/switch"):
         reply = _handle_model_command(_mc)
         events.emit("model_command", {"reply": reply[:400]}, session_id=session_id)
+        emit({"kind": "final", "text": reply})
+        return reply
+
+    # /denk: dauerhafte Denk-Tiefe — genauso deterministisch wie /model (kein LLM,
+    # verschmutzt den Dialog nicht, funktioniert mit jedem noch so schwachen Modell).
+    if _mc_first == "/denk":
+        reply = _handle_denk_command(_mc)
+        events.emit("denk_command", {"reply": reply[:400]}, session_id=session_id)
         emit({"kind": "final", "text": reply})
         return reply
 
