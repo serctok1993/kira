@@ -618,6 +618,8 @@ VIEWS = r"""</head><body>
         <input id="s-temp" type="number" step="0.1" min="0" max="2" style="max-width:100px"/>
         <label class="muted" style="align-self:center">keep_alive</label>
         <input id="s-keep" placeholder="z.B. 24h" style="max-width:100px"/>
+        <label class="muted" style="align-self:center" title="Standard-Denk-Tiefe fuer alle Chats (Web + Telegram) — wirkt nur bei denk-faehigen Modellen; pro Nachricht uebersteuerbar (denk:hoch bzw. Reasoning-Chip)">Denk-Tiefe</label>
+        <select id="s-denk" style="max-width:110px"><option value="">Standard</option><option value="aus">aus</option><option value="niedrig">niedrig</option><option value="mittel">mittel</option><option value="hoch">hoch</option></select>
         <button id="s-behav-save">Setzen (live)</button>
       </div>
       <div class="row" style="margin-top:8px;flex-wrap:wrap">

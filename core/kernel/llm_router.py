@@ -187,10 +187,19 @@ _REASON_EFFORT = {"aus": "minimal", "off": "minimal", "niedrig": "low", "low": "
 
 
 def is_reasoning_model(model_id: str) -> bool:
-    """Kann dieses Modell 'denken' (extended reasoning)? Marker-basiert, konservativ.
-    Steuert, ob das Cockpit den Denk-Tiefe-Regler zeigt und ob wir den Parameter senden."""
+    """Kann dieses Modell 'denken' (extended reasoning)? Katalog-Fakt zuerst (OpenRouter
+    meldet die Faehigkeit pro Modell live mit, siehe models.reasoning_ids), Marker nur
+    noch als Fallback fuer lokale/Provider-Modelle ausserhalb des Katalogs.
+    Live-Fund 20.07.: DeepSeek R1 stand als 'kein Reasoning' im Picker — die alte
+    Marker-Liste kannte nur glm/anthropic/claude/fable/qwen3."""
     m = (model_id or "").lower()
-    return any(mk in m for mk in _REASON_MARKERS)
+    if any(mk in m for mk in _REASON_MARKERS):
+        return True
+    try:
+        from core.kernel import models as _models
+        return model_id in _models.reasoning_ids()
+    except Exception:  # noqa: BLE001 — Katalog-Luecke darf keinen LLM-Call brechen
+        return False
 
 
 def _reasoning_extra(model_id: str, level: str | None) -> dict:
