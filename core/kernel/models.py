@@ -100,6 +100,7 @@ def set_model(model_id: str, scope: str = "default") -> str:
         d.setdefault("routing", {})[scope] = model_id
     _save(d)
     apply_model_overrides(d)  # sofort live
+    _history_merken(model_id)
     return model_id
 
 
@@ -154,6 +155,8 @@ def set_params(num_ctx: int | None = None, max_tokens: int | None = None,
 _CATALOG_CACHE = {"ts": 0.0, "data": None}
 _CATALOG_FILE = DATA_DIR / "openrouter_models.json"   # Datei-Cache: ueberlebt Neustarts, traegt offline
 _CATALOG_FRISCH_S = 6 * 3600
+_HISTORY_FILE = DATA_DIR / "model_history.json"       # Zuletzt-genutzt: oben im Picker statt 300er-Scroll
+_HISTORY_MAX = 8
 # Kuratierte Vorauswahl (Praefixe der OpenRouter-IDs): das Steuerpult zeigt diese
 # zuerst, ALLES andere findet die Suche — Neuerscheinungen (Kimi K3 & Co.) sind
 # damit sofort zuweisbar, ohne dass je ein Katalog-PR noetig wird.
@@ -170,7 +173,11 @@ def _local_catalog() -> list[dict]:
 
 
 def _openrouter_fetch() -> list[dict] | None:
-    """Live-Liste von OpenRouter (IDs + Preise pro Token, in/out) — None bei Netzfehler."""
+    """Live-Liste von OpenRouter (IDs + Preise pro Token, in/out) — None bei Netzfehler.
+
+    'rc' (reasoning-capable) ist ein KATALOG-FAKT: OpenRouter meldet die Denk-Faehigkeit
+    pro Modell live mit (Top-Level 'reasoning'-Objekt bzw. 'reasoning' in
+    supported_parameters) — keine Marker-Rateliste noetig."""
     try:
         data = httpx.get("https://openrouter.ai/api/v1/models", timeout=15).json().get("data", [])
     except Exception:  # noqa: BLE001
@@ -179,7 +186,9 @@ def _openrouter_fetch() -> list[dict] | None:
     for m in data:
         pr = m.get("pricing", {})
         ors.append({"id": "openrouter/" + (m.get("id") or ""), "name": m.get("name") or m.get("id"),
-                    "in": pr.get("prompt"), "out": pr.get("completion"), "ctx": m.get("context_length")})
+                    "in": pr.get("prompt"), "out": pr.get("completion"), "ctx": m.get("context_length"),
+                    "rc": bool(m.get("reasoning")
+                               or "reasoning" in (m.get("supported_parameters") or []))})
     return sorted(ors, key=lambda x: x["id"])
 
 
@@ -196,7 +205,10 @@ def _openrouter_liste(force: bool = False) -> list[dict]:
         frisch = False
     if frisch and not force:
         try:
-            return json.loads(_CATALOG_FILE.read_text(encoding="utf-8"))
+            alt = json.loads(_CATALOG_FILE.read_text(encoding="utf-8"))
+            if not alt or "rc" in alt[0]:
+                return alt
+            # Schema von vor der Reasoning-Runde (ohne 'rc') -> einmal live auffrischen
         except Exception:  # noqa: BLE001
             pass
     live = _openrouter_fetch()
@@ -218,19 +230,71 @@ def _kuratiert(ors: list[dict]) -> list[dict]:
             if str(m.get("id", "")).removeprefix("openrouter/").startswith(praefixe)]
 
 
+_RC_MEMO = {"mtime": -1.0, "ids": frozenset()}
+
+
+def reasoning_ids() -> frozenset:
+    """IDs aller denk-faehigen Katalog-Modelle — aus dem Datei-Cache, NIE uebers Netz
+    (steht im heissen Pfad jedes LLM-Aufrufs und in Langlaeufern wie dem Telegram-Bot).
+    Memo per mtime nach dem Config-Muster; fehlende/alte Datei -> leer (Marker greifen)."""
+    try:
+        mt = _CATALOG_FILE.stat().st_mtime
+    except OSError:
+        return frozenset()
+    if mt != _RC_MEMO["mtime"]:
+        try:
+            ors = json.loads(_CATALOG_FILE.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            ors = []
+        _RC_MEMO.update(mtime=mt,
+                        ids=frozenset(m.get("id", "") for m in ors if m.get("rc")))
+    return _RC_MEMO["ids"]
+
+
+def _history_merken(model_id: str) -> None:
+    """Zuletzt-genutzt pflegen (juengstes zuerst, dedupliziert) — best effort,
+    darf das Setzen nie brechen."""
+    mid = (model_id or "").strip()
+    if not mid:
+        return
+    try:
+        alt = json.loads(_HISTORY_FILE.read_text(encoding="utf-8")) if _HISTORY_FILE.exists() else []
+    except Exception:  # noqa: BLE001
+        alt = []
+    neu = [mid] + [m for m in alt if isinstance(m, str) and m != mid]
+    try:
+        atomic_write(_HISTORY_FILE, json.dumps(neu[:_HISTORY_MAX], ensure_ascii=False))
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _zuletzt(voll: dict) -> list[dict]:
+    """Zuletzt-genutzt-Eintraege, gegen den Katalog aufgeloest (Preis/Denk-Badge inklusive)."""
+    try:
+        hist = json.loads(_HISTORY_FILE.read_text(encoding="utf-8")) if _HISTORY_FILE.exists() else []
+    except Exception:  # noqa: BLE001
+        hist = []
+    px = {m.get("id"): m for liste in voll.values() if isinstance(liste, list) for m in liste}
+    return [px.get(mid) or {"id": mid, "name": mid}
+            for mid in hist if isinstance(mid, str) and mid]
+
+
 def catalog(force: bool = False) -> dict:
     """Alle verfuegbaren Modelle: OpenRouter (live, Datei-Cache 6h + offline-Fallback),
     AIML, lokal (Ollama, ungecacht — neue Downloads erscheinen sofort). 'kuratiert'
-    ist die Vorauswahl fuers Steuerpult; die Suche sieht weiterhin alles."""
+    ist die Vorauswahl fuers Steuerpult; 'zuletzt' die Zuletzt-genutzt-Reihe (beide
+    stehen im Picker OBEN); die Suche sieht weiterhin alles."""
     import time as _t
 
     if not force and _CATALOG_CACHE["data"] and (_t.time() - _CATALOG_CACHE["ts"]) < 600:
-        return {**_CATALOG_CACHE["data"], "local": _local_catalog()}
+        voll = {**_CATALOG_CACHE["data"], "local": _local_catalog()}
+        return {**voll, "zuletzt": _zuletzt(voll)}
     ors = _openrouter_liste(force=force)
     aimlapi_list = sorted(aimlapi_models(), key=lambda x: x["id"])
     out = {"openrouter": ors, "aimlapi": aimlapi_list, "kuratiert": _kuratiert(ors)}
     _CATALOG_CACHE.update(ts=_t.time(), data=out)
-    return {**out, "local": _local_catalog()}
+    voll = {**out, "local": _local_catalog()}
+    return {**voll, "zuletzt": _zuletzt(voll)}
 
 
 def roles() -> dict:
@@ -264,6 +328,7 @@ def set_role(role: str, model: str) -> str:
         d.setdefault("routing", {})[role] = model
     _save(d)
     apply_model_overrides(d)
+    _history_merken(model)
     return model
 
 

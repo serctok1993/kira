@@ -3,25 +3,39 @@
 - is_reasoning_model / _reasoning_extra: nur denk-faehige Modelle bekommen den Parameter
 - 'denk:'-Prefix im Chat wird geparst und als reasoning bis zum LLM-Call durchgereicht
 - /api/status liefert die reasoning_markers (fuer den Live-Regler im Cockpit)
+
+Seit der Reasoning-Runde ist die Faehigkeit primaer ein KATALOG-Fakt (models.reasoning_ids
+aus der OpenRouter-Liste, siehe test_reasoning_runde.py) — diese Tests hier pruefen den
+MARKER-FALLBACK und pinnen dafuer den Katalog auf leer (sonst haengt das Ergebnis von der
+Live-Datei data/openrouter_models.json der jeweiligen Maschine ab).
 """
 from __future__ import annotations
+
+import pytest
 
 from core.kernel import llm_router
 
 
-# ---- Modell-Faehigkeit + Parameter-Mapping -------------------------------------------
+@pytest.fixture()
+def _ohne_katalog(monkeypatch):
+    from core.kernel import models
+    monkeypatch.setattr(models, "_CATALOG_FILE", models._CATALOG_FILE.with_name("gibtsnicht.json"))
+    monkeypatch.setattr(models, "_RC_MEMO", {"mtime": -1.0, "ids": frozenset()})
 
-def test_is_reasoning_model():
+
+# ---- Modell-Faehigkeit + Parameter-Mapping (Marker-Fallback) --------------------------
+
+def test_is_reasoning_model(_ohne_katalog):
     assert llm_router.is_reasoning_model("openrouter/z-ai/glm-5.2")
     assert llm_router.is_reasoning_model("openrouter/anthropic/claude-fable-5")
     assert not llm_router.is_reasoning_model("openrouter/deepseek/deepseek-v4-flash")
 
 
-def test_reasoning_extra_nur_bei_faehigen():
+def test_reasoning_extra_nur_bei_faehigen(_ohne_katalog):
     assert llm_router._reasoning_extra("openrouter/z-ai/glm-5.2", "hoch") == {"reasoning_effort": "high"}
     assert llm_router._reasoning_extra("openrouter/z-ai/glm-5.2", "aus") == {"reasoning_effort": "minimal"}
     assert llm_router._reasoning_extra("openrouter/z-ai/glm-5.2", "niedrig") == {"reasoning_effort": "low"}
-    # nicht denk-faehig -> leer (der Parameter verpufft nicht mal, er wird gar nicht gesetzt)
+    # nicht denk-faehig (laut Markern; der Katalog ist hier bewusst leer) -> leer
     assert llm_router._reasoning_extra("openrouter/deepseek/deepseek-v4-flash", "hoch") == {}
     # kein Level / Standard -> leer
     assert llm_router._reasoning_extra("openrouter/z-ai/glm-5.2", None) == {}
@@ -52,14 +66,19 @@ def test_denk_prefix_reicht_reasoning_durch(monkeypatch, tmp_path):
 
     monkeypatch.setattr(act, "_cloud", lambda e, t="chat": True)
     monkeypatch.setattr(act, "_native_loop", fake_native)
+    # kein Config-Reload mitten im Test (ein LIVE-Prozess koennte overrides.json anfassen)
+    monkeypatch.setattr(act, "refresh_overrides", lambda: False)
 
     act.act_chat("denk:hoch erklaer mir Photosynthese", "r1")
     assert seen["reasoning"] == "hoch"
     assert seen["text"].startswith("erklaer mir")          # Prefix wurde abgestreift
 
     seen.clear()
+    # Standard-Denk-Tiefe explizit leer pinnen — auf einer Live-Maschine koennte
+    # /denk sie gesetzt haben (overrides.json), der Test bleibt deterministisch.
+    monkeypatch.setitem(act.CONFIG.setdefault("models", {}), "reasoning_level", "")
     act.act_chat("ganz normal ohne prefix", "r2")
-    assert seen["reasoning"] is None                        # ohne Prefix kein Level
+    assert seen["reasoning"] is None                        # kein Prefix, kein Standard -> kein Level
 
 
 # ---- /api/status liefert die Marker fuer den Live-Regler -------------------------------

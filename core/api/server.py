@@ -165,7 +165,11 @@ def api_status() -> dict:
         "providers": m["providers"],
         "ollama_local": m["ollama_local"],
         "escalation_model": m["escalation_model"],
-        "reasoning_markers": llm_router._REASON_MARKERS,   # welche Modelle 'denken' koennen (fuer den Live-Regler)
+        "reasoning_markers": llm_router._REASON_MARKERS,   # Fallback fuer lokale/Provider-Modelle
+        # Katalog-Fakt statt Rateliste: OpenRouter meldet die Denk-Faehigkeit pro Modell
+        # live mit — der Regler erscheint damit auch fuer DeepSeek R1, Kimi & Co.
+        "reasoning_ids": sorted(models.reasoning_ids()),
+        "reasoning_level": CONFIG["models"].get("reasoning_level") or "",  # Standard-Denk-Tiefe (/denk)
         "num_ctx": m.get("num_ctx"),
         "max_tokens": m.get("max_tokens"),
         "temperature": CONFIG["models"].get("temperature"),

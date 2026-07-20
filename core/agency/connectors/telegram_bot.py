@@ -880,6 +880,7 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
               f"/code <coding-auftrag> – Coding-Modus (an {_AGENT} selbst schrauben; erbt den Chat davor)\n"
               "/work <auftrag> – voller Werkzeug-Modus fuer laengere Aufgaben\n"
               "/denken an|aus – Gedankenstrom sichtbar machen (laeuft dann auf dem Denker GLM)\n"
+              "/denk hoch|mittel|niedrig|aus – Denk-Tiefe dauerhaft setzen (/denk standard = zuruecksetzen)\n"
               "/emoji – deine animierten Emoji als Neon-Glow im Denk-Status lernen\n"
               "/effekt an|aus – animierter Effekt auf erledigten Antworten\n"
               "/act <aufgabe>  – ich nutze Werkzeuge (z.B. Web), um etwas zu erledigen\n"
@@ -954,6 +955,12 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
             _send(client, chat_id, "Nutzung: /work <langer Auftrag mit vollem Werkzeug-Budget>")
             return
         _agentic_reply(client, chat_id, f"telegram-{chat_id}", "/work " + rest)
+        return
+    if cmd == "denk":
+        # Dauerhafte Denk-Tiefe — derselbe deterministische Handler wie im Web-Chat
+        # (schreibt overrides.json; andere Prozesse ziehen per refresh_overrides nach).
+        from core.agency import act as _act
+        _send(client, chat_id, _act._handle_denk_command(("/denk " + rest).strip()))
         return
     if cmd == "denken":
         arg = rest.lower().strip()
@@ -1349,6 +1356,7 @@ _BOT_COMMANDS = [
     ("plan", "Große Aufgabe planen und Schritt für Schritt abarbeiten"),
     ("work", "Längerer Auftrag mit vollem Werkzeug-Budget"),
     ("denken", "Gedankenstrom an/aus – zeigt, wie ich denke (läuft auf GLM)"),
+    ("denk", "Denk-Tiefe dauerhaft: hoch|mittel|niedrig|aus|standard"),
     ("emoji", "Animierte Emoji als Neon-Glow im Denk-Status lernen"),
     ("effekt", "Animierter Effekt auf erledigten Antworten an/aus"),
     ("act", "Etwas mit Werkzeugen erledigen (z. B. Web)"),
