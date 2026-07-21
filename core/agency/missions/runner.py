@@ -553,6 +553,14 @@ def run_forever(interval: int | None = None) -> None:
             except Exception as e:  # noqa: BLE001
                 events.emit("config_refresh_error", {"error": str(e)})
             try:
+                # Nachtdenker (GPU-Zeitteilung): Fenster-Automat tickt 24/7 mit —
+                # NACH refresh_overrides, damit Cockpit-Aenderungen sofort greifen.
+                from core.kernel import nachtdenker
+
+                nachtdenker.tick()
+            except Exception as e:  # noqa: BLE001
+                events.emit("nachtdenker_fehler", {"error": str(e)[:200]})
+            try:
                 from core.agency.missions import cron
 
                 cron.run_due()
