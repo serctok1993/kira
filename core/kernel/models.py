@@ -172,6 +172,17 @@ def _local_catalog() -> list[dict]:
             for n in ollama_models() if not any(x in n.lower() for x in ("embed", "hf.co", "gguf"))]
 
 
+def _eigene_catalog() -> list[dict]:
+    """Registrierte eigene Endpunkte (add_provider — z.B. llama.cpp-Server): der Alias
+    ist die zuweisbare ID, der Katalog zeigt Ziel-Modell + api_base als Klartext."""
+    aus = []
+    for alias, p in (CONFIG.get("models", {}).get("providers") or {}).items():
+        aus.append({"id": alias,
+                    "name": f"{alias} — {p.get('model', '?')} @ {p.get('api_base', '?')}",
+                    "in": 0, "out": 0})
+    return aus
+
+
 def _openrouter_fetch() -> list[dict] | None:
     """Live-Liste von OpenRouter (IDs + Preise pro Token, in/out) — None bei Netzfehler.
 
@@ -287,13 +298,13 @@ def catalog(force: bool = False) -> dict:
     import time as _t
 
     if not force and _CATALOG_CACHE["data"] and (_t.time() - _CATALOG_CACHE["ts"]) < 600:
-        voll = {**_CATALOG_CACHE["data"], "local": _local_catalog()}
+        voll = {**_CATALOG_CACHE["data"], "local": _local_catalog(), "eigene": _eigene_catalog()}
         return {**voll, "zuletzt": _zuletzt(voll)}
     ors = _openrouter_liste(force=force)
     aimlapi_list = sorted(aimlapi_models(), key=lambda x: x["id"])
     out = {"openrouter": ors, "aimlapi": aimlapi_list, "kuratiert": _kuratiert(ors)}
     _CATALOG_CACHE.update(ts=_t.time(), data=out)
-    voll = {**out, "local": _local_catalog()}
+    voll = {**out, "local": _local_catalog(), "eigene": _eigene_catalog()}
     return {**voll, "zuletzt": _zuletzt(voll)}
 
 

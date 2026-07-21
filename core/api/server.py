@@ -148,6 +148,14 @@ def health() -> dict:
     return {"status": "alive", "harness": CONFIG["identity"]["harness_name"]}
 
 
+def _nachtdenker_status() -> dict:
+    try:
+        from core.kernel import nachtdenker
+        return nachtdenker.status()
+    except Exception:  # noqa: BLE001 — Status darf nie am Nachtdenker scheitern
+        return {"enabled": False, "phase": "aus", "aktiv": False}
+
+
 @app.get("/api/status")
 def api_status() -> dict:
     m = models.status()
@@ -170,6 +178,7 @@ def api_status() -> dict:
         # live mit — der Regler erscheint damit auch fuer DeepSeek R1, Kimi & Co.
         "reasoning_ids": sorted(models.reasoning_ids()),
         "reasoning_level": CONFIG["models"].get("reasoning_level") or "",  # Standard-Denk-Tiefe (/denk)
+        "nachtdenker": _nachtdenker_status(),   # GPU-Zeitteilung: Fenster + Phase
         "num_ctx": m.get("num_ctx"),
         "max_tokens": m.get("max_tokens"),
         "temperature": CONFIG["models"].get("temperature"),
@@ -694,6 +703,22 @@ async def api_model_use(body: dict) -> dict:
 @app.post("/api/model/openrouter")
 async def api_model_openrouter(body: dict) -> dict:
     return {"ok": True, "active": models.add_openrouter(body.get("model", ""))}
+
+
+@app.post("/api/model/provider")
+async def api_model_provider(body: dict) -> dict:
+    """Eigenen OpenAI-kompatiblen Endpunkt registrieren (llama.cpp-Server & Co.).
+    api_key_env darf leer bleiben — ein registrierter Endpunkt ohne Key-Pflicht
+    gilt als bewusst keyless und faellt NICHT auf lokal zurueck."""
+    alias = (body.get("alias") or "").strip()
+    modell = (body.get("model") or "").strip() or f"openai/{alias}"
+    api_base = (body.get("api_base") or "").strip()
+    if not alias or not api_base:
+        return {"ok": False,
+                "error": "alias + api_base noetig — z.B. alias 'nacht35b', api_base 'http://127.0.0.1:8081/v1'"}
+    p = models.add_provider(alias, modell, api_base, (body.get("api_key_env") or "").strip())
+    events.emit("provider_added", {"alias": alias, "api_base": api_base, "via": "dashboard"})
+    return {"ok": True, "alias": alias, **p}
 
 
 @app.get("/api/model/catalog")

@@ -148,6 +148,8 @@ def _has_key(model: str) -> bool:
     real, _api_base, key_env = _provider_config(model)
     if key_env:  # eigener Provider -> dessen Env-Variable
         return bool(os.getenv(key_env))
+    if model in CONFIG["models"].get("providers", {}):
+        return True  # registrierter Endpunkt OHNE api_key_env = bewusst keyless (llama.cpp & Co.)
     provider = real.split("/", 1)[0]
     if provider.startswith("ollama"):
         return True  # lokal, kein Key noetig
@@ -348,6 +350,10 @@ def complete(
         extra["api_base"] = api_base
     if key_env:
         extra["api_key"] = os.getenv(key_env)
+    elif api_base:
+        # Registrierter keyless Endpunkt (llama.cpp & Co.): der Server verlangt keinen
+        # Key, aber litellm besteht bei openai/-Modellen auf einem -> Platzhalter.
+        extra["api_key"] = "sk-lokal"
     if tools:
         extra["tools"] = tools
     extra.update(_reasoning_extra(real, reasoning))   # Denk-Tiefe -> nur bei denk-faehigen Modellen
