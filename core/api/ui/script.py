@@ -519,7 +519,7 @@ async function useChatModel(id){
 let MODEL_CACHE=null,MODEL_CAT=null;
 async function renderModelRows(term,box){box=box||$("#model-rows");if(!box)return;
  if(!MODEL_CACHE){try{const d=await (await fetch("/api/model/catalog")).json();const c=d.catalog||{};
-   MODEL_CAT=c;MODEL_CACHE=[].concat(c.local||[],c.openrouter||[],c.aimlapi||[]);
+   MODEL_CAT=c;MODEL_CACHE=[].concat(c.local||[],c.eigene||[],c.openrouter||[],c.aimlapi||[]);
    (c.openrouter||[]).forEach(m=>{if(m.rc)RC_IDS.add(m.id);});}catch(e){MODEL_CACHE=[];}}
  const cur=($("#chat-model")&&$("#chat-model").value)||"";
  term=(term||"").toLowerCase();
@@ -535,7 +535,7 @@ async function renderModelRows(term,box){box=box||$("#model-rows");if(!box)retur
  else{const c=MODEL_CAT||{};const seen=new Set();
   const grp=(titel,liste)=>{const l=(liste||[]).filter(m=>m&&m.id&&!seen.has(m.id)&&seen.add(m.id));
    return l.length?('<div class="cmd-grp">'+titel+'</div>'+l.map(zeile).join("")):"";};
-  html=grp("★ Zuletzt genutzt",c.zuletzt)+grp("Lokal",c.local)
+  html=grp("★ Zuletzt genutzt",c.zuletzt)+grp("Eigene Endpunkte",c.eigene)+grp("Lokal",c.local)
    +grp("Kuratierte Auswahl — tippen fuer alle "+((c.openrouter||[]).length)+" Modelle",(c.kuratiert&&c.kuratiert.length)?c.kuratiert:c.openrouter)
    ||'<div class="muted" style="padding:8px">nichts gefunden</div>';}
  box.innerHTML=html;
@@ -1662,6 +1662,13 @@ async function loadModels(){const s=await (await fetch("/api/status")).json();
  if($("#s-temp")&&document.activeElement!==$("#s-temp"))$("#s-temp").value=s.temperature!=null?s.temperature:"";
  if($("#s-keep")&&document.activeElement!==$("#s-keep"))$("#s-keep").value=s.keep_alive||"";
  if($("#s-denk")&&document.activeElement!==$("#s-denk"))$("#s-denk").value=s.reasoning_level||"";
+ const nd=s.nachtdenker||{};  /* Nachtdenker-Karte: Fenster + Server aus dem Live-Status */
+ if($("#nd-on"))$("#nd-on").checked=!!nd.enabled;
+ if($("#nd-start")&&document.activeElement!==$("#nd-start"))$("#nd-start").value=nd.start||"";
+ if($("#nd-ende")&&document.activeElement!==$("#nd-ende"))$("#nd-ende").value=nd.ende||"";
+ if($("#nd-cmd")&&document.activeElement!==$("#nd-cmd"))$("#nd-cmd").value=nd.server_cmd||"";
+ if($("#nd-ep")&&document.activeElement!==$("#nd-ep"))$("#nd-ep").value=nd.endpunkt||"";
+ if($("#nd-status"))$("#nd-status").textContent=nd.enabled?("Phase: "+(nd.phase||"aus")):"aus";
  if($("#s-voice"))$("#s-voice").checked=!!s.voice;
  if($("#s-whisper")&&s.whisper)$("#s-whisper").value=s.whisper;
  fetch("/api/model/loaded").then(r=>r.json()).then(ld=>showLoaded($("#m-loaded"),ld));
@@ -1688,16 +1695,16 @@ let MCAT={openrouter:[],local:[],aimlapi:[]};
 function money(x){return (x==null||x===0)?"0€":("$"+(x*1e6).toFixed(2)+"/M");}
 function renderRoles(roles){const el=$("#m-roles");if(!el)return;
  /* Katalog-Runde: Preis direkt neben der Rollen-Zuweisung — DA faellt die Entscheidung */
- const px={};((MCAT.openrouter||[]).concat(MCAT.aimlapi||[])).forEach(m=>{px[m.id]=m;});
+ const px={};((MCAT.openrouter||[]).concat(MCAT.aimlapi||[],MCAT.eigene||[])).forEach(m=>{px[m.id]=m;});
  el.innerHTML=Object.keys(ROLE_LABEL).map(r=>{const mid=(roles[r]||"—")+"";const m=px[mid];
   const preis=(m&&m.in!=null)?'<small class="muted" style="font-variant-numeric:tabular-nums">'+money(m.in)+' · '+money(m.out)+'</small>':'';
   return '<div style="display:flex;gap:10px;align-items:baseline;padding:4px 0;border-bottom:1px solid var(--line)"><span style="min-width:150px">'+ROLE_LABEL[r]+'</span><b style="flex:1;color:var(--accent)">'+mid.replace(/^openrouter\//,"").replace(/</g,"&lt;")+'</b>'+preis+'</div>';}).join("");}
 function renderCat(){const el=$("#cat-list");if(!el)return;const q=(($("#cat-search")||{}).value||"").toLowerCase().trim();
- const all=(MCAT.local||[]).concat(MCAT.openrouter||[]).concat(MCAT.aimlapi||[]);
- /* Katalog-Runde: OHNE Suchbegriff Zuletzt-genutzt + kuratierte Vorauswahl (lokal +
-    Haus-Provider) — die Suche sieht weiterhin ALLE ~300 Modelle inkl. jeder Neuerscheinung */
+ const all=(MCAT.local||[]).concat(MCAT.eigene||[],MCAT.openrouter||[],MCAT.aimlapi||[]);
+ /* Katalog-Runde: OHNE Suchbegriff Zuletzt-genutzt + eigene Endpunkte + kuratierte
+    Vorauswahl — die Suche sieht weiterhin ALLE ~300 Modelle inkl. jeder Neuerscheinung */
  const seen=new Set();
- const basis=(q?all:(MCAT.zuletzt||[]).concat(MCAT.local||[],MCAT.kuratiert&&MCAT.kuratiert.length?MCAT.kuratiert:MCAT.openrouter||[]))
+ const basis=(q?all:(MCAT.zuletzt||[]).concat(MCAT.eigene||[],MCAT.local||[],MCAT.kuratiert&&MCAT.kuratiert.length?MCAT.kuratiert:MCAT.openrouter||[]))
   .filter(m=>m&&m.id&&!seen.has(m.id)&&seen.add(m.id));
  const hits=basis.filter(m=>!q||(m.id||"").toLowerCase().includes(q)||(m.name||"").toLowerCase().includes(q)).slice(0,80);
  const kopf=(!q&&MCAT.kuratiert&&MCAT.kuratiert.length)?'<div class="muted" style="padding:3px 2px;font-size:10.5px">★ Zuletzt genutzt + Kuratierte Auswahl — tippen, um alle '+((MCAT.openrouter||[]).length)+' Modelle zu durchsuchen · ◆ = denkt (Reasoning)</div>':'';
@@ -1716,6 +1723,20 @@ $("#s-behav-save")&&($("#s-behav-save").onclick=async()=>{const tp=parseFloat($(
  if($("#s-keep").value.trim())await cfgSet("models.keep_alive",$("#s-keep").value.trim());
  if($("#s-denk"))await cfgSet("models.reasoning_level",$("#s-denk").value);  /* Standard-Denk-Tiefe (leer = Modell entscheidet) */
  $("#s-sys-hint")&&($("#s-sys-hint").textContent="live gesetzt ✓");});
+/* Nachtdenker: Fenster/Server setzen — generischer Override-Pfad, Runner-Tick zieht binnen ~60s nach */
+$("#nd-save")&&($("#nd-save").onclick=async()=>{
+ await cfgSet("nachtdenker.enabled",$("#nd-on").checked);
+ if($("#nd-start").value)await cfgSet("nachtdenker.start",$("#nd-start").value);
+ if($("#nd-ende").value)await cfgSet("nachtdenker.ende",$("#nd-ende").value);
+ await cfgSet("nachtdenker.server_cmd",$("#nd-cmd").value.trim());
+ if($("#nd-ep").value.trim())await cfgSet("nachtdenker.endpunkt",$("#nd-ep").value.trim());
+ $("#nd-status").textContent="gesetzt ✓ — der Automat tickt im Minutentakt";});
+/* Eigener Endpunkt (llama.cpp & Co.): registrieren -> Katalog-Gruppe "Eigene Endpunkte" */
+$("#m-ep-add")&&($("#m-ep-add").onclick=async()=>{
+ const r=await (await fetch("/api/model/provider",{method:"POST",headers:{"Content-Type":"application/json"},
+  body:JSON.stringify({alias:$("#m-ep-alias").value.trim(),api_base:$("#m-ep-base").value.trim(),model:$("#m-ep-model").value.trim()})})).json();
+ $("#m-ep-hint").textContent=r.ok?"registriert ✓ — im Katalog unter 'Eigene Endpunkte'":(r.error||"Fehler");
+ if(r.ok)loadModels();});
 $("#s-sys-save")&&($("#s-sys-save").onclick=async()=>{await cfgSet("channels.telegram.voice",$("#s-voice").checked);
  await cfgSet("channels.telegram.whisper_model",$("#s-whisper").value);
  $("#s-sys-hint").innerHTML='gespeichert · <a href="#" onclick="doRestart(event)">Neustart</a>';});

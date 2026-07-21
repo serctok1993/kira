@@ -631,6 +631,32 @@ VIEWS = r"""</head><body>
       </div>
     </div>
     <div class="card"><h3>Lokal (Ollama) — klicken zum Wechseln</h3><div id="m-ollama"></div></div>
+    <div class="card"><h3>Eigener Endpunkt (llama.cpp &amp; Co.)</h3>
+      <div class="muted">OpenAI-kompatiblen lokalen Server registrieren — erscheint als „Eigene Endpunkte" im Katalog und ist auf jede Rolle legbar. Ohne Key-Pflicht (keyless ist okay).</div>
+      <div class="row" style="margin-top:8px;flex-wrap:wrap">
+        <input id="m-ep-alias" placeholder="Alias, z.B. nacht35b" style="max-width:150px"/>
+        <input id="m-ep-base" placeholder="http://127.0.0.1:8081/v1" style="min-width:220px;flex:1"/>
+        <input id="m-ep-model" placeholder="Modell-ID (optional)" style="max-width:180px"/>
+        <button id="m-ep-add">Registrieren</button>
+        <span class="muted" id="m-ep-hint" style="align-self:center"></span>
+      </div>
+    </div>
+    <div class="card"><h3>Nachtdenker — GPU-Zeitteilung</h3>
+      <div class="muted">Im Fenster startet der Automat deinen llama.cpp-Server, legt die Denk-Rollen darauf um und entlaedt Ollama (VRAM). Am Fensterende laeuft alles zurueck.</div>
+      <div class="row" style="margin-top:8px;flex-wrap:wrap">
+        <label class="muted" style="cursor:pointer;align-self:center"><input type="checkbox" id="nd-on"/> aktiv</label>
+        <label class="muted" style="align-self:center">von</label>
+        <input id="nd-start" type="time" style="max-width:110px"/>
+        <label class="muted" style="align-self:center">bis</label>
+        <input id="nd-ende" type="time" style="max-width:110px"/>
+        <button id="nd-save">Setzen (live)</button>
+        <span id="nd-status" class="muted" style="align-self:center">…</span>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <input id="nd-cmd" placeholder="Server-Start, z.B. powershell -ExecutionPolicy Bypass -File C:/pfad/server35.ps1" style="min-width:280px;flex:1"/>
+        <input id="nd-ep" placeholder="http://127.0.0.1:8081/v1" style="max-width:220px"/>
+      </div>
+    </div>
     <div class="card"><h3>OpenRouter-Modell direkt hinzufuegen</h3>
       <div class="muted">Modell-ID einfuegen (z.B. <b>anthropic/claude-sonnet-5</b>) — wird sofort aktives Modell.</div>
       <div class="row" style="margin-top:8px">
