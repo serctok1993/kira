@@ -45,6 +45,20 @@ models:
   keep_alive: "24h"                         # Modell warm halten -> kein Kaltstart im Dauerbetrieb
   num_ctx: 32768                            # Kontextfenster (Live-Baseline; kleiner = guenstiger pro Call)
 
+# Nachtdenker: GPU-Zeitteilung fuer ein grosses lokales Modell (llama.cpp-Server).
+# Tagsueber gehoert die GPU den kleinen Ollama-Modellen, im Fenster einem grossen
+# OpenAI-kompatiblen Endpunkt — beide zusammen passen nicht in den VRAM.
+# Der Automat startet/stoppt server_cmd, legt die Rollen um und entlaedt Ollama.
+nachtdenker:
+  enabled: false
+  start: "23:30"             # Fensterbeginn (HH:MM; start > ende = ueber Mitternacht)
+  ende: "07:30"
+  server_cmd: ""             # z.B. powershell -ExecutionPolicy Bypass -File C:/pfad/server35.ps1
+  endpunkt: "http://127.0.0.1:8081/v1"
+  modell: "openai/nachtdenker"   # litellm-ID hinterm Endpunkt (llama.cpp ignoriert den Namen)
+  provider: "nacht35b"           # Katalog-Alias, der im Fenster die Rollen uebernimmt
+  rollen: ["reason", "worker", "bulk"]   # welche Etagen nachts aufs grosse Modell gehen
+
 # Desktop-Wallpaper (/wall) + Desktop-App (Fenster/Hotkeys)
 desktop:
   # Globale Tasten der Desktop-App (Phase 4). Syntax = keyboard-Paket, z.B. "alt+space",
