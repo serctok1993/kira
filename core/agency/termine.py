@@ -88,6 +88,49 @@ def remove(termin_id: str) -> bool:
     return True
 
 
+def update(termin_id: str, datum: str = "", zeit: str | None = None,
+           titel: str = "", jaehrlich: str | None = None) -> dict:
+    """Bestehenden Eintrag aendern — nur uebergebene Felder werden angefasst.
+
+    Nacht-Fund 22.07.: ohne Aendern-Werkzeug legten die Modelle bei JEDER
+    Korrektur einen ZWEITEN Termin an (TUEV 14 Uhr + TUEV 16 Uhr) oder rieten
+    'termin_edit'/'termin_delete' ins Leere. datum nimmt wie add() auch
+    heute/morgen/uebermorgen (datum_aufloesen)."""
+    tid = str(termin_id or "").strip()
+    items = _load()
+    eintrag = next((x for x in items if x.get("id") == tid), None)
+    if eintrag is None:
+        return {"ok": False,
+                "error": f"Kein Termin mit id '{tid}'. Die ids stehen in termin_list"}
+    geaendert: list[str] = []
+    if str(datum or "").strip():
+        d = parse_datum(datum)
+        if d is None:
+            heute = datetime.date.today()
+            morgen = heute + datetime.timedelta(days=1)
+            return {"ok": False,
+                    "error": (f"Datum '{datum}' ergibt keinen Kalendertag (Format TT.MM.JJJJ). "
+                              f"Heute ist der {heute:%d.%m.%Y}, morgen der {morgen:%d.%m.%Y}")}
+        eintrag["datum"] = d.strftime("%d.%m.%Y")
+        geaendert.append("datum")
+    if zeit is not None and str(zeit).strip():
+        eintrag["zeit"] = str(zeit).strip()
+        geaendert.append("zeit")
+    if str(titel or "").strip():
+        eintrag["titel"] = str(titel).strip()
+        geaendert.append("titel")
+    if jaehrlich is not None and str(jaehrlich).strip():
+        eintrag["jaehrlich"] = str(jaehrlich).strip().lower() in ("ja", "1", "true", "yes")
+        geaendert.append("jaehrlich")
+    if not geaendert:
+        return {"ok": False,
+                "error": "nichts zu aendern — gib datum, zeit, titel oder jaehrlich an"}
+    _save(items)
+    events.emit("termin_updated", {"id": tid, "geaendert": geaendert,
+                                   "datum": eintrag["datum"], "titel": eintrag["titel"][:80]})
+    return {"ok": True, **eintrag, "geaendert": geaendert}
+
+
 def alle() -> list[dict]:
     return _load()
 

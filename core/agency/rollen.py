@@ -73,7 +73,9 @@ ROLLEN: dict[str, dict] = {
             "jetzt", "health", "web_search", "web_fetch", "browse", "screenshot_url",
             "read_file", "list_dir", "write_file",
             "remember_fact", "erinnerung", "termin_add", "termin_list",
-            "cron_add", "cron_list", "watch_add", "watch_list",
+            "termin_update", "termin_remove",   # Nacht-Fund 22.07.: ohne sie -> Doppel-Termine
+            "cron_add", "cron_list", "cron_remove",   # Familie komplett (todo_list-Lehre)
+            "watch_add", "watch_list",
             "todo_add", "todo_done", "todo_list",
             "todo_plan", "todo_update", "todo_stand",
             "knowledge_search", "knowledge_note",
