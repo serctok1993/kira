@@ -1,11 +1,13 @@
-"""Termin-Werkzeuge (Phase 2) + Einmal-Wecker (c4-Nachzug).
+"""Termin-Werkzeuge (Phase 2) + Einmal-Wecker (c4-Nachzug) + Aendern/Loeschen (Termin-Runde).
 
-Bewusst schlank (Manifest-Diaet fuer kleine Modelle): eintragen + ansehen +
-EIN aktiver Wecker. Loeschen macht der Nutzer im Cockpit (Tag -> TERMINE).
 Fehler lehren mit Beispiel-ACT-Zeile — die Texte sind Trainingsmaterial fuer
 die LLM-Werkstatt. Abgrenzung (Kern des c4-Vorfalls vom 16.07.):
 termin_add = passiver Kalender (Radar/Briefing) · erinnerung = EINMALIGE
 aktive Nachricht zur Uhrzeit · cron_add = wiederkehrende Routine.
+Nacht-Fund 22.07. (Testbatterien, events-belegt): Die alte Manifest-Diaet
+("Loeschen macht der Nutzer im Cockpit") erzeugte bei JEDER Korrektur
+Doppel-Termine bzw. geratene Namen (termin_edit/termin_delete) — deshalb
+gibt es jetzt termin_update und termin_remove, Familien-konsistent zu cron_*.
 """
 from __future__ import annotations
 
@@ -60,6 +62,50 @@ def termin_list(tage: str = "", **falsche_args) -> str:
         j = " (jaehrlich)" if e.get("jaehrlich") else ""
         lines.append(f"- ({e['id']}) {e['datum']}{zeit}: {e['titel']} — {wann}{j}")
     return "\n".join(lines)
+
+
+@tool("termin_update",
+      "Aendert einen BESTEHENDEN Termin (Zeit verschieben, Datum aendern, Titel "
+      "korrigieren) — NIE einen zweiten Termin fuer dieselbe Sache anlegen. Die id "
+      "steht in termin_list. Nur die Felder angeben, die sich aendern.",
+      {"id": "die Termin-id aus termin_list, z.B. 7c31a9d2",
+       "datum": "optional: neues Datum TT.MM.JJJJ (auch heute/morgen/uebermorgen)",
+       "zeit": "optional: neue Uhrzeit HH:MM",
+       "titel": "optional: neuer Titel",
+       "jaehrlich": "optional: ja/nein"})
+def termin_update(id: str = "", datum: str = "", zeit: str = "", titel: str = "",
+                  jaehrlich: str = "", **falsche_args) -> str:
+    from core.agency import termine
+
+    if falsche_args or not str(id).strip():
+        return ("Fehler: termin_update braucht die 'id' aus termin_list plus die zu "
+                "aendernden Felder. Beispiel: "
+                'ACT termin_update {"id": "7c31a9d2", "zeit": "16:00"}')
+    res = termine.update(id, datum=datum, zeit=zeit or None, titel=titel,
+                         jaehrlich=jaehrlich or None)
+    if not res.get("ok"):
+        return (f"Fehler: {res.get('error')}. Beispiel: "
+                'ACT termin_update {"id": "7c31a9d2", "zeit": "16:00"}')
+    z = f" um {res['zeit']}" if res.get("zeit") else ""
+    j = " (jaehrlich)" if res.get("jaehrlich") else ""
+    return (f"Geaendert ({', '.join(res['geaendert'])}): {res['titel']} am "
+            f"{res['datum']}{z}{j} — id {res['id']}.")
+
+
+@tool("termin_remove",
+      "Loescht einen Termin aus {{USER_NAME_S}} Kalender. Die id steht in termin_list. "
+      "Zum Verschieben/Korrigieren stattdessen termin_update nutzen.",
+      {"id": "die Termin-id aus termin_list, z.B. 7c31a9d2"})
+def termin_remove(id: str = "", **falsche_args) -> str:
+    from core.agency import termine
+
+    if falsche_args or not str(id).strip():
+        return ("Fehler: termin_remove braucht die 'id' aus termin_list. Beispiel: "
+                'ACT termin_remove {"id": "7c31a9d2"}')
+    if not termine.remove(id):
+        return (f"Fehler: Kein Termin mit id '{str(id).strip()}'. Erst nachschauen: "
+                "ACT termin_list {}")
+    return f"Termin geloescht (id {str(id).strip()})."
 
 
 @tool("erinnerung",
