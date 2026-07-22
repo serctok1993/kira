@@ -163,6 +163,35 @@ def has_key(model: str) -> bool:
     return _has_key(model)
 
 
+def _lokal_extra(real: str, api_base: str | None, key_env: str | None) -> dict:
+    """litellm-Zusatzargumente fuer LOKALE Modelle im Streaming-Pfad: Ollama bekommt
+    keep_alive/num_ctx, ein eigener Endpunkt (llama.cpp) api_base + (Dummy-)Key."""
+    extra: dict = {}
+    if real.startswith("ollama"):
+        if CONFIG["models"].get("keep_alive") is not None:
+            extra["keep_alive"] = CONFIG["models"]["keep_alive"]
+        if CONFIG["models"].get("num_ctx") is not None:
+            extra["num_ctx"] = CONFIG["models"]["num_ctx"]
+    if api_base:
+        extra["api_base"] = api_base
+        extra["api_key"] = os.getenv(key_env) if key_env else "sk-lokal"
+    return extra
+
+
+def ist_lokal(model_id: str) -> bool:
+    """Laeuft dieses Modell auf DIESEM Rechner? (Ollama ODER registrierter Endpunkt
+    auf 127.0.0.1/localhost — z.B. der llama.cpp-Nachtdenker.)
+
+    Steuert die Chat-Weiche: lokale Modelle fahren den ACT-Pfad mit dem schlanken
+    haupt-Manifest. 35B-Premiere 22.07.: der Cloud-Pfad schickte dem lokalen
+    Endpunkt 17,7k Token (volle Schema-Flotte) — Prefill riss die 150s-Wall-Clock;
+    dasselbe Modell antwortete roh in 7s."""
+    real, api_base, _ke = _provider_config(model_id)
+    if real.startswith("ollama"):
+        return True
+    return bool(api_base and ("127.0.0.1" in api_base or "localhost" in api_base))
+
+
 # Sichtbarkeit statt stillem Fallback: EIN Event pro (task, gewuenscht), gedrosselt,
 # damit der heisse Pfad (jeder complete/stream) nicht spammt.
 _FALLBACK_SEEN: dict[tuple[str, str], float] = {}
@@ -510,10 +539,10 @@ def stream(messages, system=None, task_type="chat", session_id=None, escalate=Fa
         fell_back = False
     else:
         model, fell_back = resolve_model(task_type, escalate=escalate)
-    real, _api_base, _key_env = _provider_config(model)
+    real, api_base, key_env = _provider_config(model)
 
-    if not real.startswith("ollama"):
-        # Cloud/eigener Provider -> ueber complete() (sauberes Kosten-Logging), als ein Block
+    if not ist_lokal(model):
+        # Cloud -> ueber complete() (sauberes Kosten-Logging), als ein Block
         res = complete(messages, system=system, task_type=task_type, session_id=session_id,
                        escalate=escalate, reasoning=reasoning)
         yield res["text"]
@@ -524,11 +553,7 @@ def stream(messages, system=None, task_type="chat", session_id=None, escalate=Fa
         msgs.append({"role": "system", "content": system})
     msgs.extend(messages)
 
-    extra: dict = {}
-    if CONFIG["models"].get("keep_alive") is not None:
-        extra["keep_alive"] = CONFIG["models"]["keep_alive"]
-    if CONFIG["models"].get("num_ctx") is not None:
-        extra["num_ctx"] = CONFIG["models"]["num_ctx"]
+    extra: dict = _lokal_extra(real, api_base, key_env)
 
     t0 = time.time()
     resp = litellm.completion(
@@ -592,9 +617,9 @@ def stream_tagged(messages, system=None, task_type="chat", session_id=None, esca
         fell_back = False
     else:
         model, fell_back = resolve_model(task_type, escalate=escalate)
-    real, _api_base, _key_env = _provider_config(model)
+    real, api_base, key_env = _provider_config(model)
 
-    if not real.startswith("ollama"):
+    if not ist_lokal(model):
         res = complete(messages, system=system, task_type=task_type, session_id=session_id,
                        escalate=escalate, reasoning=reasoning)
         yield {"kind": "answer", "text": res["text"]}
@@ -605,11 +630,7 @@ def stream_tagged(messages, system=None, task_type="chat", session_id=None, esca
         msgs.append({"role": "system", "content": system})
     msgs.extend(messages)
 
-    extra: dict = {}
-    if CONFIG["models"].get("keep_alive") is not None:
-        extra["keep_alive"] = CONFIG["models"]["keep_alive"]
-    if CONFIG["models"].get("num_ctx") is not None:
-        extra["num_ctx"] = CONFIG["models"]["num_ctx"]
+    extra: dict = _lokal_extra(real, api_base, key_env)
 
     t0 = time.time()
     resp = litellm.completion(
