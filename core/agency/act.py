@@ -305,10 +305,12 @@ def _claim_stamp(text: str, session_id: str | None = None) -> str:
 
 
 def _cloud(escalate: bool, task_type: str = "reason") -> bool:
-    """True, wenn das aufzurufende Modell ein Cloud-/Provider-Modell ist (nicht lokal Ollama)."""
+    """True, wenn das aufzurufende Modell wirklich in der Cloud laeuft. Lokale
+    Endpunkte (Ollama UND llama.cpp-Server a la Nachtdenker) fahren den ACT-Pfad
+    mit dem schlanken haupt-Manifest — die trainierte Umgebung der c-Linie, und
+    der 5k-Prompt haelt den Prefill grosser lokaler Modelle im Sekundenbereich."""
     model, _ = llm_router.resolve_model(task_type, escalate=escalate)
-    real, _ab, _ke = llm_router._provider_config(model)
-    return not real.startswith("ollama")
+    return not llm_router.ist_lokal(model)
 
 
 # --- Geteiltes Gedaechtnis: code:/plan: erbt den Brainstorm davor -----------------------
