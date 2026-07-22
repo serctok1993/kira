@@ -256,6 +256,15 @@ def _schwarm_budget_reached(start_spend: float | None, budget: float) -> bool:
        "liste": "die Items, EINE pro Zeile",
        "rang": "optional: Rang der Arbeiter (Standard arbeiter)",
        "session_id": "optional: wird automatisch gesetzt"})
+def _items_aus(liste) -> list[str]:
+    """Nacht-Fund 22.07.: Modelle geben die Liste natuerlich als JSON-Array — das
+    crashte roh ("'list' object has no attribute 'splitlines'"). Durchreichen statt
+    belehren: echte Listen werden angenommen, Strings weiter zeilenweise."""
+    if isinstance(liste, (list, tuple)):
+        return [str(x).strip() for x in liste if str(x).strip()]
+    return [ln.strip() for ln in str(liste or "").splitlines() if ln.strip()]
+
+
 def schwarm(auftrag_vorlage: str, liste: str, rang: str = "arbeiter", session_id: str = "") -> str:
     global _AKTIV
     if _AKTIV or (session_id or "").startswith("sub-"):
@@ -263,7 +272,7 @@ def schwarm(auftrag_vorlage: str, liste: str, rang: str = "arbeiter", session_id
     rang = (rang or "arbeiter").strip().lower()
     if rang not in _RANG:
         return f"Unbekannter Rang '{rang}'. Verfuegbar: {', '.join(_RANG)}."
-    items = [ln.strip() for ln in (liste or "").splitlines() if ln.strip()]
+    items = _items_aus(liste)
     if not items:
         return "Schwarm ohne Liste — gib die Items eine pro Zeile an."
 
