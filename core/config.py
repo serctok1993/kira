@@ -43,6 +43,46 @@ def suppress_repo_writes() -> bool:
     return test_mode() and not sandbox_active()
 
 
+def worktree() -> bool:
+    """True, wenn ROOT ein git-WORKTREE ist: dort ist .git eine DATEI (gitdir:-Zeiger),
+    im Hauptrepo ein Verzeichnis. Vorfall 18./19.07.: der Desktop-LNK zeigte in einen
+    alten Worktree — dort bootete eine Alt-Kira mit leerem data/ (setup_required) und
+    altem Code-Stand, deren Mission am Verify vorbei ins Hauptrepo schrieb."""
+    try:
+        return (Path(ROOT) / ".git").is_file()
+    except OSError:
+        return False
+
+
+def hauptrepo() -> Path | None:
+    """Wurzel des HAUPTREPOS, wenn ROOT ein Worktree ist — aus dem gitdir:-Zeiger der
+    .git-DATEI (<haupt>/.git/worktrees/<name>). Sonst (oder bei kaputtem Zeiger): None."""
+    try:
+        if not worktree():
+            return None
+        zeile = (Path(ROOT) / ".git").read_text(encoding="utf-8", errors="replace").strip()
+        if not zeile.lower().startswith("gitdir:"):
+            return None
+        gitdir = Path(zeile.split(":", 1)[1].strip())
+        if gitdir.parent.name == "worktrees" and gitdir.parent.parent.name == ".git":
+            return gitdir.parent.parent.parent.resolve()
+    except OSError:
+        return None
+    return None
+
+
+def dienststart_verweigert() -> str | None:
+    """Klartext-Veto, wenn ein DIENST (Supervisor/Desktop-App) aus einem git-Worktree
+    starten will — ohne bewusste Sandbox (KIRA_ROOT/KIRA_DATA_DIR, z.B. Benchmark).
+    None = Start erlaubt."""
+    if not worktree() or sandbox_active():
+        return None
+    return (f"START VERWEIGERT: {ROOT} ist ein git-WORKTREE (.git ist eine Datei) — von "
+            "hier bootet sonst eine Alt-Kira mit leerem data/ (setup_required) und altem "
+            "Code-Stand. Dienste starten NUR aus dem Hauptrepo; bewusste Sandbox-Laeufe "
+            "setzen KIRA_ROOT/KIRA_DATA_DIR.")
+
+
 def outbound_blocked() -> bool:
     """True, wenn Aussen-Wirkungen (Mail, Telegram, Cloud-LLM-Spend, externe Dienste) unterdrueckt
     werden sollen — gesetzt via KIRA_NO_OUTBOUND, z.B. vom Benchmark-Runner in seiner Sandbox.

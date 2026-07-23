@@ -2,6 +2,12 @@
 # Wird vom Autostart aufgerufen (oder manuell). Mission-Loop laeuft nur, wenn
 # heartbeat.enabled in config.yaml = true gesetzt ist.
 $root = Split-Path -Parent $PSScriptRoot
+# Worktree-Riegel (Vorfall 18./19.07.): in einem git-Worktree ist .git eine DATEI —
+# von dort bootet sonst eine Alt-Kira (leeres data\ -> setup_required). Nur Hauptrepo.
+if ((Test-Path (Join-Path $root ".git") -PathType Leaf) -or ($root -like "*\.claude\worktrees\*")) {
+  Write-Host "ABBRUCH: $root ist ein git-Worktree - Start nur aus dem Hauptrepo."
+  exit 1
+}
 Set-Location -Path $root
 
 # 0) Ollama (Modell-Backend) sicherstellen

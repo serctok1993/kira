@@ -16,6 +16,8 @@ import os
 import re
 import subprocess
 
+from pathlib import Path
+
 from core.config import ROOT
 
 # W4b: die Shell selbst ist portabel (shell=True -> cmd.exe bzw. /bin/sh). Nur der
@@ -78,6 +80,51 @@ _UNIX_HINT = (
     "(kein head), 2>$null (kein 2>/dev/null).")
 
 
+# --- Kern-Schreibwache (Worktree-Vorfall 18./19.07.) --------------------------------
+# Eine autonome Mission umging den selfdev-Verify-Rollback: nach selfdev_verify_failed
+# schrieb sie data/_fix_v.py und patzte damit core/agency/verifier.py per run_command
+# DIREKT — im Worktree UND im Hauptrepo. Deshalb: (1) Kommandos, die selbst einen
+# core/-Pfad schreiben wollen, sind zu; (2) referenzierte Hilfsskripte AUSSERHALB von
+# core/tests/scripts (Ad-hoc-Skripte in data/, Desktop, ...) werden vor dem Lauf
+# gelesen — nennt eines einen core/-Pfad UND schreibt es Dateien, wird der Lauf
+# verweigert. Lesen/py_compile/pytest auf core bleibt frei.
+_CORE_PFAD = re.compile(r"\bcore[\\/](?:\w|[\\/.-])+", re.IGNORECASE)
+_SCHREIBT = re.compile(
+    r"write_text|write_bytes|open\s*\([^)]{0,200}['\"][wax]b?['\"]"
+    r"|Set-Content|Out-File|Add-Content|shutil\.(?:copy\w*|move)"
+    r"|os\.(?:replace|rename|remove|unlink)", re.IGNORECASE)
+_SKRIPT_TOKEN = re.compile(r"[^\s\"';|&<>]+\.(?:py|ps1|bat|cmd|sh)\b", re.IGNORECASE)
+_CORE_WACHE_TEXT = (
+    "Blockiert: {was} schreibt in core/** — das umgeht den Verify. Kern-Aenderungen "
+    "laufen NUR ueber edit_datei/self_edit (mit Verify + Rollback). Verify rot? "
+    "STOPP und Strategie wechseln — nie am Pruefer vorbei.")
+
+
+def _core_wache(command: str, wd) -> str | None:
+    """Verweigerungs-Text, wenn das Kommando oder ein referenziertes Hilfsskript in
+    core/** schreiben will — sonst None."""
+    if _CORE_PFAD.search(command) and _SCHREIBT.search(command):
+        return _CORE_WACHE_TEXT.format(was="dieses Kommando")
+    eigen = Path(ROOT).resolve()
+    for m in _SKRIPT_TOKEN.finditer(command):
+        tok = m.group(0)
+        try:
+            p = Path(tok)
+            if not p.is_absolute():
+                p = Path(wd) / tok
+            p = p.resolve()
+            if not p.is_file() or p.stat().st_size > 262144:
+                continue
+            if any(p.is_relative_to(eigen / d) for d in ("core", "tests", "scripts")):
+                continue  # eingecheckter, gepruefter Code — kein Ad-hoc-Skript
+            text = p.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        if _CORE_PFAD.search(text) and _SCHREIBT.search(text):
+            return _CORE_WACHE_TEXT.format(was=f"das Skript {tok}")
+    return None
+
+
 def run_shell(command: str, cwd: str | None = None, timeout: int = 60) -> str:
     command = (command or "").strip()
     if not command:
@@ -99,6 +146,11 @@ def run_shell(command: str, cwd: str | None = None, timeout: int = 60) -> str:
         if not any(str(cand).startswith(b) for b in allowed):
             return f"Arbeitsverzeichnis nur im Repo oder auf dem Desktop erlaubt: {cwd}"
         wd = cand
+
+    kern = _core_wache(command, wd)
+    if kern:
+        events.emit("shell_blocked", {"command": command[:200], "grund": "core"})
+        return kern
 
     try:
         timeout = max(1, min(int(timeout or 60), 600))
