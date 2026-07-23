@@ -7,6 +7,12 @@
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
+# Worktree-Riegel (Vorfall 18./19.07.): GENAU dieses Setup bog den Desktop-LNK in einen
+# git-Worktree um (.git ist dort eine DATEI). Setup/Verknuepfungen nur aus dem Hauptrepo.
+if ((Test-Path (Join-Path $root ".git") -PathType Leaf) -or ($root -like "*\.claude\worktrees\*")) {
+  Write-Host "ABBRUCH: $root ist ein git-Worktree - Setup nur aus dem Hauptrepo."
+  exit 1
+}
 $ico  = Join-Path $root "data\kira-icon.ico"
 $bat  = Join-Path $root "scripts\kira-desktop.bat"
 

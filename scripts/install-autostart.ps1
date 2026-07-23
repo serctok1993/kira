@@ -1,5 +1,12 @@
 # Registriert Kira als Autostart beim Anmelden (Startup-Ordner, KEIN Admin noetig).
 # Einmal ausfuehren. Entfernen: .\uninstall-autostart.ps1
+$root = Split-Path -Parent $PSScriptRoot
+# Worktree-Riegel (Vorfall 18./19.07.): Autostart darf NIE in einen git-Worktree zeigen
+# (.git ist dort eine DATEI) — sonst bootet beim Login eine Alt-Kira. Nur Hauptrepo.
+if ((Test-Path (Join-Path $root ".git") -PathType Leaf) -or ($root -like "*\.claude\worktrees\*")) {
+  Write-Host "ABBRUCH: $root ist ein git-Worktree - Autostart nur aus dem Hauptrepo."
+  exit 1
+}
 $startup = [Environment]::GetFolderPath("Startup")
 $lnk = Join-Path $startup "Kira.lnk"
 $sh = New-Object -ComObject WScript.Shell

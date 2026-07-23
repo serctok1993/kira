@@ -35,6 +35,25 @@ _CODE_EXT = {".py", ".js", ".ts", ".jsx", ".tsx", ".mjs", ".cjs", ".css", ".scss
              ".cpp", ".h", ".hpp", ".rb", ".php", ".sh", ".ps1", ".sql"}
 
 
+def _core_schutz(rp: Path) -> bool:
+    """True, wenn rp im KERN liegt: core/ des eigenen Repos ODER des Hauptrepos, falls
+    wir in einem Worktree laufen. Worktree-Vorfall 18./19.07.: ein Hilfsskript patzte
+    core/agency/verifier.py am Verify vorbei — im Worktree UND im Hauptrepo."""
+    from core import config as _cfg
+
+    kerne = [Path(_cfg.ROOT).resolve() / "core"]
+    haupt = _cfg.hauptrepo()
+    if haupt:
+        kerne.append(haupt / "core")
+    for k in kerne:
+        try:
+            if rp.is_relative_to(k):
+                return True
+        except (OSError, ValueError):
+            continue
+    return False
+
+
 def _write_guard(p: Path, tool_name: str) -> str | None:
     """Liefert einen Blockier-Text, wenn das Ziel schreibgeschuetzt ist, sonst None."""
     try:
@@ -48,6 +67,18 @@ def _write_guard(p: Path, tool_name: str) -> str | None:
             pass
         return ("BLOCKIERT: constitution.md ist unantastbar (Verfassung). "
                 f"Aenderungen daran macht nur {_id.user_name()} selbst via Git.")
+    # Kern-Schreibwache (Worktree-Vorfall 18./19.07.): core/** ist fuer Komplett-Schreiber
+    # komplett zu — auch fuer NEUE Dateien und Nicht-Code. Kern-Aenderungen laufen NUR
+    # ueber edit_datei/self_edit (Verify + Rollback); core/mind-Live-Dateien pflegt das
+    # Cockpit (eigener Server-Pfad).
+    if _core_schutz(rp):
+        try:
+            events.emit("write_blocked", {"path": str(rp), "tool": tool_name, "grund": "core"})
+        except Exception:  # noqa: BLE001
+            pass
+        return (f"BLOCKIERT: {rp} liegt im Kern (core/**). Kern-Aenderungen laufen NUR ueber "
+                "edit_datei/self_edit (mit Verify + Rollback) — nie per Komplett-Schreiben "
+                "am Pruefer vorbei.")
     # Loch geschlossen: bestehende Code-Datei im Repo nicht blind komplett ueberschreiben.
     if rp.suffix.lower() in _CODE_EXT and rp.exists():
         try:

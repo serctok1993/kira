@@ -157,6 +157,14 @@ def _log_tail(name: str, lines: int = 12) -> str:
 
 
 def main() -> None:
+    # Worktree-Vorfall 18./19.07.: der Autostart-LNK zeigte in einen Worktree — dort
+    # bootete eine Alt-Kira. Erst loggen, WELCHER Checkout hier laeuft, dann das Veto.
+    print("[supervisor] ROOT:", ROOT)
+    veto = config.dienststart_verweigert()
+    if veto:
+        print(veto)
+        return
+
     lock = instance_lock.acquire("supervisor")
     if lock is None:
         print(instance_lock.blocked_msg("supervisor", "Ein Kira-Supervisor"))
