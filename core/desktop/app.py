@@ -227,6 +227,13 @@ def _start_hotkeys(window) -> None:
 
 def run() -> None:
     """Desktop-App starten: Cockpit sicherstellen, Tray-Symbol + natives Fenster oeffnen."""
+    # Worktree-Vorfall 18./19.07.: kira-desktop.bat lief aus einem Worktree-Checkout —
+    # dort bootete eine Alt-Kira mit leerem data/ (setup_required). Veto vor allem anderen.
+    from core import config as _cfg
+    veto = _cfg.dienststart_verweigert()
+    if veto:
+        print(veto)
+        return
     try:
         import webview
     except Exception as e:  # noqa: BLE001
