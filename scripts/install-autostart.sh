@@ -3,6 +3,13 @@
 # Einmal ausfuehren. Entfernen: scripts/uninstall-autostart.sh
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Worktree-Riegel (Vorfall 18./19.07.): Autostart darf NIE in einen git-Worktree zeigen
+# (.git ist dort eine DATEI) — sonst bootet beim Login eine Alt-Kira. Nur Hauptrepo.
+case "$ROOT" in */.claude/worktrees/*) WT=1;; *) WT=0;; esac
+if [ -f "$ROOT/.git" ] || [ "$WT" = 1 ]; then
+  echo "ABBRUCH: $ROOT ist ein git-Worktree - Autostart nur aus dem Hauptrepo." >&2
+  exit 1
+fi
 UNIT_DIR="$HOME/.config/systemd/user"
 mkdir -p "$UNIT_DIR"
 

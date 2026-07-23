@@ -33,7 +33,9 @@ def test_write_file_erlaubt_neue_datei_und_nichtcode(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "ROOT", tmp_path)
     monkeypatch.setattr(b, "ROOT", tmp_path)
 
-    neu = tmp_path / "core" / "neu.py"  # existiert noch nicht -> Neuanlage erlaubt
+    # Geist-Runde: core/** ist fuer write_file KOMPLETT zu (auch Neuanlage) — die freie
+    # Neuanlage gilt weiter ueberall sonst im Repo (tests/test_geist_runde.py deckt core).
+    neu = tmp_path / "werkzeuge" / "neu.py"  # existiert noch nicht -> Neuanlage erlaubt
     assert "OK" in b.write_file(str(neu), "y = 1\n")
     assert neu.exists()
 

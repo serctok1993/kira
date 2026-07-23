@@ -3,6 +3,13 @@
 # Manuell aufrufen oder als systemd-user-Unit (siehe scripts/kira.service + SETUP-linux.md).
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# Worktree-Riegel (Vorfall 18./19.07.): in einem git-Worktree ist .git eine DATEI —
+# von dort bootet sonst eine Alt-Kira (leeres data/ -> setup_required). Nur Hauptrepo.
+case "$ROOT" in */.claude/worktrees/*) WT=1;; *) WT=0;; esac
+if [ -f "$ROOT/.git" ] || [ "$WT" = 1 ]; then
+  echo "ABBRUCH: $ROOT ist ein git-Worktree - Start nur aus dem Hauptrepo." >&2
+  exit 1
+fi
 cd "$ROOT"
 
 # 0) Ollama (Modell-Backend) sicherstellen — fehlt es (Offline-Box ohne Ollama?), klare Meldung

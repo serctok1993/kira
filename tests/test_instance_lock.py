@@ -187,6 +187,9 @@ def test_supervisor_zweiter_start_beendet_sich(monkeypatch, capsys):
     launches: list[str] = []
     monkeypatch.setattr(sv, "_launch", lambda name: launches.append(name))
     monkeypatch.setattr(il, "acquire", lambda name, port=None: None)
+    # Geist-Runde: der Worktree-Riegel greift VOR dem Lock — hier ist der LOCK das
+    # Testziel, also Riegel neutralisieren (die Suite selbst laeuft ggf. im Worktree).
+    monkeypatch.setattr(sv.config, "dienststart_verweigert", lambda: None)
     sv.main()  # muss SOFORT zurueckkehren, ohne irgendetwas zu starten
     assert launches == []
     assert "laeuft bereits" in capsys.readouterr().out
