@@ -87,6 +87,13 @@ agency:
   max_steps_chat: 8          # knapper Deckel fuer NORMALEN Chat -> kein 80er-Tool-Sturm bei Small-Talk
   max_steps_plan_step: 12   # Werkzeug-Runden pro Teilschritt im Plan-Modus (vorher: 6)
   obs_max_chars: 16000      # wie viel eines Werkzeug-Ergebnisses das Modell sieht (vorher: 6000)
+  # Kontext-Abriss-Schutz (Forensik 23.07.): lokale Slots sind klein (16k Token) — die
+  # ACT-History bleibt unter diesem Zeichen-Budget, indem Observations AELTERER Schritte
+  # auf eine Vorschau gekuerzt werden (die juengste bleibt voll). Kappt der Server die
+  # Generation trotzdem mitten im ACT-Aufruf, gibt es EINEN Retry mit stark gekuerzter
+  # History statt eines rohen Fragment-Leaks an den Nutzer.
+  history_max_chars: 30000  # Zeichen-Budget der ACT-History (Text-Protokoll, lokale Modelle)
+  obs_preview_chars: 600    # Vorschau-Laenge gekuerzter alter Observations
   turn_stall_seconds: 480   # Turn-Watchdog: haengt ein Chat-Zug > N s OHNE Fortschritt -> Force-Restart (schnellere Wedge-Erholung; echte /work-Tasks feuern laufend Events)
   auto_plan: true           # klarer Arbeitsauftrag im Plain-Chat -> automatisch Plan-Modus (Denker-Rang, nicht Eskalation); Aenderung braucht Neustart
   claim_check: true         # Beweispflicht: behauptete Dateien in Antworten werden nachgeprueft, fehlende sichtbar gestempelt
