@@ -505,6 +505,47 @@ def _run_tick_timeboxed() -> dict | None:
     return _tick_result
 
 
+# Die Cron-Strecke bekommt denselben Waechter: run_due arbeitet alle faelligen Jobs
+# sequenziell ab, jeder Job ruft act() — gegen ein langsames lokales Modell oder einen
+# toten Endpunkt kann EIN Durchlauf viele Minuten haengen und hielt frueher die ganze
+# naechste Runde auf (Nachtdenker/Erinnerungen/Monitor standen still). Ein Ueberzieher
+# laeuft jetzt im Hintergrund aus; solange er lebt, startet kein zweiter Durchlauf
+# (kein Doppel-Lauf derselben Jobs).
+_cron_thread: threading.Thread | None = None
+
+
+def _run_cron_timeboxed() -> None:
+    """Startet cron.run_due in einem Daemon-Thread und wartet bis zur Deadline.
+
+    Reisst der Durchlauf die Deadline, macht der Loop weiter und die faelligen Jobs
+    werkeln im Hintergrund zu Ende — gleiche Mechanik wie beim Missions-Tick."""
+    global _cron_thread
+    if _cron_thread is not None and _cron_thread.is_alive():
+        events.emit("cron_tick_still_running", {})  # Vor-Durchlauf haengt -> Loop trotzdem weiter
+        return
+
+    def _worker() -> None:
+        try:
+            from core.agency.missions import cron
+
+            cron.run_due()
+        except Exception as e:  # noqa: BLE001 — Cron-Absturz darf den Loop nie reissen
+            events.emit("cron_error", {"error": str(e)})
+
+    timeout = _tick_timeout()
+    if timeout <= 0:  # Watchdog aus: blockierend wie frueher
+        _worker()
+        return
+
+    _cron_thread = threading.Thread(target=_worker, name="cron-tick", daemon=True)
+    _cron_thread.start()
+    _cron_thread.join(timeout)
+    if _cron_thread.is_alive():
+        events.emit("cron_tick_timeout", {"timeout_s": timeout})
+        _notify(wichtig=True, text=f"⏱ Die Cron-Strecke haengt seit >{timeout}s — der Loop laeuft "
+                "weiter, die faelligen Jobs werkeln im Hintergrund zu Ende.")
+
+
 def run_forever(interval: int | None = None) -> None:
     interval = interval or CONFIG.get("heartbeat", {}).get("interval_seconds", 1800)
     events.init_db()
@@ -561,9 +602,7 @@ def run_forever(interval: int | None = None) -> None:
             except Exception as e:  # noqa: BLE001
                 events.emit("nachtdenker_fehler", {"error": str(e)[:200]})
             try:
-                from core.agency.missions import cron
-
-                cron.run_due()
+                _run_cron_timeboxed()
             except Exception as e:  # noqa: BLE001
                 events.emit("cron_error", {"error": str(e)})
             try:

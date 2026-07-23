@@ -75,3 +75,63 @@ def test_timeboxed_disabled_blockiert_wie_frueher(monkeypatch):
     monkeypatch.setattr(runner, "run_once", lambda: {"blocking": True})
     monkeypatch.setattr(runner, "_tick_thread", None, raising=False)
     assert runner._run_tick_timeboxed() == {"blocking": True}
+
+
+# ---- Runner: time-boxed Cron-Strecke --------------------------------------------------
+# Fund: nach einem Runner-Ausfall stauten sich faellige Crons; run_due arbeitete die
+# act-Ketten sequenziell im Hauptloop ab und hielt >1h alles Nachfolgende (Nachtdenker/
+# Erinnerungen) auf. Die Strecke laeuft jetzt unter demselben Waechter wie der Tick.
+
+def test_cron_timeboxed_schneller_durchlauf_laeuft(monkeypatch):
+    from core.agency.missions import cron, runner
+    monkeypatch.setattr(runner, "_tick_timeout", lambda: 5)
+    monkeypatch.setattr(runner, "_cron_thread", None, raising=False)
+    lief = []
+    monkeypatch.setattr(cron, "run_due", lambda: lief.append(True))
+    runner._run_cron_timeboxed()
+    assert lief == [True]
+
+
+def test_cron_timeboxed_langsamer_job_blockiert_loop_nicht(monkeypatch, tmp_path):
+    events = _tmp_events(monkeypatch, tmp_path)
+    from core.agency.missions import cron, runner
+    monkeypatch.setattr(runner, "_tick_timeout", lambda: 0.3)
+    monkeypatch.setattr(runner, "_cron_thread", None, raising=False)
+
+    def _langsam():
+        time.sleep(2.0)  # act-Kette haengt laenger als die Deadline
+
+    monkeypatch.setattr(cron, "run_due", _langsam)
+    t0 = time.monotonic()
+    runner._run_cron_timeboxed()
+    # Loop bleibt lebendig: Rueckkehr zur Deadline, nicht erst nach dem Job
+    assert time.monotonic() - t0 < 1.5
+    assert "cron_tick_timeout" in [e["type"] for e in events.recent(20)]
+    # Solange der Ueberzieher lebt, startet kein zweiter Durchlauf (kein Doppel-Lauf)
+    runner._run_cron_timeboxed()
+    assert "cron_tick_still_running" in [e["type"] for e in events.recent(20)]
+
+
+def test_cron_timeboxed_disabled_blockiert_wie_frueher(monkeypatch):
+    from core.agency.missions import cron, runner
+    monkeypatch.setattr(runner, "_tick_timeout", lambda: 0)  # Watchdog aus
+    monkeypatch.setattr(runner, "_cron_thread", None, raising=False)
+    lief = []
+    monkeypatch.setattr(cron, "run_due", lambda: lief.append(True))
+    runner._run_cron_timeboxed()
+    assert lief == [True]
+    assert runner._cron_thread is None  # blockierender Pfad startet keinen Thread
+
+
+def test_cron_timeboxed_fehler_wird_event_nicht_absturz(monkeypatch, tmp_path):
+    events = _tmp_events(monkeypatch, tmp_path)
+    from core.agency.missions import cron, runner
+    monkeypatch.setattr(runner, "_tick_timeout", lambda: 5)
+    monkeypatch.setattr(runner, "_cron_thread", None, raising=False)
+
+    def _kaputt():
+        raise RuntimeError("cron kaputt")
+
+    monkeypatch.setattr(cron, "run_due", _kaputt)
+    runner._run_cron_timeboxed()  # darf nicht raisen
+    assert "cron_error" in [e["type"] for e in events.recent(20)]
