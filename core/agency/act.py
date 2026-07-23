@@ -38,6 +38,13 @@ _OBS_MAX = int(_AG.get("obs_max_chars", 16000))            # wie viel Werkzeug-E
 _MAX_STEPS_CHAT = int(_AG.get("max_steps_chat", 8))        # knapper Deckel fuer NORMALEN Chat -> kein 80er-Sturm bei Small-Talk (voller Task-Deckel via /work oder /plan)
 _AUTO_PLAN = bool(_AG.get("auto_plan", True))              # Arbeitsauftraege im Plain-Chat automatisch planen
 _CLAIM_CHECK = bool(_AG.get("claim_check", True))          # Datei-Behauptungen in Antworten nachpruefen
+# Kontext-Abriss-Schutz (Forensik 23.07., 16k-Slot): laeuft der Slot-Kontext durch fette
+# Observations voll, kappt der Server die Generation MITTEN im ACT-Aufruf — das unparsebare
+# Fragment ginge als 'Antwort' raus, der Schritt liefe NIE. Gegenmittel: die ACT-History
+# bleibt unter einem Zeichen-Budget (Observations AELTERER Schritte -> Vorschau, die
+# juengste bleibt voll), und ein erkannter Abriss bekommt einen Retry statt eines Roh-Leaks.
+_HISTORY_MAX = int(_AG.get("history_max_chars", 30000))    # Zeichen-Budget der ACT-History (Text-Protokoll)
+_OBS_PREVIEW = int(_AG.get("obs_preview_chars", 600))      # Vorschau-Laenge gekuerzter alter Observations
 # Paket B: im code:-Lauf pro Edit nur Syntax-Check, volle Suite EINMAL am Lauf-Ende (schnell).
 _FAST_VERIFY_RUN = bool((CONFIG.get("selfdev", {}) or {}).get("fast_verify_in_run", True))
 
@@ -173,6 +180,82 @@ def _parse_act(text: str):
     except json.JSONDecodeError:
         return None
     return (name, args) if isinstance(args, dict) else None
+
+
+def _act_fragment(text: str) -> str | None:
+    """Erkennt einen ABGESCHNITTENEN ACT-Aufruf: ACT-Zeile vorhanden, aber das JSON
+    dahinter schliesst bis zum Textende nie — so sieht eine Generation aus, die der
+    Server am Kontext-Limit gekappt hat. Liefert den Werkzeugnamen des gekappten
+    Aufrufs, sonst None. Bewusst eng: heile Calls (auch mit kaputtem, aber
+    geschlossenem JSON) und normale Antworten ohne ACT-Zeile sind KEIN Fragment."""
+    t = text.replace("`", " ").replace("*", " ")  # wie _parse_act: Deko entschaerfen, Laenge 1:1
+    m = _ACT_RE.search(t)
+    if not m:
+        return None
+    rest = text[m.end() - 1:]  # ab der '{'-Position
+    if rest.count("{") <= rest.count("}"):
+        return None  # JSON (mindestens formal) geschlossen -> kein Abriss
+    return m.group(1)
+
+
+_ABRISS_MELDUNG = ("Meine Antwort wurde vom Kontext-Limit abgeschnitten — der letzte Schritt "
+                   "'{name}' wurde NICHT ausgefuehrt. Stell mir die Aufgabe gern noch einmal, "
+                   "dann arbeite ich sie in kleineren Schritten ab.")
+
+_ERGEBNIS_KOPF = "ERGEBNIS von "
+_KUERZUNGS_HINWEIS = ("\n[... aeltere Beobachtung gekuerzt — nur Vorschau ...]"
+                      "\n\nMach weiter oder gib die finale Antwort.")
+
+
+def _compact_history(messages: list[dict], limit: int | None = None) -> None:
+    """Kuerzt Observations AELTERER Schritte in-place auf eine Vorschau, bis die
+    History unter dem Zeichen-Budget liegt. Die Aufgabe selbst und die JUENGSTE
+    Observation bleiben unangetastet (dort steht, was der naechste Schritt braucht).
+    limit=0 = maximale Kuerzung (Retry nach gekapptem ACT-Aufruf)."""
+    if limit is None:
+        limit = _HISTORY_MAX
+    total = sum(len(str(m.get("content") or "")) for m in messages)
+    if total <= limit:
+        return
+    obs_idx = [i for i, m in enumerate(messages)
+               if m.get("role") == "user" and str(m.get("content") or "").startswith(_ERGEBNIS_KOPF)]
+    for i in obs_idx[:-1]:  # die juengste Observation nie anfassen
+        if total <= limit:
+            return
+        alt = str(messages[i]["content"])
+        kurz = alt[:_OBS_PREVIEW] + _KUERZUNGS_HINWEIS
+        if len(kurz) >= len(alt):
+            continue
+        messages[i]["content"] = kurz
+        total -= len(alt) - len(kurz)
+
+
+def _retry_fragment(messages: list[dict], system: str, name: str, step: int,
+                    session_id: str | None, task_type: str, escalate: bool,
+                    reasoning: str | None = None) -> tuple[str, tuple | None]:
+    """Zweiter Anlauf nach einem gekappten ACT-Aufruf: EIN Retry mit stark gekuerzter
+    History (alte Observations -> Vorschau). Liefert (text, call): call != None ->
+    der Loop fuehrt den Schritt normal aus; call == None -> text ist die finale
+    Antwort — ein sauberer Abschluss ODER die ehrliche Ansage, dass der Schritt
+    NICHT lief. Das rohe Fragment erreicht den Partner in keinem Fall."""
+    events.emit("act_fragment", {"step": step, "tool": name}, session_id=session_id)
+    _compact_history(messages, limit=0)
+    try:
+        res = llm_router.complete(messages, system=system, task_type=task_type,
+                                  session_id=session_id, escalate=escalate, reasoning=reasoning)
+        text = res["text"].strip()
+    except Exception as e:  # noqa: BLE001
+        events.emit("act_fragment", {"step": step, "tool": name, "abbruch": True,
+                                     "error": str(e)[:200]}, session_id=session_id)
+        return _ABRISS_MELDUNG.format(name=name), None
+    call = _parse_act(text)
+    if call:
+        return text, call
+    if not text or _act_fragment(text):
+        events.emit("act_fragment", {"step": step, "tool": name, "abbruch": True},
+                    session_id=session_id)
+        return _ABRISS_MELDUNG.format(name=name), None
+    return text, None
 
 
 # W4b: die Plattform-Zeile ist das EINZIGE OS-abhaengige Stueck dieses Prompts.
@@ -665,14 +748,23 @@ fehlen, BENUTZE web_search (Stichworte) und danach web_fetch auf die besten Link
 um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort."""
 
     messages: list[dict] = [{"role": "user", "content": task}]
+    obs_cap = _budget("obs_max_chars", _OBS_MAX, task_type, escalate)  # starkes Modell -> sieht mehr
 
     for step in range(max_steps):
+        _compact_history(messages)
         res = llm_router.complete(
             messages, system=system, task_type=task_type, session_id=session_id, escalate=escalate
         )
         text = res["text"].strip()
         call = _parse_act(text)
 
+        if not call:
+            frag = _act_fragment(text)
+            if frag:
+                # Kontext-Abriss (Forensik 23.07.): der Server kappte die Generation mitten
+                # im ACT-Aufruf — das Fragment ist KEINE Antwort, der Schritt lief NICHT.
+                text, call = _retry_fragment(messages, system, frag, step, session_id,
+                                             task_type=task_type, escalate=escalate)
         if not call:
             events.emit("act_done", {"steps": step}, session_id=session_id)
             return {"text": text, "steps": step}
@@ -697,6 +789,7 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
             session_id=session_id,
         )
         messages.append({"role": "assistant", "content": text})
+        obs = obs[:obs_cap]  # Slot-Schutz: Riesen-Observation kappen (wie im nativen Loop)
         messages.append(
             {"role": "user", "content": f"ERGEBNIS von {name}:\n{obs}\n\nMach weiter oder gib die finale Antwort."}
         )
@@ -707,6 +800,7 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
         "content": "Du hast genug recherchiert. Fasse JETZT deine Erkenntnisse als finale, "
                    "konkrete Antwort fuer deinen Partner zusammen — ohne weitere Werkzeuge (kein ACT).",
     })
+    _compact_history(messages)
     res = llm_router.complete(messages, system=system, task_type="reason", session_id=session_id, escalate=escalate)
     events.emit("act_truncated_summary", {"steps": max_steps}, session_id=session_id)
     return {"text": res["text"].strip(), "steps": max_steps}
@@ -1529,7 +1623,9 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
 
     used_tools = False
     nudged = False
+    obs_cap = _budget("obs_max_chars", _OBS_MAX, _tt, escalate)  # starkes Modell -> sieht mehr
     for step in range(step_ceiling):
+        _compact_history(messages)
         parts = []
         for piece in llm_router.stream_tagged(
             messages, system=system, task_type=_tt, session_id=session_id,
@@ -1541,6 +1637,14 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
                 parts.append(piece["text"])
         text = "".join(parts).strip()
         call = _parse_act(text)
+        if not call:
+            frag = _act_fragment(text)
+            if frag:
+                # Kontext-Abriss (Forensik 23.07., 16k-Slot): der Server kappte die Generation
+                # mitten im ACT-Aufruf — Retry mit gekuerzter History statt Roh-Leak.
+                text, call = _retry_fragment(messages, system, frag, step, session_id,
+                                             task_type=_tt, escalate=escalate,
+                                             reasoning=reasoning_level)
         if not call:
             # Lokale Modelle sind die schlimmsten Ankuendiger/Rueckfrager: einmal pro Turn
             # deterministisch nachstupsen statt das Pingpong an den Nutzer weiterzureichen.
@@ -1571,9 +1675,11 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
         emit({"kind": "obs", "name": name, "text": _trace_obs(name, obs)})
         events.emit("act_step", {"step": step, "tool": name, "args": args, "obs_preview": obs[:160]}, session_id=session_id)
         messages.append({"role": "assistant", "content": text})
+        obs = obs[:obs_cap]  # Slot-Schutz: Riesen-Observation kappen (wie im nativen Loop)
         messages.append({"role": "user", "content": f"ERGEBNIS von {name}:\n{obs}\n\nMach weiter oder gib die finale Antwort."})
 
     messages.append({"role": "user", "content": f"Fasse jetzt final fuer {_id.user_name()} zusammen — ohne weiteres ACT."})
+    _compact_history(messages)
     res = llm_router.complete(messages, system=system, task_type=_tt, session_id=session_id,
                               escalate=escalate, reasoning=reasoning_level)
     return _finalize(res["text"].strip())
