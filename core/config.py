@@ -91,8 +91,12 @@ def outbound_blocked() -> bool:
     return bool(os.getenv("KIRA_NO_OUTBOUND"))
 
 
-# .env laden (still, falls nicht vorhanden)
-load_dotenv(ROOT / ".env")
+# .env laden (still, falls nicht vorhanden). override=True: die EIGENE .env schlaegt
+# geerbte Umgebungsvariablen — eine aus fremdem Kontext gestartete Instanz (z.B. Shell,
+# in der die .env eines ANDEREN Agenten exportiert war) darf nie mit dessen Werten
+# weiterlaufen (Sandy-Vorfall 23./24.07.: geerbtes TELEGRAM_BOT_TOKEN kaperte den
+# fremden Bot und legte dessen Gateway per Telegram-409 still).
+load_dotenv(ROOT / ".env", override=True)
 
 
 def _load_vault_secrets() -> None:
@@ -134,6 +138,23 @@ def feature_on(name: str) -> bool:
     sofort, ohne Neustart."""
     f = CONFIG.get("features") or {}
     return bool(f.get(name, False))
+
+
+def telegram_token_env() -> str:
+    """Name der Umgebungsvariable mit dem Telegram-Bot-Token (channels.telegram.token_env).
+
+    Werksdefault: TELEGRAM_BOT_TOKEN — Onboarding-Wizard und Setup bleiben unveraendert.
+    Eine Installation NEBEN anderen Agenten setzt per Override einen eigenen Namen
+    (set_override('channels.telegram.token_env', 'KIRA_BOT_TOKEN')). BEWUSST ohne
+    Fallback auf den Werksnamen: ein geerbtes fremdes TELEGRAM_BOT_TOKEN darf nie
+    einspringen, sonst ist die Isolation wieder weg (Token-Kollisions-Plan, Regel 1)."""
+    kanal = (CONFIG.get("channels") or {}).get("telegram") or {}
+    return str(kanal.get("token_env") or "TELEGRAM_BOT_TOKEN")
+
+
+def telegram_token() -> str:
+    """Das Bot-Token aus der konfigurierten Variable — '' wenn nicht gesetzt."""
+    return os.getenv(telegram_token_env(), "")
 
 
 # Datenverzeichnis sicherstellen

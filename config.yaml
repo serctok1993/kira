@@ -220,6 +220,15 @@ channels:
   telegram:
     enabled: true
     allowed_chat_id: 0            # Chat-ID des Nutzers (setzt der /setup-Wizard; 0 = niemand)
+    # Mehr-Agenten-Isolation (laufen weitere Bot-Agenten auf demselben Rechner):
+    #   token_env — Name der Env-Variable mit dem Bot-Token. Werksdefault TELEGRAM_BOT_TOKEN;
+    #     ein eigener Name (z.B. KIRA_BOT_TOKEN) gilt OHNE Fallback auf den Werksnamen,
+    #     damit ein geerbtes fremdes Token nie einspringt.
+    #   expected_bot_id — numerische Bot-ID; die getMe-Wache verweigert das Polling mit
+    #     Klartext, wenn das Token einem FREMDEN Bot gehoert (Telegram-409-Schutz).
+    # Beide pro Installation via overrides.json setzen (set_override), nicht hier im Werk.
+    # token_env: TELEGRAM_BOT_TOKEN
+    # expected_bot_id: 0
     voice: true               # Sprachmemos lokal transkribieren
     whisper_model: base       # tiny | base | small | medium  (CPU, 0 EUR)
     tagewerk_zeit: "21:30"    # Abend-Resuemee: Tagewerk kommt von selbst (leer = aus, 0 Token)
