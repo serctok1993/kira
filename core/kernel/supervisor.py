@@ -57,13 +57,15 @@ def _backoff_plan(recent: int) -> tuple[bool, float, bool]:
 def _alert(text: str) -> None:
     """Einmalige Telegram-Warnung bei Dauer-Crash — respektiert die Firewall."""
     try:
-        from core.config import CONFIG, outbound_blocked
+        from core.config import CONFIG, outbound_blocked, telegram_token
 
         if outbound_blocked():
             return
         import httpx
 
-        token = os.getenv("TELEGRAM_BOT_TOKEN")
+        # Gleiche Token-Aufloesung wie der Bot (channels.telegram.token_env) — sonst
+        # gingen Crash-Alarme ueber ein geerbtes FREMDES Token an den falschen Bot.
+        token = telegram_token()
         chat = CONFIG.get("channels", {}).get("telegram", {}).get("allowed_chat_id")
         if token and chat:
             httpx.post(f"https://api.telegram.org/bot{token}/sendMessage",

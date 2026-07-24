@@ -20,7 +20,7 @@ from collections import deque
 import httpx
 
 from core import identity as _identity
-from core.config import CONFIG, DATA_DIR
+from core.config import CONFIG, DATA_DIR, telegram_token, telegram_token_env
 from core.kernel import events, instance_lock
 from core.kernel.phrases import next_phrase
 from core.kernel.scheduler import kill_switch_active, kill_switch_path
@@ -29,7 +29,9 @@ from core.mind.agent import Agent
 # W2: sichtbarer Agenten-Name (Werksname 'Kira', beim Onboarding umbenennbar).
 _AGENT = _identity.agent_name()
 
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+# Token ueber den KONFIGURIERTEN Variablennamen (channels.telegram.token_env,
+# Werksdefault TELEGRAM_BOT_TOKEN) — bewusst ohne Fallback, siehe core.config.
+TOKEN = telegram_token()
 API = f"https://api.telegram.org/bot{TOKEN}"
 FILE_API = f"https://api.telegram.org/file/bot{TOKEN}"
 
@@ -1380,6 +1382,40 @@ def _register_commands(client: httpx.Client) -> None:
         events.emit("telegram_commands_error", {"error": str(e)[:200]})
 
 
+def _getme_wache() -> None:
+    """getMe-Wache (Waechter-Familie, Muster wie das Dienststart-Veto aus core.config):
+    VOR dem ersten Kontakt Richtung Telegram die eigene Identitaet pruefen. Loggt immer,
+    als wer der Bot pollt; ist channels.telegram.expected_bot_id gesetzt (overrides.json,
+    personalisiert + gitignored) und die ID passt NICHT, verweigert der Bot das Polling
+    mit Klartext und schlaeft (W3-Muster: kein Crash-Restart-Gewitter des Supervisors).
+    Hintergrund Sandy-Vorfall 23./24.07.: ein GEERBTES fremdes Token liess eine
+    Dev-Instanz mit dem Bot eines anderen Agenten pollen — dessen Gateway wurde per
+    Telegram-409 stillgelegt. Mit dieser Wache ist das strukturell unmoeglich."""
+    backoff = 2.0
+    while True:
+        try:
+            me = _ctrl().get(f"{API}/getMe").json().get("result") or {}
+            break
+        except Exception:  # noqa: BLE001 — ohne Netz kann auch getUpdates nichts: warten, nicht raten
+            time.sleep(backoff)
+            backoff = _backoff_next(backoff)
+    bot_id, user = me.get("id"), me.get("username", "?")
+    print(f"Telegram-Identitaet: polle als @{user} (id {bot_id}).")
+    try:
+        erwartet = int(_cfg().get("expected_bot_id") or 0)
+    except (TypeError, ValueError):
+        erwartet = 0
+    if not erwartet or erwartet == int(bot_id or 0):
+        return
+    events.emit("telegram_identity_mismatch",
+                {"expected": erwartet, "actual": int(bot_id or 0), "username": str(user)})
+    print(f"POLLING VERWEIGERT: das Token gehoert Bot id {bot_id} (@{user}), erwartet ist "
+          f"id {erwartet} (channels.telegram.expected_bot_id). Vermutlich ein geerbtes "
+          f"FREMDES Token in {telegram_token_env()} — .env/Override pruefen, dann Neustart.")
+    while True:
+        time.sleep(3600)
+
+
 def run() -> None:
     # Instanz-Lock ZUERST (noch vor dem Token-Check): der Bot ist der schlimmste
     # Doppelgaenger — zwei getUpdates-Poller klauen sich gegenseitig die Nachrichten
@@ -1394,11 +1430,12 @@ def run() -> None:
         # Sekunden neu und flutet einen frischen Klon mit service_crash-Events. Nach dem
         # /setup-Wizard bounct der Supervisor den Bot (restart.flag) -> frischer Prozess
         # laedt den Token aus dem Tresor.
-        print("TELEGRAM_BOT_TOKEN fehlt — Bot schlaeft (Token via /setup oder .env; danach Neustart).")
+        print(f"{telegram_token_env()} fehlt — Bot schlaeft (Token via /setup oder .env; danach Neustart).")
         import time as _t
         while True:
             _t.sleep(3600)
     events.init_db()
+    _getme_wache()               # Identitaet pruefen, BEVOR irgendetwas Richtung Telegram geht
     _register_commands(_ctrl())  # '/'-Menue bei Telegram anmelden (einmalig beim Start)
     _seed_pushed_approvals()     # bestehende Freigaben als bekannt markieren (kein Alt-Spam)
     try:  # MCP-Bruecke im Hintergrund anschliessen (Ausfall darf den Boot nie bricken)
