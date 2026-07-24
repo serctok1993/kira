@@ -82,7 +82,11 @@ def _notify(text: str, wichtig: bool = False, kurz: str | None = None) -> None:
     try:
         import httpx
 
-        token = os.getenv("TELEGRAM_BOT_TOKEN")
+        # Token-Hygiene-Nachzug: gleiche Aufloesung wie der Bot (token_env) — sonst
+        # gingen Missions-Meldungen nach dem .env-Aufraeumen still verloren.
+        from core.config import telegram_token
+
+        token = telegram_token()
         chat = CONFIG.get("channels", {}).get("telegram", {}).get("allowed_chat_id")
         if token and chat:
             httpx.post(

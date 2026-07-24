@@ -86,3 +86,24 @@ def test_getme_wache_ohne_erwartung_nur_logging(monkeypatch, capsys):
     monkeypatch.setattr(tb, "_ctrl", lambda: _GetMe(424242, "werks_bot"))
     tb._getme_wache()
     assert "polle als @werks_bot (id 424242)" in capsys.readouterr().out
+
+
+def test_kein_hartes_token_getenv_ausserhalb_config():
+    """Nachzug-Wache: os.getenv("TELEGRAM_BOT_TOKEN") direkt ist verboten — ALLE
+    Sendepfade muessen ueber config.telegram_token() gehen (token_env-Aufloesung).
+    Der erste Hygiene-PR uebersah runner/cron/news_monitor/server — nach dem
+    .env-Aufraeumen waeren deren Meldungen still gestorben."""
+    import re
+    from pathlib import Path
+
+    wurzel = Path(config.ROOT) / "core"
+    muster = re.compile(r"getenv\(\s*[\"']TELEGRAM_BOT_TOKEN[\"']")
+    treffer = []
+    for py in wurzel.rglob("*.py"):
+        if py.name == "config.py":
+            continue  # die eine erlaubte Stelle: der Werksdefault in telegram_token_env
+        text = py.read_text(encoding="utf-8", errors="replace")
+        for nr, zeile in enumerate(text.splitlines(), 1):
+            if muster.search(zeile):
+                treffer.append(f"{py.relative_to(wurzel)}:{nr}")
+    assert not treffer, f"Harte TELEGRAM_BOT_TOKEN-Zugriffe gefunden: {treffer}"
