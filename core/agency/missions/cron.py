@@ -176,7 +176,9 @@ def _notify(text: str) -> None:
     if _cfg.outbound_blocked():  # Firewall (Benchmark/Sandbox): kein Telegram
         return
     try:
-        token = os.getenv("TELEGRAM_BOT_TOKEN")
+        # Token-Hygiene-Nachzug: gleiche Aufloesung wie der Bot (token_env) — sonst
+        # gingen Cron-Meldungen nach dem .env-Aufraeumen still verloren.
+        token = _cfg.telegram_token()
         chat = CONFIG.get("channels", {}).get("telegram", {}).get("allowed_chat_id")
         if token and chat:
             httpx.post(
