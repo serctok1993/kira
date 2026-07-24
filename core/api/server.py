@@ -16,7 +16,7 @@ from core.agency.tools import builtin as _builtin  # noqa: F401  (registriert ei
 from core.agency.tools import todo_tools as _todo  # noqa: F401  (P1: Plan-Werkzeuge)
 from core.agency.tools import registry
 from core.agency.tools import synthesize as _synth
-from core.config import CONFIG, MIND_DIR, ROOT
+from core.config import CONFIG, MIND_DIR, ROOT, telegram_token, telegram_token_env
 from core.governance import audit, secrets, treasury
 from core.kernel import events, models
 from core.kernel.llm_router import today_spend_usd
@@ -631,7 +631,7 @@ def api_secrets() -> dict:
         "set": status,
         "pending": secrets.pending(),
         "suggested": list(_PROVIDER_KEYS.values())
-        + ["TELEGRAM_BOT_TOKEN", "BRAVE_API_KEY", "TAVILY_API_KEY",
+        + [telegram_token_env(), "BRAVE_API_KEY", "TAVILY_API_KEY",
            "GOOGLE_CSE_KEY", "GOOGLE_CSE_ID", "SEARXNG_URL", "ELEVENLABS_API_KEY",
            "SMTP_USER", "SMTP_PASS", "BLUESKY_HANDLE", "BLUESKY_APP_PASSWORD"],
         # Kira-Stimme: alles an einem Ort (Key + An/Aus + Stimme) fuer die Zugaenge-Karte.
@@ -1006,11 +1006,10 @@ async def api_direktive_now(body: dict) -> dict:
         runstate.exit_turn(sid)
     text = (out.get("text") or "").strip()
     try:
-        import os as _os
-
         import httpx as _hx
 
-        tok = _os.getenv("TELEGRAM_BOT_TOKEN")
+        # Token-Hygiene-Nachzug: gleiche Aufloesung wie der Bot (token_env).
+        tok = telegram_token()
         chat = CONFIG.get("channels", {}).get("telegram", {}).get("allowed_chat_id")
         if tok and chat:
             _hx.post(f"https://api.telegram.org/bot{tok}/sendMessage",
@@ -2247,7 +2246,9 @@ def api_setup(body: dict) -> dict:
     chat = str(body.get("telegram_chat_id") or "").strip()
     if chat.isdigit():
         set_override("channels.telegram.allowed_chat_id", int(chat))
-    for feld, secret_name in (("telegram_token", "TELEGRAM_BOT_TOKEN"),
+    # Token-Hygiene: der Wizard legt das Bot-Token unter dem KONFIGURIERTEN Namen ab
+    # (Werksdefault TELEGRAM_BOT_TOKEN — frische Installationen unveraendert).
+    for feld, secret_name in (("telegram_token", telegram_token_env()),
                               ("openrouter_key", "OPENROUTER_API_KEY")):
         wert = str(body.get(feld) or "").strip()
         if wert:
