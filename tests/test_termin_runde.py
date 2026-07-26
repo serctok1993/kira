@@ -94,7 +94,7 @@ def test_haupt_karte_traegt_die_komplette_familie():
     for name in ("termin_add", "termin_list", "termin_update", "termin_remove",
                  "cron_add", "cron_list", "cron_remove"):
         assert name in ts, f"haupt braucht {name}"
-    assert len(ts) <= 40                                  # test_rollen-Deckel haelt
+    assert len(ts) <= 48            # test_rollen-Deckel haelt (Datei-Runde 26.07.: +4)
 
 
 def test_registry_kennt_die_neuen():

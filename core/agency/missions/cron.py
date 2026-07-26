@@ -3,6 +3,8 @@
 Jeder Job hat einen Prompt (was Kira tun soll) und einen Zeitplan:
   - Intervall:  "30m", "2h", "90"        -> alle N Minuten
   - taeglich:   "08:00", "daily 08:00"   -> jeden Tag zu der Uhrzeit (lokal)
+  - Wochentage: "werktags 08:00", "montags 09:00", "mo,mi,fr 07:30",
+                "woechentlich 20:00" (= montags), "wochenende 10:00"
 
 Jobs liegen in data/cron.json. Der Mission-Runner prueft bei jedem Durchlauf faellige
 Jobs (run_due) und fuehrt sie mit der Handlungs-Schleife (act) aus; jeder Lauf wird
@@ -61,8 +63,37 @@ def _hash(s: str) -> str:
     return hashlib.md5(s.encode("utf-8", "replace")).hexdigest()[:8]
 
 
+# Wochentage (Live-Fund 26.07.): der Planer kannte NUR taeglich+Intervall. Folgen im
+# Betrieb: der erste Nutzer-Wunsch ueberhaupt ("werktags 08:00") war unmoeglich, und
+# der Job "Wochen-Review" lief noetigerweise TAEGLICH um 20:00 — ein Haupttreiber der
+# Melde-Flut. Wochentags-Plaene sind daher kein Komfort, sondern Laerm-Vermeidung.
+_TAGE = {"montag": 0, "montags": 0, "mo": 0, "dienstag": 1, "dienstags": 1, "di": 1,
+         "mittwoch": 2, "mittwochs": 2, "mi": 2, "donnerstag": 3, "donnerstags": 3, "do": 3,
+         "freitag": 4, "freitags": 4, "fr": 4, "samstag": 5, "samstags": 5, "sa": 5,
+         "sonnabend": 5, "sonntag": 6, "sonntags": 6, "so": 6}
+_GRUPPEN = {"werktags": [0, 1, 2, 3, 4], "wochentags": [0, 1, 2, 3, 4],
+            "unter der woche": [0, 1, 2, 3, 4], "wochenende": [5, 6],
+            "am wochenende": [5, 6], "woechentlich": [0], "wöchentlich": [0],
+            "jede woche": [0]}
+
+
 def parse_schedule(s: str) -> dict:
     s = (s or "").strip().lower()
+    # 1) Wochentags-Plaene: "werktags 08:00", "montags 09:00", "mo,mi,fr 07:30",
+    #    "woechentlich 20:00" (= montags). Uhrzeit optional -> 08:00.
+    m = re.fullmatch(r"([a-zäöüß, ]+?)\s*(?:um\s*)?(?:(\d{1,2}):(\d{2}))?", s)
+    if m and m.group(1):
+        wort = m.group(1).strip().rstrip(",")
+        tage: list[int] = []
+        if wort in _GRUPPEN:
+            tage = list(_GRUPPEN[wort])
+        else:
+            teile = [t.strip() for t in re.split(r"[,+/]| und ", wort) if t.strip()]
+            if teile and all(t in _TAGE for t in teile):
+                tage = sorted({_TAGE[t] for t in teile})
+        if tage:
+            zeit = (f"{int(m.group(2)):02d}:{m.group(3)}" if m.group(2) else "08:00")
+            return {"type": "weekly", "days": tage, "time": zeit}
     m = re.fullmatch(r"(?:taeglich|täglich|daily\s+)?(\d{1,2}):(\d{2})", s)
     if m:
         return {"type": "daily", "time": f"{int(m.group(1)):02d}:{m.group(2)}"}
@@ -77,6 +108,15 @@ def parse_schedule(s: str) -> dict:
 
 def _next_run(sched: dict, ref: float | None = None) -> float:
     now = ref or time.time()
+    if sched.get("type") == "weekly":
+        tage = sorted(set(sched.get("days") or [0]))
+        hh, mm = (int(x) for x in sched.get("time", "08:00").split(":"))
+        d = dt.datetime.fromtimestamp(now).replace(hour=hh, minute=mm, second=0, microsecond=0)
+        for plus in range(0, 8):          # heute zaehlt mit, sonst der naechste Tag der Liste
+            kandidat = d + dt.timedelta(days=plus)
+            if kandidat.weekday() in tage and kandidat.timestamp() > now:
+                return kandidat.timestamp()
+        return (d + dt.timedelta(days=7)).timestamp()
     if sched.get("type") == "daily":
         hh, mm = (int(x) for x in sched.get("time", "08:00").split(":"))
         d = dt.datetime.fromtimestamp(now).replace(hour=hh, minute=mm, second=0, microsecond=0)
@@ -244,7 +284,7 @@ def run_due(now: float | None = None) -> list[dict]:
         if not (j.get("enabled") and j.get("next_run", 0) <= now):
             continue
         overdue = now - float(j.get("next_run") or 0)
-        if j.get("schedule", {}).get("type") == "daily" and overdue > MISSED_GRACE_S:
+        if j.get("schedule", {}).get("type") in ("daily", "weekly") and overdue > MISSED_GRACE_S:
             j["next_run"] = _next_run(j["schedule"], ref=now)
             j["runs"] = (j.get("runs", []) + [{
                 "ts": now, "ok": False,
