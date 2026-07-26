@@ -54,3 +54,8 @@ sunrise_simulation.py
 
 # Lokale Session-/Editor-Werkzeuge
 .claude/
+
+# Log-Streuner: die echten Logs liegen in data/logs/. core/logs/ entsteht, wenn ein
+# Dienst mit falschem Arbeitsverzeichnis startet (Fund 26.07.) — nie ins Repo.
+core/logs/
+*.log

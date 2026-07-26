@@ -39,11 +39,17 @@ def test_hauptrolle_fuer_den_lokalen_chat():
     # "haupt" = kuratiertes Alltags-Manifest fuer Kiras lokalen Chat (c5-Hebel):
     # klein genug fuer kleine Modelle, traegt aber Delegation + Aussenwirkung.
     ts = rollen.toolset("haupt")
-    assert 20 <= len(ts) <= 40
+    assert 20 <= len(ts) <= 48
     for muss in ("web_search", "erinnerung", "cron_add", "todo_stand", "todo_list",
                  "delegate", "schwarm", "email_send", "remember_fact", "request_approval",
                  "watch_add", "watch_list", "screenshot_url", "read_logs"):   # c5b-Befund (1)
         assert muss in ts, f"haupt braucht {muss}"
+    # Datei-Familie KOMPLETT (Live-Fund 22.07.): make_dir fehlte -> "erstell einen Ordner"
+    # wurde per write_file eine DATEI. Wer schreiben darf, muss auch anlegen, finden,
+    # umbenennen und wegraeumen koennen.
+    for muss in ("read_file", "list_dir", "write_file", "make_dir", "datei_finden",
+                 "move_file", "delete_file"):
+        assert muss in ts, f"haupt braucht {muss} (Datei-Familie bleibt vollstaendig)"
     # code_suche bewusst NICHT: die Coding-Familie bleibt KOMPLETT im code:-Modus —
     # halbe Werkzeug-Familien verwirren kleine Modelle (todo_list-Lehre).
     for nie in ("restart_self", "request_secret", "run_command", "edit_datei",
