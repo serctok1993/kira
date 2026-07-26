@@ -353,6 +353,163 @@ def make_dir(path: str = "", **falsche_args) -> str:
     return f"OK, Ordner angelegt: {p}"
 
 
+# --- Umbenennen / Loeschen (Live-Fund 22.07.: es gab nur anlegen+schreiben) ----------
+# Ohne diese beiden fehlte die Haelfte jeder Aufraeum-Aufgabe: umbenennen ging gar nicht,
+# und "loesch das" endete in erfundenen Werkzeugnamen oder run_command-Umwegen.
+# Loeschen ist hier ein PAPIERKORB-Zug (Hausprinzip wie Werkszustand/Radiergummi:
+# alles Entfernte liegt vorher in data/backups) — Kira vernichtet nie unwiderruflich.
+
+def _papierkorb() -> Path:
+    """Tagesordner im Papierkorb (data/backups/papierkorb/JJJJ-MM-TT)."""
+    from core.config import DATA_DIR
+
+    d = Path(DATA_DIR) / "backups" / "papierkorb" / datetime.now().strftime("%Y-%m-%d")
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _frei(ziel: Path) -> Path:
+    """Freien Namen finden statt still zu ueberschreiben (im Papierkorb sammeln sich
+    gleichnamige Dateien mehrerer Versuche)."""
+    if not ziel.exists():
+        return ziel
+    stamp = datetime.now().strftime("%H%M%S")
+    return ziel.with_name(f"{ziel.stem}-{stamp}{ziel.suffix}")
+
+
+def _melden(typ: str, payload: dict) -> None:
+    """Telemetrie darf NIE den Ablauf brechen (Hausregel). Erster Testlauf 22.07. bewies
+    warum: ein roher events.emit im Guard warf (SQLite), die Exception lief in den
+    umschliessenden except — und der Papierkorb-Schutz fiel STILL aus."""
+    try:
+        events.emit(typ, payload)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _im_papierkorb(rp: Path) -> bool:
+    """Liegt rp INNERHALB des Papierkorbs (nicht der Papierkorb/Sicherungsordner selbst)?"""
+    try:
+        from core.config import DATA_DIR
+
+        korb = (Path(DATA_DIR) / "backups" / "papierkorb").resolve()
+        return rp.is_relative_to(korb) and rp != korb
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _destruktiv_guard(p: Path, tool_name: str, was: str,
+                      rausholen_ok: bool = False) -> str | None:
+    """Schutz fuer VERSCHIEBEN/LOESCHEN. Teilt die Tabus der Schreibwache (Verfassung,
+    core/**, bestehender Repo-Quelltext) — ein geloeschtes Modul umgeht den Verify
+    genauso wie ein ueberschriebenes. Der Sicherungs-Ordner ist tabu; einzige Ausnahme
+    ist das HERAUSHOLEN aus dem Papierkorb (rausholen_ok) — genau der Rueckweg, den
+    delete_file in seiner Antwort verspricht. Sonst waere das Versprechen wertlos."""
+    try:
+        rp = p.resolve()
+    except OSError:
+        rp = p
+    if rp in _PROTECTED:
+        _melden("write_blocked", {"path": str(rp), "tool": tool_name, "grund": "verfassung"})
+        return ("BLOCKIERT: constitution.md ist unantastbar (Verfassung). "
+                f"Aenderungen daran macht nur {_id.user_name()} selbst via Git.")
+    if _core_schutz(rp):
+        _melden("write_blocked", {"path": str(rp), "tool": tool_name, "grund": "core"})
+        return (f"BLOCKIERT: {rp} liegt im Kern (core/**). Kern-Aenderungen laufen NUR ueber "
+                "edit_datei/self_edit (mit Verify + Rollback) — auch Umbenennen und Loeschen.")
+    try:
+        from core.config import DATA_DIR
+
+        in_sicherung = rp.is_relative_to((Path(DATA_DIR) / "backups").resolve())
+    except Exception:  # noqa: BLE001
+        in_sicherung = False
+    if in_sicherung and not (rausholen_ok and _im_papierkorb(rp)):
+        _melden("write_blocked", {"path": str(rp), "tool": tool_name, "grund": "backups"})
+        return ("BLOCKIERT: data/backups ist der Sicherungs-Ordner (auch der Papierkorb). "
+                f"Dort raeumt nur {_id.user_name()} selbst auf. Etwas aus dem Papierkorb "
+                "zurueckholen geht mit move_file.")
+    if rp.suffix.lower() in _CODE_EXT and rp.exists():
+        try:
+            in_repo = rp.is_relative_to(ROOT.resolve())
+        except Exception:  # noqa: BLE001
+            in_repo = False
+        if in_repo:
+            rel = rp.relative_to(ROOT.resolve()).as_posix()
+            _melden("write_blocked",
+                    {"path": str(rp), "tool": tool_name, "grund": "code_destruktiv"})
+            return (f"BLOCKIERT: bestehende Code-Datei ({rel}) nicht per {tool_name} {was} — "
+                    "das umgeht Verify + Gate. Code-Umbauten laufen ueber self_edit.")
+    return None
+
+
+@tool("move_file",
+      "Verschiebt ODER benennt eine Datei/einen Ordner um (dasselbe Werkzeug fuer beides): "
+      "ist 'ziel' ein vorhandener Ordner, wandert die Quelle hinein, sonst ist 'ziel' der "
+      "neue Name. Ein belegtes Ziel wird NIE ueberschrieben.",
+      {"quelle": "was verschoben/umbenannt wird", "ziel": "neuer Pfad ODER Zielordner"})
+def move_file(quelle: str = "", ziel: str = "", **falsche_args) -> str:
+    import shutil
+
+    if falsche_args or not str(quelle).strip() or not str(ziel).strip():
+        return _lehr_fehler("move_file", falsche_args, "'quelle' und 'ziel'",
+                            'move_file(quelle="C:/Users/Name/Desktop/alt.md", '
+                            'ziel="C:/Users/Name/Desktop/neu.md")')
+    q = _pfad(quelle)
+    if not q.exists():
+        return f"(Nicht gefunden: {q}){_env_hinweis(q)}"
+    z = _pfad(ziel)
+    if z.is_dir():
+        z = z / q.name
+    # Quelle darf aus dem Papierkorb kommen (Wiederherstellen), das Ziel nie hinein.
+    for pfad, was, rausholen in ((q, "verschieben", True), (z, "ueberschreiben", False)):
+        blocked = _destruktiv_guard(pfad, "move_file", was, rausholen_ok=rausholen)
+        if blocked:
+            return blocked
+    if z.exists():
+        return (f"Fehlgeschlagen: {z} gibt es schon — ich ueberschreibe nichts. Nimm einen "
+                "anderen Namen, oder raeume das Ziel zuerst weg (delete_file).")
+    z.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        shutil.move(str(q), str(z))
+    except Exception as e:  # noqa: BLE001
+        return f"Fehlgeschlagen: {e}"
+    _melden("datei_verschoben", {"von": str(q), "nach": str(z)})
+    art = "Ordner" if z.is_dir() else "Datei"
+    return f"OK, {art} verschoben: {q} -> {z}"
+
+
+@tool("delete_file",
+      "Raeumt eine Datei oder einen Ordner weg — SICHER: das Ziel wandert in den Papierkorb "
+      "(data/backups/papierkorb/<datum>), nichts wird unwiderruflich vernichtet. Der Rueckweg "
+      "steht in der Antwort (move_file). Endgueltig leert den Papierkorb nur der Nutzer selbst.",
+      {"path": "Datei oder Ordner, der weg soll"})
+def delete_file(path: str = "", **falsche_args) -> str:
+    import shutil
+
+    if falsche_args or not str(path).strip():
+        return _lehr_fehler("delete_file", falsche_args, "'path' (Datei oder Ordner)",
+                            'delete_file(path="C:/Users/Name/Desktop/alt.md")')
+    p = _pfad(path)
+    if not p.exists():
+        return f"(Nicht gefunden: {p}){_env_hinweis(p)}"
+    blocked = _destruktiv_guard(p, "delete_file", "loeschen")
+    if blocked:
+        return blocked
+    art = "Ordner" if p.is_dir() else "Datei"
+    inhalt = ""
+    if p.is_dir():
+        n = sum(1 for _ in p.rglob("*"))
+        inhalt = f" mit {n} Eintraegen" if n else " (leer)"
+    ziel = _frei(_papierkorb() / p.name)
+    try:
+        shutil.move(str(p), str(ziel))
+    except Exception as e:  # noqa: BLE001
+        return f"Fehlgeschlagen: {e}"
+    _melden("datei_papierkorb", {"von": str(p), "nach": str(ziel), "art": art})
+    return (f"OK, {art}{inhalt} in den Papierkorb: {p} -> {ziel}. "
+            f'Rueckgaengig: move_file(quelle="{ziel}", ziel="{p}")')
+
+
 @tool("request_secret",
       "Fordert einen Zugang/Key an, den du brauchst. {{USER_NAME}} traegt ihn sicher im Dashboard "
       "(Zugaenge) ein. NICHT im Chat nach Passwoertern/Keys fragen.",
@@ -507,12 +664,15 @@ def set_context(num_ctx: int = 0, max_tokens: int = 0) -> str:
 
 
 @tool("cron_add",
-      "Plant eine WIEDERKEHRENDE Aufgabe. Zeitplan: '30m'/'2h' (Intervall) ODER '08:00' "
-      "(taeglich). scope ordnet sie ein: 'me' = {{USER_NAME_S}} Routine (z.B. Morgen-Briefing, "
-      "erscheint in seinem Me-Bereich), sonst 'system'. {{USER_NAME}} kann dir Routinen per "
-      "Telegram diktieren — lege sie damit an.",
+      "Plant eine WIEDERKEHRENDE Aufgabe. Zeitplan: '30m'/'2h' (Intervall), '08:00' "
+      "(taeglich), oder WOCHENTAGE — 'werktags 08:00', 'montags 09:00', 'mo,mi,fr 07:30', "
+      "'woechentlich 20:00', 'wochenende 10:00'. Nimm den engsten Takt, der die Bitte "
+      "erfuellt: taeglich nur, wenn es WIRKLICH jeden Tag sein soll. scope ordnet sie ein: "
+      "'me' = {{USER_NAME_S}} Routine (z.B. Morgen-Briefing, erscheint in seinem Me-Bereich), "
+      "sonst 'system'. {{USER_NAME}} kann dir Routinen per Telegram diktieren — "
+      "lege sie damit an.",
       {"label": "kurzer Name", "prompt": "was du dann jeweils tun sollst",
-       "schedule": "z.B. '30m', '2h' oder '08:00'",
+       "schedule": "z.B. '30m', '08:00', 'werktags 08:00' oder 'montags 09:00'",
        "scope": "optional: 'me' | 'system' (Default system)"})
 def cron_add(label: str = "", prompt: str = "", schedule: str = "", scope: str = "system",
              **falsche_args) -> str:
@@ -524,7 +684,7 @@ def cron_add(label: str = "", prompt: str = "", schedule: str = "", scope: str =
     # ("missing 1 required positional argument") — Lehrfehler nach #185-Muster.
     if falsche_args or not str(label).strip() or not str(prompt).strip() or not str(schedule).strip():
         return ("Fehler: cron_add braucht 'label', 'prompt' UND 'schedule' "
-                "('30m'/'2h' oder '08:00'). Beispiel: "
+                "('30m'/'2h', '08:00' oder 'werktags 08:00'). Beispiel: "
                 'ACT cron_add {"label": "Wetter-Brief", "prompt": "Hol das Wetter und '
                 'schick es kurz.", "schedule": "07:30", "scope": "me"}')
 

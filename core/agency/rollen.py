@@ -71,7 +71,12 @@ ROLLEN: dict[str, dict] = {
         "task_type": "chat", "escalate": False, "unteragent": False,
         "tools": [
             "jetzt", "health", "web_search", "web_fetch", "browse", "screenshot_url",
-            "read_file", "list_dir", "write_file",
+            # Datei-Familie KOMPLETT (Live-Fund 22.07.): make_dir fehlte — Kira konnte im
+            # Chat gar keinen Ordner anlegen und griff zu write_file ("Ordner Test" wurde
+            # eine DATEI). Halbe Familien verwirren (todo_list-Lehre): anlegen, schreiben,
+            # lesen, listen, finden, umbenennen, wegraeumen gehoeren zusammen.
+            "read_file", "list_dir", "write_file", "make_dir", "datei_finden",
+            "move_file", "delete_file",
             "remember_fact", "erinnerung", "termin_add", "termin_list",
             "termin_update", "termin_remove",   # Nacht-Fund 22.07.: ohne sie -> Doppel-Termine
             "cron_add", "cron_list", "cron_remove",   # Familie komplett (todo_list-Lehre)
