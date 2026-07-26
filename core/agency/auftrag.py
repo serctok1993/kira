@@ -109,13 +109,36 @@ def klartext() -> str:
         zeilen.append(f"-> Naechster Schritt: Nr. {offen[0]['nr']}")
     else:
         zeilen.append("-> Alle Schritte erledigt — Auftrag abschliessbar.")
+    if ist_abgestanden(d):
+        tage = int((time.time() - float(d.get("ts") or 0)) / 86400)
+        zeilen.append(f"(Seit {tage} Tagen unberuehrt — laeuft nicht mehr im Prompt mit. "
+                      "Weitermachen oder mit todo_plan neu aufsetzen?)")
     return "\n".join(zeilen)
 
 
-def prompt_block() -> str:
-    """Der Plan fuers PROMPT-ENDE — '' ohne aktiven Auftrag (= byte-identischer Prompt)."""
-    d = get()
+# Verfallsfenster (Audit-Fund 26.07.): ein Auftrag vom 21.07. mit 10 offenen Schritten
+# stand noch sechs Tage spaeter als LETZTER Satz in JEDEM Chat-Prompt — an der
+# Recency-Position, wo er maximal draengt. Folge: Kira kam staendig auf ein totes
+# Vorhaben zurueck, statt auf die aktuelle Nachricht zu reagieren. Ein Plan, den
+# tagelang niemand angefasst hat, ist kein "aktiver Auftrag" mehr; er bleibt ueber
+# todo_stand jederzeit abrufbar, draengt sich aber nicht mehr auf.
+STALE_TAGE = 3
+
+
+def ist_abgestanden(d: dict | None = None, jetzt: float | None = None) -> bool:
+    d = get() if d is None else d
     if not d:
+        return False
+    alter = (jetzt or time.time()) - float(d.get("ts") or 0)
+    return alter > STALE_TAGE * 86400
+
+
+def prompt_block() -> str:
+    """Der Plan fuers PROMPT-ENDE — '' ohne aktiven Auftrag (= byte-identischer Prompt).
+    Abgestandene Plaene (> STALE_TAGE ohne Bewegung) fallen aus dem Prompt: sie
+    verdraengen sonst die eigentliche Nachricht."""
+    d = get()
+    if not d or ist_abgestanden(d):
         return ""
     return ("\n\n# DEIN AKTIVER AUFTRAG (der Harness fuehrt die Liste — erledige NUR den "
             "naechsten offenen Schritt, dann todo_update(nr, \"fertig\"))\n" + klartext())
