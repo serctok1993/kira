@@ -21,6 +21,7 @@ import time
 
 import httpx
 
+from core import identity as _id
 from core.config import CONFIG, ROOT
 from core.kernel import events
 from core.kernel.fs import atomic_write
@@ -251,21 +252,54 @@ def run_job(job: dict, notify: bool = True) -> dict:
             prompt = prompt.replace("{{standup}}", standup.build_context(scope=job.get("label", "cron")))
         except Exception:  # noqa: BLE001
             prompt = prompt.replace("{{standup}}", "(Lagebericht nicht verfuegbar)")
+    # Zustellweg klarstellen (Audit-Fund 26.07.): mehrere Cron-Prompts befahlen ein
+    # "telegram_send", das es nie gab — Folge waren Entschuldigungslaeufe ("ich habe
+    # kein Telegram-Werkzeug") und ein roher ACT-Leak als Nachricht. Der Kanal ist
+    # Harness-Sache, nicht Modell-Sache: die Antwort IST die Meldung.
+    prompt = (f"{prompt}\n\n(Zustellung: Deine Antwort wird automatisch an "
+              f"{_id.user_name()} zugestellt — schreib sie direkt als fertige Nachricht. "
+              "Es gibt KEIN Sende-Werkzeug und du brauchst keins.)")
     try:
         r = act(prompt, session_id=f"cron-{job['id']}", escalate=job.get("escalate", False),
                 task_type="bulk")  # einfache Crons -> lokal (0 EUR); escalate-Crons gehen weiter zu GLM
-        summary = (r.get("text") or "").strip()[:300]
-        ok = True
+        volltext = (r.get("text") or "").strip()
+        ok, grund = _lauf_bewerten(volltext)
+        summary = volltext[:300] if volltext else (grund or "(leere Antwort)")
     except Exception as e:  # noqa: BLE001
+        volltext = ""
         summary = str(e)
         ok = False
     job["last_run"] = time.time()
     job["next_run"] = _next_run(job["schedule"])
     job["runs"] = (job.get("runs", []) + [{"ts": time.time(), "ok": ok, "summary": summary}])[-20:]
     events.emit("cron_run", {"label": job["label"], "ok": ok, "summary": summary})
-    if notify:
-        _notify(f"⏰ {job['label']}:\n{summary}")
+    # Nur ECHTE Ergebnisse gehen raus — und dann ungekappt (die 300 Zeichen sind das
+    # Dashboard-Mass, _notify stueckelt selbst sauber bei 3800).
+    if notify and ok:
+        _notify(f"⏰ {job['label']}:\n{volltext}")
     return {"ok": ok, "summary": summary}
+
+
+# Ehrliches ok (Audit-Fund 26.07.): frueher hiess ok=True nur "act() hat nicht
+# geworfen". Von 49 gruenen Laeufen waren 21 Absagen, Leer-Antworten oder rohe
+# ACT-Leaks — Cockpit und Selbst-Diagnose sahen ueberall ✓ und meldeten "alles gut".
+# Ein Assistent, dessen Erfolgsmeldung nichts bedeutet, kann sich nicht verbessern.
+def _lauf_bewerten(text: str) -> tuple[bool, str]:
+    """(ok, grund) aus dem ERGEBNIS ableiten. Konservativ: nur eindeutige Ausfaelle
+    gelten als Fehlschlag — inhaltliche Qualitaet beurteilt das hier nicht."""
+    t = (text or "").strip()
+    if not t:
+        return False, "leere Antwort (Modell lieferte keinen Text)"
+    from core.agency.verifier import _DEGRADE_MARKER
+
+    if _DEGRADE_MARKER in t:
+        return False, "Modell-/Netzwerk-Abbruch (Degrade-Marker)"
+    if "Wall-Clock-Grenze" in t:
+        return False, "Zeitlimit gerissen (Wall-Clock)"
+    # roher Werkzeug-Aufruf als Endergebnis: der ACT-Text ist nie eine Nachricht
+    if re.match(r"^\s*(ACT\s+\w+\s*[{(]|<tool_call>)", t) or "\nACT " in t[:400]:
+        return False, "Werkzeug-Aufruf statt Antwort (ACT-Leak)"
+    return True, ""
 
 
 # Verfallsfenster fuer Tages-Crons (Fund: Sunrise-Job von 05:55 lief um 17:28
@@ -275,12 +309,28 @@ def run_job(job: dict, notify: bool = True) -> dict:
 MISSED_GRACE_S = 2 * 3600
 
 
+def _job_zurueckschreiben(job: dict) -> None:
+    """NUR diesen einen Job in die Datei uebernehmen — frisch laden, ersetzen, speichern.
+
+    Audit-Fund 26.07.: run_due lud die Liste EINMAL, lief dann minutenlang durch act()
+    und schrieb am Ende den alten Speicherstand zurueck. Legte Kira waehrenddessen per
+    cron_add einen Job an (was sie tat — 11.07. und 21.07., beide Male mit korrekter
+    Erfolgsmeldung an den Nutzer), war er nach dem Stapel-Speichern GARANTIERT weg.
+    Aus Nutzersicht hat Kira gelogen; aus Modellsicht war alles richtig. Deshalb wird
+    ab jetzt pro Job geschrieben, nie die ganze Liste aus dem Gedaechtnis."""
+    aktuell = _load()
+    for i, vorhanden in enumerate(aktuell):
+        if vorhanden.get("id") == job.get("id"):
+            aktuell[i] = job
+            _save(aktuell)
+            return
+    # Job wurde zwischenzeitlich geloescht -> nicht wiederbeleben.
+
+
 def run_due(now: float | None = None) -> list[dict]:
     now = now or time.time()
-    jobs = _load()
     ran = []
-    changed = False
-    for j in jobs:
+    for j in _load():
         if not (j.get("enabled") and j.get("next_run", 0) <= now):
             continue
         overdue = now - float(j.get("next_run") or 0)
@@ -292,13 +342,16 @@ def run_due(now: float | None = None) -> list[dict]:
                            f"uebersprungen statt nachgeholt"}])[-20:]
             events.emit("cron_missed", {"label": j["label"],
                                         "overdue_h": round(overdue / 3600, 1)})
-            changed = True
+            _job_zurueckschreiben(j)
             continue
+        # Termin SOFORT weiterdrehen (vor act!): stirbt der Prozess mitten im Lauf,
+        # laeuft der Job nach dem Neustart nicht ein zweites Mal (22.07.: Morgen-
+        # Briefing lief doppelt, Sunrise dreimal als verpasst gebucht).
+        j["next_run"] = _next_run(j["schedule"], ref=now)
+        _job_zurueckschreiben(j)
         res = run_job(j)
+        _job_zurueckschreiben(j)      # Ergebnis/last_run frisch drueberlegen
         ran.append({"label": j["label"], **res})
-        changed = True
-    if changed:
-        _save(jobs)
     return ran
 
 
