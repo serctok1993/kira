@@ -64,8 +64,9 @@ def test_manifest_ist_getrimmt():
     # Zaehlung nicht kippen. Obergrenze = Wachstums-Wache gegen schleichende Aufblaehung;
     # Anheben ist eine BEWUSSTE Entscheidung je Fahrplan-Baustein (P5 trimmt pro Rolle).
     schemas = [s for s in registry.tool_schemas() if not s["function"]["name"].startswith("mcp_")]
-    assert len(schemas) < 77  # BEWUSST +2 (Termin-Runde 22.07.: termin_update/termin_remove —
-    # Nacht-Fund: ohne Aendern/Loeschen erzeugt jede Termin-Korrektur Doppel-Eintraege)
+    assert len(schemas) < 79  # BEWUSST +2 (Datei-Runde 26.07.: move_file/delete_file — ohne
+    # Umbenennen/Wegraeumen blieb jede Aufraeum-Aufgabe halb) nach +2 (Termin-Runde 22.07.:
+    # termin_update/termin_remove — ohne Aendern/Loeschen erzeugt jede Korrektur Doppel-Eintraege)
     zeilen = [z for z in registry.manifest().splitlines()
               if z.startswith("- ") and not z.startswith("- mcp_")]
     assert len(zeilen) == len(schemas)  # Prompt-Manifest und Schemata sehen dieselbe Flotte
