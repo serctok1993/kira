@@ -376,6 +376,71 @@ def _missing_claims(text: str) -> list[str]:
         return []
 
 
+# --- Beweispflicht II: ZUSTANDS-Behauptungen (Audit-Fund 26.07.) ----------------------
+# Die Datei-Beweispflicht oben prueft Pfade. Der haeufigere Schaden betrifft aber Kiras
+# eigene Stores: 54 Antworten behaupteten "eingetragen/gemerkt/erledigt", OHNE dass im
+# selben Zug ein einziges Werkzeug lief ("✅ Termin mit Freundin am 12.07." — kalender.json
+# kennt ihn nicht). Fuer diese Klasse braucht es keine Inhaltspruefung: hat der Zug KEIN
+# Werkzeug benutzt, kann sich am Zustand nichts geaendert haben. Das ist deterministisch
+# und modellunabhaengig — der Harness weiss es besser als jedes Modell.
+_ZUSTAND_CLAIM_RE = re.compile(
+    r"\b(eingetragen|eingeplant|angelegt|abgelegt|hinterlegt|gespeichert|gesichert|"
+    r"gemerkt|notiert|vermerkt|erfasst|geloescht|gelöscht|entfernt|verschoben|umbenannt|"
+    r"abgehakt|abgeschlossen|verschickt|versendet|gesendet|abgeschickt|eingerichtet|"
+    r"aktualisiert|geaendert|geändert|gesetzt|gebucht|reserviert)\b", re.IGNORECASE)
+# Nur Behauptungen ueber GETANES zaehlen — Angebote und Rueckfragen nicht.
+_UNVERBINDLICH_RE = re.compile(
+    r"\b(soll ich|moechtest du|möchtest du|kann ich|koennte ich|könnte ich|wuerde ich|"
+    r"würde ich|werde ich|wird|willst du|darf ich|sobald|falls|wenn du)\b", re.IGNORECASE)
+
+
+def _satz_um(text: str, pos_a: int, pos_b: int) -> str:
+    """Den EINEN Satz herausschneiden, in dem der Treffer steht — nicht die Nachbarsaetze
+    (sonst macht ein angehaengtes 'Soll ich noch ...?' aus einer Behauptung ein Angebot)."""
+    anfang = max((text.rfind(z, 0, pos_a) for z in ".!?\n"), default=-1) + 1
+    kandidaten = [p for p in (text.find(z, pos_b) for z in ".!?\n") if p != -1]
+    return text[anfang:(min(kandidaten) + 1 if kandidaten else len(text))]
+
+
+def _behauptet_zustandsaenderung(text: str) -> str | None:
+    """Signalwort, falls der Text eine bereits ERFOLGTE Zustandsaenderung behauptet."""
+    t = (text or "").strip()
+    if not t or len(t) > 1500:
+        return None
+    for treffer in _ZUSTAND_CLAIM_RE.finditer(t):
+        satz = _satz_um(t, treffer.start(), treffer.end())
+        if not _UNVERBINDLICH_RE.search(satz):
+            return treffer.group(0)
+    return None
+
+
+# Heikles bleibt heikel (Audit-Fund 26.07.): "Schalt den Windows Defender aus" wurde per
+# Nudge zu einem echten run_command, weil der Harness die Rueckfrage des Modells als
+# Ankuendigung wegbuegelte. Bei sicherheits- oder geldrelevanten Wuenschen ist Nachfragen
+# die RICHTIGE Antwort — da wird nie gestupst.
+_HEIKEL_RE = re.compile(
+    r"\b(defender|firewall|virenschutz|antivirus|registry|bitlocker|"
+    r"deinstallier|formatier|partition|systemwiederherstellung|"
+    r"abschalten|ausschalten|deaktivier|abstellen|"
+    r"kuendig|kündig|ueberweis|überweis|bezahl|kaufe?n?|bestell|"
+    r"veroeffentlich|veröffentlich|poste?n?\b|tweete?n?)\b", re.IGNORECASE)
+
+
+def _nudge_angebracht(user_message: str) -> bool:
+    """Darf der Harness bei DIESER Nutzer-Nachricht zum Handeln draengen?
+
+    Der Stups ist gegen Ankuendigungen bei klaren Auftraegen gedacht. Er feuerte aber
+    auf JEDE Nachricht — "Guten Mittag Kira!" endete deshalb in list_dir. Der Filter ist
+    absichtlich weiter als _looks_like_work_order (das gehoert zum teuren Auto-Plan),
+    aber er kennt zwei harte Tabus: Smalltalk und heikle Wuensche."""
+    t = (user_message or "").strip()
+    if len(t) < 12 or _HEIKEL_RE.search(t):
+        return False
+    erstes = t.split(maxsplit=1)[0] if t.split() else ""
+    return bool(_WORK_VERB_RE.match(erstes) or _POLITE_RE.match(t)
+                or _WORK_VERB_ANY_RE.search(t) or _looks_like_work_order(t))
+
+
 def _claim_stamp(text: str, session_id: str | None = None) -> str:
     """Haengt eine sichtbare Warnung an, wenn behauptete Dateien NICHT existieren."""
     fehlend = _missing_claims(text)
@@ -622,6 +687,7 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
     obs_cap = _budget("obs_max_chars", _OBS_MAX, task_type, escalate)  # starkes Modell -> sieht mehr
     used_tools = False
     nudged = False
+    beweis_nachgefragt = False      # Beweispflicht II: hoechstens EINE Rueckfrage pro Zug
     last_reasoning = ""
 
     def _emit_reasoning(res: dict) -> None:
@@ -664,6 +730,19 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
                 messages.append({"role": "user", "content": "Der Auftrag liegt bereits vor — tu es "
                                  "JETZT in diesem Zug: nutze die passenden Werkzeuge und antworte erst "
                                  "mit dem Ergebnis. Nicht ankuendigen, nicht zurueckfragen."})
+                continue
+            # Beweispflicht II (Audit 26.07.): auch hier gilt — ohne Werkzeug keine
+            # Zustandsaenderung. Cloud-Modelle behaupten seltener, aber nicht nie.
+            wort = None if used_tools or beweis_nachgefragt else _behauptet_zustandsaenderung(text)
+            if wort:
+                beweis_nachgefragt = True
+                events.emit("beweis_nachgefragt", {"wort": wort, "task_type": task_type},
+                            session_id=session_id)
+                messages.append({"role": "assistant", "content": text})
+                messages.append({"role": "user", "content": (
+                    f"Halt — du schreibst \"{wort}\", aber in diesem Zug lief KEIN Werkzeug. "
+                    "Damit hat sich nichts geaendert. Entweder du tust es JETZT wirklich, "
+                    "oder du sagst ehrlich, dass es noch offen ist und was du dafuer brauchst.")})
                 continue
             return text
         used_tools = True
@@ -1623,6 +1702,7 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
 
     used_tools = False
     nudged = False
+    beweis_nachgefragt = False      # Beweispflicht II: hoechstens EINE Rueckfrage pro Zug
     obs_cap = _budget("obs_max_chars", _OBS_MAX, _tt, escalate)  # starkes Modell -> sieht mehr
     for step in range(step_ceiling):
         _compact_history(messages)
@@ -1648,7 +1728,14 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
         if not call:
             # Lokale Modelle sind die schlimmsten Ankuendiger/Rueckfrager: einmal pro Turn
             # deterministisch nachstupsen statt das Pingpong an den Nutzer weiterzureichen.
-            if not used_tools and not nudged and _looks_like_promise(text):
+            # NUR bei einem echten Arbeitsauftrag (Audit-Fund 26.07.): der Stups feuerte
+            # frueher auf JEDE Nachricht, auch auf Gruesse und auf berechtigte Rueckfragen.
+            # "Guten Mittag Kira!" endete so in list_dir — und "Schalt den Windows Defender
+            # aus" wurde per Zwangstext zu einem echten run_command, obwohl das Modell
+            # richtigerweise erst nachgefragt hatte. Rueckfragen bei heiklen Wuenschen sind
+            # ein Feature, kein Fehler.
+            if (not used_tools and not nudged and _looks_like_promise(text)
+                    and _nudge_angebracht(user_message)):
                 nudged = True
                 try:  # Kalibrierung: Stups zaehlen (lokale Modelle sind die Haupt-Ankuendiger)
                     events.emit("nudge", {"model": llm_router.resolve_model(_tt, escalate)[0],
@@ -1659,6 +1746,24 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
                 messages.append({"role": "user", "content": "Der Auftrag liegt bereits vor — "
                                  "tu es JETZT mit einem Werkzeug (ACT ...) und antworte erst "
                                  "mit dem Ergebnis. Nicht ankuendigen, nicht zurueckfragen."})
+                continue
+            # Beweispflicht II: "eingetragen/gemerkt/erledigt" OHNE einen einzigen
+            # Werkzeug-Aufruf in diesem Zug ist immer erfunden — EINMAL zurueckgeben
+            # statt es dem Nutzer als Wahrheit zu verkaufen.
+            wort = None if used_tools or beweis_nachgefragt else _behauptet_zustandsaenderung(text)
+            if wort:
+                beweis_nachgefragt = True
+                try:
+                    events.emit("beweis_nachgefragt", {"wort": wort, "task_type": _tt},
+                                session_id=session_id)
+                except Exception:  # noqa: BLE001
+                    pass
+                messages.append({"role": "assistant", "content": text})
+                messages.append({"role": "user", "content": (
+                    f"Halt — du schreibst \"{wort}\", aber in diesem Zug lief KEIN Werkzeug. "
+                    "Damit hat sich nichts geaendert. Entweder du tust es JETZT wirklich "
+                    "(ACT <werkzeug> {...}), oder du sagst ehrlich, dass es noch offen ist "
+                    "und was du dafuer brauchst. Nichts behaupten, was nicht passiert ist.")})
                 continue
             return _finalize(text)
         name, args = call
