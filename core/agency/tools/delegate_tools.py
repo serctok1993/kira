@@ -246,6 +246,20 @@ def _schwarm_budget_reached(start_spend: float | None, budget: float) -> bool:
         return False
 
 
+def _items_aus(liste) -> list[str]:
+    """Nacht-Fund 22.07.: Modelle geben die Liste natuerlich als JSON-Array — das
+    crashte roh ("'list' object has no attribute 'splitlines'"). Durchreichen statt
+    belehren: echte Listen werden angenommen, Strings weiter zeilenweise.
+
+    ACHTUNG (Audit-Fund 26.07.): Dieser Helfer stand frueher ZWISCHEN dem Werkzeug-
+    Dekorator und 'def schwarm' — registriert wurde also IHN statt der echten Funktion.
+    Jeder Schwarm-Aufruf endete in TypeError, obwohl das Modell die Argumente korrekt
+    aus dem Manifest nahm. Helfer gehoeren VOR den Dekorator, nie dazwischen."""
+    if isinstance(liste, (list, tuple)):
+        return [str(x).strip() for x in liste if str(x).strip()]
+    return [ln.strip() for ln in str(liste or "").splitlines() if ln.strip()]
+
+
 @tool("schwarm",
       "Faechert einen Auftrag ECHT PARALLEL ueber eine LISTE auf: pro Zeile ein Unteragent, "
       "alle laufen gleichzeitig (gedeckelter Pool), Ergebnisse kommen nummeriert + mit "
@@ -256,15 +270,6 @@ def _schwarm_budget_reached(start_spend: float | None, budget: float) -> bool:
        "liste": "die Items, EINE pro Zeile",
        "rang": "optional: Rang der Arbeiter (Standard arbeiter)",
        "session_id": "optional: wird automatisch gesetzt"})
-def _items_aus(liste) -> list[str]:
-    """Nacht-Fund 22.07.: Modelle geben die Liste natuerlich als JSON-Array — das
-    crashte roh ("'list' object has no attribute 'splitlines'"). Durchreichen statt
-    belehren: echte Listen werden angenommen, Strings weiter zeilenweise."""
-    if isinstance(liste, (list, tuple)):
-        return [str(x).strip() for x in liste if str(x).strip()]
-    return [ln.strip() for ln in str(liste or "").splitlines() if ln.strip()]
-
-
 def schwarm(auftrag_vorlage: str, liste: str, rang: str = "arbeiter", session_id: str = "") -> str:
     global _AKTIV
     if _AKTIV or (session_id or "").startswith("sub-"):
