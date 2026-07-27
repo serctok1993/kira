@@ -14,6 +14,7 @@ ueberhaupt nicht.
 """
 from __future__ import annotations
 
+import os
 import time
 
 import pytest
@@ -175,7 +176,9 @@ class TestSendeFehlerWerdenAktenkundig:
         monkeypatch.setattr(tb, "_ctrl", lambda: KaputterClient())
         monkeypatch.setattr(tb.events, "emit",
                             lambda typ, payload=None, **k: gemeldet.append((typ, payload)))
-        assert tb._send(None, 42, "eine wichtige Antwort") is False
+        # Netzfehler = Ausgang UNBEKANNT (None), keine Absage — sonst wuerde ein
+        # Aufrufer die Nachricht erneut schicken, obwohl sie angekommen sein kann.
+        assert tb._send(None, 42, "eine wichtige Antwort") is None
         assert any(t == "telegram_send_failed" for t, _ in gemeldet)
 
     def test_send_meldet_auch_eine_telegram_absage(self, monkeypatch):
@@ -405,3 +408,305 @@ class TestNotrufLaesstSichNichtAbschalten:
         monkeypatch.setattr("core.kernel.zustellung.an_nutzer", lambda text, quelle="": False)
         runner._notify("⚠️ Aufgabe aufgegeben", wichtig=True, kurz="⚠️ Aufgabe aufgegeben")
         assert melde.lesen() == ["⚠️ Aufgabe aufgegeben"]
+
+
+class TestWeckerVertretung:
+    """Fund 27.07.: die Weiche fragte "ist Telegram konfiguriert?" statt "stellt gerade
+    jemand zu?". Ein Bot ohne Token schlaeft in einer Endlosschleife, ein zweiter Start
+    beendet sich am Instanz-Lock, die getMe-Wache kann das Polling verweigern — in allen
+    drei Faellen ist Telegram eingerichtet und trotzdem stellt niemand zu. Die Wecker
+    blieben liegen (live: 9x gestellt, 6x zugestellt)."""
+
+    @pytest.fixture
+    def wecker(self, tmp_path, monkeypatch):
+        from core.agency import erinnerungen
+
+        monkeypatch.setattr(erinnerungen, "_PATH", tmp_path / "erinnerungen.json")
+        monkeypatch.setattr(erinnerungen, "ALIVE_FILE", tmp_path / "telegram_alive.json")
+        return erinnerungen
+
+    def test_ohne_lebenszeichen_gilt_der_bot_als_stumm(self, wecker):
+        assert wecker.bot_pollt() is False
+
+    def test_frischer_stempel_heisst_der_bot_pollt(self, wecker):
+        import json as _json
+
+        wecker.ALIVE_FILE.write_text(_json.dumps({"ts": time.time()}), encoding="utf-8")
+        assert wecker.bot_pollt() is True
+
+    def test_alter_stempel_gilt_nicht_mehr(self, wecker):
+        """Prozess laeuft, pollt aber nicht mehr — genau der unsichtbare Fall."""
+        import json as _json
+
+        wecker.ALIVE_FILE.write_text(
+            _json.dumps({"ts": time.time() - wecker.BOT_STUMM_S - 60}), encoding="utf-8")
+        assert wecker.bot_pollt() is False
+
+    def test_vertretung_nimmt_nur_deutlich_ueberfaellige(self, wecker, monkeypatch):
+        gesendet: list[str] = []
+        monkeypatch.setattr("core.kernel.zustellung.an_nutzer",
+                            lambda text, quelle="": gesendet.append(text) or True)
+        jetzt = time.time()
+        # einer gerade eben faellig, einer seit einer Stunde
+        liste = [
+            {"id": "frisch", "ts": jetzt - 5, "wann": "heute", "text": "gerade faellig"},
+            {"id": "alt", "ts": jetzt - 3600, "wann": "vor einer Stunde", "text": "laengst faellig"},
+        ]
+        wecker._speichern(liste)
+        n = wecker.vertretung_zustellen(now=jetzt)
+        assert n == 1
+        assert "laengst faellig" in gesendet[0]
+        assert [e["id"] for e in wecker.alle()] == ["frisch"]
+
+    def test_vertretung_nennt_die_verspaetung(self, wecker, monkeypatch):
+        """Im Verlauf stand '⏰ Erinnerung: Aufstehen' um 15:21 — ohne jeden Hinweis."""
+        gesendet: list[str] = []
+        monkeypatch.setattr("core.kernel.zustellung.an_nutzer",
+                            lambda text, quelle="": gesendet.append(text) or True)
+        jetzt = time.time()
+        wecker._speichern([{"id": "x", "ts": jetzt - 6 * 3600,
+                            "wann": "27.07.2026 09:00", "text": "Aufstehen"}])
+        wecker.vertretung_zustellen(now=jetzt)
+        assert "Aufstehen" in gesendet[0]
+        assert "09:00" in gesendet[0] and "zu spaet" in gesendet[0]
+
+    def test_puenktlicher_wecker_bekommt_keinen_nachtrag(self, wecker):
+        gesendet: list[str] = []
+        jetzt = time.time()
+        wecker._speichern([{"id": "x", "ts": jetzt - 30, "wann": "heute 18:00",
+                            "text": "Muell rausbringen"}])
+        wecker.zustellen(lambda t: gesendet.append(t) or True, now=jetzt)
+        assert gesendet == ["⏰ Erinnerung: Muell rausbringen"]
+
+    def test_zweifelhafte_vertretung_traegt_aus(self, wecker, monkeypatch):
+        """Timeout heisst "kann angekommen sein" — dann NICHT erneut klingeln."""
+        monkeypatch.setattr("core.kernel.zustellung.an_nutzer", lambda text, quelle="": None)
+        jetzt = time.time()
+        wecker._speichern([{"id": "x", "ts": jetzt - 3600, "wann": "frueher", "text": "wichtig"}])
+        assert wecker.vertretung_zustellen(now=jetzt) == 1
+        assert wecker.alle() == []
+
+
+class TestRunnerWeiche:
+    def _lauf(self, monkeypatch, konfiguriert: bool, pollt: bool):
+        from core.agency import erinnerungen
+
+        gerufen: list[str] = []
+        monkeypatch.setattr(erinnerungen, "telegram_konfiguriert", lambda: konfiguriert)
+        monkeypatch.setattr(erinnerungen, "bot_pollt", lambda now=None: pollt)
+        monkeypatch.setattr(erinnerungen, "zustellen",
+                            lambda sender=None, now=None: gerufen.append("cockpit"))
+        monkeypatch.setattr(erinnerungen, "vertretung_zustellen",
+                            lambda now=None: gerufen.append("vertretung"))
+        # den Weichen-Block aus run_forever nachstellen
+        if not erinnerungen.telegram_konfiguriert():
+            erinnerungen.zustellen(None)
+        elif not erinnerungen.bot_pollt():
+            erinnerungen.vertretung_zustellen()
+        return gerufen
+
+    def test_ohne_telegram_stellt_der_runner_ins_cockpit_zu(self, monkeypatch):
+        assert self._lauf(monkeypatch, konfiguriert=False, pollt=False) == ["cockpit"]
+
+    def test_bei_lebendem_bot_haelt_der_runner_sich_raus(self, monkeypatch):
+        assert self._lauf(monkeypatch, konfiguriert=True, pollt=True) == []
+
+    def test_bei_stummem_bot_springt_der_runner_ein(self, monkeypatch):
+        assert self._lauf(monkeypatch, konfiguriert=True, pollt=False) == ["vertretung"]
+
+
+class TestLebenszeichenWirdWirklichGeschrieben:
+    """Diese Klasse gibt es wegen eines eigenen Fehlers: _lebenszeichen() rief json.dumps
+    auf, aber json war im Bot-Modul nie importiert — der NameError landete im
+    `except: pass`, und die Datei entstand nie. Die uebrigen Tests sahen es nicht, weil
+    sie den Stempel selbst schreiben. Also wird die Funktion hier echt aufgerufen."""
+
+    def test_stempel_entsteht_und_macht_bot_pollt_wahr(self, tmp_path, monkeypatch):
+        from core.agency import erinnerungen
+        from core.agency.connectors import telegram_bot as tb
+
+        monkeypatch.setattr(erinnerungen, "ALIVE_FILE", tmp_path / "telegram_alive.json")
+        monkeypatch.setattr(tb, "_ALIVE_TS", 0.0)
+        assert erinnerungen.bot_pollt() is False
+        tb._lebenszeichen()
+        assert erinnerungen.ALIVE_FILE.exists(), "Lebenszeichen wurde nicht geschrieben"
+        assert erinnerungen.bot_pollt() is True
+
+    def test_drossel_schreibt_nicht_bei_jedem_tick(self, tmp_path, monkeypatch):
+        from core.agency import erinnerungen
+        from core.agency.connectors import telegram_bot as tb
+
+        monkeypatch.setattr(erinnerungen, "ALIVE_FILE", tmp_path / "telegram_alive.json")
+        monkeypatch.setattr(tb, "_ALIVE_TS", 0.0)
+        tb._lebenszeichen()
+        erst = erinnerungen.ALIVE_FILE.read_text(encoding="utf-8")
+        tb._lebenszeichen()
+        assert erinnerungen.ALIVE_FILE.read_text(encoding="utf-8") == erst
+
+    def test_ein_kaputter_stempel_bleibt_nicht_still(self, tmp_path, monkeypatch):
+        """Ohne Stempel haelt der Runner den Bot dauerhaft fuer tot — das muss auffallen."""
+        from core.agency import erinnerungen
+        from core.agency.connectors import telegram_bot as tb
+
+        gemeldet: list[str] = []
+        monkeypatch.setattr(erinnerungen, "ALIVE_FILE", tmp_path / "telegram_alive.json")
+        monkeypatch.setattr(tb, "_ALIVE_TS", 0.0)
+        monkeypatch.setattr(tb, "_ALIVE_ERR", False)
+        monkeypatch.setattr("core.kernel.fs.atomic_write",
+                            lambda *a, **k: (_ for _ in ()).throw(OSError("Platte voll")))
+        monkeypatch.setattr(tb.events, "emit",
+                            lambda typ, payload=None, **k: gemeldet.append(typ))
+        tb._lebenszeichen()
+        assert "lebenszeichen_error" in gemeldet
+
+
+class TestKeinDoppelKlingeln:
+    """Aus der adversarialen Pruefung der Wecker-Vertretung (27.07., Urteil "kaputt"):
+
+    Meine erste Fassung machte aus der Zustellung at-least-once OHNE Deduplizierung.
+    Ein ReadTimeout tritt aber auch dann auf, wenn Telegram die Nachricht laengst
+    ausgeliefert hat und nur die HTTP-Antwort verlorenging — der Wecker blieb liegen
+    und klingelte in der naechsten Runde erneut. Also genau die Doppelung, wegen der
+    diese Rundenreihe ueberhaupt begann."""
+
+    @pytest.fixture
+    def wecker(self, tmp_path, monkeypatch):
+        from core.agency import erinnerungen
+
+        monkeypatch.setattr(erinnerungen, "_PATH", tmp_path / "erinnerungen.json")
+        monkeypatch.setattr(erinnerungen, "ALIVE_FILE", tmp_path / "telegram_alive.json")
+        return erinnerungen
+
+    def _einer(self, wecker, alter_s=60):
+        jetzt = time.time()
+        wecker._speichern([{"id": "x", "ts": jetzt - alter_s, "wann": "heute 18:00",
+                            "text": "Muell rausbringen"}])
+        return jetzt
+
+    def test_timeout_traegt_aus_statt_erneut_zu_klingeln(self, wecker):
+        jetzt = self._einer(wecker)
+        assert wecker.zustellen(lambda t: None, now=jetzt) == 1
+        assert wecker.alle() == [], "Wecker blieb liegen -> wuerde erneut klingeln"
+
+    def test_ausdrueckliche_absage_laesst_ihn_stehen(self, wecker):
+        jetzt = self._einer(wecker)
+        assert wecker.zustellen(lambda t: False, now=jetzt) == 0
+        assert len(wecker.alle()) == 1
+
+    def test_zweifelsfall_wird_protokolliert(self, wecker, monkeypatch):
+        gemeldet: list[str] = []
+        monkeypatch.setattr(wecker, "_melden", lambda typ, p=None: gemeldet.append(typ))
+        jetzt = self._einer(wecker)
+        wecker.zustellen(lambda t: None, now=jetzt)
+        assert "erinnerung_ausgang_unklar" in gemeldet
+        assert "erinnerung_zugestellt" not in gemeldet
+
+    def test_zustellung_unterscheidet_absage_von_zeitueberschreitung(self, monkeypatch):
+        from core.kernel import zustellung
+
+        monkeypatch.setattr(zustellung, "_ziel", lambda: ("t", 7))
+        monkeypatch.setattr(zustellung.events, "emit", lambda *a, **k: None)
+
+        class Timeout:
+            @staticmethod
+            def post(*a, **k):
+                raise TimeoutError("read timeout")
+
+        class Absage:
+            @staticmethod
+            def post(*a, **k):
+                class R:
+                    @staticmethod
+                    def json():
+                        return {"ok": False, "description": "bot was blocked by the user"}
+                return R()
+
+        import sys
+        monkeypatch.setitem(sys.modules, "httpx", Timeout)
+        assert zustellung.an_nutzer("x") is None      # unbekannt
+        monkeypatch.setitem(sys.modules, "httpx", Absage)
+        assert zustellung.an_nutzer("x") is False     # eindeutig nein
+
+
+class TestVertretungOhneToken:
+    """Der Hauptfall, fuer den die Vertretung gebaut wurde — und den meine erste Fassung
+    NICHT loeste: telegram_konfiguriert() prueft nur die chat_id. Ohne Token schlaeft der
+    Bot, der Runner springt ein und sendet in denselben tokenlosen Kanal: False, Wecker
+    bleibt liegen. Tick fuer Tick, fuer immer."""
+
+    def test_konfiguriert_verlangt_token_und_chat(self, monkeypatch):
+        from core.agency import erinnerungen
+        from core.config import CONFIG
+
+        monkeypatch.setitem(CONFIG, "channels", {"telegram": {"allowed_chat_id": 7}})
+        monkeypatch.setattr("core.config.telegram_token", lambda: "")
+        assert erinnerungen.telegram_konfiguriert() is False
+        monkeypatch.setattr("core.config.telegram_token", lambda: "abc")
+        assert erinnerungen.telegram_konfiguriert() is True
+
+    def test_abgelehnte_vertretung_faellt_aufs_cockpit_zurueck(self, tmp_path, monkeypatch):
+        from core.agency import erinnerungen
+
+        monkeypatch.setattr(erinnerungen, "_PATH", tmp_path / "erinnerungen.json")
+        monkeypatch.setattr("core.kernel.zustellung.an_nutzer", lambda text, quelle="": False)
+        gemeldet: list[str] = []
+        monkeypatch.setattr(erinnerungen, "_melden", lambda typ, p=None: gemeldet.append(typ))
+        jetzt = time.time()
+        erinnerungen._speichern([{"id": "x", "ts": jetzt - 3600, "wann": "frueher",
+                                  "text": "wichtig"}])
+        n = erinnerungen.vertretung_zustellen(now=jetzt)
+        assert n == 1, "Wecker blieb liegen statt im Cockpit zuzustellen"
+        assert erinnerungen.alle() == []
+        assert "erinnerung_nur_cockpit" in gemeldet
+
+
+class TestZustellLock:
+    """Letzter Fund der adversarialen Pruefung: Bot und Runner koennen sich beim
+    Zustellen ueberlappen (beide lesen dieselbe Liste, beide senden). Das Fenster ist
+    schmal, aber die Folge waere genau das doppelte Klingeln, das diese Rundenreihe
+    ausgeloest hat."""
+
+    @pytest.fixture
+    def wecker(self, tmp_path, monkeypatch):
+        from core.agency import erinnerungen
+
+        monkeypatch.setattr(erinnerungen, "_PATH", tmp_path / "erinnerungen.json")
+        monkeypatch.setattr(erinnerungen, "_LOCK_FILE", tmp_path / "zustellung.lock")
+        return erinnerungen
+
+    def test_zweiter_zusteller_haelt_sich_raus(self, wecker):
+        jetzt = time.time()
+        wecker._speichern([{"id": "x", "ts": jetzt - 60, "wann": "heute", "text": "Muell"}])
+        gesendet: list[str] = []
+
+        # Der "andere Prozess" haelt den Lock, waehrend wir zustellen wollen.
+        with wecker._zustell_lock() as dran:
+            assert dran is True
+            assert wecker.zustellen(lambda t: gesendet.append(t) or True, now=jetzt) == 0
+        assert gesendet == [], "zweiter Zusteller hat trotzdem gesendet"
+        assert len(wecker.alle()) == 1, "Wecker wurde faelschlich ausgetragen"
+
+    def test_nach_freigabe_geht_es_normal_weiter(self, wecker):
+        jetzt = time.time()
+        wecker._speichern([{"id": "x", "ts": jetzt - 60, "wann": "heute", "text": "Muell"}])
+        with wecker._zustell_lock():
+            pass
+        gesendet: list[str] = []
+        assert wecker.zustellen(lambda t: gesendet.append(t) or True, now=jetzt) == 1
+        assert gesendet and wecker.alle() == []
+
+    def test_verwaister_lock_blockiert_nicht_ewig(self, wecker):
+        """Stirbt ein Prozess mitten in der Zustellung, darf der Lock nicht bleiben."""
+        wecker._LOCK_FILE.write_text("999999", encoding="utf-8")
+        alt = time.time() - wecker._LOCK_MAX_S - 60
+        os.utime(wecker._LOCK_FILE, (alt, alt))
+        jetzt = time.time()
+        wecker._speichern([{"id": "x", "ts": jetzt - 60, "wann": "heute", "text": "Muell"}])
+        gesendet: list[str] = []
+        assert wecker.zustellen(lambda t: gesendet.append(t) or True, now=jetzt) == 1
+        assert gesendet
+
+    def test_lock_wird_wieder_freigegeben(self, wecker):
+        with wecker._zustell_lock() as dran:
+            assert dran and wecker._LOCK_FILE.exists()
+        assert not wecker._LOCK_FILE.exists()

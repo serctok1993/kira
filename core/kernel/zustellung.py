@@ -32,11 +32,20 @@ def _ziel() -> tuple[str | None, object | None]:
         return (None, None)
 
 
-def an_nutzer(text: str, quelle: str = "") -> bool:
-    """Text per Telegram zustellen. True = alle Stuecke sind angekommen.
+def an_nutzer(text: str, quelle: str = "") -> bool | None:
+    """Text per Telegram zustellen. Dreiwertig, und das mit Absicht:
 
-    Raist nie. Jeder Fehlschlag wird als Event 'telegram_send_failed' aktenkundig,
-    damit eine verschwundene Meldung im Cockpit auffindbar ist."""
+      True  — Telegram hat den Empfang bestaetigt.
+      False — Telegram hat AUSDRUECKLICH abgelehnt (Bot blockiert, chat nicht gefunden,
+              kein Token). Ein erneuter Versuch ist sinnvoll bzw. noetig.
+      None  — UNBEKANNT: Zeitueberschreitung oder Netzabbruch. Die Nachricht kann sehr
+              wohl angekommen sein, nur die Antwort ging verloren.
+
+    Der Unterschied zwischen False und None ist kein Feinschliff: wer 'unbekannt' als
+    'nicht angekommen' liest und es erneut versucht, laesst denselben Wecker zweimal
+    klingeln — genau die Doppelung, die der Nutzer am 27.07. beklagt hat.
+
+    Raist nie. Jeder Fehlschlag wird als 'telegram_send_failed' aktenkundig."""
     from core import config as _cfg
 
     if _cfg.outbound_blocked():   # Firewall (Benchmark/Sandbox): kein Telegram
@@ -55,7 +64,7 @@ def an_nutzer(text: str, quelle: str = "") -> bool:
     import httpx
 
     url = _API.format(token=token)
-    alles_raus = True
+    ergebnis: bool | None = True
     for i in range(0, len(text), _STUECK):
         stueck = text[i : i + _STUECK]
         try:
@@ -66,13 +75,14 @@ def an_nutzer(text: str, quelle: str = "") -> bool:
                 j = httpx.post(url, json={"chat_id": chat, "text": stueck},
                                timeout=TIMEOUT_S).json()
             if not j.get("ok"):
-                alles_raus = False
+                ergebnis = False   # eindeutige Absage schlaegt jedes Vielleicht
                 events.emit("telegram_send_failed",
                             {"grund": str(j.get("description") or j.get("error_code") or "?")[:200],
                              "quelle": quelle, "anfang": stueck[:120]})
         except Exception as e:  # noqa: BLE001 — Zustellung darf den Aufrufer nie umbringen
-            alles_raus = False
+            if ergebnis is not False:
+                ergebnis = None    # zweideutig: kann angekommen sein
             events.emit("telegram_send_failed",
-                        {"grund": f"{type(e).__name__}: {str(e)[:120]}",
+                        {"grund": f"{type(e).__name__}: {str(e)[:120]} (Ausgang unbekannt)",
                          "quelle": quelle, "anfang": stueck[:120]})
-    return alles_raus
+    return ergebnis

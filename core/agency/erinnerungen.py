@@ -10,7 +10,9 @@ EINER von beiden, damit kein Prozess-Rennen um die Datei entsteht.
 """
 from __future__ import annotations
 
+import contextlib
 import json
+import os
 import time
 import uuid
 from datetime import datetime
@@ -20,6 +22,25 @@ from core.kernel.fs import atomic_write
 
 _PATH = DATA_DIR / "erinnerungen.json"
 _MAX = 50
+
+# Lebenszeichen des Bots: er stempelt hier bei jeder Poll-Runde (~alle 30 s).
+ALIVE_FILE = DATA_DIR / "telegram_alive.json"
+BOT_STUMM_S = 300        # so lange darf der Stempel alt sein, bevor er als stumm gilt
+VERTRETUNG_AB_S = 600    # erst SO ueberfaellige Wecker uebernimmt der Runner
+
+
+def bot_pollt(now: float | None = None) -> bool:
+    """Pollt der Telegram-Bot gerade wirklich?
+
+    Nicht zu verwechseln mit telegram_konfiguriert(): ein Bot ohne Token schlaeft in
+    einer Endlosschleife, ein zweiter Start beendet sich am Instanz-Lock, und die
+    getMe-Wache kann das Polling verweigern. In all diesen Faellen ist Telegram
+    eingerichtet — und trotzdem stellt niemand zu."""
+    try:
+        d = json.loads(ALIVE_FILE.read_text(encoding="utf-8"))
+        return (now or time.time()) - float(d.get("ts") or 0) < BOT_STUMM_S
+    except Exception:  # noqa: BLE001 — kein Stempel = kein Lebenszeichen
+        return False
 
 
 def _melden(typ: str, payload: dict) -> None:
@@ -60,8 +81,17 @@ def _gleich(a: str | None, b: str | None) -> bool:
 
 
 def telegram_konfiguriert() -> bool:
+    """Kann ueber Telegram ueberhaupt zugestellt werden? Token UND Chat noetig.
+
+    Die Pruefung sah frueher nur nach der chat_id. Fehlte das TOKEN, galt Telegram als
+    eingerichtet, der Bot schlief in seiner Endlosschleife, und der Runner schickte
+    seine Wecker in denselben tokenlosen Kanal — sie blieben liegen, Tick fuer Tick,
+    ohne dass je etwas beim Nutzer ankam."""
     try:
-        return bool(CONFIG.get("channels", {}).get("telegram", {}).get("allowed_chat_id"))
+        from core import config as _cfg
+
+        chat = CONFIG.get("channels", {}).get("telegram", {}).get("allowed_chat_id")
+        return bool(chat and _cfg.telegram_token())
     except Exception:  # noqa: BLE001
         return False
 
@@ -140,6 +170,82 @@ def faellige(now: float | None = None) -> list[dict]:
     return [e for e in _laden() if float(e.get("ts", 0)) <= now]
 
 
+_LOCK_FILE = DATA_DIR / "erinnerungen.zustellung.lock"
+_LOCK_MAX_S = 120   # danach gilt ein Lock als verwaist (Prozess starb beim Zustellen)
+
+
+@contextlib.contextmanager
+def _zustell_lock():
+    """Genau EIN Prozess stellt Wecker zu — liefert True, wenn wir dran sind.
+
+    Ohne diese Sperre koennen Bot und Runner sich ueberlappen: beide lesen dieselbe
+    Liste, beide senden, und der Nutzer hoert denselben Wecker zweimal. Das Fenster ist
+    schmal (der Runner springt erst nach 5 Minuten Funkstille ein), aber es existiert —
+    kehrt der Bot genau waehrend der Vertretung zurueck, klingelt es doppelt.
+    os.O_CREAT|os.O_EXCL ist auf beiden Plattformen atomar."""
+    fd = None
+    try:
+        try:
+            fd = os.open(_LOCK_FILE, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except FileExistsError:
+            try:    # verwaister Lock (Absturz mitten in der Zustellung)?
+                alt = time.time() - _LOCK_FILE.stat().st_mtime > _LOCK_MAX_S
+            except Exception:  # noqa: BLE001
+                alt = False
+            if not alt:
+                yield False
+                return
+            _LOCK_FILE.unlink(missing_ok=True)
+            fd = os.open(_LOCK_FILE, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except Exception:  # noqa: BLE001 — im Zweifel lieber zustellen als schweigen
+            yield True
+            return
+        try:
+            os.write(fd, str(os.getpid()).encode())
+        except Exception:  # noqa: BLE001
+            pass
+        yield True
+    finally:
+        if fd is not None:
+            with contextlib.suppress(Exception):
+                os.close(fd)
+            with contextlib.suppress(Exception):
+                _LOCK_FILE.unlink(missing_ok=True)
+
+
+def vertretung_zustellen(now: float | None = None) -> int:
+    """Der Runner springt ein, wenn der Bot stumm ist. Gibt die Anzahl zurueck.
+
+    Uebernimmt bewusst NUR Wecker, die schon VERTRETUNG_AB_S ueberfaellig sind: kommt
+    der Bot in derselben Minute zurueck, sollen nicht beide klingeln. Die Karenz macht
+    ein Doppel-Klingeln praktisch unmoeglich und kostet nichts — ein Wecker, der zehn
+    Minuten liegt, ist ohnehin zu spaet. Umgesetzt ueber ein zurueckdatiertes `now`:
+    damit gelten genau die laengst faelligen als faellig."""
+    from core.kernel import zustellung
+
+    jetzt = now if now is not None else time.time()
+    abgelehnt = False
+
+    def _sender(text: str):
+        nonlocal abgelehnt
+        r = zustellung.an_nutzer(text, quelle="wecker-vertretung")
+        if r is False:
+            abgelehnt = True
+        return r
+
+    n = zustellen(_sender, now=jetzt - VERTRETUNG_AB_S)
+    if abgelehnt:
+        # Telegram hat ausdruecklich abgelehnt (kein Token, Bot blockiert, chat weg).
+        # Ohne diesen Rueckfall blieben die Wecker liegen, Tick fuer Tick, fuer immer —
+        # ausgerechnet in dem Fall, fuer den die Vertretung gebaut wurde.
+        n += zustellen(None, now=jetzt - VERTRETUNG_AB_S)
+        _melden("erinnerung_nur_cockpit",
+                {"grund": "Telegram lehnt ab — im Cockpit zugestellt"})
+    if n:
+        _melden("erinnerung_vertretung", {"anzahl": n, "grund": "Bot stumm"})
+    return n
+
+
 def zustellen(sender=None, now: float | None = None) -> int:
     """Faellige Erinnerungen ausliefern und austragen. sender(text) schickt (Telegram);
     None = nur Cockpit-Event. Scheitert der Versand, bleibt der Eintrag fuer die
@@ -147,20 +253,50 @@ def zustellen(sender=None, now: float | None = None) -> int:
 
     Dieses Versprechen war auf dem Telegram-Pfad lange gebrochen (Fund 27.07.): der
     Sender dort schluckte jeden Fehler und warf nie, also galt jeder Wecker als
-    zugestellt und wurde ausgetragen — auch wenn er nie ankam. Ein sender, der
-    ausdruecklich False liefert, laesst den Wecker jetzt stehen; None/True gelten
-    weiter als zugestellt (Cockpit-Pfad und Alt-Aufrufer bleiben unveraendert)."""
+    zugestellt und wurde ausgetragen — auch wenn er nie ankam.
+
+    Der sender ist dreiwertig, und die Unterscheidung entscheidet ueber Klingeln oder
+    Schweigen:
+      True  -> zugestellt, austragen.
+      False -> AUSDRUECKLICH abgelehnt: liegen lassen, naechste Runde erneut.
+      None  -> Ausgang unbekannt (Timeout): austragen. Die Nachricht kann angekommen
+               sein; ein zweites Klingeln waere der schlimmere Fehler — der Nutzer hat
+               genau diese Doppelung beklagt. Der Zweifel wird als Event protokolliert.
+    Alt-Aufrufer und der Cockpit-Pfad geben None zurueck und bleiben damit unveraendert."""
     f = faellige(now)
     if not f:
         return 0
+    with _zustell_lock() as dran:
+        if not dran:
+            return 0   # ein anderer Prozess stellt gerade zu
+        return _zustellen_gesperrt(f, sender, now)
+
+
+def _zustellen_gesperrt(f: list[dict], sender, now: float | None) -> int:
     weg: set[str] = set()
+    jetzt = now if now is not None else time.time()
     for e in f:
         try:
-            if sender is not None and sender(f"⏰ Erinnerung: {e['text']}") is False:
+            # Ueberfaellige Wecker haben den Nutzer ratlos gelassen ("⏰ Erinnerung:
+            # Aufstehen" um 15:21, gestellt fuer 09:00). Steht die Verspaetung dabei,
+            # ergibt die Nachricht wieder Sinn.
+            spaet = jetzt - float(e.get("ts", 0))
+            nachtrag = (f"\n(war fuer {e.get('wann', '?')} gestellt — "
+                        f"{round(spaet / 3600)} h zu spaet)") if spaet > 3600 else ""
+            r = sender(f"⏰ Erinnerung: {e['text']}{nachtrag}") if sender is not None else True
+            if r is False:
+                # Eindeutige Absage: der Wecker bleibt fuer die naechste Runde liegen.
                 _melden("erinnerung_unzustellbar", {"wann": e.get("wann", ""),
                                                     "text": e["text"][:200]})
                 continue
-            _melden("erinnerung_zugestellt", {"wann": e.get("wann", ""), "text": e["text"][:200]})
+            if r is None:
+                # Ausgang unbekannt (Zeitueberschreitung). Wir tragen ihn AUS: er kann
+                # angekommen sein, und ein zweites Klingeln waere der schlimmere Fehler.
+                _melden("erinnerung_ausgang_unklar", {"wann": e.get("wann", ""),
+                                                      "text": e["text"][:200]})
+            else:
+                _melden("erinnerung_zugestellt", {"wann": e.get("wann", ""),
+                                                  "text": e["text"][:200]})
             weg.add(e["id"])
         except Exception:  # noqa: BLE001 — naechste Runde erneut
             pass

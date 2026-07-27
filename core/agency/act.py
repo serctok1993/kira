@@ -513,13 +513,56 @@ def _claim_stamp(text: str, session_id: str | None = None) -> str:
     return text
 
 
+_SPARFLAMME_DATEI = "budget_hinweis.json"
+
+
+def _sparflammen_hinweis() -> str:
+    """Ein Satz pro Tag, wenn das Tagesbudget aufgebraucht ist — sonst "".
+
+    Bei erschoepftem Budget weicht der Router auf das lokale Modell aus. Das ist
+    richtig und haelt Kira arbeitsfaehig — aber bis 27.07. merkte der Nutzer es nur
+    daran, dass die Antworten schlechter wurden. Einmal taeglich reicht; oefter waere
+    Laerm, seltener waere Verschweigen."""
+    try:
+        import json as _json
+        import time as _time
+
+        from core.config import DATA_DIR
+        from core.kernel.llm_router import _budget_frei
+
+        frei, grund = _budget_frei()
+        if frei:
+            return ""
+        pfad = DATA_DIR / _SPARFLAMME_DATEI
+        heute = _time.strftime("%Y-%m-%d")
+        try:
+            if _json.loads(pfad.read_text(encoding="utf-8")).get("datum") == heute:
+                return ""
+        except Exception:  # noqa: BLE001 — keine Markierung = heute noch nicht gesagt
+            pass
+        pfad.write_text(_json.dumps({"datum": heute}), encoding="utf-8")
+        # Den Grund WOERTLICH zitieren: treasury unterscheidet Tages- und Monatsdeckel.
+        # Ein pauschales "bis Mitternacht laeuft es lokal" waere beim Monatsdeckel eine
+        # Falschaussage — und wuerde taeglich neu behauptet, bis zum Monatsersten.
+        return (f"\n\n💰 {grund} Ich arbeite so lange auf dem lokalen Modell weiter — "
+                "bei schwierigen Aufgaben merkst du das.")
+    except Exception:  # noqa: BLE001 — ein Hinweis darf nie eine Antwort verhindern
+        return ""
+
+
 def _cloud(escalate: bool, task_type: str = "reason") -> bool:
     """True, wenn das aufzurufende Modell wirklich in der Cloud laeuft. Lokale
     Endpunkte (Ollama UND llama.cpp-Server a la Nachtdenker) fahren den ACT-Pfad
     mit dem schlanken haupt-Manifest — die trainierte Umgebung der c-Linie, und
-    der 5k-Prompt haelt den Prefill grosser lokaler Modelle im Sekundenbereich."""
-    model, _ = llm_router.resolve_model(task_type, escalate=escalate)
-    return not llm_router.ist_lokal(model)
+    der 5k-Prompt haelt den Prefill grosser lokaler Modelle im Sekundenbereich.
+
+    Gefragt wird das EFFEKTIVE Modell, nicht das eingestellte: bis 27.07. stand hier
+    resolve_model(), das Budget-Bremse und Ausgangssperre nicht kennt. Bei erschoepftem
+    Tagesbudget waehlte diese Weiche also den Cloud-Pfad, waehrend complete() gleich
+    darauf auf das lokale Modell umschwenkte — das 4B bekam ~17.700 Token Werkzeug-
+    Schemas und erstickte daran (29 belegte Faelle)."""
+    return not llm_router.ist_lokal(
+        llm_router.effektives_modell(task_type, escalate=escalate)["modell"])
 
 
 # --- Geteiltes Gedaechtnis: code:/plan: erbt den Brainstorm davor -----------------------
@@ -696,17 +739,37 @@ def _complete_resilient(*args, **kwargs):
         return llm_router.complete(*args, **kwargs)  # zweiter Versuch; scheitert der -> raise
 
 
-def _degrade_text(messages: list[dict], err: Exception) -> str:
-    """Graceful Degrade OHNE weiteren LLM-Call: kurzer Bericht ueber die bisher gemachten
-    Werkzeug-Schritte + der Fehler. So verwirft ein transienter Modellausfall nicht den
-    ganzen Task (und die bisherige Arbeit) — der Nutzer kann mit 'weiter' den Faden aufnehmen."""
+def _gemachte_schritte(messages: list[dict]) -> str:
+    """Die zuletzt gelaufenen Werkzeuge als Klartext — fuer jeden sauberen Abbruch."""
     used: list[str] = []
     for m in messages:
         for tc in (m.get("tool_calls") or []):
             fn = (tc.get("function") or {}).get("name")
             if fn:
                 used.append(fn)
-    steps = ", ".join(used[-8:]) if used else "keine abgeschlossenen Schritte"
+    return ", ".join(used[-8:]) if used else "keine abgeschlossenen Schritte"
+
+
+def _pfadwechsel_text(messages: list[dict]) -> str:
+    """Sauberer Abbruch, wenn das Modell MITTEN im Zug wechselt.
+
+    Passiert, wenn die Budget-Grenze waehrend eines laufenden Auftrags reisst: ab da
+    liefe der native Function-Calling-Loop mit der vollen Werkzeug-Liste gegen ein
+    kleines lokales Modell — es erstickt daran. Lieber hier abbrechen und den Teilstand
+    berichten (Fund der adversarialen Pruefung, 27.07.)."""
+    return ("⚠️ Mitten in der Arbeit hat sich mein Modell gewechselt — die Budget-Grenze "
+            "ist gerissen oder die Ausgangssperre hat gegriffen. Ich breche hier SAUBER "
+            "ab, statt mit dem kleinen Modell weiterzumachen, das die volle Werkzeug-Liste "
+            "nicht verkraftet.\n"
+            f"Bisher gemacht: {_gemachte_schritte(messages)}.\n"
+            "Sag „weiter“, dann nehme ich den Faden auf dem schlanken Weg wieder auf.")
+
+
+def _degrade_text(messages: list[dict], err: Exception) -> str:
+    """Graceful Degrade OHNE weiteren LLM-Call: kurzer Bericht ueber die bisher gemachten
+    Werkzeug-Schritte + der Fehler. So verwirft ein transienter Modellausfall nicht den
+    ganzen Task (und die bisherige Arbeit) — der Nutzer kann mit 'weiter' den Faden aufnehmen."""
+    steps = _gemachte_schritte(messages)
     return ("⚠️ Ich bin bei einem Modell-/Netzwerk-Schritt auf einen Fehler gestossen und breche "
             "diesen Task SAUBER ab, statt ihn halb kaputt fortzusetzen.\n"
             f"Bisher gemacht: {steps}.\n"
@@ -762,6 +825,17 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
             emit({"kind": "think", "text": r + "\n"})
 
     for step in range(max_steps):
+        # Die Pfad-Entscheidung faellt EINMAL pro Zug, die Budget-Bremse wirkt pro Call:
+        # reisst der Deckel in Schritt 1 von 12, liefen die restlichen Schritte weiter mit
+        # ~17.700 Token Werkzeug-Schemas gegen das lokale Modell — genau der Zustand, den
+        # diese Runde beseitigt, nur vom Zug-Anfang in die Zug-Mitte verschoben. Also pro
+        # Schritt nachfragen und beim Schwenk sauber aussteigen statt das kleine Modell zu
+        # ersticken (Fund der adversarialen Pruefung, 27.07.).
+        if step and not _cloud(escalate, task_type):
+            events.emit("act_pfad_gewechselt",
+                        {"step": step, "grund": "Modell waehrend des Zuges gewechselt"},
+                        session_id=session_id)
+            return _pfadwechsel_text(messages)
         try:
             res = _complete_resilient(messages, system=system, task_type=task_type,
                                       session_id=session_id, escalate=escalate, tools=schemas,
@@ -1721,6 +1795,10 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
             tuning.record_chat(session_id, user_message, text, used_tools=_ep["tools"])
         except Exception:  # noqa: BLE001
             pass
+        # Der Sparflammen-Hinweis ist eine BETRIEBSMELDUNG, keine Aussage von Kira: er
+        # kommt erst nach Gedaechtnis, Event und Tuning-Mitschrift dazu. Sonst lernte das
+        # Modell, von Tagesbudgets zu reden, und der Satz taeuchte im Kontext wieder auf.
+        text += _sparflammen_hinweis()
         emit({"kind": "final", "text": text})
         return text
 
