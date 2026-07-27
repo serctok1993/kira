@@ -328,7 +328,9 @@ class TestCronMeldetAusfaelle:
         cron.run_due()
         assert gesendet, "verpasster Termin wurde wieder verschwiegen"
         assert "ausgefallen" in gesendet[0] and "Morgen-Briefing" in gesendet[0]
-        assert "hole sie NICHT nach" in gesendet[0]
+        # Wortlaut nachgezogen: seit der Nachhol-Logik wird nicht mehr pauschal
+        # liegengelassen — was verspaetet noch taugt, reicht Kira von selbst nach.
+        assert "hole ich nicht nach" in gesendet[0]
         assert j["label"]
 
     def test_mehrere_verpasste_kommen_als_EINE_nachricht(self, monkeypatch, crons):

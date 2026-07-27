@@ -52,6 +52,39 @@ async def _onboarding_gate(request, call_next):
                         status_code=503)
 
 
+_SCHREIBEND = ("POST", "PUT", "PATCH", "DELETE")
+
+
+@app.middleware("http")
+async def _fremdseiten_guard(request, call_next):
+    """Schutz vor Befehlen, die eine FREMDE Webseite im Browser des Nutzers absetzt.
+
+    Der Fernzugriff-Schutz unten laesst Loopback frei — richtig fuer Desktop-Huelle und
+    Wallpaper, aber damit stand das Cockpit auch jeder beliebigen Seite offen, die der
+    Nutzer im selben Browser aufhat: ein fetch('http://127.0.0.1:8000/api/…', {method:
+    'POST'}) genuegte, um Werkzeuge auszuloesen — auf dem Rechner, auf dem .env und
+    secrets.json liegen (Befund 27.07.).
+
+    Geprueft wird nur, was der Browser selbst mitschickt und eine fremde Seite nicht
+    faelschen kann: Sec-Fetch-Site und Origin. Native Aufrufer (Desktop-Huelle ueber
+    WebView, curl, Skripte) senden diese Header nicht und bleiben unberuehrt."""
+    if request.method in _SCHREIBEND:
+        site = (request.headers.get("sec-fetch-site") or "").lower()
+        if site in ("cross-site", "same-site"):
+            return JSONResponse({"error": "Anfrage von einer fremden Seite abgelehnt"},
+                                status_code=403)
+        herkunft = (request.headers.get("origin") or "").strip()
+        if herkunft:
+            from urllib.parse import urlparse
+
+            # Host vergleichen, nicht das Praefix: "http://localhost.boese.example"
+            # faengt an wie localhost, ist aber eine fremde Seite.
+            if (urlparse(herkunft).hostname or "").lower() not in ("localhost", "127.0.0.1", "::1"):
+                return JSONResponse({"error": "Anfrage von einer fremden Herkunft abgelehnt"},
+                                    status_code=403)
+    return await call_next(request)
+
+
 @app.middleware("http")
 async def _remote_guard(request, call_next):
     """Fernzugriff-Schutz (Punkt 4, PWA): ohne aktivierten Fernzugriff ein No-Op.

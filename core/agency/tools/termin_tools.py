@@ -128,3 +128,32 @@ def erinnerung(text: str = "", datum: str = "", zeit: str = "", **falsche_args) 
     kanal = ("per Telegram" if erinnerungen.telegram_konfiguriert()
              else "im Cockpit (Telegram ist nicht eingerichtet)")
     return f"Wecker gestellt: {e['wann']} — „{e['text']}“. Zustellung {kanal}."
+
+
+@tool("erinnerung_list", "Zeigt alle gestellten Wecker mit Zeit und id.", {})
+def erinnerung_list() -> str:
+    from core.agency import erinnerungen
+
+    offen = erinnerungen.alle()
+    if not offen:
+        return "(keine Wecker gestellt)"
+    return "\n".join(f"- {e['wann']}: {e['text']} (id={e['id']})" for e in offen)
+
+
+@tool("erinnerung_remove",
+      "Sagt einen gestellten Wecker ab. Die id kommt aus erinnerung_list; der Weck-Text "
+      "geht auch.",
+      {"kennung": "die id aus erinnerung_list (Kurzform reicht) oder der Weck-Text"})
+def erinnerung_remove(kennung: str = "", id: str = "", **falsche_args) -> str:
+    from core.agency import erinnerungen
+
+    # 'id' als Alias annehmen: erinnerung_list druckt "(id=…)", also rufen Modelle
+    # natuerlich {"id": …} — nach dem Muster von cron_remove (Live-Fund 17.07.).
+    k = (str(kennung).strip() or str(id).strip())
+    if falsche_args or not k:
+        return ('Fehler: erinnerung_remove braucht die kennung aus erinnerung_list. '
+                'Beispiel: ACT erinnerung_remove {"kennung": "a1b2c3d4"}')
+    weg = erinnerungen.entfernen(k)
+    if not weg:
+        return (f"Keinen Wecker zu '{k}' gefunden. erinnerung_list zeigt die aktuellen.")
+    return f"Wecker abgesagt: {weg['wann']} — „{weg['text']}“."

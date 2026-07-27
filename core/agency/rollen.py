@@ -77,9 +77,13 @@ ROLLEN: dict[str, dict] = {
             # lesen, listen, finden, umbenennen, wegraeumen gehoeren zusammen.
             "read_file", "list_dir", "write_file", "make_dir", "datei_finden",
             "move_file", "delete_file",
-            "remember_fact", "erinnerung", "termin_add", "termin_list",
+            "remember_fact", "termin_add", "termin_list",
             "termin_update", "termin_remove",   # Nacht-Fund 22.07.: ohne sie -> Doppel-Termine
-            "cron_add", "cron_list", "cron_remove",   # Familie komplett (todo_list-Lehre)
+            # Wecker-Familie komplett: "Welche Wecker hab ich?" und "sag den 9-Uhr-Wecker
+            # ab" waren unbeantwortbar — man konnte nur stellen (Befund 27.07.).
+            "erinnerung", "erinnerung_list", "erinnerung_remove",
+            # cron_update statt loeschen+neu: erhaelt die Historie (Befund 27.07.)
+            "cron_add", "cron_list", "cron_update", "cron_remove",
             "watch_add", "watch_list",
             "todo_add", "todo_done", "todo_list",
             "todo_plan", "todo_update", "todo_stand",

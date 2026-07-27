@@ -203,6 +203,20 @@ _ABRISS_MELDUNG = ("Meine Antwort wurde vom Kontext-Limit abgeschnitten — der 
                    "dann arbeite ich sie in kleineren Schritten ab.")
 
 _ERGEBNIS_KOPF = "ERGEBNIS von "
+
+# --- Vertrags-Konstanten: EINE Quelle fuer Harness UND Trainingsgenerator ------------
+# Befund 27.07.: core/mind/tuning.py hatte diese beiden Texte ABGESCHRIEBEN statt
+# importiert und wich an beiden Stellen ab — der Generator baute "ERGEBNIS: <inhalt>"
+# (ohne Werkzeugnamen, ohne Aufforderung) und lehrte 'ACT <werkzeug> {"arg": "wert"}'.
+# Das Modell uebt damit eine Gespraechsform, die es im Betrieb nie sieht; genau diese
+# Fehlerklasse hat schon c1 bis c4 verdorben (Audit 16.07.). Wer das Format aendert,
+# aendert es hier — und die Werkstatt muss neu generieren.
+ACT_ZEILE = 'ACT <werkzeug_name> {"argument": "wert"}'
+
+
+def obs_wrapper(name: str, obs: str) -> str:
+    """So spielt der Harness ein Werkzeug-Ergebnis zurueck — woertlich, beide Textpfade."""
+    return f"ERGEBNIS von {name}:\n{obs}\n\nMach weiter oder gib die finale Antwort."
 _KUERZUNGS_HINWEIS = ("\n[... aeltere Beobachtung gekuerzt — nur Vorschau ...]"
                       "\n\nMach weiter oder gib die finale Antwort.")
 
@@ -917,7 +931,7 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
         messages.append({"role": "assistant", "content": text})
         obs = obs[:obs_cap]  # Slot-Schutz: Riesen-Observation kappen (wie im nativen Loop)
         messages.append(
-            {"role": "user", "content": f"ERGEBNIS von {name}:\n{obs}\n\nMach weiter oder gib die finale Antwort."}
+            {"role": "user", "content": obs_wrapper(name, obs)}
         )
 
     # Schrittlimit erreicht -> erzwinge eine finale Zusammenfassung aus dem Recherchierten.
@@ -1828,7 +1842,7 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
         events.emit("act_step", {"step": step, "tool": name, "args": args, "obs_preview": obs[:160]}, session_id=session_id)
         messages.append({"role": "assistant", "content": text})
         obs = obs[:obs_cap]  # Slot-Schutz: Riesen-Observation kappen (wie im nativen Loop)
-        messages.append({"role": "user", "content": f"ERGEBNIS von {name}:\n{obs}\n\nMach weiter oder gib die finale Antwort."})
+        messages.append({"role": "user", "content": obs_wrapper(name, obs)})
 
     messages.append({"role": "user", "content": f"Fasse jetzt final fuer {_id.user_name()} zusammen — ohne weiteres ACT."})
     _compact_history(messages)
