@@ -154,6 +154,38 @@ def deterministic_checks(task: dict, result_text: str) -> list[dict]:
     return checks
 
 
+def klartext(feedback: str) -> str:
+    """Pruefer-Feedback in einen Satz uebersetzen, den ein Mensch versteht.
+
+    Das `feedback` hat zwei Leser: den naechsten Versuch (braucht die harte Technik)
+    und den Nutzer (braucht einen Satz). Live-Befund 27.07.: beim Nutzer landete
+    woertlich "Harte Checks fehlgeschlagen: Ergebnis ist substanziell (>= 50 Zeichen)
+    (0 Zeichen)" — eine Assertion, kein Satz. Das Judge-Feedback (freier Text vom
+    Pruefmodell) ist meist schon verstaendlich und wird unveraendert durchgereicht."""
+    f = (feedback or "").strip()
+    if not f:
+        return "Kein Prueferbefund vorhanden."
+    if not f.startswith("Harte Checks fehlgeschlagen:"):
+        return f
+    rest = f.split(":", 1)[1]
+    saetze = []
+    for teil in rest.split(";"):
+        t = teil.strip()
+        if "substanziell" in t:
+            saetze.append("Sie hat gar kein Ergebnis geliefert.")
+        elif "Degrade" in t or "Modell-Ausfall" in t:
+            saetze.append("Das Modell ist mitten in der Arbeit ausgefallen.")
+        elif "Artefakt" in t and "kompiliert" in t:
+            saetze.append("Der erzeugte Code laesst sich nicht ausfuehren.")
+        elif "Artefakt" in t:
+            saetze.append("Die Datei, die dabei entstehen sollte, wurde nicht angelegt.")
+        elif "URL" in t:
+            saetze.append("Der genannte Link funktioniert nicht.")
+        elif t:
+            saetze.append(t)
+    return " ".join(saetze) or f
+
+
 def _judge(criteria: list[dict], result_text: str, evidence_lines: list[str]) -> dict:
     """Unabhaengiger LLM-Pruefer. Sieht NUR Kriterien + Ergebnis + Evidenz."""
     crit_lines = "\n".join(f"{i}. {c['text']}" for i, c in enumerate(criteria, 1))

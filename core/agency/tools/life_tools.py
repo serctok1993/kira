@@ -94,12 +94,11 @@ def todo_done(todo_id: str) -> str:
 
 
 @tool("objective_add",
-      "Legt eine Mission oder ein Ziel an. domain 'leben' = persoenlich (wird gecoacht), "
-      "'business' = wird vom 24/7-Heartbeat bearbeitet. kind: big (Lebens-Ziel/Jahres-Mission) | "
-      "monthly | weekly.",
+      "Legt eine Mission oder ein Ziel an. Ziele werden im Board gefuehrt und in Briefings "
+      "besprochen — sie werden NICHT automatisch abgearbeitet; sag das dem Nutzer so. "
+      "kind: big (Lebens-Ziel/Jahres-Mission) | monthly | weekly.",
       {"title": "das Ziel, konkret formuliert",
        "kind": "big | monthly | weekly (Standard weekly)",
-       "domain": "leben | business (Standard leben)",
        "target_date": "optional: YYYY-MM-DD"})
 def objective_add(title: str, kind: str = "weekly", domain: str = "leben",
                   target_date: str = "") -> str:
@@ -107,10 +106,17 @@ def objective_add(title: str, kind: str = "weekly", domain: str = "leben",
 
     objectives.init_objectives()
     td = _parse_due(target_date)
+    # 'domain' bleibt in der Signatur, weil trainierte Modelle es noch mitschicken —
+    # 'business' wird aber seit W1 von niemandem mehr abgearbeitet. Solche Ziele wurden
+    # zu Karteileichen (9 Stueck, entfernt am 27.07.), also landen sie jetzt im Board.
+    if (domain or "").strip().lower() != "leben":
+        domain = "leben"
     oid = objectives.add(title.strip(), kind=kind, domain=domain, target_date=td)
     o = next((x for x in objectives.list_all() if x["id"] == oid), {})
-    return (f"Ziel angelegt (id {oid[:8]}): [{o.get('domain')}/{o.get('kind')}] {title.strip()[:90]}"
-            + (f" bis {td}" if td else ""))
+    return (f"Ziel angelegt (id {oid[:8]}): [{o.get('kind')}] {title.strip()[:90]}"
+            + (f" bis {td}" if td else "")
+            + " — es steht im Board und kommt in den Briefings vor, wird aber nicht "
+              "von selbst abgearbeitet.")
 
 
 @tool("objective_list",

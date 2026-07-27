@@ -340,21 +340,50 @@ def _looks_like_work_order(text: str) -> bool:
 # Gegen halluzinierte Ergebnisse ('10 fertige E-Mails liegen auf dem Desktop'): behauptet
 # die Antwort erzeugte Dateien, prueft der Harness deren Existenz — read-only, deterministisch.
 _CLAIM_VERB_RE = re.compile(
-    r"(erstellt|geschrieben|gespeichert|angelegt|abgelegt|hinterlegt|liegt|liegen)", re.IGNORECASE)
+    # Wortgrenzen sind Pflicht: ohne sie zuendete "fliegt" auf "liegt" — genau so entstand
+    # der Fehlalarm vom 21.07. an einem reinen Struktur-VORSCHLAG.
+    r"\b(erstellt|geschrieben|gespeichert|angelegt|abgelegt|hinterlegt|liegt|liegen)\b",
+    re.IGNORECASE)
 _PATH_RE = re.compile(r"`([^`\n]{3,180})`|((?:~[\\/]|[A-Za-z]:\\)[\w .\-\\/]{2,180})")
+# Signale dafuer, dass ein Satz etwas VORSCHLAEGT statt etwas zu behaupten.
+_ENTWURF_RE = re.compile(
+    r"\b(vorschlag|schlage|schlaege|wuerde|würde|wuerden|würden|koennte|könnte|sollte|"
+    r"soll ich|willst du|moechtest|möchtest|geplant|kuenftig|künftig|neu anlegen|"
+    r"vorher|bevor ich|danach|dann lege|entwurf|idee|beispiel)\b", re.IGNORECASE)
+# Datei-ENDUNG darf nur aus Buchstaben bestehen. Haelt Modell-IDs ("z-ai/glm-5.2" -> ".2"),
+# Query-Strings (".7") und Wiki-Platzhalter ("[[STAMM/...]]" -> ".]]") heraus — die machten
+# 12 von 12 Live-Ausloesungen dieses Waechters aus, ohne einen einzigen echten Treffer.
+_ENDUNG_RE = re.compile(r"\.[A-Za-z]{1,8}$")
+
+
+def _ist_struktur_zeile(zeile: str) -> bool:
+    """Tabellen- und Baum-Zeilen zeigen eine Struktur, sie behaupten nichts."""
+    z = zeile.strip()
+    return z.startswith("|") or bool(re.match(r"^[│├└─\s]*[├└│]", z))
 
 
 def _missing_claims(text: str) -> list[str]:
     """Behauptete-aber-fehlende Dateien im Text (read-only, deterministisch, raist nie).
 
-    Relative Pfade werden gegen Arbeitsverzeichnis, Projekt-ROOT und ~/Desktop geprueft,
-    damit der Check nicht faelschlich anschlaegt. Leer = alles belegt oder nichts behauptet."""
+    Geprueft wird nur, was im SELBEN SATZ als erledigt behauptet wird — ein Vorschlag
+    ("ich wuerde X anlegen"), eine Tabelle oder ein Ordner-Baum ist keine Behauptung.
+    Gesucht wird auch im Vault des Nutzers; ohne ihn meldete der Waechter am 21.07.
+    sieben Dateien als fehlend, die es wirklich gab."""
     if not _CLAIM_CHECK or not text or not _CLAIM_VERB_RE.search(text):
         return []
     try:
         from pathlib import Path
 
         from core.config import ROOT
+
+        wurzeln = [Path.cwd(), ROOT, Path.home() / "Desktop"]
+        try:
+            from core.agency.vault_notes import vault_root
+
+            if (vr := vault_root()):
+                wurzeln.insert(0, Path(vr))
+        except Exception:  # noqa: BLE001 — ohne Vault einfach ohne Vault pruefen
+            pass
 
         fehlend: list[str] = []
         gesehen: set[str] = set()
@@ -364,11 +393,18 @@ def _missing_claims(text: str) -> list[str]:
                 continue
             if "/" not in tok and "\\" not in tok:
                 continue  # kein Pfad (z.B. Werkzeugname in Backticks)
+            if "[[" in tok or "..." in tok or '"' in tok or "?" in tok:
+                continue  # Wiki-Link, Platzhalter, Code-Beispiel — keine Zusage
+            satz = _satz_um(text, m.start(), m.end())
+            if not _CLAIM_VERB_RE.search(satz) or _ENTWURF_RE.search(satz):
+                continue  # Behauptung nur, wenn Verb UND Pfad zusammenstehen
+            if _ist_struktur_zeile(text[:m.start()].rsplit("\n", 1)[-1] + tok):
+                continue
             p = Path(tok.replace("\\", "/")).expanduser()
-            if not p.suffix or len(p.suffix) > 9:
-                continue  # nur dateiartige Tokens mit Endung
+            if not _ENDUNG_RE.search(p.name):
+                continue  # nur dateiartige Tokens mit echter Endung
             gesehen.add(tok)
-            kandidaten = [p] if p.is_absolute() else [p, ROOT / p, Path.home() / "Desktop" / p]
+            kandidaten = [p] if p.is_absolute() else [p, *(w / p for w in wurzeln)]
             if not any(k.is_file() for k in kandidaten):
                 fehlend.append(tok)
         return fehlend
@@ -394,12 +430,20 @@ _UNVERBINDLICH_RE = re.compile(
     r"würde ich|werde ich|wird|willst du|darf ich|sobald|falls|wenn du)\b", re.IGNORECASE)
 
 
+_SATZ_ENDE_RE = re.compile(r"[.!?](?=\s|$)|\n")
+
+
 def _satz_um(text: str, pos_a: int, pos_b: int) -> str:
     """Den EINEN Satz herausschneiden, in dem der Treffer steht — nicht die Nachbarsaetze
-    (sonst macht ein angehaengtes 'Soll ich noch ...?' aus einer Behauptung ein Angebot)."""
-    anfang = max((text.rfind(z, 0, pos_a) for z in ".!?\n"), default=-1) + 1
-    kandidaten = [p for p in (text.find(z, pos_b) for z in ".!?\n") if p != -1]
-    return text[anfang:(min(kandidaten) + 1 if kandidaten else len(text))]
+    (sonst macht ein angehaengtes 'Soll ich noch ...?' aus einer Behauptung ein Angebot).
+
+    Ein Satz endet auf .!? nur, wenn Leerraum oder Textende folgt: der Punkt in
+    "notiz.md" ist kein Satzende und darf den Satz nicht zerschneiden."""
+    anfang = 0
+    for m in _SATZ_ENDE_RE.finditer(text, 0, pos_a):
+        anfang = m.end()
+    ende = _SATZ_ENDE_RE.search(text, pos_b)
+    return text[anfang:(ende.end() if ende else len(text))]
 
 
 def _behauptet_zustandsaenderung(text: str) -> str | None:
@@ -446,9 +490,12 @@ def _claim_stamp(text: str, session_id: str | None = None) -> str:
     fehlend = _missing_claims(text)
     if fehlend:
         events.emit("claim_check_failed", {"missing": fehlend[:8]}, session_id=session_id)
-        text += ("\n\n⚠ BEWEISPFLICHT: Diese behaupteten Dateien existieren NICHT: "
-                 + ", ".join(fehlend[:8])
-                 + " — erledige es wirklich oder sag ehrlich, dass es fehlt.")
+        # Der Hinweis geht an den NUTZER, nicht an Kira: frueher stand hier
+        # "erledige es wirklich oder sag ehrlich, dass es fehlt" — eine Anweisung an
+        # das Modell, die der Nutzer als Vorwurf an sich selbst las (Live-Fall 21.07.).
+        text += ("\n\n⚠ Nachgeprüft: " + ", ".join(fehlend[:8])
+                 + (" gibt es nicht." if len(fehlend) == 1 else " gibt es nicht.")
+                 + " Was oben steht, ist an dieser Stelle also nicht gedeckt.")
     return text
 
 

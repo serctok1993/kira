@@ -94,9 +94,13 @@ def test_planner_prompt_hat_recherche_disziplin(monkeypatch):
     monkeypatch.setattr(planner.llm_router, "complete", fake_complete)
     tasks = planner.generate_tasks("Ziel", "Kontext")
     assert tasks == ["Aufgabe eins"]
-    assert "RECHERCHE-DISZIPLIN" in seen["user"]
-    assert "maximal EINE Fallstudie" in seen["user"]
+    # Die Disziplin-Regel bleibt, ihre Ueberschrift nicht: die Grossbuchstaben-Zeile
+    # "RECHERCHE-DISZIPLIN" und das Beispiel "Micro-SaaS X" haben das schwache
+    # Planer-Modell auf Marktforschung gelenkt (Live-Befund 27.07.).
+    assert "Klasse statt Masse" in seen["user"]
+    assert "hoechstens EINE pro Planung" in seen["user"]
     assert "direkten Empfehlung" in seen["user"]
+    assert "Micro-SaaS" not in seen["user"]
 
 
 def test_werktakt_default():

@@ -29,18 +29,6 @@ def _conn() -> sqlite3.Connection:
     return conn
 
 
-# Fuellwoerter, die im Pruefer-Feedback nichts ueber das Muster aussagen.
-_STOP = {
-    "der", "die", "das", "und", "oder", "nicht", "kein", "keine", "keinen", "mit", "fuer",
-    "von", "im", "in", "am", "an", "auf", "zu", "zur", "zum", "ist", "sind", "war", "wird",
-    "werden", "wurde", "wurden", "es", "ein", "eine", "einen", "einem", "einer", "dem",
-    "den", "des", "bei", "als", "auch", "aus", "um", "noch", "nur", "sollte", "soll",
-    "sollten", "muss", "mehr", "sich", "sein", "seine", "ihre", "aber", "sehr", "hat",
-    "haben", "dass", "task", "aufgabe", "ergebnis", "versuch", "the", "and", "was",
-    "wie", "man", "ohne", "statt", "diese", "dieser", "dieses", "wurde",
-}
-
-
 def _rows(days: int) -> list[tuple]:
     cutoff = time.time() - days * 86400
     with _conn() as c:
@@ -91,17 +79,34 @@ def _agg(rows: list[tuple], key_idx: int) -> list[dict]:
     return sorted(out, key=lambda x: (x["pass_rate"], -(x["attempts"])))  # schwaechste zuerst
 
 
+# Wonach Versuche tatsaechlich scheitern. Vorher zaehlte diese Funktion einzelne
+# WOERTER im Pruefer-Feedback — weil das Feedback formelhaft ist ("Harte Checks
+# fehlgeschlagen: ... >= 50 Zeichen"), kam Wortsalat heraus: "zeichen, harte, checks".
+# Das floss als "Erkenntnis" in jede Planung (Live-Befund 27.07.).
+_THEMEN: tuple[tuple[str, "re.Pattern[str]"], ...] = (
+    ("gar kein Ergebnis geliefert", re.compile(r"substanziell|\b0 Zeichen", re.I)),
+    ("Modell mitten in der Arbeit ausgefallen", re.compile(r"degrade|modell-ausfall", re.I)),
+    ("erzeugter Code lief nicht", re.compile(r"kompiliert", re.I)),
+    ("versprochene Datei fehlte", re.compile(r"artefakt", re.I)),
+    ("genannter Link war tot", re.compile(r"\burl\b|erreichbar", re.I)),
+    ("Platzhalter statt echter Namen", re.compile(r"platzhalter|produkt x|echten?\s+\w*namen", re.I)),
+    ("Quellen/Belege fehlten", re.compile(r"quelle|beleg|nachpruefbar|nachprüfbar", re.I)),
+    ("zu allgemein, keine Empfehlung", re.compile(r"allgemein|unkonkret|empfehlung|schlussfolgerung", re.I)),
+)
+
+
 def feedback_themes(days: int = 14, k: int = 3) -> list[str]:
-    """Wiederkehrende Woerter aus dem Pruefer-Feedback NICHT-bestandener Versuche."""
+    """Woran nicht-bestandene Versuche scheitern — als benannte Muster, nicht als Wortliste."""
     counts: dict[str, int] = {}
     for verdict, _s, _c, fb, *_ in _rows(days):
         if verdict == "pass" or not fb:
             continue
-        for w in re.findall(r"[a-zA-Zäöüß]{4,}", fb.lower()):
-            if w not in _STOP:
-                counts[w] = counts.get(w, 0) + 1
+        for name, muster in _THEMEN:
+            if muster.search(fb):
+                counts[name] = counts.get(name, 0) + 1
+                break  # ein Fehlschlag hat einen Hauptgrund, nicht fuenf
     ranked = sorted(counts.items(), key=lambda x: -x[1])
-    return [w for w, n in ranked[:k] if n >= 2]
+    return [f"{name} ({n}x)" for name, n in ranked[:k] if n >= 2]
 
 
 def fail_patterns(days: int = 14) -> dict:
@@ -157,7 +162,7 @@ def render_brief(days: int = 14, max_chars: int = 900) -> str:
         lines.append(f"- Zaehes Ziel: '{str(weak_obj['title'])[:60]}' "
                      f"({weak_obj['passed']}/{weak_obj['attempts']} bestanden) — Ansatz ueberdenken")
     if pat["themes"]:
-        lines.append("- Wiederkehrende Pruefer-Kritik: " + ", ".join(pat["themes"]))
+        lines.append("- Woran es meistens scheitert: " + ", ".join(pat["themes"]))
     strat = strategy_stats(days)
     esc, std = strat.get("strategiewechsel"), strat.get("standard")
     if esc and std and esc["attempts"] >= 2 and esc["pass_rate"] > std["pass_rate"] + 0.15:
