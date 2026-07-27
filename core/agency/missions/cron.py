@@ -93,16 +93,26 @@ def parse_schedule(s: str) -> dict:
         if tage:
             zeit = (f"{int(m.group(2)):02d}:{m.group(3)}" if m.group(2) else "08:00")
             return {"type": "weekly", "days": tage, "time": zeit}
-    m = re.fullmatch(r"(?:taeglich|täglich|daily\s+)?(\d{1,2}):(\d{2})", s)
+    # 2) Taeglich. Das Zeitwort war frueher nur als "daily " mit Leerzeichen erlaubt —
+    #    "taeglich 08:00" fiel durch und landete im stummen 60-Minuten-Default weiter
+    #    unten. In der Live-DB stehen 15 so angelegte Jobs: gewuenscht war EIN Briefing
+    #    pro Tag, angelegt wurden 24 (Befund 27.07., Haupttreiber der Melde-Flut).
+    m = re.fullmatch(
+        r"(?:taeglich|täglich|daily|jeden\s+tag|jeden\s+morgen|jeden\s+abend|"
+        r"morgens|abends|mittags|nachts|um)?\s*(\d{1,2}):(\d{2})\s*(?:uhr)?", s)
     if m:
         return {"type": "daily", "time": f"{int(m.group(1)):02d}:{m.group(2)}"}
-    m = re.fullmatch(r"(\d+)\s*(?:h|std|stunden)", s)
+    m = re.fullmatch(r"(?:alle\s+)?(\d+)\s*(?:h|std|stunde|stunden)", s)
     if m:
         return {"type": "interval", "minutes": max(5, int(m.group(1)) * 60)}
-    m = re.fullmatch(r"(\d+)\s*(?:m|min|minuten)?", s)
+    if re.fullmatch(r"stuendlich|stündlich", s):
+        return {"type": "interval", "minutes": 60}
+    m = re.fullmatch(r"(?:alle\s+)?(\d+)\s*(?:m|min|minute|minuten)?", s)
     if m:
         return {"type": "interval", "minutes": max(5, int(m.group(1)))}
-    return {"type": "interval", "minutes": 60}
+    # Unverstanden bleibt unverstanden: der stumme Stundentakt hat wochenlang Jobs
+    # angelegt, die niemand so wollte. cron_add lehrt daraus einen Fehler.
+    return {"type": "unklar", "roh": s}
 
 
 def _next_run(sched: dict, ref: float | None = None) -> float:
@@ -252,10 +262,19 @@ def _notify(text: str) -> bool:
     return zustellung.an_nutzer(text, quelle="cron")
 
 
-def run_job(job: dict, notify: bool = True) -> dict:
+def run_job(job: dict, notify: bool = True, verspaetet_min: int = 0) -> dict:
     from core.agency.act import act
 
     prompt = job["prompt"]
+    if verspaetet_min:
+        # Ohne diesen Hinweis gratuliert ein nachgeholtes Morgen-Briefing um 14 Uhr
+        # zum guten Morgen. Die JETZT-Zeile allein reicht nicht — im Prompt steht oft
+        # eine feste Uhrzeit ("Es ist 08:00 Uhr").
+        std = round(verspaetet_min / 60, 1)
+        prompt = (f"(NACHGEHOLT: dieser Termin war vor {std} Stunden faellig, der Rechner "
+                  f"war aus. Sag am Anfang kurz, dass es nachgereicht ist, und richte dich "
+                  f"nach der JETZT-Zeit — nicht nach einer Uhrzeit, die im Auftrag steht.)\n\n"
+                  f"{prompt}")
     try:
         # Zeitsinn (Fund): Cron-Prompts behaupten gern feste Uhrzeiten
         # ("Es ist 05:55 Uhr") — die ECHTE Zeit steht ab jetzt immer davor.
@@ -286,6 +305,15 @@ def run_job(job: dict, notify: bool = True) -> dict:
                 task_type="bulk")  # einfache Crons -> lokal (0 EUR); escalate-Crons gehen weiter zu GLM
         volltext = (r.get("text") or "").strip()
         ok, grund = _lauf_bewerten(volltext)
+        if not ok and not job.get("escalate"):
+            # EIN Versuch auf der starken Stufe, bevor der Termin ersatzlos ausfaellt.
+            # Grund (Befund 27.07.): die News-Briefings verlangen zehn Themenbereiche in
+            # einem Durchgang und liefen auf der billigsten Stufe (4B) — Ergebnis waren
+            # leere Antworten und Abbrueche. Nur bei Fehlschlag, also ohne Dauerkosten.
+            events.emit("cron_eskaliert", {"label": job["label"], "grund": grund})
+            r = act(prompt, session_id=f"cron-{job['id']}", escalate=True, task_type="reason")
+            volltext = (r.get("text") or "").strip()
+            ok, grund = _lauf_bewerten(volltext)
         summary = volltext[:300] if volltext else (grund or "(leere Antwort)")
     except Exception as e:  # noqa: BLE001
         volltext = ""
@@ -299,7 +327,18 @@ def run_job(job: dict, notify: bool = True) -> dict:
     # Nur ECHTE Ergebnisse gehen raus — und dann ungekappt (die 300 Zeichen sind das
     # Dashboard-Mass, der Zusteller stueckelt selbst sauber bei 3800).
     if notify and ok:
-        _notify(f"⏰ {job['label']}:\n{volltext}")
+        if _notify(f"⏰ {job['label']}:\n{volltext}") is False:
+            # Das fertige Ergebnis darf nicht am Zustellweg verenden: ab in den
+            # Melde-Puffer, dann geht es mit dem naechsten Buendel raus. Vorher war ein
+            # gelungener Lauf bei klemmendem Telegram spurlos weg — im Cockpit stand ein
+            # Haken, beim Nutzer kam nichts an (Befund 27.07.).
+            try:
+                from core.agency.missions import melde
+
+                melde.merken(f"⏰ {job['label']}: {volltext[:300]}")
+                events.emit("cron_zustellung_gescheitert", {"label": job["label"]})
+            except Exception:  # noqa: BLE001
+                pass
     elif notify and _fehlschlag_melden(job):
         # Nachbesserung 27.07.: seit dem Ehrlichkeits-Fix ging bei ok=False GAR NICHTS
         # mehr raus — ein ausgefallenes Briefing war fuer den Nutzer nicht von einem
@@ -370,11 +409,27 @@ def run_due(now: float | None = None) -> list[dict]:
     now = now or time.time()
     ran = []
     verpasst: list[tuple[str, float]] = []
+    nachgeholt = 0
     for j in _load():
         if not (j.get("enabled") and j.get("next_run", 0) <= now):
             continue
         overdue = now - float(j.get("next_run") or 0)
         if j.get("schedule", {}).get("type") in ("daily", "weekly") and overdue > MISSED_GRACE_S:
+            if _darf_nachgeholt_werden(j, now, nachgeholt):
+                # Nachholen statt ersatzlos streichen (Fund 27.07.): der Rechner des
+                # Nutzers laeuft nicht durch — nur 13 % aller Ereignisse fallen zwischen
+                # 6 und 10 Uhr, wo vier von sechs Jobs terminiert sind. Ergebnis waren
+                # Erfolgsquoten von 4/19 bis 10/20, fast ausschliesslich "PC aus".
+                # Ein Briefing um 11 statt um 8 ist noch nuetzlich; ein Weckl-Licht nicht.
+                nachgeholt += 1
+                j["next_run"] = _next_run(j["schedule"], ref=now)
+                _job_zurueckschreiben(j)
+                events.emit("cron_nachgeholt", {"label": j["label"],
+                                                "overdue_h": round(overdue / 3600, 1)})
+                res = run_job(j, verspaetet_min=round(overdue / 60))
+                _job_zurueckschreiben(j)
+                ran.append({"label": j["label"], "nachgeholt": True, **res})
+                continue
             j["next_run"] = _next_run(j["schedule"], ref=now)
             j["runs"] = (j.get("runs", []) + [{
                 "ts": now, "ok": False,
@@ -398,6 +453,36 @@ def run_due(now: float | None = None) -> list[dict]:
     return ran
 
 
+MAX_NACHHOLEN = 2   # pro Durchlauf, damit nach langer Auszeit keine Flut losbricht
+
+# Zeitgebundene Aktionen: nachts um 6 das Licht hochdimmen ergibt um 11 Uhr keinen Sinn
+# mehr. Informationen dagegen schon — ein Briefing um 11 statt 8 ist immer noch nuetzlich.
+_ZEITGEBUNDEN_RE = re.compile(
+    r"\b(sunrise|weck|wecker|licht|lampe|hue|dimm|alarm|klingel|schalte\s+\w*\s*(an|aus|ein))\b"
+    r"|\.py\b|\brun_command\b", re.IGNORECASE)
+
+
+def nachholbar(job: dict) -> bool:
+    """Darf dieser Job verspaetet laufen? Explizites Feld schlaegt die Heuristik.
+
+    Default ja: die grosse Mehrheit der Jobs liefert Informationen, und die sind auch
+    verspaetet etwas wert. Nur was eine zeitgebundene Aktion ausloest, faellt aus."""
+    if "nachholen" in job:
+        return bool(job["nachholen"])
+    text = f"{job.get('label', '')} {job.get('prompt', '')}"
+    return not _ZEITGEBUNDEN_RE.search(text)
+
+
+def _darf_nachgeholt_werden(job: dict, now: float, schon: int) -> bool:
+    """Nachholen nur am SELBEN Kalendertag und nur begrenzt oft.
+
+    Ein Morgen-Briefing von vorgestern ist Altpapier; eines von heute Morgen nicht."""
+    if schon >= MAX_NACHHOLEN or not nachholbar(job):
+        return False
+    faellig = dt.datetime.fromtimestamp(float(job.get("next_run") or 0)).date()
+    return faellig == dt.datetime.fromtimestamp(now).date()
+
+
 def _melde_verpasste(verpasst: list[tuple[str, float]]) -> None:
     """EINE Sammelnachricht ueber ausgefallene Termine.
 
@@ -411,14 +496,20 @@ def _melde_verpasste(verpasst: list[tuple[str, float]]) -> None:
     was = "ist ein Termin" if len(verpasst) == 1 else f"sind {len(verpasst)} Termine"
     _notify(f"⏰ Waehrend der Rechner aus war, {was} ausgefallen:\n"
             + "\n".join(zeilen)
-            + "\n\nIch hole sie NICHT nach — sonst kaemen sie zur falschen Zeit.")
+            + "\n\nDiese hole ich nicht nach — sie waeren jetzt sinnlos oder von gestern. "
+              "Was noch etwas taugt, reiche ich von selbst nach.")
 
 
 def run_now(jid: str) -> dict:
-    jobs = _load()
-    for j in jobs:
+    """"Jetzt ausfuehren" aus dem Cockpit.
+
+    Schrieb frueher am Ende die GANZE Liste zurueck (_save) — derselbe Fehler, der am
+    26.07. in run_due behoben wurde: alles, was waehrend des Laufs an cron.json
+    geschrieben wurde (ein per cron_add angelegter Job, der Fortschritt eines parallel
+    laufenden Jobs), war danach weg."""
+    for j in _load():
         if j.get("id") == jid:
             res = run_job(j)
-            _save(jobs)
+            _job_zurueckschreiben(j)
             return res
     return {"ok": False, "summary": "Job nicht gefunden"}

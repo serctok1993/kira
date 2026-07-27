@@ -58,7 +58,13 @@ def test_system_stub_variiert_identitaet(monkeypatch):
     assert system_stub().startswith("Du bist Kira — Mias KI-Partnerin")
     neu = system_stub("Nova", "Alex")
     assert neu.startswith("Du bist Nova — Alex' KI-Partnerin")
-    assert "ACT <werkzeug>" in neu                                  # Protokoll unveraendert
+    # Protokollzeile unveraendert — und seit 27.07. woertlich die des Harness. Der Stub
+    # lehrte vorher 'ACT <werkzeug> {"arg": "wert"}', der Live-Prompt sagt aber
+    # 'ACT <werkzeug_name> {"argument": "wert"}'; kleine Modelle imitieren genau diese
+    # Zeile, deshalb kommt sie jetzt aus derselben Konstante.
+    from core.agency.act import ACT_ZEILE
+
+    assert ACT_ZEILE in neu
 
 
 def test_mind_read_faellt_auf_template_zurueck(monkeypatch, tmp_path):

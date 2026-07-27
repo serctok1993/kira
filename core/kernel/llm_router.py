@@ -528,12 +528,17 @@ def complete(
     }
 
 
-def stream(messages, system=None, task_type="chat", session_id=None, escalate=False, reasoning=None):
+def stream(messages, system=None, task_type="chat", session_id=None, escalate=False,
+           reasoning=None, model=None):
     """Streamt die sichtbare Antwort als Text-Deltas (Generator).
 
     Lokale Modelle werden tokenweise gestreamt, mit Live-<think>-Filter.
     Cloud-Calls laufen ueber complete() (sauberes Kosten-Logging) und werden als
     ein Block ausgegeben.
+
+    `model` fehlte in der Signatur, obwohl die erste Zeile des Rumpfs es abfragt —
+    jeder Aufruf endete mit UnboundLocalError (Befund 27.07.). stream_tagged hat den
+    Parameter seit jeher; hier war er beim Angleichen verlorengegangen.
     """
     if model:
         fell_back = False
