@@ -654,12 +654,17 @@ def run_forever(interval: int | None = None) -> None:
             except Exception as e:  # noqa: BLE001
                 events.emit("cron_error", {"error": str(e)})
             try:
-                # Einmal-Wecker OHNE Telegram: Cockpit-Zustellung als Fallback (mit
-                # Telegram stellt der Bot zu — genau EIN Zusteller, kein Datei-Rennen).
+                # Einmal-Wecker: normalerweise stellt der BOT zu — genau ein Zusteller,
+                # kein Datei-Rennen. Die alte Weiche fragte aber nur, ob Telegram
+                # KONFIGURIERT ist. Schlaeft der Bot (kein Token, Instanz-Lock, getMe
+                # verweigert), trat der Runner trotzdem zurueck und die Wecker blieben
+                # fuer immer liegen (Live-Stand 27.07.: 9x gestellt, 6x zugestellt).
                 from core.agency import erinnerungen
 
                 if not erinnerungen.telegram_konfiguriert():
-                    erinnerungen.zustellen(None)
+                    erinnerungen.zustellen(None)          # Cockpit-Zustellung
+                elif not erinnerungen.bot_pollt():
+                    erinnerungen.vertretung_zustellen()    # Bot ist stumm -> einspringen
             except Exception as e:  # noqa: BLE001
                 events.emit("erinnerung_error", {"error": str(e)})
             try:
