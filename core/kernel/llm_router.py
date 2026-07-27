@@ -198,6 +198,66 @@ _FALLBACK_SEEN: dict[tuple[str, str], float] = {}
 _FALLBACK_THROTTLE_S = 300.0
 
 
+def _budget_frei() -> tuple[bool, str]:
+    """(darf ausgeben?, Grund). Im Zweifel ja — ein kaputtes Treasury legt nichts lahm.
+
+    Der GRUND muss mitkommen: treasury unterscheidet Tages- und Monatsdeckel, und die
+    beiden fuehren zu verschiedenen Aussagen. "Bis Mitternacht laeuft es lokal" ist beim
+    Monatsdeckel schlicht falsch — und bei 20 EUR/Tag gegen 150 EUR/Monat bindet der
+    Monatsdeckel in jedem aktiven Monat zuerst."""
+    try:
+        from core.governance import treasury  # lazy -> kein Import-Zyklus
+
+        ok, why = treasury.can_spend(0.0)
+        return (bool(ok), "" if ok else str(why or "Budget erschoepft"))
+    except Exception:  # noqa: BLE001
+        return (True, "")
+
+
+def effektives_modell(task_type: str = "reason", escalate: bool = False,
+                      model: str | None = None) -> tuple[str, bool, str]:
+    """Welches Modell laeuft WIRKLICH — Konfiguration PLUS Bremsen.
+
+    resolve_model() beantwortet nur "was ist eingestellt". Darueber liegen zwei
+    Bremsen, die still auf das lokale Modell umschwenken: das Tagesbudget und die
+    Ausgangssperre. Wer seine Entscheidung an resolve_model haengt, entscheidet auf
+    einer Grundlage, die complete() gleich darauf verwirft.
+
+    Genau das ist der Handlungsschleife passiert (Befund 27.07., 29 belegte Faelle):
+    _cloud() sah ein Cloud-Modell, waehlte den nativen Function-Calling-Pfad und
+    schickte ~17.700 Token Werkzeug-Schemas los — serviert wurde dann ein 4B, das
+    daran erstickte. Entweder riss die 150-Sekunden-Grenze, oder es antwortete
+    hoeflich, ohne ein einziges Werkzeug zu rufen. Der Nutzer erfuhr weder das eine
+    noch das andere.
+
+    Liefert ein Dict: modell, escalate (effektiv!), fell_back, bremse (Klartext-Grund
+    oder ""), art ("budget" | "firewall" | ""), verworfen (das abgelehnte Modell)."""
+    frei, grund = _budget_frei()
+    if escalate and not frei:
+        escalate = False           # zurueck auf lokal -> 0 EUR
+    if model:
+        gewaehlt, fell_back = model, False
+    else:
+        gewaehlt, fell_back = resolve_model(task_type, escalate=escalate)
+    lokal = CONFIG["models"]["local_fallback"]
+    # Firewall (Benchmark/Sandbox): kein Cloud-Spend, ausser KIRA_ALLOW_LLM ist gesetzt.
+    # Das ist KEINE Budget-Bremse — die Unterscheidung zaehlt, sonst meldet das Cockpit
+    # in jeder Sandbox eine Kostenbremse, die gar nicht griff.
+    if (outbound_blocked() and not os.getenv("KIRA_ALLOW_LLM")
+            and not gewaehlt.startswith("ollama")):
+        return {"modell": lokal, "escalate": False, "fell_back": True,
+                "bremse": "Ausgangssperre aktiv", "art": "firewall", "verworfen": gewaehlt}
+    real, _, _ = _provider_config(gewaehlt)
+    # Budget-Bremse fuer ALLE Cloud-Calls (nicht nur eskalierte) -> 24/7 ueberzieht nie.
+    if not real.startswith("ollama"):
+        frei, grund = _budget_frei()
+        if not frei:
+            return {"modell": lokal, "escalate": False, "fell_back": True,
+                    "bremse": grund, "art": "budget", "verworfen": gewaehlt}
+    return {"modell": gewaehlt, "escalate": escalate, "fell_back": fell_back,
+            "bremse": "", "art": "", "verworfen": ""}
+
+
 def _note_fallback(task_type: str, wanted: str | None, used: str) -> None:
     key = (task_type, str(wanted))
     now = time.time()
@@ -331,36 +391,28 @@ def complete(
 
     Rueckgabe: {text, model, cost_usd, fell_back, latency_s, escalated}
     """
-    if escalate:
-        from core.governance import treasury  # lazy -> kein Import-Zyklus
-
-        ok, why = treasury.can_spend(0.0)  # schon am Limit? -> keine Cloud mehr
-        if not ok:
-            events.emit("budget_block", {"reason": why, "spent_usd": round(treasury.today_spend(), 4)}, session_id=session_id)
-            escalate = False  # zurueck auf lokal -> 0 EUR
-
-    if model:
-        fell_back = False
-    else:
-        model, fell_back = resolve_model(task_type, escalate=escalate)
-    # Firewall (Benchmark/Sandbox): kein Cloud-Spend. Erzwinge das lokale 0-EUR-Modell (liefert
-    # trotzdem Output), ausser KIRA_ALLOW_LLM ist bewusst gesetzt. Standard aus -> Live unveraendert.
-    if outbound_blocked() and not os.getenv("KIRA_ALLOW_LLM") and not model.startswith("ollama"):
-        model = CONFIG["models"]["local_fallback"]
-        fell_back = True
-    real, api_base, key_env = _provider_config(model)
-
-    # Budget-Bremse fuer ALLE Cloud-Calls (nicht nur eskalierte) -> 24/7 kann nie ueberziehen.
-    if not real.startswith("ollama"):
+    _wahl = effektives_modell(task_type, escalate=escalate, model=model)
+    model, fell_back, gebremst = _wahl["modell"], _wahl["fell_back"], _wahl["bremse"]
+    # escalate MUSS zurueckgesetzt werden: sonst meldet das llm_call-Event eine
+    # Eskalation, die nicht stattfand — und die Kalibrierung verbucht sie dem lokalen
+    # Modell (dutzende "Eskalationen" bei 0 EUR genau an den Tagen, an denen gebremst wird).
+    escalate = _wahl["escalate"]
+    if gebremst and _wahl["art"] == "budget":
         from core.governance import treasury
 
-        ok, why = treasury.can_spend(0.0)
-        if not ok:
-            events.emit("budget_block", {"reason": why, "model": model,
-                        "spent_usd": round(treasury.today_spend(), 4)}, session_id=session_id)
-            model = CONFIG["models"]["local_fallback"]  # -> lokal, 0 EUR, laeuft weiter
-            real, api_base, key_env = _provider_config(model)
-            fell_back = True
+        # "model" ist das VERWORFENE Modell — sonst steht in jedem Ereignis nur der
+        # Fallback und man kann nicht mehr sehen, welcher Call gebremst wurde.
+        events.emit("budget_block", {"reason": gebremst, "model": _wahl["verworfen"],
+                                     "ersatz": model,
+                                     "spent_usd": round(treasury.today_spend(), 4)},
+                    session_id=session_id)
+    elif gebremst:
+        # Ausgangssperre ist keine Kostenbremse: eigenes Ereignis, und vor allem KEIN
+        # today_spend() — das ist ein SUM ueber die ganze Ereignis-Tabelle und liefe in
+        # der Sandbox bei jedem einzelnen Call.
+        events.emit("outbound_blocked", {"model": _wahl["verworfen"], "ersatz": model},
+                    session_id=session_id)
+    real, api_base, key_env = _provider_config(model)
 
     msgs: list[dict] = []
     if system:
@@ -521,6 +573,9 @@ def complete(
         "model": model,
         "cost_usd": cost,
         "fell_back": fell_back,
+        # Warum ausgewichen wurde ("" = gar nicht). Der Aufrufer kann es dem Nutzer
+        # sagen: bis 27.07. lief Kira bei erschoepftem Budget still auf Sparflamme.
+        "gebremst": gebremst,
         "latency_s": latency,
         "escalated": escalate,
         "tool_calls": tool_calls,
