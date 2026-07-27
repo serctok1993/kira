@@ -33,7 +33,10 @@ def test_alte_formate_unveraendert():
     assert cron.parse_schedule("08:00") == {"type": "daily", "time": "08:00"}
     assert cron.parse_schedule("30m") == {"type": "interval", "minutes": 30}
     assert cron.parse_schedule("2h") == {"type": "interval", "minutes": 120}
-    assert cron.parse_schedule("quatsch mit sosse") == {"type": "interval", "minutes": 60}
+    # Bis 27.07. wurde Unverstandenes stillschweigend ein Stundentakt — genau so sind
+    # 15 Jobs entstanden, die "taeglich 09:00" heissen sollten und 24x am Tag liefen.
+    # Unverstandenes bleibt jetzt unverstanden; cron_add macht daraus einen Lehrfehler.
+    assert cron.parse_schedule("quatsch mit sosse")["type"] == "unklar"
 
 
 def test_next_run_trifft_den_richtigen_wochentag():

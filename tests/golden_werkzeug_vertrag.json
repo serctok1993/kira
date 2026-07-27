@@ -1,0 +1,821 @@
+{
+  "act_zeile": "ACT <werkzeug_name> {\"argument\": \"wert\"}",
+  "ergebnis_form": "ERGEBNIS von <name>:\n<ergebnis>\n\nMach weiter oder gib die finale Antwort.",
+  "werkzeuge": {
+    "bluesky_post": {
+      "args": [
+        "text"
+      ],
+      "pflicht": [
+        "text"
+      ]
+    },
+    "browse": {
+      "args": [
+        "url"
+      ],
+      "pflicht": [
+        "url"
+      ]
+    },
+    "browser_act": {
+      "args": [
+        "actions",
+        "session"
+      ],
+      "pflicht": [
+        "actions"
+      ]
+    },
+    "code_suche": {
+      "args": [
+        "dateimuster",
+        "muster",
+        "pfad"
+      ],
+      "pflicht": [
+        "muster"
+      ]
+    },
+    "code_symbol": {
+      "args": [
+        "name"
+      ],
+      "pflicht": [
+        "name"
+      ]
+    },
+    "code_umriss": {
+      "args": [
+        "pfad"
+      ],
+      "pflicht": [
+        "pfad"
+      ]
+    },
+    "cron_add": {
+      "args": [
+        "label",
+        "prompt",
+        "schedule",
+        "scope"
+      ],
+      "pflicht": [
+        "label",
+        "prompt",
+        "schedule"
+      ]
+    },
+    "cron_list": {
+      "args": [],
+      "pflicht": []
+    },
+    "cron_remove": {
+      "args": [
+        "job_id"
+      ],
+      "pflicht": [
+        "job_id"
+      ]
+    },
+    "cron_update": {
+      "args": [
+        "job_id",
+        "label",
+        "prompt",
+        "schedule"
+      ],
+      "pflicht": [
+        "job_id"
+      ]
+    },
+    "curate_skills": {
+      "args": [],
+      "pflicht": []
+    },
+    "datei_finden": {
+      "args": [
+        "muster"
+      ],
+      "pflicht": [
+        "muster"
+      ]
+    },
+    "db_query": {
+      "args": [
+        "limit",
+        "sql"
+      ],
+      "pflicht": [
+        "sql"
+      ]
+    },
+    "delegate": {
+      "args": [
+        "auftrag",
+        "rang",
+        "schritte",
+        "session_id"
+      ],
+      "pflicht": [
+        "auftrag"
+      ]
+    },
+    "delete_file": {
+      "args": [
+        "path"
+      ],
+      "pflicht": [
+        "path"
+      ]
+    },
+    "edit_datei": {
+      "args": [
+        "ersetze",
+        "pfad",
+        "suche"
+      ],
+      "pflicht": [
+        "ersetze",
+        "pfad",
+        "suche"
+      ]
+    },
+    "email_check": {
+      "args": [
+        "limit"
+      ],
+      "pflicht": []
+    },
+    "email_reply": {
+      "args": [
+        "an",
+        "betreff",
+        "message_id",
+        "text"
+      ],
+      "pflicht": [
+        "an",
+        "betreff",
+        "text"
+      ]
+    },
+    "email_send": {
+      "args": [
+        "body",
+        "subject",
+        "to"
+      ],
+      "pflicht": [
+        "body",
+        "subject",
+        "to"
+      ]
+    },
+    "erinnerung": {
+      "args": [
+        "datum",
+        "text",
+        "zeit"
+      ],
+      "pflicht": [
+        "datum",
+        "text",
+        "zeit"
+      ]
+    },
+    "erinnerung_list": {
+      "args": [],
+      "pflicht": []
+    },
+    "erinnerung_remove": {
+      "args": [
+        "kennung"
+      ],
+      "pflicht": [
+        "kennung"
+      ]
+    },
+    "harness_report": {
+      "args": [
+        "window"
+      ],
+      "pflicht": []
+    },
+    "health": {
+      "args": [],
+      "pflicht": []
+    },
+    "jetzt": {
+      "args": [],
+      "pflicht": []
+    },
+    "knowledge_list": {
+      "args": [],
+      "pflicht": []
+    },
+    "knowledge_note": {
+      "args": [
+        "text",
+        "title"
+      ],
+      "pflicht": [
+        "text",
+        "title"
+      ]
+    },
+    "knowledge_search": {
+      "args": [
+        "k",
+        "query"
+      ],
+      "pflicht": [
+        "query"
+      ]
+    },
+    "learn_skill": {
+      "args": [
+        "name",
+        "steps"
+      ],
+      "pflicht": [
+        "name",
+        "steps"
+      ]
+    },
+    "list_dir": {
+      "args": [
+        "path"
+      ],
+      "pflicht": []
+    },
+    "list_models": {
+      "args": [],
+      "pflicht": []
+    },
+    "list_skills": {
+      "args": [],
+      "pflicht": []
+    },
+    "make_dir": {
+      "args": [
+        "path"
+      ],
+      "pflicht": [
+        "path"
+      ]
+    },
+    "metric_list": {
+      "args": [
+        "days",
+        "name"
+      ],
+      "pflicht": []
+    },
+    "metric_log": {
+      "args": [
+        "name",
+        "note",
+        "value"
+      ],
+      "pflicht": [
+        "name",
+        "value"
+      ]
+    },
+    "metric_ziel": {
+      "args": [
+        "einheit",
+        "emoji",
+        "name",
+        "zentrale",
+        "ziel"
+      ],
+      "pflicht": [
+        "name"
+      ]
+    },
+    "move_file": {
+      "args": [
+        "quelle",
+        "ziel"
+      ],
+      "pflicht": [
+        "quelle",
+        "ziel"
+      ]
+    },
+    "objective_add": {
+      "args": [
+        "kind",
+        "target_date",
+        "title"
+      ],
+      "pflicht": [
+        "title"
+      ]
+    },
+    "objective_list": {
+      "args": [
+        "domain",
+        "nur_aktiv"
+      ],
+      "pflicht": []
+    },
+    "person_fakt": {
+      "args": [
+        "feld",
+        "name",
+        "wert"
+      ],
+      "pflicht": [
+        "feld",
+        "name",
+        "wert"
+      ]
+    },
+    "plan_and_execute": {
+      "args": [
+        "task"
+      ],
+      "pflicht": [
+        "task"
+      ]
+    },
+    "playbook_lesson": {
+      "args": [
+        "name",
+        "text"
+      ],
+      "pflicht": [
+        "name",
+        "text"
+      ]
+    },
+    "playbook_list": {
+      "args": [],
+      "pflicht": []
+    },
+    "playbook_read": {
+      "args": [
+        "name"
+      ],
+      "pflicht": [
+        "name"
+      ]
+    },
+    "playbook_result": {
+      "args": [
+        "erfolg",
+        "lektion",
+        "name"
+      ],
+      "pflicht": [
+        "erfolg",
+        "name"
+      ]
+    },
+    "read_file": {
+      "args": [
+        "offset",
+        "path"
+      ],
+      "pflicht": [
+        "path"
+      ]
+    },
+    "read_logs": {
+      "args": [
+        "lines",
+        "name"
+      ],
+      "pflicht": []
+    },
+    "remember_fact": {
+      "args": [
+        "fact"
+      ],
+      "pflicht": [
+        "fact"
+      ]
+    },
+    "request_approval": {
+      "args": [
+        "detail",
+        "kind",
+        "title"
+      ],
+      "pflicht": [
+        "detail",
+        "title"
+      ]
+    },
+    "request_secret": {
+      "args": [
+        "name",
+        "reason"
+      ],
+      "pflicht": [
+        "name",
+        "reason"
+      ]
+    },
+    "restart_self": {
+      "args": [
+        "which"
+      ],
+      "pflicht": []
+    },
+    "run_command": {
+      "args": [
+        "command",
+        "timeout"
+      ],
+      "pflicht": [
+        "command"
+      ]
+    },
+    "schwarm": {
+      "args": [
+        "auftrag_vorlage",
+        "liste",
+        "rang",
+        "session_id"
+      ],
+      "pflicht": [
+        "auftrag_vorlage",
+        "liste"
+      ]
+    },
+    "screenshot_url": {
+      "args": [
+        "url"
+      ],
+      "pflicht": [
+        "url"
+      ]
+    },
+    "self_edit": {
+      "args": [
+        "instruction",
+        "path"
+      ],
+      "pflicht": [
+        "instruction",
+        "path"
+      ]
+    },
+    "set_context": {
+      "args": [
+        "max_tokens",
+        "num_ctx"
+      ],
+      "pflicht": [
+        "max_tokens",
+        "num_ctx"
+      ]
+    },
+    "switch_model": {
+      "args": [
+        "model",
+        "role"
+      ],
+      "pflicht": [
+        "model"
+      ]
+    },
+    "termin_add": {
+      "args": [
+        "datum",
+        "jaehrlich",
+        "titel",
+        "zeit"
+      ],
+      "pflicht": [
+        "datum",
+        "titel"
+      ]
+    },
+    "termin_list": {
+      "args": [
+        "tage"
+      ],
+      "pflicht": []
+    },
+    "termin_remove": {
+      "args": [
+        "id"
+      ],
+      "pflicht": [
+        "id"
+      ]
+    },
+    "termin_update": {
+      "args": [
+        "datum",
+        "id",
+        "jaehrlich",
+        "titel",
+        "zeit"
+      ],
+      "pflicht": [
+        "id"
+      ]
+    },
+    "todo_add": {
+      "args": [
+        "due",
+        "prio",
+        "text"
+      ],
+      "pflicht": [
+        "text"
+      ]
+    },
+    "todo_done": {
+      "args": [
+        "todo_id"
+      ],
+      "pflicht": [
+        "todo_id"
+      ]
+    },
+    "todo_list": {
+      "args": [
+        "scope"
+      ],
+      "pflicht": []
+    },
+    "todo_plan": {
+      "args": [
+        "ersetzen",
+        "schritte",
+        "ziel"
+      ],
+      "pflicht": [
+        "schritte",
+        "ziel"
+      ]
+    },
+    "todo_stand": {
+      "args": [],
+      "pflicht": []
+    },
+    "todo_update": {
+      "args": [
+        "notiz",
+        "nr",
+        "status"
+      ],
+      "pflicht": [
+        "nr",
+        "status"
+      ]
+    },
+    "trigger_add": {
+      "args": [
+        "contains",
+        "cooldown_minutes",
+        "event_type",
+        "label",
+        "task"
+      ],
+      "pflicht": [
+        "event_type",
+        "label",
+        "task"
+      ]
+    },
+    "trigger_list": {
+      "args": [],
+      "pflicht": []
+    },
+    "trigger_remove": {
+      "args": [
+        "trigger_id"
+      ],
+      "pflicht": [
+        "trigger_id"
+      ]
+    },
+    "vault_dossier": {
+      "args": [
+        "text",
+        "thema"
+      ],
+      "pflicht": [
+        "text",
+        "thema"
+      ]
+    },
+    "vault_note": {
+      "args": [
+        "ordner",
+        "text",
+        "titel"
+      ],
+      "pflicht": [
+        "text",
+        "titel"
+      ]
+    },
+    "watch_add": {
+      "args": [
+        "kind",
+        "label",
+        "value"
+      ],
+      "pflicht": [
+        "kind",
+        "value"
+      ]
+    },
+    "watch_list": {
+      "args": [],
+      "pflicht": []
+    },
+    "watch_remove": {
+      "args": [
+        "id"
+      ],
+      "pflicht": [
+        "id"
+      ]
+    },
+    "web_fetch": {
+      "args": [
+        "url"
+      ],
+      "pflicht": [
+        "url"
+      ]
+    },
+    "web_search": {
+      "args": [
+        "query"
+      ],
+      "pflicht": [
+        "query"
+      ]
+    },
+    "widget_add": {
+      "args": [
+        "endpoint",
+        "id",
+        "key",
+        "metric",
+        "slot",
+        "titel",
+        "typ"
+      ],
+      "pflicht": [
+        "endpoint",
+        "id",
+        "key",
+        "metric",
+        "slot",
+        "titel",
+        "typ"
+      ]
+    },
+    "widget_weg": {
+      "args": [
+        "id"
+      ],
+      "pflicht": [
+        "id"
+      ]
+    },
+    "write_file": {
+      "args": [
+        "content",
+        "path"
+      ],
+      "pflicht": [
+        "content",
+        "path"
+      ]
+    }
+  },
+  "rollen": {
+    "arbeiter": [
+      "browse",
+      "code_suche",
+      "datei_finden",
+      "db_query",
+      "jetzt",
+      "knowledge_list",
+      "knowledge_note",
+      "knowledge_search",
+      "list_dir",
+      "make_dir",
+      "playbook_list",
+      "playbook_read",
+      "read_file",
+      "screenshot_url",
+      "web_fetch",
+      "web_search",
+      "write_file"
+    ],
+    "denker": [
+      "browse",
+      "code_suche",
+      "code_symbol",
+      "code_umriss",
+      "datei_finden",
+      "db_query",
+      "edit_datei",
+      "health",
+      "jetzt",
+      "knowledge_list",
+      "knowledge_note",
+      "knowledge_search",
+      "list_dir",
+      "make_dir",
+      "playbook_list",
+      "playbook_read",
+      "read_file",
+      "read_logs",
+      "run_command",
+      "screenshot_url",
+      "self_edit",
+      "web_fetch",
+      "web_search",
+      "write_file"
+    ],
+    "haupt": [
+      "browse",
+      "cron_add",
+      "cron_list",
+      "cron_remove",
+      "cron_update",
+      "datei_finden",
+      "delegate",
+      "delete_file",
+      "email_check",
+      "email_reply",
+      "email_send",
+      "erinnerung",
+      "erinnerung_list",
+      "erinnerung_remove",
+      "health",
+      "jetzt",
+      "knowledge_note",
+      "knowledge_search",
+      "list_dir",
+      "make_dir",
+      "move_file",
+      "person_fakt",
+      "playbook_list",
+      "playbook_read",
+      "read_file",
+      "read_logs",
+      "remember_fact",
+      "request_approval",
+      "schwarm",
+      "screenshot_url",
+      "switch_model",
+      "termin_add",
+      "termin_list",
+      "termin_remove",
+      "termin_update",
+      "todo_add",
+      "todo_done",
+      "todo_list",
+      "todo_plan",
+      "todo_stand",
+      "todo_update",
+      "vault_note",
+      "watch_add",
+      "watch_list",
+      "web_fetch",
+      "web_search",
+      "write_file"
+    ],
+    "reflex": [
+      "code_suche",
+      "datei_finden",
+      "jetzt",
+      "list_dir",
+      "read_file",
+      "web_fetch",
+      "web_search"
+    ],
+    "richter": [
+      "code_suche",
+      "code_symbol",
+      "code_umriss",
+      "datei_finden",
+      "db_query",
+      "health",
+      "jetzt",
+      "knowledge_search",
+      "list_dir",
+      "metric_list",
+      "objective_list",
+      "read_file",
+      "read_logs",
+      "run_command"
+    ]
+  }
+}

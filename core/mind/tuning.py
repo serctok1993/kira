@@ -52,9 +52,19 @@ def system_stub(agent: str | None = None, user: str | None = None) -> str:
         "Zwei Modi in einer Person: bei Auftraegen handelst du sofort und diszipliniert (kein "
         "Ankuendigen, kein Rueckfragen, wenn der Auftrag klar ist), beim Reden bist du ein guter, "
         "kreativer Gespraechspartner zum Brainstormen. Brauchst du ein Werkzeug, antwortest du mit "
-        "GENAU einer Zeile: ACT <werkzeug> {\"arg\": \"wert\"} — sonst nichts. Danach kommt das "
+        # Die Syntaxzeile kommt aus dem Harness, nicht aus dieser Datei: der Stub lehrte
+        # frueher 'ACT <werkzeug> {"arg": "wert"}', der Live-Prompt sagt aber
+        # 'ACT <werkzeug_name> {"argument": "wert"}'. Kleine Modelle imitieren genau diese
+        # Zeile woertlich — Abweichung dort erhoeht die Rate nicht parsebarer Aufrufe.
+        f"GENAU einer Zeile: {_act_zeile()} — sonst nichts. Danach kommt das "
         "Ergebnis, und du machst weiter oder gibst die finale Antwort."
     )
+
+
+def _act_zeile() -> str:
+    from core.agency.act import ACT_ZEILE
+
+    return ACT_ZEILE
 
 
 def _is_ephemeral(session_id: str | None) -> bool:
@@ -309,14 +319,22 @@ def synth_examples() -> list[dict]:
 # 3) EXPORT — ChatML-JSONL (Unsloth/axolotl-ready)
 # ---------------------------------------------------------------------------
 
-def _chatml_from_turns(system: str, turns: list[tuple]) -> dict:
+def _chatml_from_turns(system: str, turns: list[tuple], werkzeug: str = "werkzeug") -> dict:
     """Baut ein ChatML-Objekt aus [(rolle, inhalt), ...]. Werkzeug-Beobachtungen (rolle
-    'tool') werden als User-Turn 'ERGEBNIS: …' abgebildet — genau so, wie Kiras act-Loop
-    das Ergebnis zurueckspielt, damit das Modell die echte Gespraechsform lernt."""
+    'tool') kommen in EXAKT der Form, in der der Harness sie zurueckspielt.
+
+    Bis 27.07. stand hier ein selbst formuliertes 'ERGEBNIS: <inhalt>' — ohne
+    Werkzeugnamen und ohne die Aufforderung, die der Live-Loop anhaengt. Das Modell uebte
+    damit eine Gespraechsform, die es im Betrieb nie zu sehen bekommt, erkannte eigene
+    Werkzeug-Antworten nicht sicher wieder und rief dasselbe Werkzeug erneut auf. Genau
+    diese Fehlerklasse hat schon c1 bis c4 verdorben. Das Format wird jetzt IMPORTIERT,
+    nicht abgeschrieben."""
+    from core.agency.act import obs_wrapper
+
     msgs = [{"role": "system", "content": system}]
     for role, content in turns:
         if role == "tool":
-            msgs.append({"role": "user", "content": f"ERGEBNIS: {content}"})
+            msgs.append({"role": "user", "content": obs_wrapper(werkzeug, content)})
         else:
             msgs.append({"role": role, "content": content})
     return {"messages": msgs}

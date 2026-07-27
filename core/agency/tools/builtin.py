@@ -712,6 +712,13 @@ def cron_add(label: str = "", prompt: str = "", schedule: str = "", scope: str =
     scope = (scope or "system").strip().lower()
     if scope not in ("me", "system"):
         scope = "system"
+    if cron.parse_schedule(schedule).get("type") == "unklar":
+        # Frueher wurde jeder unverstandene Zeitplan stillschweigend ein Stundentakt:
+        # 15 Jobs in der Live-DB waren als "taeglich 09:00" gemeint und liefen 24x am Tag.
+        return (f"Fehler: '{schedule}' verstehe ich nicht als Zeitplan. Moeglich sind: "
+                "eine Uhrzeit ('08:00' oder 'taeglich 08:00'), Wochentage ('werktags 08:00', "
+                "'montags 09:00', 'mo,mi,fr 07:30', 'sonntags 20:00', 'wochenende 10:00') "
+                "oder ein Abstand ('30m', '2h'). Frag im Zweifel nach, statt zu raten.")
     zwilling = cron.aehnlicher_job(label, schedule)
     if zwilling:
         # Live-Fund 27.07.: fuenf Wetter-Jobs in 19 Stunden ("Wetter-Brief",
@@ -726,6 +733,38 @@ def cron_add(label: str = "", prompt: str = "", schedule: str = "", scope: str =
     nxt = _dt.datetime.fromtimestamp(j["next_run"]).strftime("%d.%m. %H:%M")
     where = {"me": f"{_id.user_name()}s Routinen (Me)", "system": "System"}[scope]
     return f"Geplant: {j['label']} ({j['schedule_text']}, {where}) — naechster Lauf {nxt}."
+
+
+@tool("cron_update",
+      "Aendert eine bestehende geplante Aufgabe (Zeitplan, Name oder Auftrag) und behaelt "
+      "ihre Historie. Besser als loeschen und neu anlegen. Die id kommt aus cron_list.",
+      {"job_id": "die id aus cron_list (8-Zeichen-Kurzform reicht)",
+       "schedule": "optional: neuer Zeitplan ('09:00', 'werktags 08:00', '2h')",
+       "label": "optional: neuer Name",
+       "prompt": "optional: neuer Auftragstext"})
+def cron_update(job_id: str = "", schedule: str = "", label: str = "", prompt: str = "",
+                id: str = "", **falsche_args) -> str:
+    from core.agency.missions import cron
+
+    jid = (str(job_id).strip() or str(id).strip())
+    if falsche_args or not jid:
+        return ("Fehler: cron_update braucht die job_id aus cron_list und mindestens eine "
+                'Aenderung. Beispiel: ACT cron_update {"job_id": "c7d0cd15", "schedule": "09:00"}')
+    if not (schedule.strip() or label.strip() or prompt.strip()):
+        return ("Fehler: nichts zu aendern — gib schedule, label oder prompt an. Beispiel: "
+                'ACT cron_update {"job_id": "c7d0cd15", "schedule": "werktags 08:00"}')
+    if schedule.strip() and cron.parse_schedule(schedule).get("type") == "unklar":
+        return (f"Fehler: '{schedule}' verstehe ich nicht als Zeitplan. Moeglich sind eine "
+                "Uhrzeit ('09:00'), Wochentage ('werktags 08:00', 'sonntags 20:00') oder ein "
+                "Abstand ('30m', '2h').")
+    treffer = next((j for j in cron.list_jobs()
+                    if j["id"] == jid or j["id"].startswith(jid)), None)
+    if not treffer:
+        return f"Keine geplante Aufgabe mit id '{jid}'. cron_list zeigt die aktuellen ids."
+    cron.update_job(treffer["id"], label=label or None, prompt=prompt or None,
+                    schedule=schedule or None)
+    neu = next((j for j in cron.list_jobs() if j["id"] == treffer["id"]), treffer)
+    return f"Geaendert: {neu['label']} laeuft jetzt {neu['schedule_text']} (id={neu['id']})."
 
 
 @tool("cron_list", "Zeigt alle geplanten (Cron-)Aufgaben mit Zeitplan und id.", {})
