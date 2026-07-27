@@ -81,17 +81,22 @@ def _tg_html(text: str) -> str:
 
 
 def _send(client: httpx.Client, chat_id: int, text: str, html: bool = True,
-          effect_id: str | None = None) -> bool:
-    """Nachricht zustellen. Liefert True, wenn ALLE Stuecke angekommen sind.
+          effect_id: str | None = None) -> bool | None:
+    """Nachricht zustellen — dreiwertig (siehe core/kernel/zustellung.an_nutzer):
+
+      True  — Telegram hat bestaetigt.
+      False — Telegram hat ausdruecklich abgelehnt (blockiert, chat unbekannt).
+      None  — Ausgang UNBEKANNT (Timeout, Netzabbruch): kann angekommen sein.
 
     Der Rueckgabewert ist neu (27.07.): vorher verschluckte diese Funktion jeden
-    Sendefehler kommentarlos — kein Retry, kein Event, kein Logeintrag. Eine fertige
-    Antwort konnte damit spurlos verschwinden, und Aufrufer, die danach ihren Puffer
-    leerten (Melde-Buendel, Wecker), hielten das fuer eine erfolgreiche Zustellung."""
+    Sendefehler kommentarlos — eine fertige Antwort konnte spurlos verschwinden, und
+    wer danach seinen Puffer leerte (Melde-Buendel, Wecker), hielt das fuer Erfolg.
+    Die Dreiwertigkeit kam dazu, weil 'unbekannt' als 'nicht angekommen' zu lesen den
+    Wecker ein zweites Mal klingeln laesst."""
     # Telegram-Limit ~4096 Zeichen -> stueckeln; HTML-Format mit Plain-Fallback.
     client = _ctrl()  # Steuer-Plane immer ueber den dedizierten Kurz-Timeout-Client
     text = text or "…"
-    alles_raus = True
+    ergebnis: bool | None = True
     for i in range(0, len(text), 3800):
         chunk = text[i : i + 3800]
         payload = {"chat_id": chat_id, "text": _tg_html(chunk) if html else chunk}
@@ -108,12 +113,13 @@ def _send(client: httpx.Client, chat_id: int, text: str, html: bool = True,
                 j = client.post(f"{API}/sendMessage",
                                 json={"chat_id": chat_id, "text": chunk}).json()
             if not j.get("ok"):
-                alles_raus = False
+                ergebnis = False    # eindeutige Absage schlaegt jedes Vielleicht
                 _melde_sendefehler(str(j.get("description") or j.get("error_code") or "?"), text)
         except Exception as e:  # noqa: BLE001 — Zustellung darf den Bot nie umbringen
-            alles_raus = False
-            _melde_sendefehler(type(e).__name__ + ": " + str(e)[:120], text)
-    return alles_raus
+            if ergebnis is not False:
+                ergebnis = None     # zweideutig: kann angekommen sein
+            _melde_sendefehler(f"{type(e).__name__}: {str(e)[:120]} (Ausgang unbekannt)", text)
+    return ergebnis
 
 
 def _melde_sendefehler(grund: str, text: str) -> None:
@@ -388,6 +394,42 @@ _DENKEN_FILE = DATA_DIR / "telegram_denken.json"
 # Bot mit offset=None, Telegram liefert die letzte(n) unbestaetigte(n) Update(s) erneut aus
 # und Kira beantwortet dieselbe Nachricht nach jedem Restart nochmal (wirkt wie eine Schleife).
 _OFFSET_FILE = DATA_DIR / "telegram_offset.json"
+
+
+_ALIVE_TS = 0.0
+_ALIVE_ERR = False
+
+
+def _lebenszeichen() -> None:
+    """Stempeln, dass der Bot GERADE pollt — nicht nur, dass sein Prozess laeuft.
+
+    Der Runner entschied bisher an der Frage "ist Telegram konfiguriert?", ob er die
+    Wecker-Zustellung dem Bot ueberlaesst. Ein Bot ohne Token schlaeft aber in einer
+    Endlosschleife (run(): while True: sleep(3600)), ein zweiter Start beendet sich am
+    Instanz-Lock, und die getMe-Wache kann das Polling verweigern — in allen drei Faellen
+    ist Telegram "konfiguriert" und trotzdem stellt niemand zu. Die Wecker blieben dann
+    fuer immer liegen (Live-Stand 27.07.: 9x gestellt, 6x zugestellt).
+
+    Gedrosselt auf ~30 s, damit die Poll-Runde nicht zur Schreiblast wird."""
+    global _ALIVE_TS, _ALIVE_ERR
+    now = time.time()
+    if now - _ALIVE_TS < 30:
+        return
+    _ALIVE_TS = now
+    try:
+        import json as _json
+
+        from core.agency import erinnerungen
+        from core.kernel.fs import atomic_write
+
+        atomic_write(erinnerungen.ALIVE_FILE, _json.dumps({"ts": now}))
+    except Exception as e:  # noqa: BLE001 — ein Lebenszeichen darf den Bot nie aufhalten
+        # ... aber es darf auch nicht still ausfallen: ohne Stempel haelt der Runner den
+        # Bot dauerhaft fuer tot und stellt Wecker doppelt zu. Einmal melden reicht,
+        # sonst flutet es bei jeder Poll-Runde.
+        if not _ALIVE_ERR:
+            _ALIVE_ERR = True
+            events.emit("lebenszeichen_error", {"error": f"{type(e).__name__}: {str(e)[:150]}"})
 
 
 def _load_offset() -> int | None:
@@ -1515,6 +1557,7 @@ def run() -> None:
             if kill_switch_active():
                 print("KILL-SWITCH aktiv — Bot haelt an.")
                 break
+            _lebenszeichen()                 # "ich polle gerade" — der Runner richtet sich danach
             _maybe_config_refresh()          # Dashboard-Modellwechsel wirkt OHNE Neustart
             _push_new_approvals(client)  # jede Runde (~60s): neue Freigaben proaktiv schicken
             _maybe_evening_resuemee(client)  # einmal am Abend: Tagewerk von selbst
