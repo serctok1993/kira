@@ -20,7 +20,8 @@ def test_check_never_raises_even_if_llm_dead(monkeypatch):
 
     monkeypatch.setattr(llm_router, "resolve_model", boom)
     rep = doctor.check(test_call=False)  # darf NICHT werfen
-    assert any("Routing" in p for p in rep["problems"])
+    # Seit 27.07. Klartext statt Jargon ("Modell-Routing nicht pruefbar").
+    assert any("Modell" in p and "Zu tun:" in p for p in rep["problems"])
     assert rep["ok"] is False
 
 
@@ -29,7 +30,7 @@ def test_missing_binary_surfaces_as_problem(monkeypatch):
 
     monkeypatch.setattr(shutil, "which", lambda name: None)  # node/npx "weg"
     rep = doctor.check(test_call=False)
-    assert any("npx" in p for p in rep["problems"])
+    assert any("Node.js" in p and "Zu tun:" in p for p in rep["problems"])
 
 
 def test_test_call_error_is_captured(monkeypatch):
@@ -39,4 +40,4 @@ def test_test_call_error_is_captured(monkeypatch):
     monkeypatch.setattr(llm_router, "complete", boom)
     rep = doctor.check(test_call=True)
     assert rep["test_call"]["error"]
-    assert any("Test-Call" in p for p in rep["problems"])
+    assert any("Testanfrage" in p and "Zu tun:" in p for p in rep["problems"])

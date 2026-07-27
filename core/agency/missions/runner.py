@@ -68,10 +68,13 @@ def _notify(text: str, wichtig: bool = False, kurz: str | None = None) -> None:
     from core import config as _cfg
     if _cfg.outbound_blocked():  # Firewall (Benchmark/Sandbox): kein Telegram
         return
-    if not _mission().get("notify_telegram"):
-        return
-    mode = str(_mission().get("notify_mode") or "gebuendelt").lower()
     if not wichtig:
+        # Der Komfort-Schalter gilt NUR fuer Routine-Meldungen: er stand frueher vor
+        # der wichtig-Behandlung und legte damit auch den Notruf stumm — aufgegebene
+        # Auftraege, Doktor-Befunde und haengende Ticks (Fund 27.07.).
+        if not _mission().get("notify_telegram"):
+            return
+        mode = str(_mission().get("notify_mode") or "gebuendelt").lower()
         if mode == "aus":
             return
         if mode != "sofort":
@@ -81,23 +84,14 @@ def _notify(text: str, wichtig: bool = False, kurz: str | None = None) -> None:
             # — genau der Fall, der bei ausgefallenem Modell eintritt.
             melde.merken(kurz or next(iter((text or "").splitlines()), ""))
             return
-    try:
-        import httpx
+    from core.kernel import zustellung
 
-        # Token-Hygiene-Nachzug: gleiche Aufloesung wie der Bot (token_env) — sonst
-        # gingen Missions-Meldungen nach dem .env-Aufraeumen still verloren.
-        from core.config import telegram_token
+    if not zustellung.an_nutzer(text, quelle="mission") and wichtig:
+        # Eine wichtige Meldung, die nicht rauskam, darf nicht einfach weg sein:
+        # ab in den Buendel-Puffer, dann geht sie mit der naechsten Runde raus.
+        from core.agency.missions import melde
 
-        token = telegram_token()
-        chat = CONFIG.get("channels", {}).get("telegram", {}).get("allowed_chat_id")
-        if token and chat:
-            httpx.post(
-                f"https://api.telegram.org/bot{token}/sendMessage",
-                json={"chat_id": chat, "text": text[:4000]},
-                timeout=15,
-            )
-    except Exception as e:  # noqa: BLE001
-        events.emit("notify_error", {"error": str(e)})
+        melde.merken(kurz or next(iter((text or "").splitlines()), ""))
 
 
 def _self_improve_tick(mission: str, escalate: bool) -> dict:
@@ -759,8 +753,13 @@ def run_forever(interval: int | None = None) -> None:
                     events.emit("doctor_report", {"problems": rep.get("problems", [])[:10],
                                                   "ok": rep.get("ok")})
                     if rep.get("problems"):
-                        _notify("🩺 Selbst-Check meldet:\n- " + "\n- ".join(rep["problems"][:5]),
-                                wichtig=True)
+                        pr = rep["problems"]
+                        # [:5] kappte stillschweigend — bei 8 Problemen erfuhr der Nutzer
+                        # nichts von den restlichen 3 (Fund 27.07.).
+                        rest = (f"\n\n(+{len(pr) - 5} weitere — im Cockpit unter Kira → Log.)"
+                                if len(pr) > 5 else "")
+                        _notify("🩺 Beim Selbst-Check ist mir das aufgefallen:\n- "
+                                + "\n- ".join(pr[:5]) + rest, wichtig=True)
                 if maintenance.maybe_run("desktop_watch", interval_s=86400):
                     # S8.5: Desktop-Pflege — taeglicher lokaler Scan -> Sortiervorschlag (kein Move).
                     from core.agency import desktop_watch

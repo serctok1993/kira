@@ -58,7 +58,8 @@ def test_doctor_warnt_bei_massen_eskalation(monkeypatch):
     monkeypatch.setattr(llm_router, "resolve_model",
                         lambda tt="default", escalate=False: (routing.get(tt, "x"), False))
     rep = doctor.check()
-    assert any("Eskalation" in p and "Denker" in p for p in rep["problems"]), rep["problems"]
+    assert any("schweren Aufgaben" in p and "Eskalation" in p
+               for p in rep["problems"]), rep["problems"]
 
 
 def test_doctor_still_wenn_eskalation_stark(monkeypatch):
