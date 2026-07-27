@@ -81,10 +81,17 @@ def _tg_html(text: str) -> str:
 
 
 def _send(client: httpx.Client, chat_id: int, text: str, html: bool = True,
-          effect_id: str | None = None) -> None:
+          effect_id: str | None = None) -> bool:
+    """Nachricht zustellen. Liefert True, wenn ALLE Stuecke angekommen sind.
+
+    Der Rueckgabewert ist neu (27.07.): vorher verschluckte diese Funktion jeden
+    Sendefehler kommentarlos — kein Retry, kein Event, kein Logeintrag. Eine fertige
+    Antwort konnte damit spurlos verschwinden, und Aufrufer, die danach ihren Puffer
+    leerten (Melde-Buendel, Wecker), hielten das fuer eine erfolgreiche Zustellung."""
     # Telegram-Limit ~4096 Zeichen -> stueckeln; HTML-Format mit Plain-Fallback.
     client = _ctrl()  # Steuer-Plane immer ueber den dedizierten Kurz-Timeout-Client
     text = text or "…"
+    alles_raus = True
     for i in range(0, len(text), 3800):
         chunk = text[i : i + 3800]
         payload = {"chat_id": chat_id, "text": _tg_html(chunk) if html else chunk}
@@ -98,9 +105,23 @@ def _send(client: httpx.Client, chat_id: int, text: str, html: bool = True,
                 time.sleep(min(6, ((j.get("parameters") or {}).get("retry_after") or 2)))
                 j = client.post(f"{API}/sendMessage", json=payload).json()
             if not j.get("ok") and html:  # HTML-Parsing gescheitert -> als Plain nachsenden
-                client.post(f"{API}/sendMessage", json={"chat_id": chat_id, "text": chunk})
-        except Exception:
-            pass
+                j = client.post(f"{API}/sendMessage",
+                                json={"chat_id": chat_id, "text": chunk}).json()
+            if not j.get("ok"):
+                alles_raus = False
+                _melde_sendefehler(str(j.get("description") or j.get("error_code") or "?"), text)
+        except Exception as e:  # noqa: BLE001 — Zustellung darf den Bot nie umbringen
+            alles_raus = False
+            _melde_sendefehler(type(e).__name__ + ": " + str(e)[:120], text)
+    return alles_raus
+
+
+def _melde_sendefehler(grund: str, text: str) -> None:
+    """Fehlgeschlagene Zustellung aktenkundig machen — sichtbar im Cockpit-Log."""
+    try:
+        events.emit("telegram_send_failed", {"grund": grund[:200], "anfang": (text or "")[:120]})
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _typing(client: httpx.Client, chat_id: int) -> None:
@@ -652,10 +673,11 @@ def _tagewerk_text() -> str:
     except Exception:  # noqa: BLE001
         return "Tagewerk gerade nicht abrufbar."
     t = d.get("tasks", {})
-    lines = [f"📅 **Tagewerk — {time.strftime('%d.%m.%Y')}**"]
-    lines.append(f"✅ {t.get('done', 0)} Tasks erledigt"
-                 + (f" (Ø {t['avg_score']})" if t.get("avg_score") is not None else "")
-                 + (f" · ❌ {t['failed']} gescheitert" if t.get("failed") else ""))
+    lines = [f"📅 **Mein Tag — {time.strftime('%d.%m.%Y')}**"]
+    # "Tasks" ist Denglisch, und "Ø 87.5" war eine interne Pruefernote ohne Skala —
+    # der Nutzer konnte nicht wissen, ob 87.5 gut ist (Fund 27.07.).
+    lines.append(f"✅ {t.get('done', 0)} Aufgaben erledigt"
+                 + (f" · ❌ {t['failed']} nicht geschafft" if t.get("failed") else ""))
     m = d.get("mails", {})
     if m.get("anzahl"):
         lines.append(f"✉️ {m['anzahl']} Mails: " + ", ".join(m.get("an", [])[:3]))
@@ -772,13 +794,21 @@ def _maybe_melde_buendel(client: httpx.Client) -> None:
 
         if not melde.faellig(stunden):
             return
-        zeilen = melde.leeren()
+        zeilen = melde.lesen()
         if not zeilen:
             return
-        _send(client, chat, "🧺 **Missions-Bündel** (" + str(len(zeilen)) + " Schritte):\n"
-              + "\n".join("• " + z for z in zeilen[-15:])
-              + "\n\nDetails: /tagewerk oder Cockpit → Puls.")
-        events.emit("melde_buendel", {"zeilen": len(zeilen)})
+        # Der Kopf muss zaehlen, was WIRKLICH untendrunter steht: vorher nannte er alle
+        # Zeilen ("28 Schritte"), gezeigt wurden aber nur die letzten 15 — ohne Hinweis.
+        gezeigt = zeilen[-15:]
+        rest = len(zeilen) - len(gezeigt)
+        kopf = f"🧺 **Das habe ich seitdem erledigt** ({len(gezeigt)}):"
+        fuss = (f"\n\n(+{rest} aeltere — vollstaendig im Cockpit → Puls.)" if rest else
+                "\n\nDetails: /tagewerk oder Cockpit → Puls.")
+        # Erst zustellen, DANN den Puffer leeren: andernfalls waren bis zu 40 gesammelte
+        # Meldungen bei einem Sendefehler dauerhaft weg (Fund 27.07.).
+        if _send(client, chat, kopf + "\n" + "\n".join("• " + z for z in gezeigt) + fuss) is not False:
+            melde.bestaetigen(zeilen)
+            events.emit("melde_buendel", {"zeilen": len(zeilen)})
     except Exception:  # noqa: BLE001
         pass
 
@@ -818,9 +848,16 @@ def _maybe_evening_resuemee(client: httpx.Client) -> None:
         return
     try:
         import json
+
+        # Erst zustellen, dann den Tag als erledigt stempeln: andersherum fiel der
+        # Feierabend-Blick bei einem Sendefehler ersatzlos aus (Fund 27.07.).
+        # Nur ein AUSDRUECKLICHES False heisst "nicht angekommen" — Aufrufer und Stubs,
+        # die nichts zurueckgeben, gelten wie bisher als erfolgreich.
+        if _send(client, chat,
+                 "🌙 **Feierabend-Blick** — das war mein Tag:\n\n" + _tagewerk_text()) is False:
+            return
         _RESUEMEE_FILE.write_text(json.dumps({"date": time.strftime("%Y-%m-%d")}),
                                   encoding="utf-8")
-        _send(client, chat, "🌙 **Feierabend-Blick** — das war mein Tag:\n\n" + _tagewerk_text())
         events.emit("telegram_resuemee", {"zeit": _resuemee_zeit()})
     except Exception:  # noqa: BLE001
         pass
@@ -1084,6 +1121,13 @@ def _worker(client: httpx.Client, chat_id: int, update: dict) -> None:
                 _handle(client, cur)
             except Exception as e:  # eine kaputte Nachricht darf den Worker nicht killen
                 events.emit("telegram_handle_error", {"error": str(e)})
+                # ... aber sie darf den Nutzer auch nicht im Dunkeln lassen: bis 27.07.
+                # blieb es beim Event, und wer gefragt hatte, bekam schlicht nie eine
+                # Antwort. Das ist der direkteste "sie hat nie geantwortet"-Pfad.
+                _send(client, chat_id,
+                      "Da ist bei mir gerade etwas schiefgegangen — deine Nachricht ist "
+                      f"nicht durchgelaufen ({type(e).__name__}). Schick sie mir bitte "
+                      "nochmal; im Cockpit unter Kira → Log steht der genaue Fehler.")
             with _chat_lock:
                 q = _chat_queue.get(chat_id)
                 cur = q.popleft() if (q and len(q)) else None

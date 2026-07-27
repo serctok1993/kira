@@ -68,7 +68,9 @@ def test_tagewerk_text(monkeypatch):
         "diagnose": {"ok": True}, "lektionen": 1,
         "freigaben_offen": 2, "kosten_heute_usd": 0.42})
     t = tb._tagewerk_text()
-    assert "Tagewerk" in t and "3 Tasks" in t and "Ø 82.0" in t and "1 gescheitert" in t
+    # "Tasks" war Denglisch, "Ø 82.0" eine interne Pruefernote ohne Skala (Fund 27.07.).
+    assert "Mein Tag" in t and "3 Aufgaben erledigt" in t and "1 nicht geschafft" in t
+    assert "Ø" not in t
     assert "kunde@x.de" in t and "Impressum" in t and "Briefing" in t
     assert "2 Freigaben warten" in t and "0.42 $" in t
 
