@@ -20,8 +20,26 @@ SRC = Path(act.__file__).read_text(encoding="utf-8")
 
 def test_observation_wrapper_wortlaut():
     # Punkt 5 des Vertrags: das Ergebnis-Rueckgabeformat an das LLM — in BEIDEN
-    # ACT-Schleifen (act + act_chat) identisch.
-    assert SRC.count('f"ERGEBNIS von {name}:\\n{obs}\\n\\nMach weiter oder gib die finale Antwort."') == 2
+    # ACT-Schleifen (act + act_chat) identisch. Seit 27.07. kommt es aus einer
+    # gemeinsamen Funktion, die auch der Trainingsgenerator benutzt; geprueft wird
+    # daher der Wortlaut der Funktion UND dass beide Schleifen sie wirklich rufen.
+    from core.agency.act import obs_wrapper
+
+    assert obs_wrapper("cron_list", "(3 Jobs)") == (
+        "ERGEBNIS von cron_list:\n(3 Jobs)\n\nMach weiter oder gib die finale Antwort.")
+    assert SRC.count("obs_wrapper(name, obs)") == 2
+
+
+def test_generator_spricht_denselben_vertrag_wie_der_harness():
+    """Befund 27.07.: tuning.py hatte Wrapper und ACT-Zeile ABGESCHRIEBEN und wich ab —
+    dieselbe Fehlerklasse, die c1 bis c4 verdorben hat. Jetzt wird importiert."""
+    from core.agency.act import ACT_ZEILE, obs_wrapper
+    from core.mind import tuning
+
+    assert ACT_ZEILE in tuning.system_stub("Nova", "Alex")
+    beispiel = tuning._chatml_from_turns("sys", [("user", "x"), ("tool", "(3 Jobs)")],
+                                         "cron_list")
+    assert beispiel["messages"][2]["content"] == obs_wrapper("cron_list", "(3 Jobs)")
 
 
 def test_act_protokollzeile_und_beispiele():

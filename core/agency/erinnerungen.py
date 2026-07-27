@@ -112,6 +112,29 @@ def alle() -> list[dict]:
     return sorted(_laden(), key=lambda e: e.get("ts", 0))
 
 
+def entfernen(kennung: str) -> dict | None:
+    """Wecker absagen — per id (auch Kurzform) oder per Text. Liefert den entfernten.
+
+    Bis 27.07. konnte man Wecker nur STELLEN: "Welche Wecker hab ich?" und "sag den
+    9-Uhr-Wecker wieder ab" waren unbeantwortbar, ein falsch gestellter Wecker klingelte
+    zwangslaeufig."""
+    k = (kennung or "").strip()
+    if not k:
+        return None
+    liste = _laden()
+    treffer = next((e for e in liste if e.get("id") == k), None)
+    if treffer is None:
+        treffer = next((e for e in liste if str(e.get("id", "")).startswith(k)), None)
+    if treffer is None:
+        treffer = next((e for e in liste if _gleich(e.get("text"), k)), None)
+    if treffer is None:
+        return None
+    _speichern([e for e in liste if e.get("id") != treffer["id"]])
+    _melden("erinnerung_abgesagt", {"wann": treffer.get("wann", ""),
+                                    "text": str(treffer.get("text", ""))[:200]})
+    return treffer
+
+
 def faellige(now: float | None = None) -> list[dict]:
     now = time.time() if now is None else now
     return [e for e in _laden() if float(e.get("ts", 0)) <= now]

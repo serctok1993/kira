@@ -93,16 +93,26 @@ def parse_schedule(s: str) -> dict:
         if tage:
             zeit = (f"{int(m.group(2)):02d}:{m.group(3)}" if m.group(2) else "08:00")
             return {"type": "weekly", "days": tage, "time": zeit}
-    m = re.fullmatch(r"(?:taeglich|täglich|daily\s+)?(\d{1,2}):(\d{2})", s)
+    # 2) Taeglich. Das Zeitwort war frueher nur als "daily " mit Leerzeichen erlaubt —
+    #    "taeglich 08:00" fiel durch und landete im stummen 60-Minuten-Default weiter
+    #    unten. In der Live-DB stehen 15 so angelegte Jobs: gewuenscht war EIN Briefing
+    #    pro Tag, angelegt wurden 24 (Befund 27.07., Haupttreiber der Melde-Flut).
+    m = re.fullmatch(
+        r"(?:taeglich|täglich|daily|jeden\s+tag|jeden\s+morgen|jeden\s+abend|"
+        r"morgens|abends|mittags|nachts|um)?\s*(\d{1,2}):(\d{2})\s*(?:uhr)?", s)
     if m:
         return {"type": "daily", "time": f"{int(m.group(1)):02d}:{m.group(2)}"}
-    m = re.fullmatch(r"(\d+)\s*(?:h|std|stunden)", s)
+    m = re.fullmatch(r"(?:alle\s+)?(\d+)\s*(?:h|std|stunde|stunden)", s)
     if m:
         return {"type": "interval", "minutes": max(5, int(m.group(1)) * 60)}
-    m = re.fullmatch(r"(\d+)\s*(?:m|min|minuten)?", s)
+    if re.fullmatch(r"stuendlich|stündlich", s):
+        return {"type": "interval", "minutes": 60}
+    m = re.fullmatch(r"(?:alle\s+)?(\d+)\s*(?:m|min|minute|minuten)?", s)
     if m:
         return {"type": "interval", "minutes": max(5, int(m.group(1)))}
-    return {"type": "interval", "minutes": 60}
+    # Unverstanden bleibt unverstanden: der stumme Stundentakt hat wochenlang Jobs
+    # angelegt, die niemand so wollte. cron_add lehrt daraus einen Fehler.
+    return {"type": "unklar", "roh": s}
 
 
 def _next_run(sched: dict, ref: float | None = None) -> float:
@@ -317,7 +327,18 @@ def run_job(job: dict, notify: bool = True, verspaetet_min: int = 0) -> dict:
     # Nur ECHTE Ergebnisse gehen raus — und dann ungekappt (die 300 Zeichen sind das
     # Dashboard-Mass, der Zusteller stueckelt selbst sauber bei 3800).
     if notify and ok:
-        _notify(f"⏰ {job['label']}:\n{volltext}")
+        if _notify(f"⏰ {job['label']}:\n{volltext}") is False:
+            # Das fertige Ergebnis darf nicht am Zustellweg verenden: ab in den
+            # Melde-Puffer, dann geht es mit dem naechsten Buendel raus. Vorher war ein
+            # gelungener Lauf bei klemmendem Telegram spurlos weg — im Cockpit stand ein
+            # Haken, beim Nutzer kam nichts an (Befund 27.07.).
+            try:
+                from core.agency.missions import melde
+
+                melde.merken(f"⏰ {job['label']}: {volltext[:300]}")
+                events.emit("cron_zustellung_gescheitert", {"label": job["label"]})
+            except Exception:  # noqa: BLE001
+                pass
     elif notify and _fehlschlag_melden(job):
         # Nachbesserung 27.07.: seit dem Ehrlichkeits-Fix ging bei ok=False GAR NICHTS
         # mehr raus — ein ausgefallenes Briefing war fuer den Nutzer nicht von einem
@@ -480,10 +501,15 @@ def _melde_verpasste(verpasst: list[tuple[str, float]]) -> None:
 
 
 def run_now(jid: str) -> dict:
-    jobs = _load()
-    for j in jobs:
+    """"Jetzt ausfuehren" aus dem Cockpit.
+
+    Schrieb frueher am Ende die GANZE Liste zurueck (_save) — derselbe Fehler, der am
+    26.07. in run_due behoben wurde: alles, was waehrend des Laufs an cron.json
+    geschrieben wurde (ein per cron_add angelegter Job, der Fortschritt eines parallel
+    laufenden Jobs), war danach weg."""
+    for j in _load():
         if j.get("id") == jid:
             res = run_job(j)
-            _save(jobs)
+            _job_zurueckschreiben(j)
             return res
     return {"ok": False, "summary": "Job nicht gefunden"}
