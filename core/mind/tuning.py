@@ -203,7 +203,7 @@ _SEED_PLAN = [
       "mit deinem GO raus)."),
      ("assistant", 'ACT request_approval {"title": "Absage-Mail", "detail": "Hallo, danke für die '
       'Anfrage — leider passt es aktuell zeitlich nicht. Melde mich, wenn sich das ändert. Beste '
-      'Grüße", "kind": "email"}'),
+      'Grüße", "kind": "email_stranger"}'),
      ("tool", "Zur Freigabe in die Inbox gelegt."),
      ("assistant", "Entwurf liegt in deiner Freigabe-Inbox — sag GO, dann geht sie raus.")],
 ]

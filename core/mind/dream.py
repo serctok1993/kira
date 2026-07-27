@@ -88,13 +88,19 @@ def _reife_sessions(min_alter_s: int, limit: int) -> list[str]:
 
     grenze = time.time() - min_alter_s
     with store._conn() as c:
+        # Audit-Fund 27.07.: das LIMIT stand frueher IN der Abfrage, der Ephemer-Filter
+        # lief erst danach in Python. Waren die N aeltesten reifen Sessions allesamt
+        # Test-/Bench-Sessions (was sie wochenlang waren), kam IMMER eine leere Liste
+        # zurueck — dream lief in 27 Tagen genau einmal, bei 408 rohen Episoden.
+        # Also: erst filtern, dann kappen. Der Deckel schuetzt weiter vor Massenlaeufen.
         rows = c.execute(
             "SELECT session_id, MAX(ts) AS last FROM memory "
             "WHERE kind='episodic' AND session_id IS NOT NULL "
             "GROUP BY session_id HAVING last < ? ORDER BY last ASC LIMIT ?",
-            (grenze, limit),
+            (grenze, max(int(limit), 1) * 25),
         ).fetchall()
-    return [sid for sid, _ in rows if not store._is_ephemeral(sid)]
+    reif = [sid for sid, _ in rows if not store._is_ephemeral(sid)]
+    return reif[:limit]
 
 
 def _dialog_text(session_id: str, cap: int = 6000) -> str:
@@ -167,18 +173,26 @@ def dream(force: bool = False) -> dict:
     nie den Lock. Rueckgabe: {gelaufen, grund?, sessions, kerne, geloescht, backup}."""
     from core.mind.memory import store
 
+    # Jeder Fruehausstieg hinterlaesst eine Spur (Audit-Fund 27.07.): dream stand
+    # wochenlang still und NICHTS im Log sagte warum — 408 rohe Episoden, 3 Verdichtungen.
+    def _aus(grund: str) -> dict:
+        try:
+            events.emit("dream_skipped", {"grund": grund})
+        except Exception:  # noqa: BLE001
+            pass
+        return {"gelaufen": False, "grund": grund}
+
     if not force and not enabled():
-        return {"gelaufen": False, "grund": "dream.enabled ist aus"}
+        return _aus("dream.enabled ist aus")
     store.init_memory()
 
     reif = _reife_sessions(_int("min_alter_stunden", 48) * 3600, _int("max_sessions", 4))
     if not force and len(reif) < _int("min_sessions", 3):
-        return {"gelaufen": False,
-                "grund": f"erst {len(reif)} reife Sessions (min_sessions={_int('min_sessions', 3)})"}
+        return _aus(f"erst {len(reif)} reife Sessions (min_sessions={_int('min_sessions', 3)})")
     if not reif:
-        return {"gelaufen": False, "grund": "keine reifen Sessions"}
+        return _aus("keine reifen Sessions")
     if not _lock_setzen():
-        return {"gelaufen": False, "grund": "ein anderer dream-Lauf haelt den Lock"}
+        return _aus("ein anderer dream-Lauf haelt den Lock")
 
     bdir = DATA_DIR / "backups"
     bdir.mkdir(parents=True, exist_ok=True)

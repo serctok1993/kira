@@ -23,11 +23,24 @@ _DEFAULT = {
 
 
 def _load() -> dict:
+    """Gespeicherte Config ueber den Default legen — das hard_gate aber als VEREINIGUNG.
+
+    Audit-Fund 27.07.: der Top-Level-Merge ersetzte die Liste komplett. data/autonomy.json
+    stammt vom 02.07. und kennt nur ["money", "email_stranger"]; als spaeter "publish"
+    zum Default kam, blieb es fuer diese Instanz WIRKUNGSLOS — needs_approval('publish')
+    war False, waehrend das Post-Werkzeug dem Modell versprach, der Beitrag "wartet in
+    der Freigabe-Inbox". Ein Gate, das lautlos verschwindet, ist schlimmer als keines.
+    Neue Schutz-Arten greifen ab jetzt auch fuer bestehende Instanzen; bewusst abwaehlen
+    laesst sie 'hard_gate_off'."""
     try:
         d = json.loads(_PATH.read_text(encoding="utf-8"))
-        return {**_DEFAULT, **(d if isinstance(d, dict) else {})}
+        d = d if isinstance(d, dict) else {}
     except Exception:  # noqa: BLE001
-        return dict(_DEFAULT)
+        d = {}
+    merged = {**_DEFAULT, **d}
+    gate = set(_DEFAULT["hard_gate"]) | set(d.get("hard_gate") or [])
+    merged["hard_gate"] = sorted(gate - set(d.get("hard_gate_off") or []))
+    return merged
 
 
 def config() -> dict:
@@ -52,6 +65,10 @@ def set_config(chains_off: bool | None = None, hard_gate: list[str] | None = Non
     if chains_off is not None:
         d["chains_off"] = bool(chains_off)
     if hard_gate is not None:
-        d["hard_gate"] = list(hard_gate)
+        # Abwahl muss ausdruecklich sein (sonst kaeme sie beim naechsten Laden zurueck):
+        # was der Nutzer streicht, landet in hard_gate_off.
+        gewuenscht = set(hard_gate)
+        d["hard_gate"] = sorted(gewuenscht)
+        d["hard_gate_off"] = sorted(set(_DEFAULT["hard_gate"]) - gewuenscht)
     atomic_write(_PATH, json.dumps(d, indent=2, ensure_ascii=False))
     return d
