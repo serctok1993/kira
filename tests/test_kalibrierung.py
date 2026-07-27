@@ -67,8 +67,11 @@ def test_render_leer_und_mit_empfehlung(monkeypatch, tmp_path):
     assert "nichts zu kalibrieren" in calibration.render(days=7)
     _feed(n_calls_a=12, nudges_a=4)  # nudge_rate 0.33 > 0.2 bei calls >= MIN_CALLS
     txt = calibration.render(days=7)
-    assert "SELBSTKALIBRIERUNG" in txt and "deepseek/flash" in txt
-    assert "EMPFEHLUNGEN" in txt and "kuendigt oft nur an" in txt
+    assert "deepseek/flash" in txt
+    # Seit 27.07.: Fazit zuerst, Telemetrie danach — die Empfehlungen standen frueher
+    # hinten und fielen der Telegram-Kappung zum Opfer.
+    assert "kuendigt oft nur an" in txt
+    assert txt.index("kuendigt oft nur an") < txt.index("Die Zahlen dahinter")
 
 
 def test_propose_braucht_genug_daten(monkeypatch, tmp_path):
@@ -82,8 +85,9 @@ def test_propose_braucht_genug_daten(monkeypatch, tmp_path):
     assert aid
     pend = approvals.pending()
     assert len(pend) == 1 and pend[0]["kind"] == "generic"
-    assert "Selbstkalibrierungs-Report" in pend[0]["title"]
-    assert "EMPFEHLUNGEN" in pend[0]["detail"]
+    assert "Wie meine Modelle laufen" in pend[0]["title"]
+    assert "Punkt" in pend[0]["title"]  # Titel sagt, ob etwas zu tun ist
+    assert "kuendigt oft nur an" in pend[0]["detail"]
     assert any(e["type"] == "calibration_report" for e in events.recent(10))
 
 
@@ -93,7 +97,7 @@ def test_api_kalibrierung(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
     _feed()
     d = TestClient(s.app).get("/api/kalibrierung?days=7").json()
-    assert d["total_calls"] == 13 and "SELBSTKALIBRIERUNG" in d["text"]
+    assert d["total_calls"] == 13 and "So liefen meine Modelle" in d["text"]
     assert any(m["model"] == "deepseek/flash" for m in d["models"])
     d1 = TestClient(s.app).get("/api/kalibrierung?days=999").json()
     assert d1["days"] == 90  # geklemmt

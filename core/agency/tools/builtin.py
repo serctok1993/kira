@@ -712,6 +712,16 @@ def cron_add(label: str = "", prompt: str = "", schedule: str = "", scope: str =
     scope = (scope or "system").strip().lower()
     if scope not in ("me", "system"):
         scope = "system"
+    zwilling = cron.aehnlicher_job(label, schedule)
+    if zwilling:
+        # Live-Fund 27.07.: fuenf Wetter-Jobs in 19 Stunden ("Wetter-Brief",
+        # "Wetter-Briefing", "Wetter-Fact", nochmal "Wetter-Brief", "Wetter") — bei jeder
+        # Bitte legte das Modell einen NEUEN an, statt den bestehenden zu sehen. Der
+        # Nutzer bekam sein Briefing dreifach.
+        return (f"Fehler: Es gibt schon einen aehnlichen Job zur selben Zeit — "
+                f"„{zwilling['label']}“ ({zwilling['schedule_text']}, id={zwilling['id']}). "
+                "Lege KEINEN zweiten an: sag dem Nutzer, dass es ihn gibt, und aendere ihn "
+                "bei Bedarf mit cron_update, oder loesche ihn mit cron_remove.")
     j = cron.add_job(label, prompt, schedule, scope=scope)
     nxt = _dt.datetime.fromtimestamp(j["next_run"]).strftime("%d.%m. %H:%M")
     where = {"me": f"{_id.user_name()}s Routinen (Me)", "system": "System"}[scope]
@@ -757,8 +767,15 @@ def cron_remove(job_id: str = "", id: str = "", **falsche_args) -> str:
       {"task": "die komplette Gesamtaufgabe in einem Satz"})
 def plan_and_execute(task: str) -> str:
     from core.agency.act import plan_and_execute as _pe
+    from core.kernel import runstate
 
-    return _pe(task, escalate=True)
+    # Ohne session_id schrieb der GANZE Plan-Lauf seine Events mit session_id NULL.
+    # Der Turn-Watchdog misst Fortschritt aber nur an der Session des laufenden Zugs
+    # (runstate.py:116) — er sah Stillstand, waehrend 170 Schritte liefen, und liess
+    # den Prozess nach 480 s neu starten. So starb am 21.07. der Vault-Umbau mitten
+    # in der Arbeit: der Nutzer sah nur einen Spinner, der nie zur Antwort wurde.
+    sid = next(iter(runstate.active_turn_sids()), None)
+    return _pe(task, escalate=True, session_id=sid)
 
 
 @tool("run_command",

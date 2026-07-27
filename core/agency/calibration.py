@@ -112,10 +112,26 @@ def _hints(rep: dict) -> list[str]:
 
 
 def render(days: int = 7, rep: dict | None = None) -> str:
+    """Kalibrierungs-Bericht — Fazit zuerst, Zahlen danach.
+
+    Live-Befund 27.07.: der Bericht begann mit acht Zeilen Modell-Telemetrie und
+    endete mit den Empfehlungen — genau die fielen der Telegram-Kappung zum Opfer.
+    Der Nutzer las Anrufzahlen und Latenzen und wusste nicht, was sie ihm sagen."""
     rep = rep or report(days)
     if not rep["total_calls"]:
         return f"Keine LLM-Anrufe in den letzten {days} Tagen — nichts zu kalibrieren."
-    lines = [f"SELBSTKALIBRIERUNG (letzte {days} Tage, {rep['total_calls']} LLM-Anrufe):"]
+    kosten = sum(m["cost_usd"] or 0 for m in rep["models"])
+    hints = _hints(rep)
+    lines = [f"So liefen meine Modelle in den letzten {days} Tagen: {rep['total_calls']} Anfragen, "
+             f"{kosten:.2f} USD."]
+    if hints:
+        lines.append("")
+        lines.append("Das solltest du wissen:" if len(hints) > 1 else "Ein Punkt fuer dich:")
+        lines.extend(f"- {h}" for h in hints)
+    else:
+        lines.append("Nichts Auffaelliges — du musst hier nichts tun.")
+    lines.append("")
+    lines.append("Die Zahlen dahinter (nur zur Einsicht):")
     for m in rep["models"][:8]:
         parts = [f"{m['calls']} Anrufe"]
         if m["nudges"]:
@@ -136,11 +152,6 @@ def render(days: int = 7, rep: dict | None = None) -> str:
                      + (f" · endgueltig gescheitert: {rep['tasks_failed']}" if rep["tasks_failed"] else ""))
     for k, n in sorted(rep["fallbacks"].items(), key=lambda x: -x[1])[:4]:
         lines.append(f"- Fallback-Grund: {k} ({n}x, Key fehlte)")
-    hints = _hints(rep)
-    if hints:
-        lines.append("")
-        lines.append("EMPFEHLUNGEN:")
-        lines.extend(f"- {h}" for h in hints)
     return "\n".join(lines)
 
 
@@ -152,8 +163,11 @@ def propose(days: int = 7, min_calls: int = 25) -> str | None:
         return None
     from core.agency import approvals
 
+    n_hints = len(_hints(rep))
     aid = approvals.create(
-        title=f"Selbstkalibrierungs-Report ({days} Tage, {rep['total_calls']} Anrufe)",
+        title=("Wie meine Modelle laufen"
+               + (f" — {n_hints} Punkt{'e' if n_hints > 1 else ''} fuer dich" if n_hints
+                  else " — nichts zu tun")),
         kind="generic", detail=render(days, rep), source="kira")
     events.emit("calibration_report", {"approval_id": aid, "calls": rep["total_calls"],
                                        "hints": len(_hints(rep))})

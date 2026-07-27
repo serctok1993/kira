@@ -47,7 +47,8 @@ def test_fail_patterns_aggregates_by_kind(monkeypatch, tmp_path):
     assert worst["passed"] == 2 and worst["attempts"] == 8
     assert worst["pass_rate"] == 0.25
     assert worst["cost_per_success"] == round(8 * 0.1 / 2, 4)
-    assert "quellen" in pat["themes"]  # wiederkehrende Pruefer-Kritik
+    # Seit 27.07. benannte Fehlschlag-Muster statt Wortsalat ("zeichen, harte, checks").
+    assert any("Quellen" in t and "(6x)" in t for t in pat["themes"]), pat["themes"]
 
 
 def test_render_brief_and_empty(monkeypatch, tmp_path):
