@@ -344,7 +344,14 @@ def _render_trace(voice_text: str | None, think: str, lines: list[str],
         parts.append("🎙️ <i>«" + _esc(voice_text[:160]) + "»</i>")
     if think:
         # Aufklappbares Zitat = Telegram-natives Ein-/Ausklappen (wie in der Web-App).
-        parts.append("<blockquote expandable>💭 " + _esc(think.strip()[-1500:]) + "</blockquote>")
+        # Von hinten kappen, aber an einer Zeilen-/Satzgrenze einsetzen: sonst beginnt
+        # der Denk-Block mitten im Wort ("💭 TEM/Workflows.md", Live-Fall 21.07.).
+        d = think.strip()
+        if len(d) > 1500:
+            rest = d[-1500:]
+            schnitt = max(rest.find("\n"), rest.find(". "))
+            d = "…" + (rest[schnitt + 1:].lstrip() if 0 <= schnitt < 300 else rest)
+        parts.append("<blockquote expandable>💭 " + _esc(d) + "</blockquote>")
     if lines:
         parts.append("──────────")
         parts += [_esc(l) for l in lines[-12:]]

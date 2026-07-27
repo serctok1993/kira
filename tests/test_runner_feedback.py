@@ -100,7 +100,7 @@ def test_three_fails_final(monkeypatch, tmp_path):
     assert outcomes.last(tid)["strategy"] == "strategiewechsel"
     assert any(e["type"] == "task_failed_final" for e in events.recent(30))
     # Beratender Inbox-Eintrag liegt vor
-    assert any("Qualitaet gescheitert" in a["title"] for a in approvals.pending())
+    assert any("Aufgabe aufgegeben" in a["title"] for a in approvals.pending())
     # Planner-Kontext warnt vor Wiederholung
     assert "Endgueltig gescheitert" in runner._context()
 

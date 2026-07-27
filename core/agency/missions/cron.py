@@ -147,6 +147,37 @@ def list_jobs(scope: str | None = None) -> list[dict]:
     return out
 
 
+def _stamm(label: str) -> str:
+    """Erstes bedeutungstragendes Wort eines Labels, normalisiert.
+
+    'Wetter-Brief', 'Wetter-Briefing', 'Wetter-Fact' und 'Wetter' teilen den Stamm
+    'wetter' — 'Morgen-Briefing' und 'Backlog & Selbst-Diagnose' teilen keinen."""
+    from core.agency.erinnerungen import normtext
+
+    roh = re.split(r"[^a-zA-Z0-9äöüÄÖÜß]+", label or "")
+    return next((normtext(w) for w in roh if len(normtext(w)) >= 4), "")
+
+
+def aehnlicher_job(label: str, schedule: str) -> dict | None:
+    """Ein bestehender Job zur selben Zeit mit gleichem Themen-Stamm — oder None.
+
+    Live-Fund 27.07.: fuenf Wetter-Jobs innerhalb von 19 Stunden, weil beim Anlegen
+    nichts prueft, ob es die Routine schon gibt. Bewusst eng: gleiche Zeit UND
+    gleicher Stamm, damit legitime Jobs zur selben Uhrzeit (Morgen-Briefing +
+    Backlog-Diagnose um 08:00) nicht faelschlich blockiert werden."""
+    stamm = _stamm(label)
+    if not stamm:
+        return None
+    try:
+        sched = parse_schedule(schedule)
+    except Exception:  # noqa: BLE001 — ungueltiger Zeitplan faellt anderswo auf
+        return None
+    for j in _load():
+        if j.get("schedule") == sched and _stamm(j.get("label", "")) == stamm:
+            return _public(j)
+    return None
+
+
 def add_job(label: str, prompt: str, schedule: str, escalate: bool = False,
             scope: str = "system", enabled: bool = True) -> dict:
     jobs = _load()

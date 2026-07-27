@@ -43,6 +43,10 @@ gedaechtnis/stammbaum/**
 !gedaechtnis/stammbaum/**/
 !gedaechtnis/stammbaum/_WURZEL_VORLAGE.md
 !gedaechtnis/stammbaum/**/_VORLAGE.md
+# Notizen, die Kira im Betrieb anlegt, sind Nutzerdaten — nie ins Repo (Fund 27.07.:
+# darin lagen Steuerunterlagen und ein Wartungsvertrag, ungeschuetzt vor `git add -A`).
+gedaechtnis/notizen/**
+!gedaechtnis/notizen/**/
 # Nutzer-Arbeitsbereiche + Bauphasen-Journale + private Skripte
 projects/
 docs/KIRA-IST.md

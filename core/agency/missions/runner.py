@@ -77,7 +77,9 @@ def _notify(text: str, wichtig: bool = False, kurz: str | None = None) -> None:
         if mode != "sofort":
             from core.agency.missions import melde
 
-            melde.merken(kurz or text.splitlines()[0])
+            # text.splitlines()[0] warf IndexError, sobald kurz fehlte UND text leer war
+            # — genau der Fall, der bei ausgefallenem Modell eintritt.
+            melde.merken(kurz or next(iter((text or "").splitlines()), ""))
             return
     try:
         import httpx
@@ -137,8 +139,13 @@ def _self_improve_tick(mission: str, escalate: bool) -> dict:
     text = result["text"]
     events.emit("mission_task_done", {"id": "self", "summary": text[:300], "self": True},
                 session_id=sid)
-    _notify(f"🔧 Selbst-Optimierung:\n{text[:1000]}",
-            kurz=f"🔧 Selbst-Optimierung: {text[:110]}")
+    kern = _ergebnis_kern(text, 120)
+    if kern:
+        _notify(f"🔧 Selbst-Optimierung:\n{text[:1000]}", kurz=f"🔧 Selbst-Optimierung: {kern}")
+    else:
+        # Ein leerer Tick ist ein Befund, kein Telegram-Rauschen: der Nutzer bekam
+        # wochenlang "🔧 Selbst-Optimierung:" ohne jeden Inhalt (Live-Befund 27.07.).
+        events.emit("self_tick_leer", {"session": sid})
     return {"self_tick": True, "result": text[:400]}
 
 
@@ -192,16 +199,57 @@ def _report(desc: str, text: str, label: str = "") -> str:
     Der alte Schmerz: 1200 rohe Zeichen, mitten im Satz abgerissen, Hochdeutsch ohne
     Einordnung. Jetzt: NUR der 'KURZ FUER <Nutzer>'-Block (das Modell schreibt ihn per
     Melde-Regel); fehlt er, ein Anriss mit sauberem Satzende. Volltext -> Cockpit."""
-    head = f"🤖 Mission-Schritt erledigt{label}:\n{desc[:180]}"
+    head = f"🤖 Mission-Schritt erledigt{label}:\n{_kappen(desc, 180)}"
     m = _kurz_re().search(text or "")
     kurz = (text or "")[m.end():].strip().lstrip("*# \n") if m else ""
     if kurz:
-        body = kurz[:900]
+        body = _kappen(kurz, 900)
     else:
         body = (text or "").strip()[:700]
         if len((text or "").strip()) > 700:  # an der Satzgrenze kappen statt mitten im Wort
             body = (body.rsplit(". ", 1)[0] + ". […]") if ". " in body else body + " […]"
+    if not body.strip():
+        # Praefix ohne Inhalt: lieber ehrlich benennen als eine leere Meldung schicken.
+        return f"{head}\n\nDabei ist kein Ergebnis herausgekommen — ich habe nichts vorzuweisen."
     return f"{head}\n\n{body}\n\n📄 Volltext im Cockpit (Kira → Log)."
+
+
+def _kappen(s: str, n: int) -> str:
+    """Auf n Zeichen kuerzen — aber nie mitten im Wort (Live-Befund 27.07.: der
+    Nutzer las Buendel-Zeilen, die auf '...liefert oder nur F' endeten)."""
+    s = " ".join((s or "").split())
+    if len(s) <= n:
+        return s
+    schnitt = s[:n].rsplit(" ", 1)[0].rstrip(" ,;:-–—")
+    return (schnitt or s[:n]) + "…"
+
+
+def _ergebnis_kern(text: str, n: int = 100) -> str:
+    """Der Kern des ERGEBNISSES — leer, wenn nichts Verwertbares da ist.
+
+    Bevorzugt den 'KURZ FUER <Nutzer>'-Block (den das Modell laut Melde-Regel
+    schreibt), sonst die erste tragende Zeile ohne Markdown-Beiwerk."""
+    t = (text or "").strip()
+    if not t:
+        return ""
+    m = _kurz_re().search(t)
+    if m:
+        t = t[m.end():].strip()
+    for zeile in t.splitlines():
+        z = re.sub(r"\*\*(.+?)\*\*", r"\1", zeile.strip().lstrip("#*->•· ").strip())
+        if len(z) >= 25:
+            return _kappen(z, n)
+    return _kappen(t, n)
+
+
+def _buendel_zeile(desc: str, text: str) -> str:
+    """Eine Zeile fuers Missions-Buendel: WAS war die Aufgabe, WAS kam heraus.
+
+    Vorher stand hier nur die Aufgabenbeschreibung plus die interne Pruefernote —
+    der Nutzer erfuhr wochenlang, was sich Kira vorgenommen hatte, nie das Ergebnis."""
+    kern = _ergebnis_kern(text, 100)
+    auftrag = _kappen(desc, 52)
+    return f"✅ {auftrag} → {kern}" if kern else f"⚠️ {auftrag} → ohne Ergebnis abgeschlossen"
 
 
 def _book_playbook_results(sid: str, since_ts: float, erfolg: bool, score) -> None:
@@ -266,7 +314,8 @@ def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
         text = result["text"]
         queue.complete(full["id"], text)
         events.emit("mission_task_done", {"id": full["id"], "summary": text[:300]}, session_id=sid)
-        _notify(_report(full["description"], text), kurz=f"✅ {full['description'][:120]}")
+        _notify(_report(full["description"], text),
+                kurz=_buendel_zeile(full["description"], text))
         return {"task": full["description"], "result": text}
 
     criteria = verifier.ensure_criteria(full)
@@ -319,7 +368,7 @@ def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
         _book_playbook_results(sid, t0, erfolg=True, score=out["score"])
         label = f" (Score {out['score']})" if out["score"] is not None else ""
         _notify(_report(full["description"], text, label),
-                kurz=f"✅ ({out['score'] if out['score'] is not None else '–'}) {full['description'][:110]}")
+                kurz=_buendel_zeile(full["description"], text))
         return {"task": full["description"], "result": text, "score": out["score"]}
 
     if attempt <= verifier.max_quality_retries():
@@ -349,15 +398,16 @@ def _execute_scored(task: dict, mission: str, escalate: bool) -> dict:
         from core.agency import approvals
 
         approvals.create(
-            f"Task {attempt}x an Qualitaet gescheitert: {full['description'][:80]}",
+            f"Aufgabe aufgegeben: {_kappen(full['description'], 80)}",
             kind="generic", source="task",
-            detail=(f"Aufgabe: {full['description']}\n\nKriterien:\n"
-                    + "\n".join(f"- {c['text']}" for c in criteria)
-                    + f"\n\nLetzter Score: {out['score']}\nLetztes Feedback: {out['feedback']}"))
+            detail=(f"Diese Aufgabe habe ich nach {attempt} Versuchen liegen lassen:\n"
+                    f"{full['description']}\n\nWoran es lag: {verifier.klartext(out['feedback'])}\n\n"
+                    "Daran haette sie gemessen werden sollen:\n"
+                    + "\n".join(f"- {c['text']}" for c in criteria)))
     except Exception as e:  # noqa: BLE001
         events.emit("approval_error", {"error": str(e)[:200]})
-    _notify(f"⚠️ Task endgueltig gescheitert ({attempt} Versuche, Score {out['score']}):\n"
-            f"{full['description']}\n\nPruefer: {(out['feedback'] or '')[:600]}", wichtig=True)
+    _notify(f"⚠️ Aufgabe nach {attempt} Versuchen aufgegeben:\n{full['description']}\n\n"
+            f"Woran es lag: {verifier.klartext(out['feedback'])[:600]}", wichtig=True)
     return {"task": full["description"], "failed": True, "score": out["score"]}
 
 

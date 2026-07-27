@@ -44,6 +44,21 @@ def _speichern(liste: list[dict]) -> None:
     atomic_write(_PATH, json.dumps(liste, ensure_ascii=False, indent=1))
 
 
+def normtext(s: str | None) -> str:
+    """Text auf seinen Kern reduzieren: Gross/klein, Satzzeichen und Umlaut-Schreibweise
+    egal. "Müll rausbringen!" und "muell rausbringen" sind derselbe Wecker."""
+    import re as _re
+
+    t = (s or "").lower()
+    for alt, neu in (("ä", "ae"), ("ö", "oe"), ("ü", "ue"), ("ß", "ss")):
+        t = t.replace(alt, neu)
+    return _re.sub(r"[^a-z0-9]+", "", t)
+
+
+def _gleich(a: str | None, b: str | None) -> bool:
+    return bool(normtext(a)) and normtext(a) == normtext(b)
+
+
 def telegram_konfiguriert() -> bool:
     try:
         return bool(CONFIG.get("channels", {}).get("telegram", {}).get("allowed_chat_id"))
@@ -74,6 +89,15 @@ def add(text: str, datum: str, zeit: str) -> tuple[dict | None, str]:
         return None, (f"{datum} {zeit} liegt in der Vergangenheit (JETZT: {jetzt}). "
                       "Nimm den naechsten passenden Zeitpunkt.")
     liste = _laden()
+    doppelt = next((a for a in liste if _gleich(a.get("text"), text)
+                    and abs(float(a.get("ts", 0)) - ts) < 60), None)
+    if doppelt:
+        # Live-Fund 27.07.: "Muell rausbringen" fuer 18:00 wurde zweimal angelegt
+        # (23:54 und 00:21) — der Nutzer bekam den Wecker doppelt und hielt es fuer
+        # einen Zustell-Bug. Es war ein Anlege-Bug: nichts prueft auf Doppelung.
+        return None, (f"Diesen Wecker gibt es schon: „{doppelt['text']}“ am {doppelt['wann']} "
+                      f"(id {doppelt['id']}). Sag es dem Nutzer, statt einen zweiten zu stellen — "
+                      "sonst klingelt es doppelt.")
     if len(liste) >= _MAX:
         return None, f"Schon {_MAX} offene Erinnerungen — erst welche zustellen lassen oder aufraeumen."
     e = {"id": uuid.uuid4().hex[:8], "ts": ts, "wann": f"{datum.strip()} {zeit.strip()}",
