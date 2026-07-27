@@ -120,15 +120,23 @@ def faellige(now: float | None = None) -> list[dict]:
 def zustellen(sender=None, now: float | None = None) -> int:
     """Faellige Erinnerungen ausliefern und austragen. sender(text) schickt (Telegram);
     None = nur Cockpit-Event. Scheitert der Versand, bleibt der Eintrag fuer die
-    naechste Runde liegen. Gibt die Anzahl zugestellter Erinnerungen zurueck."""
+    naechste Runde liegen. Gibt die Anzahl zugestellter Erinnerungen zurueck.
+
+    Dieses Versprechen war auf dem Telegram-Pfad lange gebrochen (Fund 27.07.): der
+    Sender dort schluckte jeden Fehler und warf nie, also galt jeder Wecker als
+    zugestellt und wurde ausgetragen — auch wenn er nie ankam. Ein sender, der
+    ausdruecklich False liefert, laesst den Wecker jetzt stehen; None/True gelten
+    weiter als zugestellt (Cockpit-Pfad und Alt-Aufrufer bleiben unveraendert)."""
     f = faellige(now)
     if not f:
         return 0
     weg: set[str] = set()
     for e in f:
         try:
-            if sender is not None:
-                sender(f"⏰ Erinnerung: {e['text']}")
+            if sender is not None and sender(f"⏰ Erinnerung: {e['text']}") is False:
+                _melden("erinnerung_unzustellbar", {"wann": e.get("wann", ""),
+                                                    "text": e["text"][:200]})
+                continue
             _melden("erinnerung_zugestellt", {"wann": e.get("wann", ""), "text": e["text"][:200]})
             weg.add(e["id"])
         except Exception:  # noqa: BLE001 — naechste Runde erneut

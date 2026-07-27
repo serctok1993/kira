@@ -19,10 +19,8 @@ import os
 import re
 import time
 
-import httpx
-
 from core import identity as _id
-from core.config import CONFIG, ROOT
+from core.config import ROOT
 from core.kernel import events
 from core.kernel.fs import atomic_write
 
@@ -243,23 +241,15 @@ def update_job(jid: str, label: str | None = None, prompt: str | None = None, sc
     return found
 
 
-def _notify(text: str) -> None:
-    from core import config as _cfg
-    if _cfg.outbound_blocked():  # Firewall (Benchmark/Sandbox): kein Telegram
-        return
-    try:
-        # Token-Hygiene-Nachzug: gleiche Aufloesung wie der Bot (token_env) — sonst
-        # gingen Cron-Meldungen nach dem .env-Aufraeumen still verloren.
-        token = _cfg.telegram_token()
-        chat = CONFIG.get("channels", {}).get("telegram", {}).get("allowed_chat_id")
-        if token and chat:
-            httpx.post(
-                f"https://api.telegram.org/bot{token}/sendMessage",
-                json={"chat_id": chat, "text": text[:4000]},
-                timeout=15,
-            )
-    except Exception as e:  # noqa: BLE001
-        events.emit("notify_error", {"error": str(e)})
+def _notify(text: str) -> bool:
+    """Cron-Meldung zustellen. True = angekommen.
+
+    Ging frueher blind raus: der Rueckgabewert von httpx.post wurde verworfen, ein
+    fehlender Token brach still ab, und text[:4000] kappte lange Ergebnisse mitten
+    im Satz, obwohl der Aufrufer glaubte, hier werde gestueckelt (Fund 27.07.)."""
+    from core.kernel import zustellung
+
+    return zustellung.an_nutzer(text, quelle="cron")
 
 
 def run_job(job: dict, notify: bool = True) -> dict:
@@ -290,6 +280,7 @@ def run_job(job: dict, notify: bool = True) -> dict:
     prompt = (f"{prompt}\n\n(Zustellung: Deine Antwort wird automatisch an "
               f"{_id.user_name()} zugestellt — schreib sie direkt als fertige Nachricht. "
               "Es gibt KEIN Sende-Werkzeug und du brauchst keins.)")
+    grund = ""
     try:
         r = act(prompt, session_id=f"cron-{job['id']}", escalate=job.get("escalate", False),
                 task_type="bulk")  # einfache Crons -> lokal (0 EUR); escalate-Crons gehen weiter zu GLM
@@ -299,16 +290,33 @@ def run_job(job: dict, notify: bool = True) -> dict:
     except Exception as e:  # noqa: BLE001
         volltext = ""
         summary = str(e)
+        grund = f"{type(e).__name__} beim Ausfuehren"
         ok = False
     job["last_run"] = time.time()
     job["next_run"] = _next_run(job["schedule"])
     job["runs"] = (job.get("runs", []) + [{"ts": time.time(), "ok": ok, "summary": summary}])[-20:]
     events.emit("cron_run", {"label": job["label"], "ok": ok, "summary": summary})
     # Nur ECHTE Ergebnisse gehen raus — und dann ungekappt (die 300 Zeichen sind das
-    # Dashboard-Mass, _notify stueckelt selbst sauber bei 3800).
+    # Dashboard-Mass, der Zusteller stueckelt selbst sauber bei 3800).
     if notify and ok:
         _notify(f"⏰ {job['label']}:\n{volltext}")
+    elif notify and _fehlschlag_melden(job):
+        # Nachbesserung 27.07.: seit dem Ehrlichkeits-Fix ging bei ok=False GAR NICHTS
+        # mehr raus — ein ausgefallenes Briefing war fuer den Nutzer nicht von einem
+        # nie geplanten zu unterscheiden. Jetzt: ehrliche Absage, aber hoechstens
+        # einmal pro Job und Tag, damit ein dauerhaft kaputter Job nicht flutet.
+        _notify(f"⏰ {job['label']} konnte ich nicht fertigstellen: {grund or summary}.\n"
+                "Beim naechsten regulaeren Termin versuche ich es wieder.")
     return {"ok": ok, "summary": summary}
+
+
+def _fehlschlag_melden(job: dict) -> bool:
+    """Darf der Fehlschlag dieses Jobs jetzt gemeldet werden? (max. 1x pro Tag)"""
+    heute = time.strftime("%Y-%m-%d")
+    if job.get("fehler_gemeldet") == heute:
+        return False
+    job["fehler_gemeldet"] = heute
+    return True
 
 
 # Ehrliches ok (Audit-Fund 26.07.): frueher hiess ok=True nur "act() hat nicht
@@ -361,6 +369,7 @@ def _job_zurueckschreiben(job: dict) -> None:
 def run_due(now: float | None = None) -> list[dict]:
     now = now or time.time()
     ran = []
+    verpasst: list[tuple[str, float]] = []
     for j in _load():
         if not (j.get("enabled") and j.get("next_run", 0) <= now):
             continue
@@ -374,6 +383,7 @@ def run_due(now: float | None = None) -> list[dict]:
             events.emit("cron_missed", {"label": j["label"],
                                         "overdue_h": round(overdue / 3600, 1)})
             _job_zurueckschreiben(j)
+            verpasst.append((j["label"], j["next_run"]))
             continue
         # Termin SOFORT weiterdrehen (vor act!): stirbt der Prozess mitten im Lauf,
         # laeuft der Job nach dem Neustart nicht ein zweites Mal (22.07.: Morgen-
@@ -383,7 +393,25 @@ def run_due(now: float | None = None) -> list[dict]:
         res = run_job(j)
         _job_zurueckschreiben(j)      # Ergebnis/last_run frisch drueberlegen
         ran.append({"label": j["label"], **res})
+    if verpasst:
+        _melde_verpasste(verpasst)
     return ran
+
+
+def _melde_verpasste(verpasst: list[tuple[str, float]]) -> None:
+    """EINE Sammelnachricht ueber ausgefallene Termine.
+
+    Bis 27.07. wurde ein verpasster Job nur ins Protokoll geschrieben (66 Ereignisse
+    in der Live-DB, alle sechs Tagesjobs betroffen) — der Nutzer erfuhr nie, dass sein
+    Morgen-Briefing ausgefallen war. Aus seiner Sicht 'funktionieren die Crons nicht'."""
+    zeilen = []
+    for label, next_run in verpasst:
+        wann = dt.datetime.fromtimestamp(next_run).strftime("%d.%m. um %H:%M")
+        zeilen.append(f"• {label} — naechster Termin: {wann}")
+    was = "ist ein Termin" if len(verpasst) == 1 else f"sind {len(verpasst)} Termine"
+    _notify(f"⏰ Waehrend der Rechner aus war, {was} ausgefallen:\n"
+            + "\n".join(zeilen)
+            + "\n\nIch hole sie NICHT nach — sonst kaemen sie zur falschen Zeit.")
 
 
 def run_now(jid: str) -> dict:
