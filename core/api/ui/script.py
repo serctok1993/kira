@@ -739,6 +739,11 @@ async function loadInbox(){const el=$("#inbox-list");if(!el)return;
    const row=b.closest(".memrow");row.querySelectorAll("button").forEach(x=>x.disabled=true);b.textContent="…";
    try{const r=await fetch("/api/approvals/decide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:id,approved:approved})});
     if(!r.ok&&r.status!==409){row.querySelectorAll("button").forEach(x=>x.disabled=false);b.textContent=label;}
+    else if(approved){/* Vollzug zeigen: eine Freigabe ist nicht dasselbe wie ein Versand */
+     const d=await r.json().catch(()=>({}));
+     if(d.vollzug==="failed")toast("Freigegeben — Versand FEHLGESCHLAGEN: "+((d.applied||{}).error||"unbekannt"),"err");
+     else if(d.vollzug==="sent")toast("Freigegeben und raus","ok");
+     else if(d.vollzug==="none")toast("Freigegeben — laeuft nicht automatisch");}
    }catch(e){row.querySelectorAll("button").forEach(x=>x.disabled=false);b.textContent=label;}
    loadInbox();loadDigest();};
   $$('#inbox-list [data-appr]').forEach(b=>b.onclick=()=>decideOnce(b,b.dataset.appr,true,"✓ Freigeben"));

@@ -567,14 +567,35 @@ def remember_fact(fact: str) -> str:
       "Lege eine Aussen-Aktion / oeffentliche oder irreversible Handlung (Post, Mail, "
       "Veroeffentlichung) oder einen fertigen Entwurf zur FREIGABE vor. Sie wird NICHT "
       "sofort ausgefuehrt, sondern wartet in {{USER_NAME_S}} Freigabe-Inbox auf sein GO. Nutze "
-      "das IMMER, bevor etwas nach aussen geht.",
+      "das IMMER, bevor etwas nach aussen geht. Bei MAILS gehoert in 'detail' reines JSON "
+      '{"to": "...", "subject": "...", "body": "..."} — nur so kann die Freigabe die Mail '
+      "wirklich verschicken; freier Text bleibt ein Entwurf, den {{USER_NAME}} selbst senden muss.",
       {"title": "kurze Bezeichnung, z.B. 'Blogartikel posten'",
-       "detail": "der Entwurf / Volltext / was genau passieren soll",
-       "kind": "publish | external | email | generic (Standard: generic)"})
+       "detail": "bei Mails/Posts das JSON-Payload, sonst der Entwurf im Volltext",
+       "kind": "email_stranger | publish | external | generic (Standard: generic)"})
 def request_approval(title: str, detail: str = "", kind: str = "generic") -> str:
+    import json as _json
+
     from core.agency import approvals
 
     aid = approvals.create(title, kind=kind, detail=detail, source="kira")
+    art = approvals.get(aid).get("kind")
+    # Ehrliche Zusage (Audit-Fund 27.07.): frueher hiess es IMMER "ich fuehre es aus" —
+    # auch wenn das detail-Feld gar kein sendbares Payload trug. Die Akquise-Mail vom
+    # 05.07. lag als Markdown drin, wurde freigegeben und ging nie raus. Kann der
+    # Harness den Vollzug nicht garantieren, sagt er es JETZT statt es zu versprechen.
+    if art in ("email_stranger", "publish"):
+        try:
+            nutzlast = _json.loads((detail or "").strip())
+            vollziehbar = isinstance(nutzlast, dict) and bool(
+                nutzlast.get("to") or nutzlast.get("text") or nutzlast.get("platform"))
+        except Exception:  # noqa: BLE001
+            vollziehbar = False
+        if not vollziehbar:
+            return (f"Als ENTWURF vorgelegt: '{title}' (id {aid[:8]}). Achtung: im detail steht "
+                    "kein sendbares JSON, deshalb kann die Freigabe es NICHT selbst verschicken "
+                    f'— {_id.user_name()} muesste es von Hand tun. Fuer echten Versand nochmal '
+                    'mit detail={"to": "...", "subject": "...", "body": "..."} vorlegen.')
     return (f"Zur Freigabe vorgelegt: '{title}'. Ich fuehre es aus, sobald {_id.user_name()} es in der "
             f"Inbox freigibt (id {aid[:8]}). Bis dahin geht nichts nach aussen.")
 

@@ -67,10 +67,19 @@ def created_today(source: str = "kira") -> int:
     return int(r[0] if r else 0)
 
 
+# Alias-Normalisierung (Audit-Fund 27.07.): 'email' war eine erlaubte Art OHNE
+# Ausfuehrungs-Zweig in decide() — eine so freigegebene Mail wurde NIE gesendet, und
+# das Ereignis meldete trotzdem Erfolg. Ein Live-Eintrag steckt genau so fest
+# (Akquise-Mail, Status approved, nie zugestellt). Beides meint dasselbe: eine Mail,
+# die an Fremde geht und deshalb eine Freigabe braucht.
+_KIND_ALIAS = {"email": "email_stranger"}
+
+
 def create(title: str, kind: str = "generic", detail: str | None = None,
            ref: str | None = None, source: str = "kira") -> str:
     init_approvals()
     aid = uuid.uuid4().hex
+    kind = _KIND_ALIAS.get(kind, kind)
     kind = kind if kind in KINDS else "generic"
     with _conn() as c:
         c.execute(
@@ -122,6 +131,20 @@ def get(aid: str) -> dict | None:
     return _row(r) if r else None
 
 
+def _vollzug(applied: dict | None) -> str:
+    """'sent' | 'failed' | 'none' — was ist bei der Freigabe WIRKLICH passiert?
+
+    Ein Wahrheitswert reicht hier nicht: ein Fehlschlag-Dict ist truthy und sah
+    deshalb aus wie Erfolg. Die Oberflaechen zeigen diesen String direkt an."""
+    if not isinstance(applied, dict) or not applied:
+        return "none"
+    if applied.get("error") or applied.get("email_sent") is False or applied.get("posted") is False:
+        return "failed"
+    if applied.get("hint"):          # money/external: Freigabe allein tut nichts
+        return "none"
+    return "sent"
+
+
 def decide(aid: str, approved: bool, note: str | None = None) -> dict:
     """Freigeben oder ablehnen. Fuer 'evolution'-Eintraege wird bei Freigabe der
     hinterlegte SOUL/GOAL-Vorschlag automatisch angewendet (Backup + Guard laufen dort).
@@ -151,7 +174,7 @@ def decide(aid: str, approved: bool, note: str | None = None) -> dict:
             applied = playbooks.promote(entry["ref"])
         except Exception as e:  # noqa: BLE001
             applied = {"error": str(e)}
-    if approved and entry.get("kind") == "email_stranger":
+    if approved and entry.get("kind") in ("email_stranger", "email"):   # 'email' = Alt-Alias
         # Audit-Fund: Freigabe war frueher ein No-Op — die Mail wurde NIE gesendet
         # (gate.guarded verwirft die execute-Lambda). Das Payload steckt komplett im
         # detail-JSON (mail_tools.email_send/email_reply) -> hier deterministisch
@@ -184,6 +207,12 @@ def decide(aid: str, approved: bool, note: str | None = None) -> dict:
         # Payload — die Aktion passiert durch die Freigabe allein NICHT.
         applied = {"hint": "Aktion wird nicht automatisch ausgefuehrt — Kira muss sie "
                            "nach der Freigabe erneut anstossen."}
+    # Ehrlicher Vollzugs-Status (Audit-Fund 27.07.): frueher stand hier bool(applied) —
+    # und bool({"email_sent": False, "error": ...}) ist TRUE. Ein gescheiterter Versand
+    # wurde also als Erfolg protokolliert, und beide Oberflaechen lasen das Feld nie.
+    vollzug = _vollzug(applied)
     events.emit("approval_decided", {"id": aid, "status": status, "kind": entry.get("kind"),
-                                     "title": (entry.get("title") or "")[:160], "applied": bool(applied)})
-    return {"ok": True, "status": status, "applied": applied}
+                                     "title": (entry.get("title") or "")[:160],
+                                     "applied": vollzug,
+                                     "error": (applied or {}).get("error") if isinstance(applied, dict) else None})
+    return {"ok": True, "status": status, "applied": applied, "vollzug": vollzug}

@@ -1258,7 +1258,17 @@ def _handle_callback(client: httpx.Client, cq: dict) -> None:
     from core.agency import approvals
     res = approvals.decide(aid, approved, note="via Telegram-Button")
     if res.get("ok"):
-        toast = "✅ Freigegeben" if approved else "❌ Abgelehnt"
+        # Vollzug ANZEIGEN (Audit-Fund 27.07.): frueher meldete der Knopf "Freigegeben",
+        # auch wenn der Versand danach scheiterte — der Nutzer hielt die Mail fuer raus.
+        vollzug = res.get("vollzug")
+        if not approved:
+            toast = "❌ Abgelehnt"
+        elif vollzug == "sent":
+            toast = "✅ Freigegeben und raus"
+        elif vollzug == "failed":
+            toast = "⚠ Freigegeben, Versand FEHLGESCHLAGEN"
+        else:
+            toast = "✅ Freigegeben (nicht automatisch ausgefuehrt)"
     elif res.get("error") == "already decided":
         toast = "Schon entschieden"
     else:
