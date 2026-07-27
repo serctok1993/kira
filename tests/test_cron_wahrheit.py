@@ -94,7 +94,12 @@ def test_leerer_lauf_wird_nicht_als_erfolg_gebucht(tmp_path, monkeypatch):
 
     res = cron.run_due(now=time.time())
     assert res and res[0]["ok"] is False
-    assert not gesendet, "leerer Lauf wurde trotzdem zugestellt"
+    # Nachbesserung 27.07.: kein ERFOLG melden (das war der Fix hier) — aber auch nicht
+    # schweigen. Vorher war ein ausgefallenes Briefing fuer den Nutzer nicht von einem
+    # nie geplanten zu unterscheiden; jetzt kommt eine ehrliche Absage.
+    assert len(gesendet) == 1
+    assert "konnte ich nicht fertigstellen" in gesendet[0]
+    assert "leere Antwort" in gesendet[0]
     gespeichert = json.loads(pfad.read_text(encoding="utf-8"))[0]["runs"][-1]
     assert gespeichert["ok"] is False and "leere" in gespeichert["summary"]
 

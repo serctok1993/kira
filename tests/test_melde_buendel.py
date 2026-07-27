@@ -68,8 +68,19 @@ def _wire(monkeypatch, mode):
                         lambda: {"notify_telegram": True, "notify_mode": mode})
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "test-token")
     monkeypatch.setitem(CONFIG, "channels", {"telegram": {"allowed_chat_id": 5}})
-    monkeypatch.setattr(httpx, "post",
-                        lambda url, json=None, timeout=None: posts.append(json["text"]))
+    class _Antwort:
+        """Seit 27.07. wertet der Zusteller die Telegram-Antwort aus — der Mock muss
+        also eine liefern, sonst gilt der Versand (zu Recht) als fehlgeschlagen."""
+
+        @staticmethod
+        def json():
+            return {"ok": True}
+
+    def _post(url, json=None, timeout=None):
+        posts.append(json["text"])
+        return _Antwort()
+
+    monkeypatch.setattr(httpx, "post", _post)
     monkeypatch.setattr(melde, "merken", lambda z: puffer.append(z))
     return posts, puffer
 
@@ -115,7 +126,9 @@ def test_maybe_melde_buendel_ein_sammelpost(monkeypatch, tmp_path):
     monkeypatch.setattr(tb, "_send", lambda c, ch, txt, *a, **k: sent.append(txt))
     tb._maybe_melde_buendel(object())
     assert len(sent) == 1                                   # EIN Post, keine Flut
-    assert "Missions-Bündel" in sent[0] and "(2 Schritte)" in sent[0]
+    # "Missions-Bündel" war Systemsprache, und der Kopf zaehlte alle Zeilen, obwohl nur
+    # die letzten 15 darunter standen (Fund 27.07.) — jetzt zaehlt er das Gezeigte.
+    assert "erledigt" in sent[0] and "(2)" in sent[0]
     assert "• ✅ Fallstudie GatherUp" in sent[0]
     assert "• 🔧 Selbst-Optimierung: Retry-Logik" in sent[0]
     assert "/tagewerk" in sent[0]                           # Verweis auf Details
