@@ -248,7 +248,9 @@ def api_autonomy() -> dict:
     return {"chains_off": bool(d.get("chains_off", True)),
             "hard_gate": list(d.get("hard_gate", [])),
             "council_gate": list(council) if isinstance(council, (list, tuple)) else ["money"],
-            "kinds": ["money", "email_stranger", "publish", "external", "email"]}
+            # 'email' war ein Alias ohne Vollzugs-Zweig (Audit 27.07.) — nicht mehr
+            # anbieten; approvals.create nimmt Alt-Aufrufe weiter als email_stranger an.
+            "kinds": ["money", "email_stranger", "publish", "external"]}
 
 
 @app.post("/api/autonomy")
@@ -1529,7 +1531,10 @@ async def api_approvals_decide(body: dict) -> dict:
                 pass
             events.emit("approval_decided", {"id": aid, "status": "rejected", "kind": "evolution"})
             return {"ok": True, "status": "rejected"}
-    res = approvals.decide(aid, approved, note)
+    # decide() sendet Mails / postet -> gehoert NIE synchron in den Event-Loop
+    # (Audit-Fund 27.07.: elf Zeilen weiter oben wird korrekt ausgelagert, hier nicht.
+    # Heute nur latent, weil SMTP aus ist; beim ersten Mail-Setup friert das Cockpit ein).
+    res = await anyio.to_thread.run_sync(lambda: approvals.decide(aid, approved, note))
     if not res.get("ok") and res.get("error") == "already decided":
         return JSONResponse(res, status_code=409)
     return res
