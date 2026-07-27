@@ -88,7 +88,10 @@ def test_objective_add_tool(monkeypatch, tmp_path):
     _use_tmp_db(monkeypatch, tmp_path)
     out = life_tools.objective_add("10k mit Ventures verdienen", kind="big",
                                    domain="leben", target_date="2026-12-31")
-    assert "leben/big" in out and "2026-12-31" in out
+    # Die Domaene steht nicht mehr in der Antwort: 'business' wird seit W1 von niemandem
+    # abgearbeitet, deshalb landet jedes Ziel im Board — und die Antwort sagt das jetzt.
+    assert "[big]" in out and "2026-12-31" in out
+    assert "nicht von selbst abgearbeitet" in out
     assert len(objectives.list_active(domain="leben")) == 1
 
 

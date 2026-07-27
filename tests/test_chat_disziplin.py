@@ -115,7 +115,9 @@ def test_claim_stamp_fehlende_datei(monkeypatch, tmp_path):
     monkeypatch.setenv("HOME", str(tmp_path))  # leeres Zuhause -> Datei existiert nicht
     monkeypatch.setenv("USERPROFILE", str(tmp_path))  # Windows: expanduser nutzt USERPROFILE
     out = act._claim_stamp(text, session_id="s")
-    assert "BEWEISPFLICHT" in out
+    # Seit 27.07. spricht der Stempel den Nutzer an statt das Modell ("erledige es
+    # wirklich" war eine Anweisung an Kira, die der Nutzer als Vorwurf las).
+    assert "Nachgeprüft" in out and "nicht gedeckt" in out
     assert "claim_check_failed" in [e["type"] for e in events.recent(10)]
 
 

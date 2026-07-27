@@ -1119,7 +1119,10 @@ async def api_objectives_add(body: dict) -> dict:
                          parent_id=body.get("parent_id") or None,
                          target_date=body.get("target_date") or None,
                          notes=body.get("notes") or None,
-                         domain=body.get("domain") or "business")
+                         # Default war 'business' — eine Domaene, die seit W1 niemand mehr
+                         # abarbeitet (runner.py:425 haengt keine Tasks mehr an Ziele). Ueber
+                         # das Cockpit angelegte Ziele landeten damit als Karteileichen.
+                         domain=body.get("domain") or "leben")
     events.emit("objective_add", {"id": oid, "title": title, "kind": body.get("kind", "weekly"), "via": "dashboard"})
     return {"ok": True, "id": oid}
 
