@@ -197,6 +197,48 @@ _BEGINNT_MIT_AUFRUF = re.compile(r"^\s*(?:```[a-z]*\s*)?ACT\s+[a-zA-Z_]\w*", re.
 _MIN_ANTWORT = 40
 _RESTE_MARKE = " "
 
+# Fuer die BEREINIGUNG (nicht fuers Ausfuehren) gilt ein lockereres Muster: das
+# Leerzeichen darf fehlen. Live steht in einer zugestellten Nachricht woertlich
+# "ACTremember_fact {...}" — _ACT_RE verlangt ACT\s+ und sah den Aufruf gar nicht,
+# also blieb er samt privater Daten im Text stehen. Der Werkzeugname ist immer
+# klein geschrieben; das [a-z_] verhindert, dass ein Wort wie "ACTION {" mitgeht.
+_ACT_LOCKER = re.compile(r"ACT\s*([a-z_]\w*)\s*\{")
+
+# Ein Aufruf, der eine eigene ZEILE beginnt, ist liegengebliebenes Innenleben.
+# Einer mitten im Satz ist ein Beispiel in einer Erklaerung ("ein textbasiertes
+# `ACT tool {json}`-Format") und gehoert zur Antwort.
+#
+# Dieses Merkmal ist die Lehre aus drei Pruefrunden ueber derselben Stelle: erst
+# wurde zu wenig gefiltert (4 von 11 Leaks), dann zu viel (14, darunter drei
+# richtige Antworten von bis zu 4434 Zeichen), dann wieder zu wenig. Weder "beginnt
+# mit dem Aufruf" noch "endet damit" noch die Klammerbilanz trifft die Sache — die
+# Zeile tut es.
+_AUFRUF_ZEILENANFANG = re.compile(r"^[\s`*\-–•>]*ACT\s*[a-z_]\w*\s*[\{(]?\s*$|"
+                                  r"^[\s`*\-–•>]*ACT\s*[a-z_]\w*\s*\{", re.MULTILINE)
+
+
+def _aufruf_ende(t: str, klammer: int) -> int:
+    """Index HINTER der schliessenden Klammer eines Aufrufs; -1, wenn er nie schliesst.
+
+    Klammern zaehlen, nicht die erste beste nehmen: die Nutzlast enthaelt oft selbst
+    geschweifte Klammern. Bei
+
+        ACT run_command {"command": "powershell -c "Get-Process |
+                         Where-Object {$_.ProcessName -match 'python'} | …"}
+
+    ist die erste schliessende Klammer die von Where-Object — wer dort abschneidet,
+    haelt den REST DES JSON faelschlich fuer Prosa und laesst den Leak durch. Genau so
+    gingen zwei echte Live-Leaks (454 und 495 Zeichen) wieder an den Nutzer raus."""
+    tiefe = 0
+    for i in range(klammer, len(t)):
+        if t[i] == "{":
+            tiefe += 1
+        elif t[i] == "}":
+            tiefe -= 1
+            if tiefe == 0:
+                return i + 1
+    return -1
+
 
 def _endet_mit_aufruf(text: str) -> bool:
     """Steht am ENDE des Textes ein Aufruf, dem nichts Nennenswertes mehr folgt?
@@ -211,13 +253,13 @@ def _endet_mit_aufruf(text: str) -> bool:
     Eine Erklaerung sieht anders aus: dort geht der Text nach dem Beispiel weiter."""
     t = (text or "").strip()
     letzte_ende = -1
-    for m in _ACT_RE.finditer(t):
+    for m in _ACT_LOCKER.finditer(t):
         try:
             _, ende = json.JSONDecoder(strict=False).raw_decode(t[m.end() - 1:])
             letzte_ende = max(letzte_ende, m.end() - 1 + ende)
         except json.JSONDecodeError:
-            zu = t.find("}", m.end() - 1)
-            letzte_ende = max(letzte_ende, (zu + 1) if zu >= 0 else len(t))
+            zu = _aufruf_ende(t, m.end() - 1)
+            letzte_ende = max(letzte_ende, zu if zu >= 0 else len(t))
     for m in _ACT_OHNE_ARGS_RE.finditer(t):
         letzte_ende = max(letzte_ende, m.end())
     if letzte_ende < 0:
@@ -252,18 +294,21 @@ def _werkzeugreste(text: str) -> tuple[str, int, bool]:
         return "", 0, False
     rest, n = t, 0
     for _ in range(50):
-        m = _ACT_RE.search(rest)
+        m = _ACT_LOCKER.search(rest)
         if not m:
             break
         try:
             _, ende = json.JSONDecoder(strict=False).raw_decode(rest[m.end() - 1:])
         except json.JSONDecodeError:
-            zu = rest.find("}", m.end() - 1)
-            danach = rest[zu + 1:] if zu >= 0 else ""
+            zu = _aufruf_ende(rest, m.end() - 1)
+            danach = rest[zu:] if zu >= 0 else ""
             if len(danach.strip(" \t\n`{}\"'.,:;-")) < _MIN_ANTWORT:
                 return rest, n, True          # der Aufruf war das Letzte -> Zug unfertig
             # Sonst: Prosa, die einen Aufruf zeigt. Herausschneiden und weitersuchen.
+            # n MUSS mitzaehlen: _brauchbare_antwort schneidet nur, wenn n > 0 — sonst
+            # wurde der bereinigte Text zwar berechnet, aber nie benutzt.
             rest = rest[:m.start()] + _RESTE_MARKE + danach
+            n += 1
             continue
         rest = rest[:m.start()] + _RESTE_MARKE + rest[m.end() - 1 + ende:]
         n += 1
@@ -325,10 +370,13 @@ def _brauchbare_antwort(text: str, messages: list[dict], system: str, session_id
         # Aufrufe vor einer echten Antwort: nur das Innenleben entfernen. Der Aufruf
         # ist ohnehin nicht gelaufen — ihn dem Partner zu zeigen bringt niemandem etwas.
         rest, n, angefangen = _werkzeugreste(t)
-        # Am Anfang ODER am Ende: beides sind liegengebliebene Aufrufe. In der Mitte,
-        # mit Text davor UND danach, ist es eine Erklaerung — die behaelt ihr Beispiel.
+        # Steht ein Aufruf am Anfang einer ZEILE, ist er Innenleben; steht er mitten
+        # im Satz, ist er ein Beispiel und gehoert zur Antwort. Die Anker "beginnt
+        # mit" und "endet mit" reichten beide nicht: eine zugestellte Nachricht hatte
+        # drei rohe remember_fact-Aufrufe in der MITTE und 2156 Zeichen echte Antwort
+        # darunter — sie ging komplett unveraendert raus.
         if n and not angefangen and rest != t and len(rest) >= _MIN_ANTWORT \
-                and (_BEGINNT_MIT_AUFRUF.match(t) or _endet_mit_aufruf(t)):
+                and _AUFRUF_ZEILENANFANG.search(t):
             events.emit("werkzeugreste_entfernt", {"aufrufe": n, "task_type": task_type},
                         session_id=session_id)
             return rest
