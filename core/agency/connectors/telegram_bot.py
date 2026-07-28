@@ -80,6 +80,55 @@ def _tg_html(text: str) -> str:
     return t
 
 
+_TG_LIMIT = 4096          # Telegrams harte Grenze pro Nachricht
+_TG_ZIEL = 3600           # Zielgroesse eines Stuecks NACH der HTML-Umwandlung
+
+
+def _stuecke(text: str, html: bool = True) -> list[str]:
+    """Text in sendbare Stuecke teilen — gemessen an der KONVERTIERTEN Laenge.
+
+    Frueher wurde der Rohtext hart bei 3800 Zeichen geschnitten und erst danach nach
+    HTML umgewandelt. Das Escaping macht ihn aber laenger (& -> &amp;), und schon ab
+    rund 2 % Sonderzeichen reisst ein Stueck die 4096er-Grenze: Telegram lehnt es ab,
+    der Notfall-Versand schickt es unformatiert nach. Bei Texten mit Codebloecken,
+    Pfaden oder Vergleichen — Kiras Alltag — sind 5 bis 10 % normal (Befund 28.07.).
+
+    Geschnitten wird ausserdem an Absatz-, Zeilen- oder Satzgrenzen statt mitten im
+    Wort, damit aus einer langen Antwort lesbare Haelften werden statt Bruchstuecken."""
+    text = (text or "").strip()
+    if not text:
+        return []
+    laenge = (lambda s: len(_tg_html(s))) if html else len
+    if laenge(text) <= _TG_LIMIT:
+        return [text]
+
+    out: list[str] = []
+    rest = text
+    while rest:
+        if laenge(rest) <= _TG_LIMIT:
+            out.append(rest)
+            break
+        # groesster Rohtext-Vorschub, dessen konvertierte Fassung noch passt
+        hoch, tief = len(rest), 1
+        while tief < hoch:
+            mitte = (tief + hoch + 1) // 2
+            if laenge(rest[:mitte]) <= _TG_ZIEL:
+                tief = mitte
+            else:
+                hoch = mitte - 1
+        schnitt = tief
+        # ... und von dort zurueck bis zu einer natuerlichen Grenze
+        fenster = rest[:schnitt]
+        for trenner in ("\n\n", "\n", ". ", " "):
+            pos = fenster.rfind(trenner)
+            if pos > schnitt // 3:          # nicht das halbe Stueck wegwerfen
+                schnitt = pos + len(trenner)
+                break
+        out.append(rest[:schnitt].rstrip())
+        rest = rest[schnitt:].lstrip()
+    return [s for s in out if s]
+
+
 def _send(client: httpx.Client, chat_id: int, text: str, html: bool = True,
           effect_id: str | None = None) -> bool | None:
     """Nachricht zustellen — dreiwertig (siehe core/kernel/zustellung.an_nutzer):
@@ -97,8 +146,7 @@ def _send(client: httpx.Client, chat_id: int, text: str, html: bool = True,
     client = _ctrl()  # Steuer-Plane immer ueber den dedizierten Kurz-Timeout-Client
     text = text or "…"
     ergebnis: bool | None = True
-    for i in range(0, len(text), 3800):
-        chunk = text[i : i + 3800]
+    for i, chunk in enumerate(_stuecke(text, html)):
         payload = {"chat_id": chat_id, "text": _tg_html(chunk) if html else chunk}
         if html:
             payload["parse_mode"] = "HTML"
@@ -1148,6 +1196,11 @@ def _handle_command(client: httpx.Client, chat_id: int, text: str) -> None:
 
 # --- Nebenlaeufigkeit: pro Chat genau EINE aktive Aufgabe + kurze Warteschlange (kein Thread-Stau) ---
 _chat_busy: dict[int, bool] = {}
+# Platz fuer wartende Nachrichten. Frueher 3 — bei einem langsamen lokalen Modell ist
+# das nach zwei Rueckfragen voll, und jede weitere verdraengte die aelteste lautlos.
+# Der Deckel bleibt (kein unbegrenztes Wachstum), aber er ist jetzt alltagstauglich,
+# und ein Ueberlauf wird dem Nutzer gesagt statt verschwiegen.
+_QUEUE_MAX = 10
 _chat_queue: dict[int, deque] = {}
 _chat_lock = threading.Lock()
 
@@ -1402,19 +1455,34 @@ def _dispatch(client: httpx.Client, update: dict) -> None:
     if not msg:
         return
     chat_id = msg["chat"]["id"]
+    verdraengt = None
     with _chat_lock:
         if _chat_busy.get(chat_id):
-            _chat_queue.setdefault(chat_id, deque(maxlen=3)).append(update)
-            busy = True
+            q = _chat_queue.setdefault(chat_id, deque(maxlen=_QUEUE_MAX))
+            if len(q) == q.maxlen:
+                verdraengt = q[0]      # faellt gleich hinten raus — wir muessen es sagen
+            q.append(update)
+            wartend, busy = len(q), True
         else:
             _chat_busy[chat_id] = True
-            busy = False
+            wartend, busy = 0, False
     if busy:
-        try:
-            client.post(f"{API}/sendMessage",
-                        json={"chat_id": chat_id, "text": "⏳ Bin noch an der vorigen Aufgabe — ich nehm das gleich mit. 💜"})
-        except Exception:
-            pass
+        # Die Warteschlange fasste nur DREI Nachrichten, und die vierte verdraengte die
+        # aelteste STILLSCHWEIGEND — obwohl Kira gerade "nehm ich gleich mit" versprochen
+        # hatte (Befund 28.07.). Kleine Modelle brauchen laenger pro Zug, stauen also
+        # mehr an und verlieren dadurch systematisch mehr Nachrichten als grosse.
+        if verdraengt:
+            alt = ((verdraengt.get("message") or verdraengt.get("edited_message") or {})
+                   .get("text") or "(ohne Text)")
+            events.emit("chat_queue_ueberlauf", {"chat_id": chat_id, "verworfen": alt[:200]})
+            _send(client, chat_id,
+                  "⚠️ Ich komme gerade nicht hinterher. DIESE Nachricht habe ich <b>nicht</b> "
+                  f"bearbeitet:\n„{_esc(alt[:200])}“\nSchick sie mir nochmal, wenn sie noch "
+                  "aktuell ist.")
+        else:
+            wieviel = "" if wartend <= 1 else f" ({wartend} warten)"
+            _send(client, chat_id,
+                  f"⏳ Bin noch an der vorigen Aufgabe — ich nehm das gleich mit{wieviel}. 💜")
         return
     threading.Thread(target=_worker, args=(client, chat_id, update), daemon=True).start()
 

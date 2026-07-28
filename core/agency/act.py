@@ -665,6 +665,51 @@ def _edit_fail_clear(session_id: str | None) -> None:
     _EDIT_FAIL.pop(session_id or "_", None)
 
 
+def _falsche_argumente(name: str, tool, args: dict) -> str:
+    """Lehrfehler bei unbekannten/fehlenden Argumenten — oder "" wenn der Aufruf passt.
+
+    Rund 60 der 80 Werkzeuge nahmen bis 27.07. kein **falsche_args entgegen: ein
+    falscher Argumentname warf einen rohen TypeError. Der lief durch drei Executor-
+    Versuche mit Backoff (~3 s verschenkt), und nach dreimal sperrte der Circuit-Breaker
+    das Werkzeug fuer 60 Sekunden — wegen eines Tippfehlers, der deterministisch ist und
+    beim vierten Versuch genauso scheitert. Das Modell bekam dabei nie zu lesen, WELCHE
+    Argumente richtig gewesen waeren.
+
+    Werkzeuge mit **kwargs behandeln den Fall selbst (spezifischer, oft mit passendem
+    Beispiel) — die ueberspringt diese Wache."""
+    try:
+        import inspect
+
+        sig = inspect.signature(tool.func)
+        if any(p.kind is p.VAR_KEYWORD for p in sig.parameters.values()):
+            return ""       # das Werkzeug lehrt selbst
+        erlaubt = {n for n, p in sig.parameters.items() if p.kind is not p.VAR_POSITIONAL}
+        unbekannt = sorted(k for k in args if k not in erlaubt)
+        fehlend = sorted(
+            n for n, p in sig.parameters.items()
+            if p.default is p.empty
+            and p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)
+            and n not in args)
+        if not (unbekannt or fehlend):
+            return ""
+        nimmt = ", ".join(tool.params) or ", ".join(sorted(erlaubt)) or "keine Argumente"
+        # Beispiel nur mit den PFLICHT-Argumenten (gleiche Heuristik wie tool_schemas):
+        # ein Beispiel mit allen Optionalen lehrt das Modell, sie immer mitzuschicken.
+        pflicht = [k for k, v in (tool.params or {}).items()
+                   if "optional" not in v.lower() and "standard" not in v.lower()]
+        beispiel = json.dumps({k: "…" for k in (pflicht or list(tool.params or {}))},
+                              ensure_ascii=False)
+        teile = []
+        if unbekannt:
+            teile.append(f"kennt {', '.join(unbekannt)} nicht")
+        if fehlend:
+            teile.append(f"braucht {', '.join(fehlend)}")
+        return (f"Fehler: {name} {' und '.join(teile)}. Erlaubt sind: {nimmt}. "
+                f"Beispiel: ACT {name} {beispiel}")
+    except Exception:  # noqa: BLE001 — die Wache darf einen Aufruf nie verhindern
+        return ""
+
+
 def _run_tool_guarded(name: str, tool, args: dict, session_id: str | None) -> str:
     """Zentraler Werkzeug-Runner aller Loops: Guard davor, Buchhaltung danach.
     W2: {{AGENT_NAME}}/{{USER_NAME}}-Platzhalter in Werkzeug-AUSGABEN werden hier
@@ -672,6 +717,11 @@ def _run_tool_guarded(name: str, tool, args: dict, session_id: str | None) -> st
     block = _rbe_block(session_id, name, args)
     if block:
         return block
+    argfehler = _falsche_argumente(name, tool, args)
+    if argfehler:
+        events.emit("tool_args_falsch", {"tool": name, "args": sorted(args)},
+                    session_id=session_id)
+        return argfehler
     obs = str(executor.run_tool(name, tool.func, **args))
     if "{{" in obs:
         from core import identity as _ident

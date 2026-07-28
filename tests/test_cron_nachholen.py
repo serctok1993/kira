@@ -50,12 +50,20 @@ class TestNachholbar:
         assert cron.nachholbar(j2) is False
 
 
+# Bezugszeit fuer alle Lauf-Tests: MITTAGS. Sonst haengt das Ergebnis an der echten
+# Uhrzeit — "vor 4 Stunden" faellt nachts um 01:00 auf den Vortag, und dann ist der
+# Termin zu Recht nicht mehr nachholbar. Der Test war damit zwischen 0 und 4 Uhr rot.
+def _mittags(tage_zurueck: float = 0) -> float:
+    heute = dt.datetime.now().replace(hour=12, minute=0, second=0, microsecond=0)
+    return (heute - dt.timedelta(days=tage_zurueck)).timestamp()
+
+
 class TestNachholenImLauf:
     def _faellig_vor(self, crons, stunden: float, label="Morgen-Briefing",
-                     prompt="Erstelle ein Briefing."):
+                     prompt="Erstelle ein Briefing.", jetzt: float | None = None):
         crons.add_job(label, prompt, "08:00")
         jobs = crons._load()
-        jobs[-1]["next_run"] = time.time() - stunden * 3600
+        jobs[-1]["next_run"] = (jetzt or _mittags()) - stunden * 3600
         crons._save(jobs)
         return jobs[-1]
 
@@ -66,7 +74,7 @@ class TestNachholenImLauf:
                             lambda j, notify=True, verspaetet_min=0:
                             gelaufen.append(f"LAUF:{verspaetet_min}") or {"ok": True, "summary": ""})
         self._faellig_vor(crons, 4)     # heute frueh, 4 h her
-        res = crons.run_due()
+        res = crons.run_due(now=_mittags())
         assert any(g.startswith("LAUF:") for g in gelaufen), "wurde nicht nachgeholt"
         assert res and res[0].get("nachgeholt") is True
         # der Lauf weiss, dass er verspaetet ist
@@ -79,7 +87,7 @@ class TestNachholenImLauf:
                             lambda j, notify=True, verspaetet_min=0: pytest.fail("darf nicht laufen"))
         self._faellig_vor(crons, 5, label="Sunrise Schlafzimmer",
                           prompt="python core/tools/sunrise_hue.py 06:00")
-        crons.run_due()
+        crons.run_due(now=_mittags())
         assert gemeldet and "ausgefallen" in gemeldet[0]
 
     def test_termin_von_gestern_wird_nicht_nachgeholt(self, crons, monkeypatch):
@@ -89,7 +97,7 @@ class TestNachholenImLauf:
         monkeypatch.setattr(crons, "run_job",
                             lambda j, notify=True, verspaetet_min=0: pytest.fail("darf nicht laufen"))
         self._faellig_vor(crons, 30)    # gestern
-        crons.run_due()
+        crons.run_due(now=_mittags())
         assert gemeldet and "ausgefallen" in gemeldet[0]
 
     def test_hoechstens_zwei_nachholungen_pro_durchlauf(self, crons, monkeypatch):
@@ -100,7 +108,7 @@ class TestNachholenImLauf:
                             laeufe.append(j["label"]) or {"ok": True, "summary": ""})
         for i in range(4):
             self._faellig_vor(crons, 3, label=f"Briefing {i}", prompt="News lesen.")
-        crons.run_due()
+        crons.run_due(now=_mittags())
         assert len(laeufe) == crons.MAX_NACHHOLEN, laeufe
 
     def test_puenktlicher_job_laeuft_ohne_verspaetungs_hinweis(self, crons, monkeypatch):
@@ -109,7 +117,7 @@ class TestNachholenImLauf:
                             lambda j, notify=True, verspaetet_min=0:
                             gesehen.append(verspaetet_min) or {"ok": True, "summary": ""})
         self._faellig_vor(crons, 0.2)   # 12 Minuten, innerhalb der Karenz
-        crons.run_due()
+        crons.run_due(now=_mittags())
         assert gesehen == [0]
 
     def test_nachgeholter_lauf_bekommt_den_hinweis_in_den_prompt(self, crons, monkeypatch):
@@ -142,9 +150,9 @@ class TestKeineRegression:
                             laeufe.append(f"{j['label']}:{verspaetet_min}") or {"ok": True, "summary": ""})
         crons.add_job("Puls", "Kurzer Check.", "30m")
         jobs = crons._load()
-        jobs[-1]["next_run"] = time.time() - 20 * 3600
+        jobs[-1]["next_run"] = _mittags() - 20 * 3600
         crons._save(jobs)
-        crons.run_due()
+        crons.run_due(now=_mittags())
         assert laeufe == ["Puls:0"]
 
     def test_naechster_termin_wird_korrekt_weitergedreht(self, crons, monkeypatch):
@@ -153,9 +161,9 @@ class TestKeineRegression:
                             lambda j, notify=True, verspaetet_min=0: {"ok": True, "summary": ""})
         crons.add_job("Morgen-Briefing", "News.", "08:00")
         jobs = crons._load()
-        jobs[-1]["next_run"] = time.time() - 4 * 3600
+        jobs[-1]["next_run"] = _mittags() - 4 * 3600
         crons._save(jobs)
-        crons.run_due()
+        crons.run_due(now=_mittags())
         neu = crons._load()[0]["next_run"]
         assert neu > time.time()
         assert dt.datetime.fromtimestamp(neu).strftime("%H:%M") == "08:00"
