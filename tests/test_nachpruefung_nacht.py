@@ -284,6 +284,79 @@ class TestErklaerungenUeberleben:
                 'ACT run_command {"command": "powershell -c "Get-Content \'x.py\'"}')
         assert act._ist_roher_werkzeugaufruf(leak) is True
 
+    def test_verschachtelte_klammern_in_der_nutzlast(self):
+        """Dritte Prüfung, 28.07.: die erste Fassung suchte die ERSTE schliessende
+        Klammer nach dem Aufruf. Bei einer PowerShell-Nutzlast ist das die Klammer von
+        Where-Object — MITTEN im JSON. Was danach als "Prosa" gezaehlt wurde, war der
+        Rest des Aufrufs, und zwei echte Live-Leaks (454 und 495 Zeichen) gingen wieder
+        woertlich an den Nutzer.
+
+        Der alte Test blieb gruen, weil er eine VERKUERZTE Fassung ohne verschachtelte
+        Klammer benutzte. Hier steht jetzt der echte Wortlaut aus data/state.db."""
+        leak = ("Lass mich mal nachschauen, was gerade laeuft und wo wir stehen:\n\n"
+                'ACT run_command {"command": "powershell -c "Get-Process | Where-Object '
+                "{$_.ProcessName -match 'python|uv|node'} | Select-Object Id, "
+                'ProcessName, StartTime | Format-Table -AutoSize""}')
+        assert act._ist_roher_werkzeugaufruf(leak) is True
+
+    def test_die_klammer_bilanz_findet_das_echte_ende(self):
+        t = 'ACT run_command {"c": "a {b} c"} und danach kommt noch etwas Text hinterher.'
+        ende = act._aufruf_ende(t, t.index("{"))
+        assert t[ende:].strip().startswith("und danach")
+
+    def test_ein_nie_geschlossener_aufruf_hat_kein_ende(self):
+        assert act._aufruf_ende('ACT x {"a": "b', 6) == -1
+
+
+class TestBeideRichtungenAmEchtenKorpus:
+    """Die Lehre aus drei Prüfrunden: bei dieser Wache gibt es ZWEI Fehlerrichtungen,
+    und wer nur eine misst, baut die andere ein.
+
+    Runde 1 verwarf zu wenig (4 von 11 Leaks). Runde 2 verwarf zu viel (14, darunter
+    drei richtige Antworten). Runde 3 verwarf wieder zu wenig (9 — zwei PowerShell-
+    Leaks kamen durch, weil die Klammer-Suche im JSON strandete). Jedes Mal war die
+    Suite grün, weil die Beispiele in den Tests genau den kritischen Fall nicht trafen.
+
+    Deshalb prüft dieser Test gegen die ECHTEN Texte statt gegen erfundene."""
+
+    LEAKS = [
+        # gekappt mitten im JSON
+        'ACT vault_note {"titel": "DDR4 64GB Preisstand", "text": "# DDR4 64GB\\n**Erst',
+        # kaputte Anfuehrungszeichen, nichts danach
+        ("Die Datei ist am Ende abgeschnitten — ich brauche den Rest. Lass mich das holen.\n"
+         'ACT run_command {"command": "powershell -c "Get-Content \'x.py\' | Select-Object -Skip 150"}'),
+        # verschachtelte Klammern in der Nutzlast
+        ("Lass mich mal nachschauen, was gerade laeuft und wo wir stehen:\n\n"
+         'ACT run_command {"command": "powershell -c "Get-Process | Where-Object '
+         "{$_.ProcessName -match 'python|uv|node'} | Select-Object Id, ProcessName\"\"}"),
+        # reine Aufrufe
+        "ACT list_models",
+        "ACT health()",
+    ]
+
+    ANTWORTEN = [
+        # lange Architektur-Erklaerung mit Platzhalter
+        ("Zwei Loop-Typen: ein textbasiertes `ACT tool {json}`-Format für lokale Modelle, "
+         "und nativer Function-Call für Cloud. Der Textpfad funktioniert auch mit "
+         "schwachen Modellen, deshalb ist das der risikoärmste erste Baustein — es muss "
+         "nichts am bestehenden Aufbau umgebaut werden, und beide Wege enden im selben "
+         "Abschluss."),
+        # Prosa, die ein Werkzeug erwaehnt
+        ("In core liegen acht Unterordner plus vier Python-Dateien. ACT write_file hat "
+         "ein Recherche-Dossier angelegt, falls du mehr Felder brauchst — sag Bescheid."),
+        # normale Antworten
+        "Es ist 14:30 Uhr.",
+        "Ja, morgen um 9.",
+    ]
+
+    @pytest.mark.parametrize("text", LEAKS)
+    def test_richtung_eins_kein_innenleben_wird_zugestellt(self, text):
+        assert act._ist_roher_werkzeugaufruf(text) is True
+
+    @pytest.mark.parametrize("text", ANTWORTEN)
+    def test_richtung_zwei_keine_richtige_antwort_wird_verworfen(self, text):
+        assert act._ist_roher_werkzeugaufruf(text) is False
+
 
 class TestDasLochZwischenParserUndWache:
     """Zwei Änderungen desselben Commits benutzten für DIESELBE Textform zwei
@@ -314,6 +387,56 @@ class TestDasLochZwischenParserUndWache:
     ])
     def test_ende_erkennt_liegengebliebene_aufrufe(self, text, erwartet):
         assert act._endet_mit_aufruf(text) is erwartet
+
+
+class TestDasZeilenMerkmal:
+    """Die Lehre aus drei Prüfrunden über derselben Stelle.
+
+    Erst wurde zu wenig gefiltert (4 von 11 Leaks), dann zu viel (14, darunter drei
+    richtige Antworten von bis zu 4434 Zeichen), dann wieder zu wenig (9). Weder
+    "beginnt mit dem Aufruf" noch "endet damit" noch die Klammerbilanz trifft die
+    Sache. Das verlässliche Merkmal ist die ZEILE: ein Aufruf, der eine eigene Zeile
+    beginnt, ist liegengebliebenes Innenleben; einer mitten im Satz ist ein Beispiel."""
+
+    @pytest.mark.parametrize("text", [
+        pytest.param('ACT remember_fact {"fact": "x"}', id="ganz-am-anfang"),
+        pytest.param('Erledigt.\nACT vault_note {"titel": "X"}', id="eigene-zeile-nach-prosa"),
+        pytest.param('- ACT jetzt', id="mit-aufzaehlungszeichen"),
+        pytest.param('```\nACT health {}\n```', id="im-code-fence"),
+        pytest.param('ACTremember_fact {"fact": "ohne Leerzeichen"}', id="ohne-leerzeichen"),
+    ])
+    def test_aufruf_am_zeilenanfang_ist_innenleben(self, text):
+        assert act._AUFRUF_ZEILENANFANG.search(text) is not None
+
+    @pytest.mark.parametrize("text", [
+        pytest.param("ein textbasiertes `ACT tool {json}`-Format für lokale Modelle",
+                     id="mitten-im-satz"),
+        pytest.param('So rufe ich auf: ACT web_fetch {"url": "x"} — dann kommt das Ergebnis.',
+                     id="beispiel-nach-doppelpunkt"),
+        pytest.param("Der Begriff ACT steht bei mir fuer Werkzeugaufrufe.", id="nur-erwaehnt"),
+    ])
+    def test_aufruf_im_satz_ist_ein_beispiel(self, text):
+        assert act._AUFRUF_ZEILENANFANG.search(text) is None
+
+    def test_das_wort_action_ist_kein_aufruf(self):
+        """Ohne das Leerzeichen-Zugestaendnis braucht es eine Bremse gegen Wortfunde."""
+        assert act._ACT_LOCKER.search("Die ACTION {x} ist gemeint") is None
+        assert act._ACT_LOCKER.search('ACTremember_fact {"a": 1}') is not None
+
+    def test_der_live_fall_mit_drei_aufrufen_in_der_mitte(self):
+        """2430 Zeichen: drei rohe remember_fact-Aufrufe, darunter 2156 Zeichen echte
+        Antwort. Weder Anfang noch Ende — ging deshalb komplett unveraendert raus."""
+        text = ('ACTremember_fact {"fact": "Partnerschafts-Modell: Video-Content und Aufbau"}\n\n'
+                'ACT remember_fact {"fact": "Zwischenziel: bei 10k Income neue Hardware"}\n\n'
+                'ACT remember_fact {"fact": "Cold Calls nein, Closing Calls ja"}\n\n\n'
+                "Das ist ein verdammt gutes erstes Ziel. Ein Rechner mit viel Speicher "
+                "wäre da wirklich der nächste sinnvolle Schritt, aber erst danach.")
+        rest, n, angefangen = act._werkzeugreste(text)
+        assert n == 3, "der Aufruf ohne Leerzeichen wurde nicht mitgezaehlt"
+        assert not angefangen
+        assert "Partnerschafts-Modell" not in rest
+        assert "verdammt gutes erstes Ziel" in rest
+        assert act._AUFRUF_ZEILENANFANG.search(text) is not None
 
 
 class TestDerParserFuehrtKeineErklaerungAus:
