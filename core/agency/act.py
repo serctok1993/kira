@@ -95,6 +95,9 @@ def _budget(name: str, base: int, task_type: str = "chat", escalate: bool = Fals
         return base
 
 _ACT_RE = re.compile(r"ACT\s+([a-zA-Z_]\w*)\s*\{")
+# Werkzeuge ohne Argumente: "ACT jetzt", "ACT health()" — bis zum Zeilenende, damit
+# Prosa ("ACT steht fuer …") nicht faelschlich als Aufruf gilt.
+_ACT_OHNE_ARGS_RE = re.compile(r"^\s*ACT\s+([a-zA-Z_]\w*)\s*(?:\(\s*\))?\s*$", re.MULTILINE)
 # Leak-Recovery (c4-Vorfall 16.07.): Modelle schreiben Tool-Calls manchmal als
 # Code-Fence OHNE ACT-Praefix ("```bash\nhealth {}\n```") — der Aufruf ging dann
 # als normale ANTWORT an den Nutzer raus ("sagt sie ruft auf, tut es nicht").
@@ -156,6 +159,67 @@ def _identity() -> str:
     )
 
 
+def _ist_roher_werkzeugaufruf(text: str) -> bool:
+    """Ist das hier ein Werkzeugaufruf statt einer Antwort?
+
+    Live-Befund: 13 Antworten in der Datenbank sind rohe ACT-Zeilen — darunter
+    remember_fact-Aufrufe mit privaten Finanzdaten, die so als Chat-Nachricht sichtbar
+    wurden. Der Aufruf war gemeint, wurde aber nicht geparst; statt eine Antwort zu
+    liefern, reichte der Harness das Innenleben durch.
+
+    Eng gefasst: roh ist nur, was FAST NUR aus dem Aufruf besteht. Erklaert Kira dem
+    Partner das Protokoll ("so rufe ich Werkzeuge auf: ACT web_fetch {...}"), ist das
+    eine voellig richtige Antwort — die darf die Wache nicht wegwerfen."""
+    t = (text or "").strip()
+    if not t:
+        return False
+    if t.startswith("<tool_call>"):
+        return True
+    m = _ACT_RE.search(t) or _ACT_OHNE_ARGS_RE.search(t)
+    if not m:
+        return False
+    # Alles ausser dem Aufruf selbst: bleibt kaum etwas uebrig, war es ein Aufruf.
+    rest = (t[:m.start()] + t[m.end():]).strip(" \t\n`{}\"'.,:;-")
+    return len(rest) < 40
+
+
+def _brauchbare_antwort(text: str, messages: list[dict], system: str, session_id: str | None,
+                        task_type: str = "chat", escalate: bool = False) -> str:
+    """Letzte Wache vor der Zustellung: nichts Leeres, nichts Rohes geht raus.
+
+    Zwei Loecher, die fast ausschliesslich kleine Modelle treffen (21 Tage Live-Daten):
+      * 10 % der Antworten von kira-c6 und kira-c6-9b sind LEER — bei deepseek-v4-flash
+        0 %, bei GLM 5.2 2 %. Ein Teil der vom Nutzer beklagten "halben Nachrichten"
+        sind gar keine halben, sondern voellig leere.
+      * 13 Antworten waren rohe Werkzeugaufrufe statt Text.
+
+    Beides ist rettbar: ein einziger Nachfass-Zug ("fasse jetzt zusammen") holt in aller
+    Regel eine echte Antwort. Fuer ein starkes Modell ist diese Wache ein Nullpfad — sie
+    feuert bei ihm so gut wie nie und kostet dann keinen einzigen Zusatzaufruf."""
+    t = (text or "").strip()
+    if t and not _ist_roher_werkzeugaufruf(t):
+        return t
+    grund = "leer" if not t else "roher Werkzeugaufruf"
+    events.emit("antwort_nachgefasst", {"grund": grund, "task_type": task_type},
+                session_id=session_id)
+    try:
+        nach = list(messages) + [{"role": "user", "content": (
+            "Deine letzte Antwort war unbrauchbar (" + grund + "). Schreib JETZT die "
+            "fertige Antwort fuer " + _id.user_name() + " — in normalen Saetzen, ohne "
+            "Werkzeug-Zeile. Wenn du etwas herausgefunden hast, sag es; wenn nicht, sag "
+            "ehrlich, was fehlt.")}]
+        res = _complete_resilient(nach, system=system, task_type=task_type,
+                                  session_id=session_id, escalate=escalate)
+        zweit = (res.get("text") or "").strip()
+        if zweit and not _ist_roher_werkzeugaufruf(zweit):
+            return zweit
+    except Exception as e:  # noqa: BLE001 — die Wache darf nie die letzte Antwort kosten
+        events.emit("antwort_nachfassen_fehler", {"error": str(e)[:200]}, session_id=session_id)
+    # Auch der zweite Versuch trug nichts — dann ehrlich sein statt Leere zu senden.
+    return ("Ich habe es versucht, aber keine brauchbare Antwort zustande gebracht. "
+            "Frag mich nochmal — am besten etwas konkreter, dann komme ich weiter.")
+
+
 def _parse_act(text: str):
     """Findet 'ACT <tool> {json}' robust — auch mit Prosa oder Code-Fences drumherum,
     damit Tool-Aufrufe nie als Antwort durchsickern. JSON wird ab der '{'-Position
@@ -170,13 +234,23 @@ def _parse_act(text: str):
         name = m.group(1)
         brace = m.end() - 1  # Index des '{'
     else:
+        # Argumentloser Aufruf: das Manifest preist zwoelf Werkzeuge als "Argumente:
+        # keine" an (jetzt, health, cron_list, list_models …) — und ausgerechnet der
+        # einfachste Fall fiel bisher durch, weil der Parser eine '{' verlangte.
+        om = _ACT_OHNE_ARGS_RE.search(t)
+        if om:
+            return (om.group(1), {})
         fm = _FENCE_CALL_RE.search(text)
         if not fm:
             return None
         name = fm.group(1)
         brace = fm.start(2)
     try:
-        args, _ = json.JSONDecoder().raw_decode(text[brace:])
+        # strict=False erlaubt ECHTE Zeilenumbrueche in Zeichenketten. Kleine Modelle
+        # escapen sie fast nie korrekt — und es trifft ausgerechnet die Werkzeuge, die
+        # Arbeit erzeugen (write_file, vault_note, knowledge_note). Bisher fiel so ein
+        # Aufruf durch und der halb geschriebene Text landete als "Antwort" beim Nutzer.
+        args, _ = json.JSONDecoder(strict=False).raw_decode(text[brace:])
     except json.JSONDecodeError:
         return None
     return (name, args) if isinstance(args, dict) else None
@@ -939,8 +1013,28 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
 
     messages: list[dict] = [{"role": "user", "content": task}]
     obs_cap = _budget("obs_max_chars", _OBS_MAX, task_type, escalate)  # starkes Modell -> sieht mehr
+    # Kein Ergebnis ohne Handgriff (Befund 28.07.): 73 von 200 lokalen Laeufen ueber diese
+    # Schleife endeten OHNE einen einzigen Werkzeugschritt — bei Auftraegen wie "Lies die
+    # letzten 3 Tagesnotizen" oder "Erstelle ein Ticket fuer jeden Termin". Chat und
+    # Cloud-Pfad hatten Stups und Beweispflicht laengst; ausgerechnet der Pfad des
+    # schwaechsten Modells hatte beides nicht. Aufgefangen hat es erst der Verifier —
+    # 94 task_retry, also 94 komplette Neulaeufe fuer etwas, das EIN Zug klaert.
+    used_tools = False
+    nudged = False
+    beweis_nachgefragt = False
+    # Auf dem Missionspfad gibt es keinen Smalltalk (jede Aufgabe kommt vom Planer, einem
+    # Cron oder einem Trigger) — nur heikle Auftraege bleiben tabu: da ist die Rueckfrage
+    # des Modells die richtige Antwort, kein Zoegern.
+    stups_erlaubt = not _HEIKEL_RE.search(task or "")
 
-    for step in range(max_steps):
+    # Ein Stups ist kein Werkzeugschritt: er darf weder das Arbeitsbudget aufzehren noch
+    # in der Schrittzahl auftauchen (die steht als "N Schritte" sichtbar im Cockpit-Feed).
+    # Deshalb zaehlt `step` echte Werkzeugschritte, und die Schleife hat genau zwei Zuege
+    # Luft — mehr koennen die beiden Waechter zusammen nie kosten.
+    step = 0
+    for _zug in range(max_steps + 2):
+        if step >= max_steps:
+            break
         _compact_history(messages)
         res = llm_router.complete(
             messages, system=system, task_type=task_type, session_id=session_id, escalate=escalate
@@ -956,10 +1050,49 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
                 text, call = _retry_fragment(messages, system, frag, step, session_id,
                                              task_type=task_type, escalate=escalate)
         if not call:
+            # Ankuendigung statt Arbeit — EINMAL zum Handeln draengen. Nur wenn im ganzen
+            # Lauf noch kein Werkzeug lief: wer arbeitet, wird nie gestupst.
+            if not used_tools and not nudged and stups_erlaubt and _looks_like_promise(text):
+                nudged = True
+                try:
+                    events.emit("nudge", {"model": llm_router.resolve_model(task_type, escalate)[0],
+                                          "task_type": task_type, "pfad": "mission"},
+                                session_id=session_id)
+                except Exception:  # noqa: BLE001
+                    pass
+                messages.append({"role": "assistant", "content": text})
+                messages.append({"role": "user", "content": (
+                    "Der Auftrag liegt bereits vor — tu es JETZT mit einem Werkzeug "
+                    "(ACT ...) und antworte erst mit dem Ergebnis. Nicht ankuendigen.")})
+                continue
+            # Beweispflicht: "eingetragen/angelegt/erledigt" ohne einen einzigen
+            # Werkzeug-Aufruf ist erfunden — einmal zurueckgeben statt es als Ergebnis
+            # eines Crons zuzustellen.
+            wort = None if used_tools or beweis_nachgefragt else _behauptet_zustandsaenderung(text)
+            if wort:
+                beweis_nachgefragt = True
+                try:
+                    events.emit("beweis_nachgefragt", {"wort": wort, "task_type": task_type,
+                                                       "pfad": "mission"}, session_id=session_id)
+                except Exception:  # noqa: BLE001
+                    pass
+                messages.append({"role": "assistant", "content": text})
+                messages.append({"role": "user", "content": (
+                    f"Halt — du schreibst \"{wort}\", aber in diesem Lauf lief KEIN Werkzeug. "
+                    "Damit hat sich nichts geaendert. Entweder du tust es JETZT wirklich "
+                    "(ACT <werkzeug> {...}), oder du sagst ehrlich, dass es offen ist und "
+                    "was du dafuer brauchst. Nichts behaupten, was nicht passiert ist.")})
+                continue
+            # Dieselbe Wache wie im Chat: ein leerer Zug oder eine ungeparste ACT-Zeile
+            # ist keine Antwort. Auf diesem Pfad laufen Crons, Missionen und jeder
+            # Plan-Teilschritt — genau dort entstanden die leeren Briefings.
+            text = _brauchbare_antwort(text, messages, system, session_id=session_id,
+                                       task_type=task_type, escalate=escalate)
             events.emit("act_done", {"steps": step}, session_id=session_id)
             return {"text": text, "steps": step}
 
         name, args = call
+        used_tools = True
         tool = registry.get(name)
         if erlaubt is not None and name not in erlaubt:
             from core.agency import rollen as _rollen
@@ -983,6 +1116,7 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
         messages.append(
             {"role": "user", "content": obs_wrapper(name, obs)}
         )
+        step += 1
 
     # Schrittlimit erreicht -> erzwinge eine finale Zusammenfassung aus dem Recherchierten.
     messages.append({
@@ -1738,6 +1872,9 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     # Arbeits-Modus: /work bzw. work: -> volles Task-Budget (viele Schritte, Claude-Code-Stil).
     # Sonst knapper Chat-Deckel -> normaler Dialog laeuft nicht in einen langen Tool-Sturm.
     work_mode = _s.lower().startswith(("/work", "work:"))
+    # Route frueh festlegen: _finalize (und damit die Ausgangswache) kann vor der
+    # Hauptschleife laufen, etwa bei einem Modell-Kommando oder einer Kurzschlussantwort.
+    _tt = "reason" if work_mode else "chat"
     work_objective = None
     if work_mode:
         user_message = re.sub(r"^(/work|work:)\s*", "", _s, flags=re.IGNORECASE).strip() or _s
@@ -1762,6 +1899,8 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     def _finalize(text: str) -> str:
         """Gemeinsamer Abschluss aller Chat-Ausgaenge: Beweispflicht-Stempel, Gedaechtnis,
         Events, final-Emit. Genau EIN Ort, an dem Antworten das Haus verlassen."""
+        text = _brauchbare_antwort(text, messages, system, session_id=session_id,
+                                   task_type=_tt, escalate=escalate)
         text = _claim_stamp(text, session_id=session_id)
         memory.remember(text, role="partner", session_id=session_id)
         events.emit("partner_message", {"text": text, "agentic": True}, session_id=session_id)
@@ -1783,7 +1922,6 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     # Modell-Route: normaler Dialog = 'chat' (DeepSeek, guenstig). Sobald es ein echter
     # Arbeitsauftrag ist (/work bzw. work:), auf 'reason' heben -> GLM 5.2. So bleibt Plaudern
     # billig, aber echtes Arbeiten laeuft auf dem staerkeren Modell.
-    _tt = "reason" if work_mode else "chat"
     # Cloud-Modelle: natives Function-Calling (robust, kein ACT-Text-Leak)
     _vstyle = _VOICE_STYLE if voice_mode else ""
     if _cloud(escalate, _tt):

@@ -1003,7 +1003,7 @@ def restart_self(which: str = "all") -> str:
       "fuer Selbst-Diagnose (Events, Fehler, Kosten) STATT Temp-Skripte oder Shell-Gewuergel. Tabelle "
       "events(id, ts REAL, type, session_id, payload JSON). Bsp: "
       "SELECT type, COUNT(*) FROM events GROUP BY type ORDER BY 2 DESC LIMIT 20  |  "
-      "SELECT ts, payload FROM events WHERE type LIKE '%error%' ORDER BY ts DESC LIMIT 10",
+      "SELECT ts, payload FROM events WHERE type LIKE '%error%' ORDER BY ts DESC, rowid DESC LIMIT 10",
       {"sql": "die lesende SQL-Abfrage", "limit": "optional: max. Zeilen (Default 50, max 500)"})
 def db_query(sql: str, limit: int = 50) -> str:
     import sqlite3

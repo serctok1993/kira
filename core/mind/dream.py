@@ -108,7 +108,7 @@ def _dialog_text(session_id: str, cap: int = 6000) -> str:
 
     with store._conn() as c:
         rows = c.execute(
-            "SELECT role, text FROM memory WHERE session_id=? AND kind='episodic' ORDER BY ts ASC",
+            "SELECT role, text FROM memory WHERE session_id=? AND kind='episodic' ORDER BY ts ASC, rowid ASC",
             (session_id,),
         ).fetchall()
     zeilen = [f"{r or '?'}: {(t or '').strip()[:400]}" for r, t in rows]

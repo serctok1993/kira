@@ -203,7 +203,7 @@ def recall(query: str, limit: int = 6, exclude_session: str | None = None,
             if exclude_session:
                 sql += "AND session_id IS NOT ? "
                 params.append(exclude_session)
-            sql += "ORDER BY ts DESC LIMIT ?"
+            sql += "ORDER BY ts DESC, rowid DESC LIMIT ?"
             params.append(limit)
             results = c.execute(sql, params).fetchall()
     return [{"ts": r[0], "role": r[1], "text": r[2], "session_id": r[3]} for r in results]
@@ -215,7 +215,7 @@ def recent_dialogue(session_id: str, limit: int = 10) -> list[dict]:
         rows = c.execute(
             "SELECT role, text FROM memory "
             "WHERE session_id = ? AND kind = 'episodic' "
-            "ORDER BY ts DESC LIMIT ?",
+            "ORDER BY ts DESC, rowid DESC LIMIT ?",
             (session_id, limit),
         ).fetchall()
     rows.reverse()
@@ -313,7 +313,7 @@ def sessions(limit: int = 25) -> list[dict]:
         for sid, last, n in rows:
             tr = c.execute(
                 "SELECT text FROM memory WHERE session_id=? AND role='user' AND kind='episodic' "
-                "ORDER BY ts ASC LIMIT 1",
+                "ORDER BY ts ASC, rowid ASC LIMIT 1",
                 (sid,),
             ).fetchone()
             title = ((tr[0].strip() if tr and tr[0] else "") or "(neue Unterhaltung)")[:60]
@@ -381,7 +381,7 @@ def recent(limit: int = 60) -> list[dict]:
     """Juengste Erinnerungen (fuer die Gedaechtnis-Verwaltung im Dashboard)."""
     with _conn() as c:
         rows = c.execute(
-            "SELECT id, ts, session_id, role, kind, text FROM memory ORDER BY ts DESC LIMIT ?",
+            "SELECT id, ts, session_id, role, kind, text FROM memory ORDER BY ts DESC, rowid DESC LIMIT ?",
             (limit,),
         ).fetchall()
     return [{"id": r[0], "ts": r[1], "session_id": r[2], "role": r[3], "kind": r[4], "text": r[5]} for r in rows]
@@ -441,7 +441,7 @@ def recall_lessons(limit: int = 5) -> list[str]:
     """Die juengsten gelernten Lektionen (aus der Reflexion)."""
     with _conn() as c:
         rows = c.execute(
-            "SELECT text FROM memory WHERE kind = 'lesson' ORDER BY ts DESC LIMIT ?",
+            "SELECT text FROM memory WHERE kind = 'lesson' ORDER BY ts DESC, rowid DESC LIMIT ?",
             (limit,),
         ).fetchall()
     return [r[0] for r in rows]
@@ -451,7 +451,7 @@ def recall_skills(limit: int = 6) -> list[str]:
     """Gelernte, wiederverwendbare Faehigkeiten (kind='skill')."""
     with _conn() as c:
         rows = c.execute(
-            "SELECT text FROM memory WHERE kind = 'skill' ORDER BY ts DESC LIMIT ?",
+            "SELECT text FROM memory WHERE kind = 'skill' ORDER BY ts DESC, rowid DESC LIMIT ?",
             (limit,),
         ).fetchall()
     return [r[0] for r in rows]
@@ -460,14 +460,14 @@ def recall_skills(limit: int = 6) -> list[str]:
 def all_skills() -> list[dict]:
     """Alle Skills (id + text) — fuer den Curator."""
     with _conn() as c:
-        rows = c.execute("SELECT id, text FROM memory WHERE kind = 'skill' ORDER BY ts DESC").fetchall()
+        rows = c.execute("SELECT id, text FROM memory WHERE kind = 'skill' ORDER BY ts DESC, rowid DESC").fetchall()
     return [{"id": r[0], "text": r[1]} for r in rows]
 
 
 def all_lessons() -> list[dict]:
     """Alle Lektionen (id + text) — fuer den Curator (S4: Lektionen wachsen sonst unbegrenzt)."""
     with _conn() as c:
-        rows = c.execute("SELECT id, text FROM memory WHERE kind = 'lesson' ORDER BY ts DESC").fetchall()
+        rows = c.execute("SELECT id, text FROM memory WHERE kind = 'lesson' ORDER BY ts DESC, rowid DESC").fetchall()
     return [{"id": r[0], "text": r[1]} for r in rows]
 
 
