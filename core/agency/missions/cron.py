@@ -262,6 +262,47 @@ def _notify(text: str) -> bool:
     return zustellung.an_nutzer(text, quelle="cron")
 
 
+# Ab wann eine Verspaetung erwaehnenswert ist. Der Runner tickt alle 30 Minuten —
+# bis dahin ist "zu spaet" nur der normale Takt und kein Wort wert. Alles darueber ist
+# ein Ereignis: der Rechner war aus, oder ein Lauf hat geklemmt.
+VERSPAETUNG_MELDEN_MIN = 45
+
+# Sagt der Text von sich aus schon, dass er nachgereicht ist? Dann redet der Harness
+# nicht dazwischen — ein starkes Modell befolgt den Hinweis im Auftrag durchaus.
+_SAGT_ES_SELBST = re.compile(
+    r"nachgereicht|nachgeholt|verspaet|verspät|zu spaet|zu spät|nachtraeglich|"
+    r"nachträglich|eigentlich f[uü]r|haette heute|hätte heute", re.IGNORECASE)
+
+
+def _dauer_text(minuten: int) -> str:
+    if minuten < 90:
+        return f"{minuten} Minuten"
+    if minuten < 36 * 60:
+        return f"{minuten / 60:.1f} Stunden".replace(".", ",")
+    return f"{round(minuten / 1440)} Tage"
+
+
+def _verspaetungs_zeile(verspaetet_min: int, jetzt: float, text: str) -> str:
+    """Die Ansage, dass ein Termin nachgereicht wird — vom Harness, nicht vom Modell.
+
+    Der Auftrag BITTET das Modell seit dem 27.07. darum ("Sag am Anfang kurz, dass es
+    nachgereicht ist"). Gemessen an 8 verspaeteten Laeufen in der Live-DB: 0 von 8 haben
+    es getan. Eine Bitte ist keine Garantie — und der Nutzer las dann nachmittags ein
+    "Morgen-Briefing", das sich wie 8 Uhr las. Die mittlere Verspaetung eines verpassten
+    Termins liegt bei 8,1 Stunden.
+
+    Der Hinweis im Auftrag bleibt trotzdem: er sorgt dafuer, dass der INHALT stimmt
+    (kein "Guten Morgen" um 16 Uhr). Diese Zeile hier sorgt dafuer, dass die Ansage
+    ueberhaupt kommt."""
+    if verspaetet_min < VERSPAETUNG_MELDEN_MIN:
+        return ""
+    if _SAGT_ES_SELBST.search((text or "")[:400]):
+        return ""
+    faellig = dt.datetime.fromtimestamp(jetzt - verspaetet_min * 60)
+    return (f"(nachgereicht — faellig war {faellig.strftime('%H:%M')}, "
+            f"{_dauer_text(verspaetet_min)} zu spaet)")
+
+
 def run_job(job: dict, notify: bool = True, verspaetet_min: int = 0) -> dict:
     from core.agency.act import act
 
@@ -322,12 +363,18 @@ def run_job(job: dict, notify: bool = True, verspaetet_min: int = 0) -> dict:
         ok = False
     job["last_run"] = time.time()
     job["next_run"] = _next_run(job["schedule"])
+    # Die Verspaetung sagt der Harness an, nicht das Modell (0 von 8 haben es getan).
+    nachgereicht = _verspaetungs_zeile(verspaetet_min, job["last_run"], volltext)
+    if nachgereicht:
+        summary = f"{nachgereicht} {summary}"
     job["runs"] = (job.get("runs", []) + [{"ts": time.time(), "ok": ok, "summary": summary}])[-20:]
-    events.emit("cron_run", {"label": job["label"], "ok": ok, "summary": summary})
+    events.emit("cron_run", {"label": job["label"], "ok": ok, "summary": summary,
+                             **({"verspaetet_min": verspaetet_min} if verspaetet_min else {})})
     # Nur ECHTE Ergebnisse gehen raus — und dann ungekappt (die 300 Zeichen sind das
     # Dashboard-Mass, der Zusteller stueckelt selbst sauber bei 3800).
     if notify and ok:
-        if _notify(f"⏰ {job['label']}:\n{volltext}") is False:
+        kopf = f"⏰ {job['label']}" + (f" {nachgereicht}" if nachgereicht else "")
+        if _notify(f"{kopf}:\n{volltext}") is False:
             # Das fertige Ergebnis darf nicht am Zustellweg verenden: ab in den
             # Melde-Puffer, dann geht es mit dem naechsten Buendel raus. Vorher war ein
             # gelungener Lauf bei klemmendem Telegram spurlos weg — im Cockpit stand ein
@@ -335,7 +382,7 @@ def run_job(job: dict, notify: bool = True, verspaetet_min: int = 0) -> dict:
             try:
                 from core.agency.missions import melde
 
-                melde.merken(f"⏰ {job['label']}: {volltext[:300]}")
+                melde.merken(f"{kopf}: {volltext[:300]}")
                 events.emit("cron_zustellung_gescheitert", {"label": job["label"]})
             except Exception:  # noqa: BLE001
                 pass
