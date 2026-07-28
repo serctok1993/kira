@@ -234,6 +234,88 @@ class TestDerGeneratorLehrtNurGueltigeAufrufe:
         assert beispiele.get("jetzt", "").strip() in ("ACT jetzt {}", "ACT jetzt")
 
 
+class TestErklaerungenUeberleben:
+    """Zweite gegnerische Prüfung, 28.07.: die Korrektur hatte selbst eine Regression.
+
+    `_werkzeugreste` meldete "angefangen", sobald irgendwo ein `ACT name {` stand, dem
+    kein gültiges JSON folgt — auch bei einem blossen Platzhalter in Prosa. Und die
+    Wache schloss daraus kurz, BEVOR sie irgendetwas anderes prüfte.
+
+    Am echten Korpus gemessen: die Fassung davor verwarf 4 Nachrichten, diese verwarf
+    14. Unter den 10 zusätzlichen waren DREI vollständige, richtige Antworten von 2488,
+    2697 und 4434 Zeichen — alle drei erklären Kiras eigene Architektur und schreiben
+    dabei wörtlich `ACT tool {json}`. Sie enden regulär, sind also nachweislich nicht
+    gekappt. Es traf ausgerechnet starke Modelle, weil die diese langen Texte schreiben.
+
+    Das verlässliche Merkmal ist nicht die Klammerbilanz (bei den echten Leaks steht
+    das `}` formal da), sondern ob nach dem unlesbaren Aufruf noch Text FOLGT."""
+
+    ARCHITEKTUR = (
+        "Zwei Loop-Typen: ein textbasiertes `ACT tool {json}`-Format für lokale Modelle, "
+        "und nativer Function-Call für Cloud. Das ist der risikoärmste erste Baustein, "
+        "weil der Textpfad auch mit schwachen Modellen funktioniert und nichts am "
+        "bestehenden Aufbau umgebaut werden muss."
+    )
+
+    @pytest.mark.parametrize("platzhalter", [
+        "`ACT tool {json}`", "ACT web_fetch {...}", "ACT web_search {args}",
+        "ACT web_search {query}", 'ACT web_search {{"query": "x"}}',
+        "ACT web_search {'query': 'Wetter'}",
+    ])
+    def test_platzhalter_in_prosa_ist_kein_angefangener_aufruf(self, platzhalter):
+        """Jede dieser Schreibweisen kam in echten Antworten vor."""
+        text = (f"Der Aufruf wird als {platzhalter} geschrieben, und danach kommt das "
+                "Ergebnis zurück. Ich arbeite damit weiter, bis ich genug weiss, und "
+                "gebe dann die finale Antwort — pro Zug genau ein Aufruf.")
+        assert act._ist_roher_werkzeugaufruf(text) is False, platzhalter
+
+    def test_die_architektur_erklaerung_wird_zugestellt(self):
+        assert act._ist_roher_werkzeugaufruf(self.ARCHITEKTUR) is False
+        _rest, _n, angefangen = act._werkzeugreste(self.ARCHITEKTUR)
+        assert not angefangen
+
+    def test_ein_wirklich_gekappter_aufruf_bleibt_erkannt(self):
+        """Gegenprobe: bei den echten Leaks folgt dem Aufruf NICHTS mehr."""
+        gekappt = 'ACT vault_note {"titel": "DDR4 Preisstand", "text": "# DDR4 64GB\\n**Ers'
+        assert act._ist_roher_werkzeugaufruf(gekappt) is True
+
+    def test_kaputtes_json_am_textende_bleibt_erkannt(self):
+        leak = ("Die Datei ist am Ende abgeschnitten — lass mich den Rest holen. "
+                'ACT run_command {"command": "powershell -c "Get-Content \'x.py\'"}')
+        assert act._ist_roher_werkzeugaufruf(leak) is True
+
+
+class TestDasLochZwischenParserUndWache:
+    """Zwei Änderungen desselben Commits benutzten für DIESELBE Textform zwei
+    verschiedene Kriterien. `_parse_act` führt die argumentlose Form nur aus, wenn
+    drumherum < 40 Zeichen stehen; die Wache schnitt Reste nur heraus, wenn der Text
+    MIT dem Aufruf BEGINNT. Eine Ankündigung plus `ACT list_models` fiel durch beide:
+    das Werkzeug lief nicht, und die ACT-Zeile ging wörtlich an den Nutzer."""
+
+    ANKUENDIGUNG = "Ich schaue kurz nach, welche Modelle gerade verfügbar sind.\nACT list_models"
+
+    def test_der_aufruf_wird_nicht_ausgefuehrt(self):
+        assert act._parse_act(self.ANKUENDIGUNG) is None
+
+    def test_aber_er_wird_auch_nicht_zugestellt(self, monkeypatch):
+        from core.kernel import events
+        events.init_db()
+        monkeypatch.setattr(act, "_complete_resilient",
+                            lambda *a, **k: {"text": "sollte nicht noetig sein"})
+        raus = act._brauchbare_antwort(self.ANKUENDIGUNG, [], "S", session_id=None)
+        assert "ACT list_models" not in raus
+        assert "Ich schaue kurz nach" in raus
+
+    @pytest.mark.parametrize("text,erwartet", [
+        ("Ich schaue kurz nach, welche Modelle es gibt.\nACT list_models", True),
+        ('Klar, ich lege das an. Der Aufruf:\nACT vault_note {"titel": "X", "text": "Y"}', True),
+        ("Ich kann unter anderem:\nACT jetzt\nACT health\n\nDas sind die argumentlosen. "
+         "Sag mir, was du brauchst, dann mache ich das.", False),
+    ])
+    def test_ende_erkennt_liegengebliebene_aufrufe(self, text, erwartet):
+        assert act._endet_mit_aufruf(text) is erwartet
+
+
 class TestDerParserFuehrtKeineErklaerungAus:
     """Befund: die argumentlose Aufrufform ist von Prosa nicht zu unterscheiden.
 
