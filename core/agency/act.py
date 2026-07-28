@@ -198,13 +198,55 @@ _MIN_ANTWORT = 40
 _RESTE_MARKE = " "
 
 
+def _endet_mit_aufruf(text: str) -> bool:
+    """Steht am ENDE des Textes ein Aufruf, dem nichts Nennenswertes mehr folgt?
+
+    Das ist die Signatur eines liegengebliebenen Aufrufs: das Modell kuendigt an und
+    setzt die ACT-Zeile hinterher — "Ich schaue kurz nach, welche Modelle es gibt.\\n
+    ACT list_models". _parse_act fuehrt das bewusst NICHT aus (die argumentlose Form
+    ist von Prosa nicht zu unterscheiden, siehe dort). Ohne diese Pruefung fiel so ein
+    Text durch beide Siebe: nicht ausgefuehrt UND woertlich zugestellt — genau die
+    Leak-Klasse, gegen die die Wache gebaut wurde.
+
+    Eine Erklaerung sieht anders aus: dort geht der Text nach dem Beispiel weiter."""
+    t = (text or "").strip()
+    letzte_ende = -1
+    for m in _ACT_RE.finditer(t):
+        try:
+            _, ende = json.JSONDecoder(strict=False).raw_decode(t[m.end() - 1:])
+            letzte_ende = max(letzte_ende, m.end() - 1 + ende)
+        except json.JSONDecodeError:
+            zu = t.find("}", m.end() - 1)
+            letzte_ende = max(letzte_ende, (zu + 1) if zu >= 0 else len(t))
+    for m in _ACT_OHNE_ARGS_RE.finditer(t):
+        letzte_ende = max(letzte_ende, m.end())
+    if letzte_ende < 0:
+        return False
+    return len(t[letzte_ende:].strip(" \t\n`{}\"'.,:;-")) < _MIN_ANTWORT
+
+
 def _werkzeugreste(text: str) -> tuple[str, int, bool]:
     """Schneidet alle lesbaren ACT-Aufrufe heraus.
 
     Rueckgabe: (was ohne die Aufrufe uebrig bleibt, wieviele es waren, angefangen).
     'angefangen' heisst: ein Aufruf beginnt, laesst sich aber nicht zu Ende lesen —
     gekappte Generation oder kaputtes JSON. Dann ist der Zug NICHT fertig, und nichts
-    davon darf zugestellt werden."""
+    davon darf zugestellt werden.
+
+    Was 'angefangen' NICHT heissen darf: dass irgendwo im Text ein Platzhalter steht.
+    Erklaert Kira ihre eigene Bauweise, schreibt sie Dinge wie "ein textbasiertes
+    `ACT tool {json}`-Format" — das ist kein Aufruf, das ist Prosa, und {json} ist
+    kein gueltiges JSON. Die erste Fassung schloss daraus auf einen angefangenen
+    Aufruf und warf die ganze Antwort weg. Am echten Korpus gemessen: statt 4
+    Nachrichten verwarf sie 14, darunter drei vollstaendige, richtige Antworten von
+    2488, 2697 und 4434 Zeichen. Es traf ausgerechnet starke Modelle, weil die diese
+    langen, strukturierten Texte schreiben.
+
+    Das verlaessliche Merkmal ist nicht die Klammerbilanz (die trennt hier gar nichts:
+    bei den echten Leaks steht das '}' formal da), sondern ob nach dem unlesbaren
+    Aufruf noch nennenswerter Text FOLGT. Bei den Leaks folgen 0 Zeichen — der Aufruf
+    ist das Letzte, was das Modell geschrieben hat. Bei den Erklaerungen folgen 1100
+    bis 3200 Zeichen weiter."""
     t = (text or "").strip()
     if not t:
         return "", 0, False
@@ -216,7 +258,13 @@ def _werkzeugreste(text: str) -> tuple[str, int, bool]:
         try:
             _, ende = json.JSONDecoder(strict=False).raw_decode(rest[m.end() - 1:])
         except json.JSONDecodeError:
-            return rest, n, True
+            zu = rest.find("}", m.end() - 1)
+            danach = rest[zu + 1:] if zu >= 0 else ""
+            if len(danach.strip(" \t\n`{}\"'.,:;-")) < _MIN_ANTWORT:
+                return rest, n, True          # der Aufruf war das Letzte -> Zug unfertig
+            # Sonst: Prosa, die einen Aufruf zeigt. Herausschneiden und weitersuchen.
+            rest = rest[:m.start()] + _RESTE_MARKE + danach
+            continue
         rest = rest[:m.start()] + _RESTE_MARKE + rest[m.end() - 1 + ende:]
         n += 1
     for _ in range(50):
@@ -277,8 +325,10 @@ def _brauchbare_antwort(text: str, messages: list[dict], system: str, session_id
         # Aufrufe vor einer echten Antwort: nur das Innenleben entfernen. Der Aufruf
         # ist ohnehin nicht gelaufen — ihn dem Partner zu zeigen bringt niemandem etwas.
         rest, n, angefangen = _werkzeugreste(t)
+        # Am Anfang ODER am Ende: beides sind liegengebliebene Aufrufe. In der Mitte,
+        # mit Text davor UND danach, ist es eine Erklaerung — die behaelt ihr Beispiel.
         if n and not angefangen and rest != t and len(rest) >= _MIN_ANTWORT \
-                and _BEGINNT_MIT_AUFRUF.match(t):
+                and (_BEGINNT_MIT_AUFRUF.match(t) or _endet_mit_aufruf(t)):
             events.emit("werkzeugreste_entfernt", {"aufrufe": n, "task_type": task_type},
                         session_id=session_id)
             return rest
