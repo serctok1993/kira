@@ -60,6 +60,14 @@ def run_tool(name: str, func: Callable, /, *args, retries: int = 3, base_delay: 
             )
             _failures[name] = 0
             return result
+        except TypeError as e:  # falscher Aufruf — deterministisch, jeder Retry scheitert gleich
+            # Bis 27.07. lief ein falscher Argumentname durch alle drei Versuche samt
+            # Backoff und zaehlte auf den Circuit-Breaker ein: nach dreimal war das
+            # Werkzeug 60 Sekunden gesperrt — wegen eines Tippfehlers. Ein TypeError
+            # sagt "so rufst du das nicht auf", nicht "versuch's gleich nochmal".
+            events.emit("tool_call", {"tool": name, "ok": False, "attempt": attempt,
+                                      "error": str(e), "deterministisch": True})
+            raise
         except Exception as e:  # noqa: BLE001 - bewusst breit, wir loggen + retryen
             last_err = e
             events.emit("tool_call", {"tool": name, "ok": False, "attempt": attempt, "error": str(e)})

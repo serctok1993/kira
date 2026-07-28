@@ -95,6 +95,9 @@ def _budget(name: str, base: int, task_type: str = "chat", escalate: bool = Fals
         return base
 
 _ACT_RE = re.compile(r"ACT\s+([a-zA-Z_]\w*)\s*\{")
+# Werkzeuge ohne Argumente: "ACT jetzt", "ACT health()" — bis zum Zeilenende, damit
+# Prosa ("ACT steht fuer …") nicht faelschlich als Aufruf gilt.
+_ACT_OHNE_ARGS_RE = re.compile(r"^\s*ACT\s+([a-zA-Z_]\w*)\s*(?:\(\s*\))?\s*$", re.MULTILINE)
 # Leak-Recovery (c4-Vorfall 16.07.): Modelle schreiben Tool-Calls manchmal als
 # Code-Fence OHNE ACT-Praefix ("```bash\nhealth {}\n```") — der Aufruf ging dann
 # als normale ANTWORT an den Nutzer raus ("sagt sie ruft auf, tut es nicht").
@@ -156,6 +159,259 @@ def _identity() -> str:
     )
 
 
+# Was Kira sagt, wenn auch der Nachfass-Zug nichts brachte. Als Konstante, weil es
+# GENAU EINEN Ort geben muss, an dem der Satz steht: die Trainingsmitschrift muss ihn
+# erkennen und aussortieren koennen. Sonst lernt das Modell aus den eigenen
+# Aussetzern, dass Kapitulieren eine gueltige Antwort auf schwere Fragen ist — und
+# zwar systematisch gepaart mit genau den schweren Fragen (Befund 28.07.: der Satz
+# ist 135 Zeichen lang und rutscht durch den 15-Zeichen-Filter von record_chat).
+KAPITULATION = ("Ich habe es versucht, aber keine brauchbare Antwort zustande gebracht. "
+                "Frag mich nochmal — am besten etwas konkreter, dann komme ich weiter.")
+
+# Die beiden Aufforderungen, mit denen der Harness ein zauderndes Modell zurechtruft.
+# Als Konstanten, weil sie an DREI Stellen gebraucht werden und beim Kopieren sofort
+# auseinanderlaufen: der Missionspfad sprach nach dem Kopieren "Nicht ankuendigen."
+# statt "Nicht ankuendigen, nicht zurueckfragen." und "in diesem Lauf" statt "in
+# diesem Zug" (Befund 28.07.). Die Werkstatt trainiert auf EINEN Wortlaut — spricht
+# die Produktion drei, sieht das Modell eine Aufforderung, die es nie geuebt hat.
+STUPS_ACT = ("Der Auftrag liegt bereits vor — tu es JETZT mit einem Werkzeug (ACT ...) "
+             "und antworte erst mit dem Ergebnis. Nicht ankuendigen, nicht zurueckfragen.")
+# Der native Pfad kennt kein ACT — dort ruft das Modell Werkzeuge strukturiert auf.
+# Das ist der EINZIGE zulaessige Unterschied, und er steht hier sichtbar daneben.
+STUPS_NATIV = ("Der Auftrag liegt bereits vor — tu es JETZT in diesem Zug: nutze die "
+               "passenden Werkzeuge und antworte erst mit dem Ergebnis. Nicht "
+               "ankuendigen, nicht zurueckfragen.")
+
+
+def beweis_nachfrage(wort: str, nativ: bool = False) -> str:
+    """Die Rueckfrage, wenn eine Zustandsaenderung ohne Werkzeug behauptet wird."""
+    wie = "" if nativ else " (ACT <werkzeug> {...})"
+    return (f"Halt — du schreibst \"{wort}\", aber in diesem Zug lief KEIN Werkzeug. "
+            f"Damit hat sich nichts geaendert. Entweder du tust es JETZT wirklich{wie}, "
+            "oder du sagst ehrlich, dass es noch offen ist und was du dafuer brauchst. "
+            "Nichts behaupten, was nicht passiert ist.")
+
+# Ein Leak FAENGT mit dem Aufruf AN. Erklaert Kira dem Partner das Protokoll, steht
+# Prosa davor — und die Erklaerung braucht ihr Beispiel, die bleibt unangetastet.
+_BEGINNT_MIT_AUFRUF = re.compile(r"^\s*(?:```[a-z]*\s*)?ACT\s+[a-zA-Z_]\w*", re.IGNORECASE)
+_MIN_ANTWORT = 40
+_RESTE_MARKE = " "
+
+# Fuer die BEREINIGUNG (nicht fuers Ausfuehren) gilt ein lockereres Muster: das
+# Leerzeichen darf fehlen. Live steht in einer zugestellten Nachricht woertlich
+# "ACTremember_fact {...}" — _ACT_RE verlangt ACT\s+ und sah den Aufruf gar nicht,
+# also blieb er samt privater Daten im Text stehen. Der Werkzeugname ist immer
+# klein geschrieben; das [a-z_] verhindert, dass ein Wort wie "ACTION {" mitgeht.
+_ACT_LOCKER = re.compile(r"ACT\s*([a-z_]\w*)\s*\{")
+
+# Ein Aufruf, der eine eigene ZEILE beginnt, ist liegengebliebenes Innenleben.
+# Einer mitten im Satz ist ein Beispiel in einer Erklaerung ("ein textbasiertes
+# `ACT tool {json}`-Format") und gehoert zur Antwort.
+#
+# Dieses Merkmal ist die Lehre aus drei Pruefrunden ueber derselben Stelle: erst
+# wurde zu wenig gefiltert (4 von 11 Leaks), dann zu viel (14, darunter drei
+# richtige Antworten von bis zu 4434 Zeichen), dann wieder zu wenig. Weder "beginnt
+# mit dem Aufruf" noch "endet damit" noch die Klammerbilanz trifft die Sache — die
+# Zeile tut es.
+_AUFRUF_ZEILENANFANG = re.compile(
+    # argumentlos, die Zeile endet danach — auch "ACT health()" mit leerem Klammerpaar
+    r"^[\s`*\-–•>]*ACT\s*[a-z_]\w*\s*(?:\(\s*\))?\s*$"
+    # oder mit Argumenten: die oeffnende Klammer folgt direkt
+    r"|^[\s`*\-–•>]*ACT\s*[a-z_]\w*\s*\{", re.MULTILINE)
+
+
+def _aufruf_ende(t: str, klammer: int) -> int:
+    """Index HINTER der schliessenden Klammer eines Aufrufs; -1, wenn er nie schliesst.
+
+    Klammern zaehlen, nicht die erste beste nehmen: die Nutzlast enthaelt oft selbst
+    geschweifte Klammern. Bei
+
+        ACT run_command {"command": "powershell -c "Get-Process |
+                         Where-Object {$_.ProcessName -match 'python'} | …"}
+
+    ist die erste schliessende Klammer die von Where-Object — wer dort abschneidet,
+    haelt den REST DES JSON faelschlich fuer Prosa und laesst den Leak durch. Genau so
+    gingen zwei echte Live-Leaks (454 und 495 Zeichen) wieder an den Nutzer raus."""
+    tiefe = 0
+    for i in range(klammer, len(t)):
+        if t[i] == "{":
+            tiefe += 1
+        elif t[i] == "}":
+            tiefe -= 1
+            if tiefe == 0:
+                return i + 1
+    return -1
+
+
+def _endet_mit_aufruf(text: str) -> bool:
+    """Steht am ENDE des Textes ein Aufruf, dem nichts Nennenswertes mehr folgt?
+
+    Das ist die Signatur eines liegengebliebenen Aufrufs: das Modell kuendigt an und
+    setzt die ACT-Zeile hinterher — "Ich schaue kurz nach, welche Modelle es gibt.\\n
+    ACT list_models". _parse_act fuehrt das bewusst NICHT aus (die argumentlose Form
+    ist von Prosa nicht zu unterscheiden, siehe dort). Ohne diese Pruefung fiel so ein
+    Text durch beide Siebe: nicht ausgefuehrt UND woertlich zugestellt — genau die
+    Leak-Klasse, gegen die die Wache gebaut wurde.
+
+    Eine Erklaerung sieht anders aus: dort geht der Text nach dem Beispiel weiter."""
+    t = (text or "").strip()
+    letzte_ende = -1
+    for m in _ACT_LOCKER.finditer(t):
+        try:
+            _, ende = json.JSONDecoder(strict=False).raw_decode(t[m.end() - 1:])
+            letzte_ende = max(letzte_ende, m.end() - 1 + ende)
+        except json.JSONDecodeError:
+            zu = _aufruf_ende(t, m.end() - 1)
+            letzte_ende = max(letzte_ende, zu if zu >= 0 else len(t))
+    for m in _ACT_OHNE_ARGS_RE.finditer(t):
+        letzte_ende = max(letzte_ende, m.end())
+    if letzte_ende < 0:
+        return False
+    return len(t[letzte_ende:].strip(" \t\n`{}\"'.,:;-")) < _MIN_ANTWORT
+
+
+def _werkzeugreste(text: str) -> tuple[str, int, bool]:
+    """Schneidet alle lesbaren ACT-Aufrufe heraus.
+
+    Rueckgabe: (was ohne die Aufrufe uebrig bleibt, wieviele es waren, angefangen).
+    'angefangen' heisst: ein Aufruf beginnt, laesst sich aber nicht zu Ende lesen —
+    gekappte Generation oder kaputtes JSON. Dann ist der Zug NICHT fertig, und nichts
+    davon darf zugestellt werden.
+
+    Was 'angefangen' NICHT heissen darf: dass irgendwo im Text ein Platzhalter steht.
+    Erklaert Kira ihre eigene Bauweise, schreibt sie Dinge wie "ein textbasiertes
+    `ACT tool {json}`-Format" — das ist kein Aufruf, das ist Prosa, und {json} ist
+    kein gueltiges JSON. Die erste Fassung schloss daraus auf einen angefangenen
+    Aufruf und warf die ganze Antwort weg. Am echten Korpus gemessen: statt 4
+    Nachrichten verwarf sie 14, darunter drei vollstaendige, richtige Antworten von
+    2488, 2697 und 4434 Zeichen. Es traf ausgerechnet starke Modelle, weil die diese
+    langen, strukturierten Texte schreiben.
+
+    Das verlaessliche Merkmal ist nicht die Klammerbilanz (die trennt hier gar nichts:
+    bei den echten Leaks steht das '}' formal da), sondern ob nach dem unlesbaren
+    Aufruf noch nennenswerter Text FOLGT. Bei den Leaks folgen 0 Zeichen — der Aufruf
+    ist das Letzte, was das Modell geschrieben hat. Bei den Erklaerungen folgen 1100
+    bis 3200 Zeichen weiter."""
+    t = (text or "").strip()
+    if not t:
+        return "", 0, False
+    rest, n = t, 0
+    for _ in range(50):
+        m = _ACT_LOCKER.search(rest)
+        if not m:
+            break
+        try:
+            _, ende = json.JSONDecoder(strict=False).raw_decode(rest[m.end() - 1:])
+        except json.JSONDecodeError:
+            zu = _aufruf_ende(rest, m.end() - 1)
+            danach = rest[zu:] if zu >= 0 else ""
+            if len(danach.strip(" \t\n`{}\"'.,:;-")) < _MIN_ANTWORT:
+                return rest, n, True          # der Aufruf war das Letzte -> Zug unfertig
+            # Sonst: Prosa, die einen Aufruf zeigt. Herausschneiden und weitersuchen.
+            # n MUSS mitzaehlen: _brauchbare_antwort schneidet nur, wenn n > 0 — sonst
+            # wurde der bereinigte Text zwar berechnet, aber nie benutzt.
+            rest = rest[:m.start()] + _RESTE_MARKE + danach
+            n += 1
+            continue
+        rest = rest[:m.start()] + _RESTE_MARKE + rest[m.end() - 1 + ende:]
+        n += 1
+    for _ in range(50):
+        m = _ACT_OHNE_ARGS_RE.search(rest)
+        if not m:
+            break
+        rest = rest[:m.start()] + _RESTE_MARKE + rest[m.end():]
+        n += 1
+    return rest.strip(), n, False
+
+
+def _ist_roher_werkzeugaufruf(text: str) -> bool:
+    """Ist das hier Innenleben statt einer Antwort?
+
+    Live-Befund (818 zugestellte Nachrichten): 12 enthalten frueh eine ACT-Zeile.
+    Nachgezaehlt sind davon 11 echte Leaks in drei Formen — 4 reine Aufrufe
+    ("ACT list_models", "ACT health()"), 5 mittendrin gekappte, und 2, die aus
+    mehreren remember_fact-Aufrufen PLUS einer echten, guten Antwort bestehen. In
+    den beiden letzten standen private Finanzzahlen als JSON im Chat.
+
+    Roh ist deshalb: ein angefangener, nicht lesbarer Aufruf (der Zug ist nicht
+    fertig) ODER ein Aufruf am Anfang einer ZEILE, nach dessen Entfernen nichts
+    Nennenswertes uebrig bleibt. Prosa, die einen Aufruf nur erwaehnt oder als
+    Beispiel zeigt, ist eine richtige Antwort und bleibt.
+
+    Beide Siebe — dieses hier und die Bereinigung in _brauchbare_antwort — pruefen
+    dasselbe Merkmal. Solange sie es nicht taten, klaffte dazwischen ein Loch: bei
+    "Ok, notiere ich.\\nACTremember_fact {...}" verlangte dieses Sieb, dass der Text
+    MIT dem Aufruf beginnt (tut er nicht), und die Bereinigung verlangte 40 Zeichen
+    Rest (sind nur 16) — also griff keins von beiden und der Aufruf ging samt Inhalt
+    woertlich raus. Die 40-Zeichen-Marke ist eine WEICHE zwischen "bereinigen" und
+    "nachfassen", kein Veto gegen beides."""
+    t = (text or "").strip()
+    if not t:
+        return False
+    if t.startswith("<tool_call>"):
+        return True
+    rest, n, angefangen = _werkzeugreste(t)
+    if angefangen:
+        return True
+    return n > 0 and bool(_AUFRUF_ZEILENANFANG.search(t)) and len(rest) < _MIN_ANTWORT
+
+
+def _brauchbare_antwort(text: str, messages: list[dict], system: str, session_id: str | None,
+                        task_type: str = "chat", escalate: bool = False) -> str:
+    """Letzte Wache vor der Zustellung: nichts Leeres, nichts Rohes geht raus.
+
+    Zwei Loecher, die fast ausschliesslich kleine Modelle treffen (21 Tage Live-Daten):
+      * 29 von 818 zugestellten Nachrichten (3,5 %) waren LEER — bei kira-c6-9b 10 %,
+        bei jedem Cloud-Modell 0 %. Ein Teil der vom Nutzer beklagten "halben
+        Nachrichten" sind gar keine halben, sondern voellig leere.
+      * 11 waren Werkzeug-Innenleben statt Text.
+
+    Drei Ausgaenge, je nachdem was wirklich vorliegt:
+      * nichts Auffaelliges -> unveraendert durch (der Regelfall, kostet nichts),
+      * Aufrufe PLUS echte Antwort -> nur die Aufrufe raus, die Antwort bleibt. Genau
+        so sahen die beiden schlimmsten Faelle aus: vier remember_fact-Aufrufe mit
+        privaten Finanzzahlen als JSON, darunter eine 1994 Zeichen lange, voellig
+        richtige Reply. Die wegzuwerfen und neu zu fragen waere Verschwendung,
+      * nur Innenleben oder ein angefangener Aufruf -> EIN Nachfass-Zug.
+
+    Fuer ein starkes Modell ist diese Wache ein Nullpfad — sie feuert bei ihm so gut
+    wie nie und kostet dann keinen einzigen Zusatzaufruf."""
+    t = (text or "").strip()
+    if t and not _ist_roher_werkzeugaufruf(t):
+        # Aufrufe vor einer echten Antwort: nur das Innenleben entfernen. Der Aufruf
+        # ist ohnehin nicht gelaufen — ihn dem Partner zu zeigen bringt niemandem etwas.
+        rest, n, angefangen = _werkzeugreste(t)
+        # Steht ein Aufruf am Anfang einer ZEILE, ist er Innenleben; steht er mitten
+        # im Satz, ist er ein Beispiel und gehoert zur Antwort. Die Anker "beginnt
+        # mit" und "endet mit" reichten beide nicht: eine zugestellte Nachricht hatte
+        # drei rohe remember_fact-Aufrufe in der MITTE und 2156 Zeichen echte Antwort
+        # darunter — sie ging komplett unveraendert raus.
+        if n and not angefangen and rest != t and len(rest) >= _MIN_ANTWORT \
+                and _AUFRUF_ZEILENANFANG.search(t):
+            events.emit("werkzeugreste_entfernt", {"aufrufe": n, "task_type": task_type},
+                        session_id=session_id)
+            return rest
+        return t
+    grund = "leer" if not t else "roher Werkzeugaufruf"
+    events.emit("antwort_nachgefasst", {"grund": grund, "task_type": task_type},
+                session_id=session_id)
+    try:
+        nach = list(messages) + [{"role": "user", "content": (
+            "Deine letzte Antwort war unbrauchbar (" + grund + "). Schreib JETZT die "
+            "fertige Antwort fuer " + _id.user_name() + " — in normalen Saetzen, ohne "
+            "Werkzeug-Zeile. Wenn du etwas herausgefunden hast, sag es; wenn nicht, sag "
+            "ehrlich, was fehlt.")}]
+        res = _complete_resilient(nach, system=system, task_type=task_type,
+                                  session_id=session_id, escalate=escalate)
+        zweit = (res.get("text") or "").strip()
+        if zweit and not _ist_roher_werkzeugaufruf(zweit):
+            return zweit
+    except Exception as e:  # noqa: BLE001 — die Wache darf nie die letzte Antwort kosten
+        events.emit("antwort_nachfassen_fehler", {"error": str(e)[:200]}, session_id=session_id)
+    # Auch der zweite Versuch trug nichts — dann ehrlich sein statt Leere zu senden.
+    return KAPITULATION
+
+
 def _parse_act(text: str):
     """Findet 'ACT <tool> {json}' robust — auch mit Prosa oder Code-Fences drumherum,
     damit Tool-Aufrufe nie als Antwort durchsickern. JSON wird ab der '{'-Position
@@ -170,13 +426,36 @@ def _parse_act(text: str):
         name = m.group(1)
         brace = m.end() - 1  # Index des '{'
     else:
+        # Argumentloser Aufruf: das Manifest preist zwoelf Werkzeuge als "Argumente:
+        # keine" an (jetzt, health, cron_list, list_models …) — und ausgerechnet der
+        # einfachste Fall fiel bisher durch, weil der Parser eine '{' verlangte.
+        #
+        # ABER: diese Form ist von Prosa nicht zu unterscheiden. Ein JSON-Rumpf macht
+        # einen Aufruf eindeutig, eine nackte Zeile "ACT restart_self" nicht — die
+        # steht genauso in einer Erklaerung oder einer Rueckfrage. Ungefiltert wurde
+        # aus "Wenn du willst, mache ich einen Neustart. Dafuer nutze ich: ACT
+        # restart_self — soll ich?" ein echter Neustart. Dieselbe Falle wie beim
+        # Defender-Fund vom 26.07.: eine Rueckfrage ist eine Antwort, keine Aktion.
+        #
+        # Deshalb zaehlt die argumentlose Form nur, wenn drumherum nichts Nennenswertes
+        # steht — so, wie das Protokoll es ohnehin verlangt ("antworte mit GENAU einer
+        # Zeile, sonst nichts").
+        om = _ACT_OHNE_ARGS_RE.search(t)
+        if om:
+            drumherum = (t[:om.start()] + t[om.end():]).strip(" \t\n`{}\"'.,:;-")
+            if len(drumherum) < _MIN_ANTWORT:
+                return (om.group(1), {})
         fm = _FENCE_CALL_RE.search(text)
         if not fm:
             return None
         name = fm.group(1)
         brace = fm.start(2)
     try:
-        args, _ = json.JSONDecoder().raw_decode(text[brace:])
+        # strict=False erlaubt ECHTE Zeilenumbrueche in Zeichenketten. Kleine Modelle
+        # escapen sie fast nie korrekt — und es trifft ausgerechnet die Werkzeuge, die
+        # Arbeit erzeugen (write_file, vault_note, knowledge_note). Bisher fiel so ein
+        # Aufruf durch und der halb geschriebene Text landete als "Antwort" beim Nutzer.
+        args, _ = json.JSONDecoder(strict=False).raw_decode(text[brace:])
     except json.JSONDecodeError:
         return None
     return (name, args) if isinstance(args, dict) else None
@@ -665,6 +944,51 @@ def _edit_fail_clear(session_id: str | None) -> None:
     _EDIT_FAIL.pop(session_id or "_", None)
 
 
+def _falsche_argumente(name: str, tool, args: dict) -> str:
+    """Lehrfehler bei unbekannten/fehlenden Argumenten — oder "" wenn der Aufruf passt.
+
+    Rund 60 der 80 Werkzeuge nahmen bis 27.07. kein **falsche_args entgegen: ein
+    falscher Argumentname warf einen rohen TypeError. Der lief durch drei Executor-
+    Versuche mit Backoff (~3 s verschenkt), und nach dreimal sperrte der Circuit-Breaker
+    das Werkzeug fuer 60 Sekunden — wegen eines Tippfehlers, der deterministisch ist und
+    beim vierten Versuch genauso scheitert. Das Modell bekam dabei nie zu lesen, WELCHE
+    Argumente richtig gewesen waeren.
+
+    Werkzeuge mit **kwargs behandeln den Fall selbst (spezifischer, oft mit passendem
+    Beispiel) — die ueberspringt diese Wache."""
+    try:
+        import inspect
+
+        sig = inspect.signature(tool.func)
+        if any(p.kind is p.VAR_KEYWORD for p in sig.parameters.values()):
+            return ""       # das Werkzeug lehrt selbst
+        erlaubt = {n for n, p in sig.parameters.items() if p.kind is not p.VAR_POSITIONAL}
+        unbekannt = sorted(k for k in args if k not in erlaubt)
+        fehlend = sorted(
+            n for n, p in sig.parameters.items()
+            if p.default is p.empty
+            and p.kind in (p.POSITIONAL_OR_KEYWORD, p.KEYWORD_ONLY)
+            and n not in args)
+        if not (unbekannt or fehlend):
+            return ""
+        nimmt = ", ".join(tool.params) or ", ".join(sorted(erlaubt)) or "keine Argumente"
+        # Beispiel nur mit den PFLICHT-Argumenten (gleiche Heuristik wie tool_schemas):
+        # ein Beispiel mit allen Optionalen lehrt das Modell, sie immer mitzuschicken.
+        pflicht = [k for k, v in (tool.params or {}).items()
+                   if "optional" not in v.lower() and "standard" not in v.lower()]
+        beispiel = json.dumps({k: "…" for k in (pflicht or list(tool.params or {}))},
+                              ensure_ascii=False)
+        teile = []
+        if unbekannt:
+            teile.append(f"kennt {', '.join(unbekannt)} nicht")
+        if fehlend:
+            teile.append(f"braucht {', '.join(fehlend)}")
+        return (f"Fehler: {name} {' und '.join(teile)}. Erlaubt sind: {nimmt}. "
+                f"Beispiel: ACT {name} {beispiel}")
+    except Exception:  # noqa: BLE001 — die Wache darf einen Aufruf nie verhindern
+        return ""
+
+
 def _run_tool_guarded(name: str, tool, args: dict, session_id: str | None) -> str:
     """Zentraler Werkzeug-Runner aller Loops: Guard davor, Buchhaltung danach.
     W2: {{AGENT_NAME}}/{{USER_NAME}}-Platzhalter in Werkzeug-AUSGABEN werden hier
@@ -672,6 +996,11 @@ def _run_tool_guarded(name: str, tool, args: dict, session_id: str | None) -> st
     block = _rbe_block(session_id, name, args)
     if block:
         return block
+    argfehler = _falsche_argumente(name, tool, args)
+    if argfehler:
+        events.emit("tool_args_falsch", {"tool": name, "args": sorted(args)},
+                    session_id=session_id)
+        return argfehler
     obs = str(executor.run_tool(name, tool.func, **args))
     if "{{" in obs:
         from core import identity as _ident
@@ -788,9 +1117,7 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
                 events.emit("nudge", {"model": res.get("model") or "", "task_type": task_type},
                             session_id=session_id)
                 messages.append({"role": "assistant", "content": text})
-                messages.append({"role": "user", "content": "Der Auftrag liegt bereits vor — tu es "
-                                 "JETZT in diesem Zug: nutze die passenden Werkzeuge und antworte erst "
-                                 "mit dem Ergebnis. Nicht ankuendigen, nicht zurueckfragen."})
+                messages.append({"role": "user", "content": STUPS_NATIV})
                 continue
             # Beweispflicht II (Audit 26.07.): auch hier gilt — ohne Werkzeug keine
             # Zustandsaenderung. Cloud-Modelle behaupten seltener, aber nicht nie.
@@ -800,10 +1127,7 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
                 events.emit("beweis_nachgefragt", {"wort": wort, "task_type": task_type},
                             session_id=session_id)
                 messages.append({"role": "assistant", "content": text})
-                messages.append({"role": "user", "content": (
-                    f"Halt — du schreibst \"{wort}\", aber in diesem Zug lief KEIN Werkzeug. "
-                    "Damit hat sich nichts geaendert. Entweder du tust es JETZT wirklich, "
-                    "oder du sagst ehrlich, dass es noch offen ist und was du dafuer brauchst.")})
+                messages.append({"role": "user", "content": beweis_nachfrage(wort, nativ=True)})
                 continue
             return text
         used_tools = True
@@ -889,8 +1213,28 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
 
     messages: list[dict] = [{"role": "user", "content": task}]
     obs_cap = _budget("obs_max_chars", _OBS_MAX, task_type, escalate)  # starkes Modell -> sieht mehr
+    # Kein Ergebnis ohne Handgriff (Befund 28.07.): 73 von 200 lokalen Laeufen ueber diese
+    # Schleife endeten OHNE einen einzigen Werkzeugschritt — bei Auftraegen wie "Lies die
+    # letzten 3 Tagesnotizen" oder "Erstelle ein Ticket fuer jeden Termin". Chat und
+    # Cloud-Pfad hatten Stups und Beweispflicht laengst; ausgerechnet der Pfad des
+    # schwaechsten Modells hatte beides nicht. Aufgefangen hat es erst der Verifier —
+    # 94 task_retry, also 94 komplette Neulaeufe fuer etwas, das EIN Zug klaert.
+    used_tools = False
+    nudged = False
+    beweis_nachgefragt = False
+    # Auf dem Missionspfad gibt es keinen Smalltalk (jede Aufgabe kommt vom Planer, einem
+    # Cron oder einem Trigger) — nur heikle Auftraege bleiben tabu: da ist die Rueckfrage
+    # des Modells die richtige Antwort, kein Zoegern.
+    stups_erlaubt = not _HEIKEL_RE.search(task or "")
 
-    for step in range(max_steps):
+    # Ein Stups ist kein Werkzeugschritt: er darf weder das Arbeitsbudget aufzehren noch
+    # in der Schrittzahl auftauchen (die steht als "N Schritte" sichtbar im Cockpit-Feed).
+    # Deshalb zaehlt `step` echte Werkzeugschritte, und die Schleife hat genau zwei Zuege
+    # Luft — mehr koennen die beiden Waechter zusammen nie kosten.
+    step = 0
+    for _zug in range(max_steps + 2):
+        if step >= max_steps:
+            break
         _compact_history(messages)
         res = llm_router.complete(
             messages, system=system, task_type=task_type, session_id=session_id, escalate=escalate
@@ -906,10 +1250,43 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
                 text, call = _retry_fragment(messages, system, frag, step, session_id,
                                              task_type=task_type, escalate=escalate)
         if not call:
+            # Ankuendigung statt Arbeit — EINMAL zum Handeln draengen. Nur wenn im ganzen
+            # Lauf noch kein Werkzeug lief: wer arbeitet, wird nie gestupst.
+            if not used_tools and not nudged and stups_erlaubt and _looks_like_promise(text):
+                nudged = True
+                try:
+                    events.emit("nudge", {"model": llm_router.resolve_model(task_type, escalate)[0],
+                                          "task_type": task_type, "pfad": "mission"},
+                                session_id=session_id)
+                except Exception:  # noqa: BLE001
+                    pass
+                messages.append({"role": "assistant", "content": text})
+                messages.append({"role": "user", "content": STUPS_ACT})
+                continue
+            # Beweispflicht: "eingetragen/angelegt/erledigt" ohne einen einzigen
+            # Werkzeug-Aufruf ist erfunden — einmal zurueckgeben statt es als Ergebnis
+            # eines Crons zuzustellen.
+            wort = None if used_tools or beweis_nachgefragt else _behauptet_zustandsaenderung(text)
+            if wort:
+                beweis_nachgefragt = True
+                try:
+                    events.emit("beweis_nachgefragt", {"wort": wort, "task_type": task_type,
+                                                       "pfad": "mission"}, session_id=session_id)
+                except Exception:  # noqa: BLE001
+                    pass
+                messages.append({"role": "assistant", "content": text})
+                messages.append({"role": "user", "content": beweis_nachfrage(wort)})
+                continue
+            # Dieselbe Wache wie im Chat: ein leerer Zug oder eine ungeparste ACT-Zeile
+            # ist keine Antwort. Auf diesem Pfad laufen Crons, Missionen und jeder
+            # Plan-Teilschritt — genau dort entstanden die leeren Briefings.
+            text = _brauchbare_antwort(text, messages, system, session_id=session_id,
+                                       task_type=task_type, escalate=escalate)
             events.emit("act_done", {"steps": step}, session_id=session_id)
             return {"text": text, "steps": step}
 
         name, args = call
+        used_tools = True
         tool = registry.get(name)
         if erlaubt is not None and name not in erlaubt:
             from core.agency import rollen as _rollen
@@ -933,6 +1310,7 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
         messages.append(
             {"role": "user", "content": obs_wrapper(name, obs)}
         )
+        step += 1
 
     # Schrittlimit erreicht -> erzwinge eine finale Zusammenfassung aus dem Recherchierten.
     messages.append({
@@ -1688,6 +2066,9 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     # Arbeits-Modus: /work bzw. work: -> volles Task-Budget (viele Schritte, Claude-Code-Stil).
     # Sonst knapper Chat-Deckel -> normaler Dialog laeuft nicht in einen langen Tool-Sturm.
     work_mode = _s.lower().startswith(("/work", "work:"))
+    # Route frueh festlegen: _finalize (und damit die Ausgangswache) kann vor der
+    # Hauptschleife laufen, etwa bei einem Modell-Kommando oder einer Kurzschlussantwort.
+    _tt = "reason" if work_mode else "chat"
     work_objective = None
     if work_mode:
         user_message = re.sub(r"^(/work|work:)\s*", "", _s, flags=re.IGNORECASE).strip() or _s
@@ -1712,6 +2093,8 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     def _finalize(text: str) -> str:
         """Gemeinsamer Abschluss aller Chat-Ausgaenge: Beweispflicht-Stempel, Gedaechtnis,
         Events, final-Emit. Genau EIN Ort, an dem Antworten das Haus verlassen."""
+        text = _brauchbare_antwort(text, messages, system, session_id=session_id,
+                                   task_type=_tt, escalate=escalate)
         text = _claim_stamp(text, session_id=session_id)
         memory.remember(text, role="partner", session_id=session_id)
         events.emit("partner_message", {"text": text, "agentic": True}, session_id=session_id)
@@ -1733,7 +2116,6 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     # Modell-Route: normaler Dialog = 'chat' (DeepSeek, guenstig). Sobald es ein echter
     # Arbeitsauftrag ist (/work bzw. work:), auf 'reason' heben -> GLM 5.2. So bleibt Plaudern
     # billig, aber echtes Arbeiten laeuft auf dem staerkeren Modell.
-    _tt = "reason" if work_mode else "chat"
     # Cloud-Modelle: natives Function-Calling (robust, kein ACT-Text-Leak)
     _vstyle = _VOICE_STYLE if voice_mode else ""
     if _cloud(escalate, _tt):
@@ -1804,9 +2186,7 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
                 except Exception:  # noqa: BLE001
                     pass
                 messages.append({"role": "assistant", "content": text})
-                messages.append({"role": "user", "content": "Der Auftrag liegt bereits vor — "
-                                 "tu es JETZT mit einem Werkzeug (ACT ...) und antworte erst "
-                                 "mit dem Ergebnis. Nicht ankuendigen, nicht zurueckfragen."})
+                messages.append({"role": "user", "content": STUPS_ACT})
                 continue
             # Beweispflicht II: "eingetragen/gemerkt/erledigt" OHNE einen einzigen
             # Werkzeug-Aufruf in diesem Zug ist immer erfunden — EINMAL zurueckgeben
@@ -1820,11 +2200,7 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
                 except Exception:  # noqa: BLE001
                     pass
                 messages.append({"role": "assistant", "content": text})
-                messages.append({"role": "user", "content": (
-                    f"Halt — du schreibst \"{wort}\", aber in diesem Zug lief KEIN Werkzeug. "
-                    "Damit hat sich nichts geaendert. Entweder du tust es JETZT wirklich "
-                    "(ACT <werkzeug> {...}), oder du sagst ehrlich, dass es noch offen ist "
-                    "und was du dafuer brauchst. Nichts behaupten, was nicht passiert ist.")})
+                messages.append({"role": "user", "content": beweis_nachfrage(wort)})
                 continue
             return _finalize(text)
         name, args = call

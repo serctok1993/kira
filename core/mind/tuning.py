@@ -24,6 +24,7 @@ nur ein weiteres optionales Ollama-Modell im Dropdown.
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
 
@@ -86,6 +87,13 @@ def record_chat(session_id: str | None, user_message: str, final_text: str,
         a = (final_text or "").strip()
         if len(u) < 3 or len(a) < 15 or u.startswith("/"):
             return False
+        # Kapitulation der Ausgangswache ist KEIN Lehrbeispiel. Sie entsteht genau
+        # dann, wenn das Modell zweimal nichts Brauchbares lieferte — sie als Antwort
+        # auf die echte Frage mitzuschreiben, brächte dem naechsten Modell bei,
+        # ausgerechnet bei schweren Fragen aufzugeben (Befund 28.07.).
+        from core.agency.act import KAPITULATION
+        if a == KAPITULATION:
+            return False
         _DIR.mkdir(parents=True, exist_ok=True)
         row = {"ts": time.time(), "session_id": session_id, "user": u, "assistant": a,
                "used_tools": bool(used_tools), "source": "episode"}
@@ -115,19 +123,41 @@ def episodes() -> list[dict]:
 # 2) SYNTH-GENERATOR — Struktur-/Disziplin-/Ton-Beispiele aus der LIVEN Registry
 # ---------------------------------------------------------------------------
 
+_ZB_BEISPIEL = re.compile(r"z\.\s?B\.\s*([^,;()]+)", re.IGNORECASE)
+
+
 def _example_arg(desc: str) -> str:
-    """Aus einer Parameter-Beschreibung einen plausiblen Beispielwert basteln (deterministisch)."""
+    """Aus einer Parameter-Beschreibung einen plausiblen Beispielwert basteln (deterministisch).
+
+    Erste Regel: steht in der Beschreibung schon ein Beispiel ("TT.MM.JJJJ, z.B.
+    15.08.2026", "Kontext-Token, z.B. 16384"), dann NIMM DAS. Das ist die verlaesslichste
+    Quelle, die es gibt — sie steht direkt neben dem Vertrag und kann nicht danebenliegen.
+
+    Bis 28.07. wurde sie ignoriert, und heraus kamen Beispiele wie
+    ACT termin_add {"datum": "beispiel"} oder ACT set_context {"num_ctx": "<Satz>"} —
+    ein Zahlenparameter bekam einen Satz, weil "text" als Teilstring in "Kontext"
+    steckt. Deshalb jetzt Wortgrenzen statt Teilstrings."""
     d = (desc or "").lower()
+    m = _ZB_BEISPIEL.search(desc or "")
+    if m:
+        wert = m.group(1).strip().rstrip(".").strip()
+        if wert and len(wert) <= 40:
+            return wert
     if "url" in d:
         return "https://example.com"
     if any(w in d for w in ("suchanfrage", "query", "wonach", "suchen")):
         return "Wetter Berlin heute"
     if any(w in d for w in ("pfad", "datei", "path")):
         return "C:/Users/Name/Desktop/notiz.txt"
+    if re.search(r"\b(zahlenwert|anzahl|zielwert|sekunden|minuten|stunden)\b", d):
+        return "12"
     if any(w in d for w in ("titel", "title", "bezeichnung")):
         return "Kurznotiz"
-    if any(w in d for w in ("text", "inhalt", "nachricht", "fakt", "information")):
-        return f"{_id.user_name()} bevorzugt knappe, direkte Antworten."
+    if re.search(r"\b(text|inhalt|nachricht|fakt|information)\w*\b", d):
+        # KEIN echter Name hier: die Identitaets-Variation des kommerziellen Datensatzes
+        # laeuft ueber system_stub(agent, user). Wer den Namen direkt hineinschreibt,
+        # umgeht sie — der echte Name stand so in 8 von 77 Beispielen (Befund 28.07.).
+        return "Kurze, direkte Antworten sind erwuenscht."
     if "x-pixel" in d:
         return "640"
     if "y-pixel" in d:
@@ -135,18 +165,43 @@ def _example_arg(desc: str) -> str:
     return "beispiel"
 
 
+def _pflichtargumente(t) -> list[str]:
+    """Welche Argumente MUSS ein Aufruf dieses Werkzeugs mitbringen?
+
+    Massgeblich ist die Python-Signatur: alles ohne Vorgabewert. Das Manifest listet
+    Pflicht und Kuer gemeinsam auf, und wer nur den ERSTEN Eintrag nimmt, baut bei
+    jedem Werkzeug mit mehreren Pflichtargumenten einen unvollstaendigen Aufruf."""
+    import inspect
+
+    try:
+        sig = inspect.signature(t.func)
+    except (TypeError, ValueError):
+        return list(t.params or {})[:1]
+    pflicht = [n for n, p in sig.parameters.items()
+               if p.default is inspect.Parameter.empty
+               and p.kind not in (p.VAR_POSITIONAL, p.VAR_KEYWORD)]
+    return pflicht or list(t.params or {})[:1]
+
+
 def _tool_examples() -> list[dict]:
-    """Je Werkzeug ein Protokoll-Beispiel: korrekte EINE ACT-Zeile mit erstem Pflicht-Arg."""
+    """Je Werkzeug ein Protokoll-Beispiel: EINE ACT-Zeile mit ALLEN Pflicht-Argumenten.
+
+    Bis 28.07. nahm der Generator nur das erste Argument. Seit der Argument-Wache
+    (act.py:_falsche_argumente) beantwortet der Harness so einen Aufruf deterministisch
+    mit einem Fehler — der Datensatz brachte dem Modell also genau die Aufrufe bei, die
+    die Produktion ablehnt. Betroffen waren 13 der 81 Beispiele, darunter email_send,
+    learn_skill, self_edit, metric_log, trigger_add und watch_add. Dieselbe Fehlerklasse
+    wie der 187-Faelle-Fund des vertrag_pruefer.py, nur in Kiras eigenem Generator."""
     from core.agency.tools import registry
 
     out = []
     for t in registry.all_tools():
         params = t.params or {}
-        if params:
+        pflicht = _pflichtargumente(t) if params else []
+        arg_obj = {k: _example_arg(params.get(k, k)) for k in pflicht if k in params}
+        if params and not arg_obj:      # Signatur und Manifest passen nicht zusammen
             first_k = next(iter(params))
             arg_obj = {first_k: _example_arg(params[first_k])}
-        else:
-            arg_obj = {}
         act = f"ACT {t.name} {json.dumps(arg_obj, ensure_ascii=False)}"
         user = f"Bitte nutze das Werkzeug '{t.name}' ({t.description.split('.')[0][:80]})."
         out.append({"system": system_stub(), "user": user, "assistant": act, "source": "synth_tool"})
@@ -185,10 +240,15 @@ _PERSONA = [
 # Coding-Disziplin: erst suchen/lesen, chirurgisch editieren, DANN verifizieren — nie blind.
 _SEED_CODING = [
     [("user", "In utils.py teilt eine Funktion durch cnt, das kann 0 sein — fix das."),
-     ("assistant", 'ACT code_suche {"query": "/ cnt"}'),
+     # Argumentnamen MUESSEN dem Vertrag folgen: code_suche nimmt 'muster' (nicht
+     # 'query'), edit_datei nimmt pfad/suche/ersetze (nicht path/suchen/ersetzen).
+     # Bis 28.07. stand hier beides falsch — der Grundstock lehrte Aufrufe, die der
+     # Harness deterministisch ablehnt. tests/test_werkzeug_vertrag_golden.py wacht
+     # ueber die Namen, dieser Seed lief daran vorbei.
+     ("assistant", 'ACT code_suche {"muster": "/ cnt"}'),
      ("tool", "utils.py:42:    return total / cnt"),
-     ("assistant", 'ACT edit_datei {"path": "utils.py", "suchen": "return total / cnt", '
-      '"ersetzen": "return total / cnt if cnt else 0"}'),
+     ("assistant", 'ACT edit_datei {"pfad": "utils.py", "suche": "return total / cnt", '
+      '"ersetze": "return total / cnt if cnt else 0"}'),
      ("tool", "OK — 1 Stelle ersetzt."),
      ("assistant", 'ACT run_command {"command": "python -m pytest tests/test_utils.py -q"}'),
      ("tool", "3 passed"),

@@ -41,6 +41,12 @@ models:
   #                         # Einstellungen -> Denk-Tiefe — beides ueberlebt Neustarts (overrides).
   temperature: 0.7
   request_timeout: 120                      # hartes Timeout pro LLM-Call (Sek.) -> kein Einfrieren
+  # Die harte Wall-Clock-Grenze haengt davon ab, WO der Call laeuft. Cloud bleibt eng
+  # (haengender Socket kostet Geld), lokal bekommt Luft: ein lokaler Call kostet nichts
+  # ausser Zeit, und ihn abzuschiessen wirft die ganze Runde weg. Gemessen (28.07.):
+  # direkte lokale Aufrufe endeten bei 122-135s, also an der 120s-Marke abgeschnitten;
+  # ohne Grenze (gestreamter Pfad) laufen sie regulaer bis 573s durch.
+  hard_call_timeout_local: 600              # Sek. fuer Ollama/localhost-Endpunkte
   max_tokens: 8192                          # Ausgabe-Grenze pro Antwort (inkl. think-Phase)
   keep_alive: "24h"                         # Modell warm halten -> kein Kaltstart im Dauerbetrieb
   num_ctx: 32768                            # Kontextfenster (Live-Baseline; kleiner = guenstiger pro Call)
@@ -94,7 +100,14 @@ agency:
   # History statt eines rohen Fragment-Leaks an den Nutzer.
   history_max_chars: 30000  # Zeichen-Budget der ACT-History (Text-Protokoll, lokale Modelle)
   obs_preview_chars: 600    # Vorschau-Laenge gekuerzter alter Observations
-  turn_stall_seconds: 480   # Turn-Watchdog: haengt ein Chat-Zug > N s OHNE Fortschritt -> Force-Restart (schnellere Wedge-Erholung; echte /work-Tasks feuern laufend Events)
+  # Turn-Watchdog: haengt ein Chat-Zug > N s OHNE Fortschritt -> Force-Restart
+  # (schnellere Wedge-Erholung; echte /work-Tasks feuern laufend Events).
+  # MUSS ueber models.hard_call_timeout_local liegen, sonst schiesst der Watchdog
+  # einen lokalen Call ab, der noch voellig regulaer laeuft — das grosse Modell
+  # braucht dokumentiert bis 573s. Heute nicht erreichbar (kein nicht-gestreamter
+  # Call in 21 Tagen ueber 150s), aber sobald qwen35b wieder auf chat/reason liegt,
+  # reisst die Marke.
+  turn_stall_seconds: 660
   auto_plan: true           # klarer Arbeitsauftrag im Plain-Chat -> automatisch Plan-Modus (Denker-Rang, nicht Eskalation); Aenderung braucht Neustart
   claim_check: true         # Beweispflicht: behauptete Dateien in Antworten werden nachgeprueft, fehlende sichtbar gestempelt
   # Fable-freundliche Arbeitsflaeche: laeuft die Runde REAL auf einem starken Cloud-Modell
