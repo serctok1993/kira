@@ -255,7 +255,7 @@ def list_docs(limit: int = 100) -> list[dict]:
     cols = ["id", "ts", "title", "source", "tags", "bytes", "chunks", "path"]
     with _conn() as c:
         rows = c.execute(f"SELECT {', '.join(cols)} FROM knowledge_docs "
-                         f"ORDER BY ts DESC LIMIT ?", (limit,)).fetchall()
+                         f"ORDER BY ts DESC, rowid DESC LIMIT ?", (limit,)).fetchall()
     return [dict(zip(cols, r)) for r in rows]
 
 

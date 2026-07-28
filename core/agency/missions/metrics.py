@@ -67,7 +67,7 @@ def series(name: str, days: int = 90) -> list[dict]:
     cutoff = time.time() - days * 86400
     with _conn() as c:
         rows = c.execute(
-            "SELECT ts, value, note FROM metrics WHERE name=? AND ts >= ? ORDER BY ts ASC",
+            "SELECT ts, value, note FROM metrics WHERE name=? AND ts >= ? ORDER BY ts ASC, rowid ASC",
             (name.strip().lower(), cutoff),
         ).fetchall()
     return [{"ts": r[0], "value": r[1], "note": r[2]} for r in rows]
