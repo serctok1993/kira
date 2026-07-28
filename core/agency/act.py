@@ -320,9 +320,22 @@ def _parse_act(text: str):
         # Argumentloser Aufruf: das Manifest preist zwoelf Werkzeuge als "Argumente:
         # keine" an (jetzt, health, cron_list, list_models …) — und ausgerechnet der
         # einfachste Fall fiel bisher durch, weil der Parser eine '{' verlangte.
+        #
+        # ABER: diese Form ist von Prosa nicht zu unterscheiden. Ein JSON-Rumpf macht
+        # einen Aufruf eindeutig, eine nackte Zeile "ACT restart_self" nicht — die
+        # steht genauso in einer Erklaerung oder einer Rueckfrage. Ungefiltert wurde
+        # aus "Wenn du willst, mache ich einen Neustart. Dafuer nutze ich: ACT
+        # restart_self — soll ich?" ein echter Neustart. Dieselbe Falle wie beim
+        # Defender-Fund vom 26.07.: eine Rueckfrage ist eine Antwort, keine Aktion.
+        #
+        # Deshalb zaehlt die argumentlose Form nur, wenn drumherum nichts Nennenswertes
+        # steht — so, wie das Protokoll es ohnehin verlangt ("antworte mit GENAU einer
+        # Zeile, sonst nichts").
         om = _ACT_OHNE_ARGS_RE.search(t)
         if om:
-            return (om.group(1), {})
+            drumherum = (t[:om.start()] + t[om.end():]).strip(" \t\n`{}\"'.,:;-")
+            if len(drumherum) < _MIN_ANTWORT:
+                return (om.group(1), {})
         fm = _FENCE_CALL_RE.search(text)
         if not fm:
             return None

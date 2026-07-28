@@ -144,9 +144,15 @@ def _send(client: httpx.Client, chat_id: int, text: str, html: bool = True,
     Wecker ein zweites Mal klingeln laesst."""
     # Telegram-Limit ~4096 Zeichen -> stueckeln; HTML-Format mit Plain-Fallback.
     client = _ctrl()  # Steuer-Plane immer ueber den dedizierten Kurz-Timeout-Client
-    text = text or "…"
+    # .strip() ist hier nicht Kosmetik: eine Nachricht aus reinem Leerraum ("\n\n")
+    # ist truthy, ergibt aber NULL Stuecke — die Schleife lief dann nie und die
+    # Funktion meldete trotzdem True. Wer daraufhin seinen Puffer leerte (Melde-
+    # Buendel, Wecker), verlor die Nachricht und hielt es fuer Erfolg. Genau der
+    # Fehler, gegen den die Zustellung-mit-Quittung gebaut wurde.
+    text = (text or "").strip() or "…"
+    stuecke = _stuecke(text, html) or [text]
     ergebnis: bool | None = True
-    for i, chunk in enumerate(_stuecke(text, html)):
+    for i, chunk in enumerate(stuecke):
         payload = {"chat_id": chat_id, "text": _tg_html(chunk) if html else chunk}
         if html:
             payload["parse_mode"] = "HTML"
