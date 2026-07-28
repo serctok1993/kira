@@ -33,8 +33,34 @@ litellm.suppress_debug_info = True  # kein "Provider List"-Rauschen
 _LLM_POOL = _futures.ThreadPoolExecutor(max_workers=6, thread_name_prefix="llm")
 
 
-def _hard_cap_seconds() -> float:
+def _ist_lokaler_call(kwargs: dict) -> bool:
+    """Laeuft DIESER Call auf diesem Rechner? Spiegelt ist_lokal(), arbeitet aber auf
+    den schon aufgeloesten litellm-Argumenten — ein api_base allein reicht nicht als
+    Kennzeichen, den hat auch ein Cloud-Anbieter (aimlapi)."""
+    if str(kwargs.get("model") or "").startswith("ollama"):
+        return True
+    base = str(kwargs.get("api_base") or "")
+    return "127.0.0.1" in base or "localhost" in base
+
+
+def _hard_cap_seconds(lokal: bool = False) -> float:
+    """Wie lange ein einzelner Call laufen darf — das haengt davon ab, WO er laeuft.
+
+    Befund 28.07.: 51 der 103 Fehler in 14 Tagen waren derselbe — "LLM-Call
+    ueberschritt harte Wall-Clock-Grenze (150s)", verteilt auf Verifier (23),
+    Missionen (16), Wartung (4) und Heartbeat (3). Eine einzige Zahl galt fuer den
+    schnellen Cloud-Call und fuer ein 35B auf der heimischen GPU.
+
+    Gemessen an den Latenzen der letzten Wochen liegt die Grenze fuer grosse lokale
+    Modelle MITTEN im Normalbetrieb: qwen35b p90 = 268s (27 % seiner Aufrufe ueber
+    150s), nacht35b p99 = 378s. Cloud dagegen: p99 unter 90s.
+
+    Ein lokaler Call kostet nichts ausser Zeit, und ihn abzuschiessen wirft die ganze
+    Runde weg. Cloud bleibt eng: dort ist ein haengender Socket real (ein Call hing
+    ~8 Minuten) und laeuft aufs Geld."""
     base = float(CONFIG["models"].get("request_timeout", 120))
+    if lokal:
+        return float(CONFIG["models"].get("hard_call_timeout_local", 600))
     return float(CONFIG["models"].get("hard_call_timeout", base + 30))
 
 
@@ -42,13 +68,105 @@ def _completion(**kwargs):
     """litellm.completion mit harter Wall-Clock-Grenze. Wirft TimeoutError statt
     einen Turn minutenlang einzufrieren (der aufgegebene Call laeuft ggf. im
     Hintergrund aus, blockiert aber den Turn nicht mehr)."""
-    cap = _hard_cap_seconds()
+    cap = _hard_cap_seconds(_ist_lokaler_call(kwargs))
     fut = _LLM_POOL.submit(litellm.completion, **kwargs)
     try:
         return fut.result(timeout=cap)
     except _futures.TimeoutError:
         fut.cancel()
         raise TimeoutError(f"LLM-Call ueberschritt harte Wall-Clock-Grenze ({cap:.0f}s)") from None
+
+# Kontext-Selbstheilung -------------------------------------------------------
+# "request (16412 tokens) exceeds the available context size (8192 tokens)" — der
+# Fehler nennt beide Zahlen, also muss man die Groesse nicht konfigurieren, sondern
+# kann sie ausrechnen. Andere Anbieter formulieren anders; dann wird halbiert.
+_CTX_RE = re.compile(r"\((\d+) tokens?\)[^(]*?\((\d+) tokens?\)")
+
+
+def _zeichen(msgs: list[dict]) -> int:
+    return sum(len(str(m.get("content") or "")) for m in msgs)
+
+
+def _kontext_ziel(fehlertext: str, msgs: list[dict], max_tokens_out: int) -> int:
+    """Auf wieviele ZEICHEN muss die Anfrage schrumpfen, damit sie hineinpasst?
+
+    Aus (angefragte Token, verfuegbare Token) und der bekannten Zeichenzahl ergibt
+    sich das Zeichen-pro-Token-Verhaeltnis dieses Modells — damit rechnet man das
+    Ziel direkt aus, statt eine Kontextgroesse je Modell zu pflegen."""
+    ist_zeichen = _zeichen(msgs)
+    m = _CTX_RE.search(fehlertext)
+    if not m:
+        return max(2000, ist_zeichen // 2)
+    ist_tokens, verfuegbar = int(m.group(1)), int(m.group(2))
+    frei = max(512, verfuegbar - max_tokens_out)      # Platz fuer die Antwort lassen
+    pro_token = ist_zeichen / max(ist_tokens, 1)
+    return max(2000, int(frei * pro_token * 0.85))    # 15 % Sicherheitsabstand
+
+
+def _kontext_ausgabe_deckel(fehlertext: str, gewuenscht: int) -> int:
+    """Wieviel Ausgabe darf der zweite Anlauf hoechstens anfordern?
+
+    config.yaml erlaubt 8192 Ausgabe-Token — dasselbe wie der GESAMTE Kontext des
+    lokalen 35B-Endpunkts. Damit bliebe fuer die Eingabe rechnerisch nichts uebrig,
+    und der gekuerzte zweite Anlauf scheiterte an derselben Wand wie der erste. Also
+    hoechstens die Haelfte des Kontexts fuer die Antwort reservieren."""
+    m = _CTX_RE.search(fehlertext)
+    if not m:
+        return gewuenscht
+    return min(gewuenscht, max(512, int(m.group(2)) // 2))
+
+
+def _auf_mass_kuerzen(msgs: list[dict], ziel_zeichen: int) -> list[dict]:
+    """Kuerzt eine Nachrichtenliste auf ein Zeichenbudget.
+
+    Reihenfolge des Verzichts: erst die Zwischenschritte (aelteste zuerst), dann die
+    Mitte ganz, dann die letzte Nachricht, zuletzt der System-Prompt.
+
+    Die letzte Nachricht ist die wichtigste (darauf soll das Modell antworten) — aber
+    sie ist auf diesem Pfad oft AUCH die groesste, naemlich die frische Observation mit
+    einem dicken Werkzeug-Ergebnis. Sprengt sie allein das Budget, muss auch sie
+    gestutzt werden, sonst ist der zweite Anlauf so gross wie der erste und scheitert
+    identisch. Der System-Prompt kommt zuallerletzt dran: ohne Manifest kann das Modell
+    kein Werkzeug mehr aufrufen."""
+    out = [dict(m) for m in msgs]
+    if _zeichen(out) <= ziel_zeichen or len(out) < 2:
+        return out
+    hat_system = bool(out) and out[0].get("role") == "system"
+    erste = 1 if hat_system else 0
+    mitte = list(range(erste, len(out) - 1))
+
+    for i in mitte:                                    # 1. Zwischenschritte stutzen
+        if _zeichen(out) <= ziel_zeichen:
+            return out
+        c = str(out[i].get("content") or "")
+        if len(c) > 300:
+            out[i]["content"] = c[:300] + "\n[… gekuerzt, der Kontext war zu klein]"
+
+    if _zeichen(out) > ziel_zeichen and len(mitte) > 1:  # 2. Mitte ganz raus
+        behalten = [out[0]] if hat_system else []
+        behalten.append({"role": "user", "content":
+                         "[… frueherer Verlauf ausgelassen, der Kontext war zu klein]"})
+        out = behalten + [out[-1]]
+
+    if _zeichen(out) > ziel_zeichen and len(out) > 1:
+        # 3. Jetzt sind im Wesentlichen nur noch System und letzte Nachricht uebrig,
+        # und die sind zusammen immer noch zu gross. Beide muessen TEILEN: rechnete
+        # jeder Schritt fuer sich damit, dass der andere ganz bleibt, faellt bei beiden
+        # ein negativer Rest heraus — und es schrumpft gar nichts (genau so entstand
+        # ein zweiter Anlauf, der so gross war wie der erste).
+        sys_anteil = max(500, ziel_zeichen // 3) if hat_system else 0
+        if hat_system:
+            kopf = str(out[0].get("content") or "")
+            if len(kopf) > sys_anteil:
+                out[0]["content"] = kopf[:sys_anteil]
+            sys_anteil = len(str(out[0].get("content") or ""))
+        rest = max(200, ziel_zeichen - sys_anteil - _zeichen(out[1:-1]))
+        letzte = str(out[-1].get("content") or "")
+        if rest < len(letzte):
+            schnitt = max(100, rest - 60)
+            out[-1]["content"] = letzte[:schnitt] + "\n[… gekuerzt, der Kontext war zu klein]"
+    return out
+
 
 # Reasoning-Modelle (Qwythos, Qwen3) denken in <think>...</think>. Das gehoert
 # nicht in die sichtbare Antwort -> wir parsen es raus (Rohtext bleibt im Log).
@@ -424,6 +542,34 @@ def complete(
                             session_id=session_id)
             except Exception as e2:  # noqa: BLE001
                 events.emit("llm_call_error", {"error": str(e2)[:300], "model": model}, session_id=session_id)
+                raise
+        elif isinstance(e, litellm.ContextWindowExceededError) or (
+                "context" in msg.lower() and ("exceed" in msg.lower() or "too long" in msg.lower())):
+            # Der Verlauf ist ueber den Kontext des Modells gewachsen. Bisher riss das
+            # den ganzen Lauf ab (9 Faelle in 14 Tagen, alle auf dem lokalen 35B-Endpunkt
+            # mit 8k Kontext — angefragt wurden 16412 Token). Das Zeichenbudget der
+            # ACT-History ist EINE Zahl fuer alle Modelle; ein 8k-Endpunkt und ein
+            # 200k-Cloud-Modell bekommen dasselbe. Statt das je Modell zu pflegen:
+            # einmal auf das ausgerechnete Mass kuerzen und erneut versuchen.
+            retry_max_tokens = _kontext_ausgabe_deckel(msg, want_max_tokens)
+            ziel = _kontext_ziel(msg, msgs, retry_max_tokens)
+            kurz = _auf_mass_kuerzen(msgs, ziel)
+            events.emit("llm_call_retry", {"model": model, "reason": "kontext",
+                        "zeichen_vorher": _zeichen(msgs), "zeichen_nachher": _zeichen(kurz),
+                        "ziel": ziel, "max_tokens": retry_max_tokens}, session_id=session_id)
+            try:
+                resp = _completion(
+                    model=real,
+                    messages=kurz,
+                    temperature=CONFIG["models"].get("temperature", 0.7),
+                    max_tokens=retry_max_tokens,
+                    num_retries=1,
+                    timeout=CONFIG["models"].get("request_timeout", 120),
+                    **extra,
+                )
+            except Exception as e2:  # noqa: BLE001
+                events.emit("llm_call_error", {"error": str(e2)[:300], "model": model},
+                            session_id=session_id)
                 raise
         elif (("not a valid model" in msg.lower() or "no endpoints found" in msg.lower())
               and not real.startswith("ollama")):
