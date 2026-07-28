@@ -100,7 +100,14 @@ agency:
   # History statt eines rohen Fragment-Leaks an den Nutzer.
   history_max_chars: 30000  # Zeichen-Budget der ACT-History (Text-Protokoll, lokale Modelle)
   obs_preview_chars: 600    # Vorschau-Laenge gekuerzter alter Observations
-  turn_stall_seconds: 480   # Turn-Watchdog: haengt ein Chat-Zug > N s OHNE Fortschritt -> Force-Restart (schnellere Wedge-Erholung; echte /work-Tasks feuern laufend Events)
+  # Turn-Watchdog: haengt ein Chat-Zug > N s OHNE Fortschritt -> Force-Restart
+  # (schnellere Wedge-Erholung; echte /work-Tasks feuern laufend Events).
+  # MUSS ueber models.hard_call_timeout_local liegen, sonst schiesst der Watchdog
+  # einen lokalen Call ab, der noch voellig regulaer laeuft — das grosse Modell
+  # braucht dokumentiert bis 573s. Heute nicht erreichbar (kein nicht-gestreamter
+  # Call in 21 Tagen ueber 150s), aber sobald qwen35b wieder auf chat/reason liegt,
+  # reisst die Marke.
+  turn_stall_seconds: 660
   auto_plan: true           # klarer Arbeitsauftrag im Plain-Chat -> automatisch Plan-Modus (Denker-Rang, nicht Eskalation); Aenderung braucht Neustart
   claim_check: true         # Beweispflicht: behauptete Dateien in Antworten werden nachgeprueft, fehlende sichtbar gestempelt
   # Fable-freundliche Arbeitsflaeche: laeuft die Runde REAL auf einem starken Cloud-Modell
