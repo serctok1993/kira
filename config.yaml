@@ -44,7 +44,8 @@ models:
   # Die harte Wall-Clock-Grenze haengt davon ab, WO der Call laeuft. Cloud bleibt eng
   # (haengender Socket kostet Geld), lokal bekommt Luft: ein lokaler Call kostet nichts
   # ausser Zeit, und ihn abzuschiessen wirft die ganze Runde weg. Gemessen (28.07.):
-  # qwen35b p90 = 268s, p99 = 573s — bei 150s lag die Grenze mitten im Normalbetrieb.
+  # direkte lokale Aufrufe endeten bei 122-135s, also an der 120s-Marke abgeschnitten;
+  # ohne Grenze (gestreamter Pfad) laufen sie regulaer bis 573s durch.
   hard_call_timeout_local: 600              # Sek. fuer Ollama/localhost-Endpunkte
   max_tokens: 8192                          # Ausgabe-Grenze pro Antwort (inkl. think-Phase)
   keep_alive: "24h"                         # Modell warm halten -> kein Kaltstart im Dauerbetrieb
