@@ -234,6 +234,80 @@ class TestDerGeneratorLehrtNurGueltigeAufrufe:
         assert beispiele.get("jetzt", "").strip() in ("ACT jetzt {}", "ACT jetzt")
 
 
+class TestDerParserFuehrtKeineErklaerungAus:
+    """Befund: die argumentlose Aufrufform ist von Prosa nicht zu unterscheiden.
+
+    Ein JSON-Rumpf macht einen Aufruf eindeutig — eine nackte Zeile "ACT restart_self"
+    steht genauso in einer Erklaerung oder einer Rueckfrage. Ungefiltert wurde aus
+    "Wenn du willst, mache ich einen Neustart. Dafuer nutze ich: ACT restart_self —
+    soll ich?" ein echter Neustart von Bot und Runner. Dieselbe Falle wie beim
+    Defender-Fund vom 26.07.: eine Rueckfrage ist eine Antwort, keine Aktion."""
+
+    @pytest.mark.parametrize("text,erwartet", [
+        ("ACT jetzt", ("jetzt", {})),
+        ("ACT health()", ("health", {})),
+        ("Ich schaue kurz nach.\nACT jetzt", ("jetzt", {})),
+    ])
+    def test_echte_argumentlose_aufrufe_laufen(self, text, erwartet):
+        assert act._parse_act(text) == erwartet
+
+    @pytest.mark.parametrize("text", [
+        pytest.param("Wenn du willst, mache ich einen Neustart. Dafuer nutze ich:\n"
+                     "ACT restart_self\nSoll ich? Danach sind Bot und Runner kurz weg.",
+                     id="rueckfrage-vor-dem-neustart"),
+        pytest.param("Ich kann unter anderem:\nACT jetzt\nACT health\nACT restart_self\n\n"
+                     "Das sind die drei ohne Argumente. Sag, was du brauchst.",
+                     id="aufzaehlung-der-werkzeuge"),
+        pytest.param("Meine Werkzeuge ohne Argumente sind jetzt, health und cron_list. "
+                     "Ein Aufruf sieht so aus:\nACT health\nMehr braucht es nicht.",
+                     id="erklaerung-mit-beispiel"),
+    ])
+    def test_prosa_wird_nicht_ausgefuehrt(self, text):
+        assert act._parse_act(text) is None
+
+    @pytest.mark.parametrize("text,erwartet", [
+        ('ACT web_fetch {"url": "https://example.com"}',
+         ("web_fetch", {"url": "https://example.com"})),
+        ('Ich hole das eben. ACT web_search {"query": "Wetter"}',
+         ("web_search", {"query": "Wetter"})),
+    ])
+    def test_die_argument_form_bleibt_tolerant(self, text, erwartet):
+        """Mit JSON-Rumpf ist der Aufruf eindeutig — da darf Prosa drumherum stehen."""
+        assert act._parse_act(text) == erwartet
+
+
+class TestZustellungMeldetNurEchteZustellung:
+    """Befund: eine Nachricht aus reinem Leerraum ("\\n\\n") ist truthy, ergibt aber
+    NULL Stuecke — die Sendeschleife lief nie und _send meldete trotzdem True. Wer
+    daraufhin seinen Puffer leerte, verlor die Nachricht und hielt es fuer Erfolg."""
+
+    @pytest.mark.parametrize("text", ["   ", "\n\n", "\t", ""])
+    def test_leerraum_erzeugt_trotzdem_ein_stueck(self, text):
+        from core.agency.connectors import telegram_bot as tb
+
+        normalisiert = (text or "").strip() or "…"
+        assert tb._stuecke(normalisiert, True) or [normalisiert]
+
+    def test_send_sendet_wirklich_wenn_es_true_meldet(self, monkeypatch):
+        from core.agency.connectors import telegram_bot as tb
+
+        gesendet: list[dict] = []
+
+        class _Client:
+            def post(self, url, json=None, **kw):
+                gesendet.append(json or {})
+
+                class _R:
+                    @staticmethod
+                    def json():
+                        return {"ok": True}
+                return _R()
+
+        monkeypatch.setattr(tb, "_ctrl", lambda: _Client())
+        assert tb._send(None, 1, "\n\n") is True
+        assert gesendet, "True gemeldet, aber nichts gesendet"
+
+
 class TestBeispielwerteSindPlausibel:
     """Zwei Nebenfunde derselben Pruefung, beide im Beispiel-Generator.
 
