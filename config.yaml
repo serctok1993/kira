@@ -41,6 +41,11 @@ models:
   #                         # Einstellungen -> Denk-Tiefe — beides ueberlebt Neustarts (overrides).
   temperature: 0.7
   request_timeout: 120                      # hartes Timeout pro LLM-Call (Sek.) -> kein Einfrieren
+  # Die harte Wall-Clock-Grenze haengt davon ab, WO der Call laeuft. Cloud bleibt eng
+  # (haengender Socket kostet Geld), lokal bekommt Luft: ein lokaler Call kostet nichts
+  # ausser Zeit, und ihn abzuschiessen wirft die ganze Runde weg. Gemessen (28.07.):
+  # qwen35b p90 = 268s, p99 = 573s — bei 150s lag die Grenze mitten im Normalbetrieb.
+  hard_call_timeout_local: 600              # Sek. fuer Ollama/localhost-Endpunkte
   max_tokens: 8192                          # Ausgabe-Grenze pro Antwort (inkl. think-Phase)
   keep_alive: "24h"                         # Modell warm halten -> kein Kaltstart im Dauerbetrieb
   num_ctx: 32768                            # Kontextfenster (Live-Baseline; kleiner = guenstiger pro Call)
