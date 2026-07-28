@@ -55,12 +55,12 @@ def recent(limit: int = 50, before: float | None = None) -> list[dict]:
     with _conn() as c:
         if before is not None:  # Pagination: nur Events AELTER als 'before' -> "mehr laden"
             rows = c.execute(
-                "SELECT id, ts, type, session_id, payload FROM events WHERE ts < ? ORDER BY ts DESC LIMIT ?",
+                "SELECT id, ts, type, session_id, payload FROM events WHERE ts < ? ORDER BY ts DESC, rowid DESC LIMIT ?",
                 (before, limit),
             ).fetchall()
         else:
             rows = c.execute(
-                "SELECT id, ts, type, session_id, payload FROM events ORDER BY ts DESC LIMIT ?",
+                "SELECT id, ts, type, session_id, payload FROM events ORDER BY ts DESC, rowid DESC LIMIT ?",
                 (limit,),
             ).fetchall()
     return [
@@ -117,7 +117,7 @@ def rows_since(types: tuple[str, ...], since_ts: float, limit: int = 20000) -> l
     with _conn() as c:
         rows = c.execute(
             f"SELECT ts, type, payload FROM events WHERE ts >= ? AND type IN ({ph}) "
-            f"ORDER BY ts ASC LIMIT ?",
+            f"ORDER BY ts ASC, rowid ASC LIMIT ?",
             (since_ts, *types, limit),
         ).fetchall()
     return [{"ts": r[0], "type": r[1], "payload": json.loads(r[2] or "{}")} for r in rows]

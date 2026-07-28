@@ -1,0 +1,614 @@
+"""Was die gegnerische Pruefung der Nacht (28.07.2026) an eigenen Fehlern fand.
+
+Fuenf Blickwinkel gingen ueber die Aenderungen dieser Nacht, jeder Befund musste eine
+Widerlegung ueberstehen. Sieben blieben stehen — vier davon in Code, der wenige Stunden
+vorher als Verbesserung eingecheckt worden war. Diese Datei haelt sie zu.
+
+Die Lehre daraus steht in jedem Test einzeln; gemeinsam ist ihnen: eine Aenderung, die
+"offensichtlich richtig" aussieht, ist erst richtig, wenn sie auf dem ECHTEN Pfad mit
+den ECHTEN Daten geprueft wurde.
+"""
+from __future__ import annotations
+
+import inspect
+import json
+import re
+
+import pytest
+
+import core.agency.tools.builtin  # noqa: F401 — Registrierung ausloesen
+import core.agency.tools.life_tools  # noqa: F401
+import core.agency.tools.termin_tools  # noqa: F401
+from core.agency import act
+from core.agency.tools import registry
+from core.mind import tuning
+
+
+class TestInnenlebenErkennen:
+    """Befund: die Wache fing die Faelle nicht, die ihr Docstring als Anlass nannte.
+
+    Beim Verschaerfen gegen Fehlalarme wurde der JSON-Rumpf als "Prosa" mitgezaehlt —
+    ein gekappter Aufruf mit langem Rumpf rutschte damit durch. Alle Beispiele hier
+    sind aus data/state.db abgeschrieben, nicht erfunden."""
+
+    LEAKS = [
+        pytest.param("ACT list_models", id="rein-argumentlos"),
+        pytest.param("ACT health()", id="rein-mit-klammern"),
+        pytest.param('ACT remember_fact {"fact": "etwas Privates"}', id="rein-mit-argument"),
+        pytest.param(
+            'ACT vault_note {"titel": "DDR4 64GB Preisstand", "text": "# DDR4 64GB\\n'
+            '**Erstellt:** 23.07.2026\\n\\n## Aktuelle Preisspanne (DE',
+            id="mitten-im-json-gekappt"),
+        pytest.param(
+            "Ich sehe die Trace-Logik — aber die Datei scheint am Ende abgeschnitten zu "
+            'sein. Lass mich pruefen. ACT run_command {"command": "powershell -c "(Get-'
+            'Content \'x.py\' | Measure-Object -Line).Lines"}',
+            id="kaputtes-json-verschachtelte-anfuehrungszeichen"),
+        pytest.param("<tool_call>{...}", id="xml-stil"),
+        pytest.param('ACT web_search {"query": "x"}\n\nIch schaue mal nach.',
+                     id="aufruf-plus-kurzer-nachsatz"),
+    ]
+
+    ANTWORTEN = [
+        pytest.param("Es ist 14:30 Uhr.", id="kurze-antwort"),
+        pytest.param("Der Begriff ACT steht bei mir fuer Werkzeugaufrufe.", id="prosa-ueber-act"),
+        pytest.param(
+            "In core liegen **8 Unterordner** plus vier Python-Dateien. Die groesste ist "
+            "im Moment nicht messbar — ACT write_file hat ein Recherche-Dossier angelegt, "
+            "falls du mehr Felder brauchst.", id="prosa-erwaehnt-werkzeug"),
+        pytest.param("", id="leer-ist-nicht-roh"),
+    ]
+
+    @pytest.mark.parametrize("text", LEAKS)
+    def test_innenleben_wird_erkannt(self, text):
+        assert act._ist_roher_werkzeugaufruf(text) is True
+
+    @pytest.mark.parametrize("text", ANTWORTEN)
+    def test_echte_antworten_bleiben(self, text):
+        assert act._ist_roher_werkzeugaufruf(text) is False
+
+    def test_die_protokoll_erklaerung_behaelt_ihr_beispiel(self):
+        """Fragt der Partner, WIE Kira Werkzeuge aufruft, gehoert das Beispiel in die
+        Antwort — es darf weder verworfen noch herausgeschnitten werden."""
+        erklaerung = ('So rufe ich ein Werkzeug auf: ACT web_fetch {"url": '
+                      '"https://example.com"} — danach bekomme ich das Ergebnis zurueck '
+                      "und arbeite damit weiter. Pro Zug geht genau ein Aufruf.")
+        assert act._ist_roher_werkzeugaufruf(erklaerung) is False
+        rest, n, angefangen = act._werkzeugreste(erklaerung)
+        assert n == 1 and not angefangen
+        assert act._BEGINNT_MIT_AUFRUF.match(erklaerung) is None, "beginnt mit Prosa"
+
+
+class TestAufrufePlusEchteAntwort:
+    """Der schlimmste Live-Fall: vier remember_fact-Aufrufe mit privaten Finanzzahlen
+    als JSON, darunter eine 1994 Zeichen lange, voellig richtige Antwort. Sie wegzuwerfen
+    und neu zu fragen waere Verschwendung — das Innenleben gehoert raus, die Antwort bleibt."""
+
+    GEMISCHT = (
+        'ACT remember_fact {"fact": "Kredit laeuft bis 2029, Rate 250 im Monat"}\n'
+        'ACT remember_fact {"fact": "Arbeitet abends, mag knappe Antworten"}\n'
+        "Das war nicht zu viel — das war genau das, was ich brauche. Lass mich das "
+        "mal ordentlich spiegeln, weil da mehrere Dinge drin waren. Deine Freiheits"
+        "definition ist erfrischend konkret, und das Etappenziel macht damit Sinn."
+    )
+
+    def test_die_aufrufe_verschwinden(self):
+        rest, n, angefangen = act._werkzeugreste(self.GEMISCHT)
+        assert n == 2 and not angefangen
+        assert "remember_fact" not in rest
+        assert "Kredit laeuft" not in rest, "die privaten Zahlen sind noch da"
+
+    def test_die_antwort_bleibt_vollstaendig(self):
+        rest, _, _ = act._werkzeugreste(self.GEMISCHT)
+        assert "das war genau das, was ich brauche" in rest
+        assert "Etappenziel" in rest
+
+    def test_die_wache_stellt_die_bereinigte_antwort_zu(self, monkeypatch):
+        from core.kernel import events
+        events.init_db()
+        gerufen: list[int] = []
+        monkeypatch.setattr(act, "_complete_resilient",
+                            lambda *a, **k: gerufen.append(1) or {"text": "sollte nicht noetig sein"})
+        raus = act._brauchbare_antwort(self.GEMISCHT, [], "S", session_id=None)
+        assert "remember_fact" not in raus
+        assert "das war genau das, was ich brauche" in raus
+        assert gerufen == [], "es wurde unnoetig ein Modell befragt"
+
+    def test_reines_innenleben_kostet_dagegen_einen_nachfass_zug(self, monkeypatch):
+        from core.kernel import events
+        events.init_db()
+        monkeypatch.setattr(act, "_complete_resilient", lambda *a, **k: {"text": "Hier ist die Antwort."})
+        assert act._brauchbare_antwort("ACT list_models", [], "S", session_id=None) \
+            == "Hier ist die Antwort."
+
+
+class TestKapitulationIstKeinLehrbeispiel:
+    """Befund: der Ersatzsatz der Wache ist 135 Zeichen lang und rutscht damit durch den
+    15-Zeichen-Filter von record_chat — er landete als Antwort auf die ECHTE Frage im
+    Trainingsprotokoll. Das Modell haette gelernt, bei schweren Fragen aufzugeben."""
+
+    def test_es_gibt_genau_eine_quelle_fuer_den_satz(self):
+        quelltext = inspect.getsource(act)
+        assert quelltext.count("keine brauchbare Antwort zustande gebracht") == 1
+
+    def test_der_satz_wird_nicht_mitgeschrieben(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(tuning, "_DIR", tmp_path)
+        monkeypatch.setattr(tuning, "_EPISODES", tmp_path / "episodes.jsonl")
+        monkeypatch.setattr(tuning, "test_mode", lambda: False)
+        monkeypatch.setattr(tuning, "_is_ephemeral", lambda s: False)
+        assert tuning.record_chat("s1", "Wie hoch ist meine Steuerlast?",
+                                  act.KAPITULATION) is False
+        assert not (tmp_path / "episodes.jsonl").exists()
+
+    def test_eine_echte_antwort_wird_weiterhin_mitgeschrieben(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(tuning, "_DIR", tmp_path)
+        monkeypatch.setattr(tuning, "_EPISODES", tmp_path / "episodes.jsonl")
+        monkeypatch.setattr(tuning, "test_mode", lambda: False)
+        monkeypatch.setattr(tuning, "_is_ephemeral", lambda s: False)
+        assert tuning.record_chat("s1", "Wie hoch ist meine Steuerlast?",
+                                  "Rund 24 % — hier ist die Rechnung dazu.") is True
+
+
+class TestEinWortlautFuerAlleTextpfade:
+    """Befund: Stups und Beweispflicht wurden in den Missionspfad KOPIERT und liefen
+    dabei auseinander ("Nicht ankuendigen." statt "Nicht ankuendigen, nicht
+    zurueckfragen."; "in diesem Lauf" statt "in diesem Zug"). Die Werkstatt trainiert
+    auf einen Wortlaut — sprach die Produktion drei, sah das Modell eine Aufforderung,
+    die es nie geuebt hat. Jetzt kommen alle aus derselben Konstante."""
+
+    def test_kein_pfad_baut_den_stups_selbst_zusammen(self):
+        quelltext = inspect.getsource(act)
+        assert quelltext.count("Der Auftrag liegt bereits vor") == 2, \
+            "es gibt mehr Stups-Wortlaute als die zwei Konstanten"
+
+    def test_kein_pfad_baut_die_beweisnachfrage_selbst_zusammen(self):
+        quelltext = inspect.getsource(act)
+        assert quelltext.count("lief KEIN Werkzeug") == 1, \
+            "die Beweis-Nachfrage steht mehr als einmal im Quelltext"
+
+    def test_chat_und_mission_sprechen_woertlich_gleich(self):
+        """Beide fahren das ACT-Textprotokoll — da darf es keinen Unterschied geben."""
+        assert "(ACT ...)" in act.STUPS_ACT
+        assert "nicht zurueckfragen" in act.STUPS_ACT
+        assert "in diesem Zug" in act.beweis_nachfrage("eingetragen")
+        assert "ACT <werkzeug>" in act.beweis_nachfrage("eingetragen")
+
+    def test_der_native_pfad_weicht_nur_dort_ab_wo_er_muss(self):
+        """Cloud-Modelle rufen strukturiert auf — ein "(ACT ...)" waere dort falsch."""
+        assert "ACT" not in act.STUPS_NATIV
+        assert "nicht zurueckfragen" in act.STUPS_NATIV
+        assert "ACT" not in act.beweis_nachfrage("eingetragen", nativ=True)
+
+    def test_das_signalwort_steht_in_der_nachfrage(self):
+        assert '"eingetragen"' in act.beweis_nachfrage("eingetragen")
+
+
+class TestDerGeneratorLehrtNurGueltigeAufrufe:
+    """Befund: 15 Beispiele im Datensatz-Generator brachten dem Modell Aufrufe bei, die
+    der Harness seit der Argument-Wache deterministisch ablehnt — _tool_examples nahm
+    nur das ERSTE Argument, und der Coding-Grundstock benutzte schlicht falsche Namen
+    (query statt muster; path/suchen/ersetzen statt pfad/suche/ersetze).
+
+    Dieselbe Fehlerklasse wie der 187-Faelle-Fund des vertrag_pruefer.py, nur in Kiras
+    eigenem Generator. Dieser Test ist die stehende Wache dagegen."""
+
+    _ACT = re.compile(r"ACT\s+([a-zA-Z_]\w*)\s*(\{.*)", re.DOTALL)
+
+    def _beanstandung(self, zeile: str) -> str:
+        m = self._ACT.match(zeile.strip())
+        if not m:
+            return ""
+        name = m.group(1)
+        try:
+            args = json.loads(m.group(2))
+        except json.JSONDecodeError:
+            return f"{name}: JSON kaputt"
+        tool = registry.get(name)
+        if not tool:
+            return f"{name}: Werkzeug existiert nicht"
+        fehler = act._falsche_argumente(name, tool, args)
+        return f"{name}: {fehler.split('Beispiel')[0].strip()}" if fehler else ""
+
+    def test_jedes_werkzeug_beispiel_wuerde_wirklich_laufen(self):
+        schlecht = [b for b in (self._beanstandung(x["assistant"])
+                                for x in tuning._tool_examples()) if b]
+        assert not schlecht, f"{len(schlecht)} Beispiele wuerden abgelehnt: {schlecht[:6]}"
+
+    def test_der_coding_grundstock_benutzt_die_echten_argumentnamen(self):
+        zeilen = [inhalt for episode in tuning._SEED_CODING for rolle, inhalt in episode
+                  if rolle == "assistant" and inhalt.strip().startswith("ACT ")]
+        assert zeilen, "der Grundstock enthaelt gar keine Aufrufe mehr"
+        schlecht = [b for b in (self._beanstandung(z) for z in zeilen) if b]
+        assert not schlecht, f"falsche Argumentnamen im Grundstock: {schlecht}"
+
+    def test_werkzeuge_mit_mehreren_pflichtargumenten_bekommen_alle(self):
+        """Der eigentliche Fehler: 'erstes Pflicht-Arg' statt 'alle Pflicht-Args'."""
+        beispiele = {x["assistant"].split()[1]: x["assistant"] for x in tuning._tool_examples()}
+        mail = beispiele.get("email_send", "")
+        assert mail, "email_send fehlt im Generator"
+        for pflicht in ("to", "subject", "body"):
+            assert f'"{pflicht}"' in mail, f"{pflicht} fehlt in: {mail}"
+
+    def test_argumentlose_werkzeuge_bleiben_argumentlos(self):
+        beispiele = {x["assistant"].split()[1]: x["assistant"] for x in tuning._tool_examples()}
+        assert beispiele.get("jetzt", "").strip() in ("ACT jetzt {}", "ACT jetzt")
+
+
+class TestErklaerungenUeberleben:
+    """Zweite gegnerische Prüfung, 28.07.: die Korrektur hatte selbst eine Regression.
+
+    `_werkzeugreste` meldete "angefangen", sobald irgendwo ein `ACT name {` stand, dem
+    kein gültiges JSON folgt — auch bei einem blossen Platzhalter in Prosa. Und die
+    Wache schloss daraus kurz, BEVOR sie irgendetwas anderes prüfte.
+
+    Am echten Korpus gemessen: die Fassung davor verwarf 4 Nachrichten, diese verwarf
+    14. Unter den 10 zusätzlichen waren DREI vollständige, richtige Antworten von 2488,
+    2697 und 4434 Zeichen — alle drei erklären Kiras eigene Architektur und schreiben
+    dabei wörtlich `ACT tool {json}`. Sie enden regulär, sind also nachweislich nicht
+    gekappt. Es traf ausgerechnet starke Modelle, weil die diese langen Texte schreiben.
+
+    Das verlässliche Merkmal ist nicht die Klammerbilanz (bei den echten Leaks steht
+    das `}` formal da), sondern ob nach dem unlesbaren Aufruf noch Text FOLGT."""
+
+    ARCHITEKTUR = (
+        "Zwei Loop-Typen: ein textbasiertes `ACT tool {json}`-Format für lokale Modelle, "
+        "und nativer Function-Call für Cloud. Das ist der risikoärmste erste Baustein, "
+        "weil der Textpfad auch mit schwachen Modellen funktioniert und nichts am "
+        "bestehenden Aufbau umgebaut werden muss."
+    )
+
+    @pytest.mark.parametrize("platzhalter", [
+        "`ACT tool {json}`", "ACT web_fetch {...}", "ACT web_search {args}",
+        "ACT web_search {query}", 'ACT web_search {{"query": "x"}}',
+        "ACT web_search {'query': 'Wetter'}",
+    ])
+    def test_platzhalter_in_prosa_ist_kein_angefangener_aufruf(self, platzhalter):
+        """Jede dieser Schreibweisen kam in echten Antworten vor."""
+        text = (f"Der Aufruf wird als {platzhalter} geschrieben, und danach kommt das "
+                "Ergebnis zurück. Ich arbeite damit weiter, bis ich genug weiss, und "
+                "gebe dann die finale Antwort — pro Zug genau ein Aufruf.")
+        assert act._ist_roher_werkzeugaufruf(text) is False, platzhalter
+
+    def test_die_architektur_erklaerung_wird_zugestellt(self):
+        assert act._ist_roher_werkzeugaufruf(self.ARCHITEKTUR) is False
+        _rest, _n, angefangen = act._werkzeugreste(self.ARCHITEKTUR)
+        assert not angefangen
+
+    def test_ein_wirklich_gekappter_aufruf_bleibt_erkannt(self):
+        """Gegenprobe: bei den echten Leaks folgt dem Aufruf NICHTS mehr."""
+        gekappt = 'ACT vault_note {"titel": "DDR4 Preisstand", "text": "# DDR4 64GB\\n**Ers'
+        assert act._ist_roher_werkzeugaufruf(gekappt) is True
+
+    def test_kaputtes_json_am_textende_bleibt_erkannt(self):
+        leak = ("Die Datei ist am Ende abgeschnitten — lass mich den Rest holen. "
+                'ACT run_command {"command": "powershell -c "Get-Content \'x.py\'"}')
+        assert act._ist_roher_werkzeugaufruf(leak) is True
+
+    def test_verschachtelte_klammern_in_der_nutzlast(self):
+        """Dritte Prüfung, 28.07.: die erste Fassung suchte die ERSTE schliessende
+        Klammer nach dem Aufruf. Bei einer PowerShell-Nutzlast ist das die Klammer von
+        Where-Object — MITTEN im JSON. Was danach als "Prosa" gezaehlt wurde, war der
+        Rest des Aufrufs, und zwei echte Live-Leaks (454 und 495 Zeichen) gingen wieder
+        woertlich an den Nutzer.
+
+        Der alte Test blieb gruen, weil er eine VERKUERZTE Fassung ohne verschachtelte
+        Klammer benutzte. Hier steht jetzt der echte Wortlaut aus data/state.db."""
+        leak = ("Lass mich mal nachschauen, was gerade laeuft und wo wir stehen:\n\n"
+                'ACT run_command {"command": "powershell -c "Get-Process | Where-Object '
+                "{$_.ProcessName -match 'python|uv|node'} | Select-Object Id, "
+                'ProcessName, StartTime | Format-Table -AutoSize""}')
+        assert act._ist_roher_werkzeugaufruf(leak) is True
+
+    def test_die_klammer_bilanz_findet_das_echte_ende(self):
+        t = 'ACT run_command {"c": "a {b} c"} und danach kommt noch etwas Text hinterher.'
+        ende = act._aufruf_ende(t, t.index("{"))
+        assert t[ende:].strip().startswith("und danach")
+
+    def test_ein_nie_geschlossener_aufruf_hat_kein_ende(self):
+        assert act._aufruf_ende('ACT x {"a": "b', 6) == -1
+
+
+class TestBeideRichtungenAmEchtenKorpus:
+    """Die Lehre aus drei Prüfrunden: bei dieser Wache gibt es ZWEI Fehlerrichtungen,
+    und wer nur eine misst, baut die andere ein.
+
+    Runde 1 verwarf zu wenig (4 von 11 Leaks). Runde 2 verwarf zu viel (14, darunter
+    drei richtige Antworten). Runde 3 verwarf wieder zu wenig (9 — zwei PowerShell-
+    Leaks kamen durch, weil die Klammer-Suche im JSON strandete). Jedes Mal war die
+    Suite grün, weil die Beispiele in den Tests genau den kritischen Fall nicht trafen.
+
+    Deshalb prüft dieser Test gegen die ECHTEN Texte statt gegen erfundene."""
+
+    LEAKS = [
+        # gekappt mitten im JSON
+        'ACT vault_note {"titel": "DDR4 64GB Preisstand", "text": "# DDR4 64GB\\n**Erst',
+        # kaputte Anfuehrungszeichen, nichts danach
+        ("Die Datei ist am Ende abgeschnitten — ich brauche den Rest. Lass mich das holen.\n"
+         'ACT run_command {"command": "powershell -c "Get-Content \'x.py\' | Select-Object -Skip 150"}'),
+        # verschachtelte Klammern in der Nutzlast
+        ("Lass mich mal nachschauen, was gerade laeuft und wo wir stehen:\n\n"
+         'ACT run_command {"command": "powershell -c "Get-Process | Where-Object '
+         "{$_.ProcessName -match 'python|uv|node'} | Select-Object Id, ProcessName\"\"}"),
+        # reine Aufrufe
+        "ACT list_models",
+        "ACT health()",
+    ]
+
+    ANTWORTEN = [
+        # lange Architektur-Erklaerung mit Platzhalter
+        ("Zwei Loop-Typen: ein textbasiertes `ACT tool {json}`-Format für lokale Modelle, "
+         "und nativer Function-Call für Cloud. Der Textpfad funktioniert auch mit "
+         "schwachen Modellen, deshalb ist das der risikoärmste erste Baustein — es muss "
+         "nichts am bestehenden Aufbau umgebaut werden, und beide Wege enden im selben "
+         "Abschluss."),
+        # Prosa, die ein Werkzeug erwaehnt
+        ("In core liegen acht Unterordner plus vier Python-Dateien. ACT write_file hat "
+         "ein Recherche-Dossier angelegt, falls du mehr Felder brauchst — sag Bescheid."),
+        # normale Antworten
+        "Es ist 14:30 Uhr.",
+        "Ja, morgen um 9.",
+    ]
+
+    @pytest.mark.parametrize("text", LEAKS)
+    def test_richtung_eins_kein_innenleben_wird_zugestellt(self, text):
+        assert act._ist_roher_werkzeugaufruf(text) is True
+
+    @pytest.mark.parametrize("text", ANTWORTEN)
+    def test_richtung_zwei_keine_richtige_antwort_wird_verworfen(self, text):
+        assert act._ist_roher_werkzeugaufruf(text) is False
+
+
+class TestDieVierzigZeichenSindEineWeicheKeinVeto:
+    """Abnahme-Prüfung 28.07.: zwischen den beiden Sieben klaffte ein Loch.
+
+    Das eine verlangte, dass der Text MIT dem Aufruf beginnt; das andere verlangte
+    40 Zeichen Rest, um zu bereinigen. Bei "Ok, notiere ich.\\nACTremember_fact {…}"
+    traf keins von beiden zu — der Aufruf ging samt Inhalt wörtlich raus, ohne dass
+    auch nur ein Ereignis davon zeugte.
+
+    Die 40-Zeichen-Marke entscheidet, WAS geschieht (bereinigen oder nachfassen),
+    nicht OB etwas geschieht. Beide Siebe prüfen jetzt dasselbe Merkmal."""
+
+    def _mit_vorspann(self, vorspann: str) -> str:
+        return ((vorspann + "\n") if vorspann else "") + \
+            'ACTremember_fact {"fact": "Kontonummer 12345678"}'
+
+    @pytest.mark.parametrize("vorspann", [
+        pytest.param("", id="ohne-vorspann"),
+        pytest.param("Ok.", id="drei-zeichen"),
+        pytest.param("Ok, notiere ich.", id="sechzehn-zeichen"),
+        pytest.param("Ok, das notiere ich mir gern fuer di", id="knapp-unter-vierzig"),
+    ])
+    def test_kurzer_rest_fuehrt_zum_nachfass_zug(self, vorspann, monkeypatch):
+        from core.kernel import events
+        events.init_db()
+        monkeypatch.setattr(act, "_complete_resilient", lambda *a, **k: {"text": "Die echte Antwort."})
+        text = self._mit_vorspann(vorspann)
+        assert act._ist_roher_werkzeugaufruf(text) is True
+        assert act._brauchbare_antwort(text, [], "S", session_id=None) == "Die echte Antwort."
+
+    def test_langer_rest_wird_bereinigt_und_behalten(self, monkeypatch):
+        from core.kernel import events
+        events.init_db()
+        monkeypatch.setattr(act, "_complete_resilient",
+                            lambda *a, **k: {"text": "sollte nicht noetig sein"})
+        text = self._mit_vorspann("Ok, das notiere ich mir gerne fuer dich und melde mich dann.")
+        raus = act._brauchbare_antwort(text, [], "S", session_id=None)
+        assert "Kontonummer" not in raus
+        assert "notiere ich mir gerne" in raus
+
+    @pytest.mark.parametrize("vorspann", ["", "Ok.", "Ok, notiere ich.",
+                                          "Ok, das notiere ich mir gerne fuer dich und melde mich."])
+    def test_in_keinem_fall_verlaesst_die_kontonummer_das_haus(self, vorspann, monkeypatch):
+        from core.kernel import events
+        events.init_db()
+        monkeypatch.setattr(act, "_complete_resilient", lambda *a, **k: {"text": "Die echte Antwort."})
+        raus = act._brauchbare_antwort(self._mit_vorspann(vorspann), [], "S", session_id=None)
+        assert "Kontonummer" not in raus and "ACT" not in raus
+
+
+class TestDasLochZwischenParserUndWache:
+    """Zwei Änderungen desselben Commits benutzten für DIESELBE Textform zwei
+    verschiedene Kriterien. `_parse_act` führt die argumentlose Form nur aus, wenn
+    drumherum < 40 Zeichen stehen; die Wache schnitt Reste nur heraus, wenn der Text
+    MIT dem Aufruf BEGINNT. Eine Ankündigung plus `ACT list_models` fiel durch beide:
+    das Werkzeug lief nicht, und die ACT-Zeile ging wörtlich an den Nutzer."""
+
+    ANKUENDIGUNG = "Ich schaue kurz nach, welche Modelle gerade verfügbar sind.\nACT list_models"
+
+    def test_der_aufruf_wird_nicht_ausgefuehrt(self):
+        assert act._parse_act(self.ANKUENDIGUNG) is None
+
+    def test_aber_er_wird_auch_nicht_zugestellt(self, monkeypatch):
+        from core.kernel import events
+        events.init_db()
+        monkeypatch.setattr(act, "_complete_resilient",
+                            lambda *a, **k: {"text": "sollte nicht noetig sein"})
+        raus = act._brauchbare_antwort(self.ANKUENDIGUNG, [], "S", session_id=None)
+        assert "ACT list_models" not in raus
+        assert "Ich schaue kurz nach" in raus
+
+    @pytest.mark.parametrize("text,erwartet", [
+        ("Ich schaue kurz nach, welche Modelle es gibt.\nACT list_models", True),
+        ('Klar, ich lege das an. Der Aufruf:\nACT vault_note {"titel": "X", "text": "Y"}', True),
+        ("Ich kann unter anderem:\nACT jetzt\nACT health\n\nDas sind die argumentlosen. "
+         "Sag mir, was du brauchst, dann mache ich das.", False),
+    ])
+    def test_ende_erkennt_liegengebliebene_aufrufe(self, text, erwartet):
+        assert act._endet_mit_aufruf(text) is erwartet
+
+
+class TestDasZeilenMerkmal:
+    """Die Lehre aus drei Prüfrunden über derselben Stelle.
+
+    Erst wurde zu wenig gefiltert (4 von 11 Leaks), dann zu viel (14, darunter drei
+    richtige Antworten von bis zu 4434 Zeichen), dann wieder zu wenig (9). Weder
+    "beginnt mit dem Aufruf" noch "endet damit" noch die Klammerbilanz trifft die
+    Sache. Das verlässliche Merkmal ist die ZEILE: ein Aufruf, der eine eigene Zeile
+    beginnt, ist liegengebliebenes Innenleben; einer mitten im Satz ist ein Beispiel."""
+
+    @pytest.mark.parametrize("text", [
+        pytest.param('ACT remember_fact {"fact": "x"}', id="ganz-am-anfang"),
+        pytest.param('Erledigt.\nACT vault_note {"titel": "X"}', id="eigene-zeile-nach-prosa"),
+        pytest.param('- ACT jetzt', id="mit-aufzaehlungszeichen"),
+        pytest.param('```\nACT health {}\n```', id="im-code-fence"),
+        pytest.param('ACTremember_fact {"fact": "ohne Leerzeichen"}', id="ohne-leerzeichen"),
+    ])
+    def test_aufruf_am_zeilenanfang_ist_innenleben(self, text):
+        assert act._AUFRUF_ZEILENANFANG.search(text) is not None
+
+    @pytest.mark.parametrize("text", [
+        pytest.param("ein textbasiertes `ACT tool {json}`-Format für lokale Modelle",
+                     id="mitten-im-satz"),
+        pytest.param('So rufe ich auf: ACT web_fetch {"url": "x"} — dann kommt das Ergebnis.',
+                     id="beispiel-nach-doppelpunkt"),
+        pytest.param("Der Begriff ACT steht bei mir fuer Werkzeugaufrufe.", id="nur-erwaehnt"),
+    ])
+    def test_aufruf_im_satz_ist_ein_beispiel(self, text):
+        assert act._AUFRUF_ZEILENANFANG.search(text) is None
+
+    @pytest.mark.parametrize("text", ["ACT health()", "ACT health ( )", "ACT jetzt ()"])
+    def test_auch_die_klammer_form_zaehlt(self, text):
+        """Beim Umbau auf das Zeilen-Merkmal fiel 'ACT health()' zuerst heraus: das
+        Muster erlaubte eine oeffnende Klammer, verlangte danach aber Zeilenende."""
+        assert act._AUFRUF_ZEILENANFANG.search(text) is not None
+
+    def test_das_wort_action_ist_kein_aufruf(self):
+        """Ohne das Leerzeichen-Zugestaendnis braucht es eine Bremse gegen Wortfunde."""
+        assert act._ACT_LOCKER.search("Die ACTION {x} ist gemeint") is None
+        assert act._ACT_LOCKER.search('ACTremember_fact {"a": 1}') is not None
+
+    def test_der_live_fall_mit_drei_aufrufen_in_der_mitte(self):
+        """2430 Zeichen: drei rohe remember_fact-Aufrufe, darunter 2156 Zeichen echte
+        Antwort. Weder Anfang noch Ende — ging deshalb komplett unveraendert raus."""
+        text = ('ACTremember_fact {"fact": "Partnerschafts-Modell: Video-Content und Aufbau"}\n\n'
+                'ACT remember_fact {"fact": "Zwischenziel: bei 10k Income neue Hardware"}\n\n'
+                'ACT remember_fact {"fact": "Cold Calls nein, Closing Calls ja"}\n\n\n'
+                "Das ist ein verdammt gutes erstes Ziel. Ein Rechner mit viel Speicher "
+                "wäre da wirklich der nächste sinnvolle Schritt, aber erst danach.")
+        rest, n, angefangen = act._werkzeugreste(text)
+        assert n == 3, "der Aufruf ohne Leerzeichen wurde nicht mitgezaehlt"
+        assert not angefangen
+        assert "Partnerschafts-Modell" not in rest
+        assert "verdammt gutes erstes Ziel" in rest
+        assert act._AUFRUF_ZEILENANFANG.search(text) is not None
+
+
+class TestDerParserFuehrtKeineErklaerungAus:
+    """Befund: die argumentlose Aufrufform ist von Prosa nicht zu unterscheiden.
+
+    Ein JSON-Rumpf macht einen Aufruf eindeutig — eine nackte Zeile "ACT restart_self"
+    steht genauso in einer Erklaerung oder einer Rueckfrage. Ungefiltert wurde aus
+    "Wenn du willst, mache ich einen Neustart. Dafuer nutze ich: ACT restart_self —
+    soll ich?" ein echter Neustart von Bot und Runner. Dieselbe Falle wie beim
+    Defender-Fund vom 26.07.: eine Rueckfrage ist eine Antwort, keine Aktion."""
+
+    @pytest.mark.parametrize("text,erwartet", [
+        ("ACT jetzt", ("jetzt", {})),
+        ("ACT health()", ("health", {})),
+        ("Ich schaue kurz nach.\nACT jetzt", ("jetzt", {})),
+    ])
+    def test_echte_argumentlose_aufrufe_laufen(self, text, erwartet):
+        assert act._parse_act(text) == erwartet
+
+    @pytest.mark.parametrize("text", [
+        pytest.param("Wenn du willst, mache ich einen Neustart. Dafuer nutze ich:\n"
+                     "ACT restart_self\nSoll ich? Danach sind Bot und Runner kurz weg.",
+                     id="rueckfrage-vor-dem-neustart"),
+        pytest.param("Ich kann unter anderem:\nACT jetzt\nACT health\nACT restart_self\n\n"
+                     "Das sind die drei ohne Argumente. Sag, was du brauchst.",
+                     id="aufzaehlung-der-werkzeuge"),
+        pytest.param("Meine Werkzeuge ohne Argumente sind jetzt, health und cron_list. "
+                     "Ein Aufruf sieht so aus:\nACT health\nMehr braucht es nicht.",
+                     id="erklaerung-mit-beispiel"),
+    ])
+    def test_prosa_wird_nicht_ausgefuehrt(self, text):
+        assert act._parse_act(text) is None
+
+    @pytest.mark.parametrize("text,erwartet", [
+        ('ACT web_fetch {"url": "https://example.com"}',
+         ("web_fetch", {"url": "https://example.com"})),
+        ('Ich hole das eben. ACT web_search {"query": "Wetter"}',
+         ("web_search", {"query": "Wetter"})),
+    ])
+    def test_die_argument_form_bleibt_tolerant(self, text, erwartet):
+        """Mit JSON-Rumpf ist der Aufruf eindeutig — da darf Prosa drumherum stehen."""
+        assert act._parse_act(text) == erwartet
+
+
+class TestZustellungMeldetNurEchteZustellung:
+    """Befund: eine Nachricht aus reinem Leerraum ("\\n\\n") ist truthy, ergibt aber
+    NULL Stuecke — die Sendeschleife lief nie und _send meldete trotzdem True. Wer
+    daraufhin seinen Puffer leerte, verlor die Nachricht und hielt es fuer Erfolg."""
+
+    @pytest.mark.parametrize("text", ["   ", "\n\n", "\t", ""])
+    def test_leerraum_erzeugt_trotzdem_ein_stueck(self, text):
+        from core.agency.connectors import telegram_bot as tb
+
+        normalisiert = (text or "").strip() or "…"
+        assert tb._stuecke(normalisiert, True) or [normalisiert]
+
+    def test_send_sendet_wirklich_wenn_es_true_meldet(self, monkeypatch):
+        from core.agency.connectors import telegram_bot as tb
+
+        gesendet: list[dict] = []
+
+        class _Client:
+            def post(self, url, json=None, **kw):
+                gesendet.append(json or {})
+
+                class _R:
+                    @staticmethod
+                    def json():
+                        return {"ok": True}
+                return _R()
+
+        monkeypatch.setattr(tb, "_ctrl", lambda: _Client())
+        assert tb._send(None, 1, "\n\n") is True
+        assert gesendet, "True gemeldet, aber nichts gesendet"
+
+
+class TestBeispielwerteSindPlausibel:
+    """Zwei Nebenfunde derselben Pruefung, beide im Beispiel-Generator.
+
+    Der Generator ignorierte die Beispiele, die in den Parameter-Beschreibungen schon
+    DRINSTEHEN ("TT.MM.JJJJ, z.B. 15.08.2026") und setzte stattdessen "beispiel" ein —
+    ein Modell lernte so, ein Datum als das Wort "beispiel" zu schicken. Und weil "text"
+    als Teilstring in "Kontext" steckt, bekam der Zahlenparameter num_ctx einen ganzen
+    Satz als Wert."""
+
+    def _beispiele(self) -> dict:
+        return {x["assistant"].split()[1]: x["assistant"] for x in tuning._tool_examples()}
+
+    def test_die_beschreibung_liefert_ihr_eigenes_beispiel(self):
+        b = self._beispiele()
+        assert '"datum": "15.08.2026"' in b.get("termin_add", "")
+        assert '"num_ctx": "16384"' in b.get("set_context", "")
+
+    def test_ein_zahlenparameter_bekommt_keine_prosa(self):
+        assert tuning._example_arg("Kontext-Token, z.B. 16384").isdigit()
+        assert tuning._example_arg("der Zahlenwert").isdigit()
+        assert tuning._example_arg("Anzahl Zeilen (Standard 80)").isdigit()
+
+    def test_ein_textparameter_bekommt_weiterhin_text(self):
+        wert = tuning._example_arg("der Text der Notiz")
+        assert not wert.isdigit() and len(wert) > 10
+
+
+class TestKeinEchterNameImDatensatz:
+    """Die Identitaets-Variation des kommerziellen Datensatzes laeuft ueber
+    system_stub(agent, user). Der Beispiel-Generator umging sie und schrieb den echten
+    Nutzernamen direkt in 8 von 77 Beispiele — der waere so in jeden Export gewandert."""
+
+    def test_kein_beispiel_traegt_den_live_namen(self):
+        from core import identity
+
+        name = identity.user_name().lower()
+        treffer = [x["assistant"] for x in tuning._tool_examples()
+                   if name and name in x["assistant"].lower()]
+        assert not treffer, f"echter Name in {len(treffer)} Beispielen: {treffer[:3]}"
+
+    def test_der_stub_bleibt_der_haken_fuer_die_variation(self):
+        """Gegenprobe: ueber system_stub SOLL der Name variierbar sein."""
+        assert "Nova" in tuning.system_stub("Nova", "Alex")
+        assert "Alex" in tuning.system_stub("Nova", "Alex")

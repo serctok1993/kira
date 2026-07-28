@@ -108,7 +108,7 @@ def pending() -> list[dict]:
         c.row_factory = None
         rows = c.execute(
             "SELECT id, ts, kind, title, detail, ref, source, status, decided_ts, note "
-            "FROM approvals WHERE status='pending' ORDER BY ts DESC"
+            "FROM approvals WHERE status='pending' ORDER BY ts DESC, rowid DESC"
         ).fetchall()
     return [_row(r) for r in rows]
 
@@ -117,7 +117,7 @@ def recent(limit: int = 30) -> list[dict]:
     with _conn() as c:
         rows = c.execute(
             "SELECT id, ts, kind, title, detail, ref, source, status, decided_ts, note "
-            "FROM approvals ORDER BY ts DESC LIMIT ?", (limit,)
+            "FROM approvals ORDER BY ts DESC, rowid DESC LIMIT ?", (limit,)
         ).fetchall()
     return [_row(r) for r in rows]
 
