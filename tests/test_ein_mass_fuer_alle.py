@@ -173,6 +173,110 @@ class TestAufMassKuerzen:
         assert r._auf_mass_kuerzen(msgs, 100) == msgs
 
 
+class TestNativeNachrichtenformBleibtGueltig:
+    """Gegnerische Pruefung 28.07.: die erste Fassung riss die Mitte heraus und liess
+    eine tool-Antwort ohne ihren assistant-Aufruf stehen. Jeder OpenAI-kompatible
+    Server lehnt das ab — aus einem heilbaren Kontext-Ueberlauf wurde ein harter 400er,
+    ausgerechnet auf dem Pfad der starken Modelle."""
+
+    def _nativ(self, schritte: int, obs: int = 6000) -> list[dict]:
+        """Verlauf so, wie _native_loop ihn baut: assistant(tool_calls) + tool-Paare."""
+        msgs = [{"role": "system", "content": "MANIFEST " * 200},
+                {"role": "user", "content": "Lies die drei Dateien und fasse zusammen."}]
+        for i in range(schritte):
+            msgs.append({"role": "assistant", "content": None, "tool_calls": [
+                {"id": f"call_{i}", "type": "function",
+                 "function": {"name": "read_file", "arguments": '{"path": "x.py"}'}}]})
+            msgs.append({"role": "tool", "tool_call_id": f"call_{i}",
+                         "content": f"Inhalt {i} " * (obs // 10)})
+        return msgs
+
+    def _waisen(self, msgs: list[dict]) -> list[str]:
+        offen: set[str] = set()
+        verwaist: list[str] = []
+        for m in msgs:
+            for ruf in (m.get("tool_calls") or []):
+                offen.add(ruf["id"])
+            if m.get("role") == "tool":
+                if m.get("tool_call_id") not in offen:
+                    verwaist.append(str(m.get("tool_call_id")))
+        return verwaist
+
+    @pytest.mark.parametrize("schritte", [1, 2, 3, 5, 8, 12])
+    def test_keine_verwaiste_werkzeug_antwort(self, schritte):
+        msgs = self._nativ(schritte)
+        gekuerzt = r._auf_mass_kuerzen(msgs, 4000)
+        assert self._waisen(gekuerzt) == [], f"verwaist: {self._waisen(gekuerzt)}"
+
+    @pytest.mark.parametrize("schritte", [1, 2, 3, 5, 8, 12])
+    def test_der_auftrag_bleibt_erhalten(self, schritte):
+        gekuerzt = r._auf_mass_kuerzen(self._nativ(schritte), 4000)
+        texte = " ".join(str(m.get("content") or "") for m in gekuerzt)
+        assert "Lies die drei Dateien" in texte, "der urspruengliche Auftrag ist weg"
+
+    @pytest.mark.parametrize("schritte", [1, 3, 8])
+    def test_es_wird_wirklich_kleiner(self, schritte):
+        msgs = self._nativ(schritte)
+        assert r._zeichen(r._auf_mass_kuerzen(msgs, 4000)) < r._zeichen(msgs)
+
+    def test_tool_calls_zaehlen_beim_umfang_mit(self):
+        """Wer nur content zaehlt, haelt eine volle native History fuer fast leer."""
+        nur_rufe = [{"role": "assistant", "content": None, "tool_calls": [
+            {"id": "a", "type": "function",
+             "function": {"name": "read_file", "arguments": '{"path": "sehr/langer/pfad.py"}'}}]}]
+        assert r._zeichen(nur_rufe) > 50
+
+    def test_die_reine_textform_bleibt_wie_bisher(self):
+        """Der ACT-Textpfad kennt keine tool-Rollen — der darf sich nicht aendern."""
+        msgs = [{"role": "system", "content": "S" * 500}]
+        for i in range(6):
+            msgs.append({"role": "assistant", "content": f"ACT read_file {i} " * 200})
+            msgs.append({"role": "user", "content": f"ERGEBNIS {i} " * 200})
+        gekuerzt = r._auf_mass_kuerzen(msgs, 3000)
+        assert r._zeichen(gekuerzt) <= 3000
+        assert all(m["role"] in ("system", "user", "assistant") for m in gekuerzt)
+
+
+class TestLokaleGrenzeWirktWirklich:
+    """Gegnerische Pruefung 28.07.: die Wall-Clock-Grenze aussen herum war wirkungslos,
+    weil litellm sein eigenes timeout=request_timeout (120s) behielt und zweimal
+    wiederholte. Der bindende Deckel ist litellms timeout — nicht der Thread-Pool."""
+
+    def test_lokaler_call_bekommt_die_lange_grenze_auch_an_litellm(self, monkeypatch):
+        gesehen: dict = {}
+        monkeypatch.setattr(r._LLM_POOL, "submit",
+                            lambda fn, **kw: gesehen.update(kw) or _Fertig("ok"))
+        r._completion(model="ollama_chat/kira-c6-9b", messages=[], timeout=120)
+        assert gesehen["timeout"] >= r._hard_cap_seconds(lokal=True)
+
+    def test_cloud_call_behaelt_sein_enges_timeout(self, monkeypatch):
+        gesehen: dict = {}
+        monkeypatch.setattr(r._LLM_POOL, "submit",
+                            lambda fn, **kw: gesehen.update(kw) or _Fertig("ok"))
+        r._completion(model="openrouter/z-ai/glm-5.2", messages=[], timeout=120)
+        assert gesehen["timeout"] == 120
+
+    def test_ein_bereits_grosszuegigeres_timeout_wird_nicht_gesenkt(self, monkeypatch):
+        gesehen: dict = {}
+        monkeypatch.setattr(r._LLM_POOL, "submit",
+                            lambda fn, **kw: gesehen.update(kw) or _Fertig("ok"))
+        r._completion(model="ollama_chat/x", messages=[], timeout=1200)
+        assert gesehen["timeout"] == 1200
+
+
+class _Fertig:
+    """Minimaler Future-Ersatz fuer die Timeout-Tests."""
+
+    def __init__(self, wert):
+        self._wert = wert
+
+    def result(self, timeout=None):
+        return self._wert
+
+    def cancel(self):
+        return True
+
+
 class TestDieVerdrahtungInComplete:
     """Die Bausteine oben stimmen — hier geht es um den echten Weg durch complete()."""
 

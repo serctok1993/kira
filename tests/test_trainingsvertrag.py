@@ -56,6 +56,35 @@ def test_nudge_und_zwangsabschluss_wortlaute():
     assert "Fasse jetzt final fuer" in SRC
 
 
+def test_jeder_modellgerichtete_wortlaut_hat_genau_eine_quelle():
+    """Diese Wache blieb gruen, waehrend die Produktion auseinanderlief (Befund 28.07.).
+
+    Stups und Beweispflicht wurden in den Missionspfad KOPIERT statt geteilt, und die
+    Kopien wichen ab: "Nicht ankuendigen." statt "Nicht ankuendigen, nicht
+    zurueckfragen.", "in diesem Lauf" statt "in diesem Zug". Ein >= 2 faengt so etwas
+    nicht — es muss genau so oft im Quelltext stehen, wie es Varianten geben DARF.
+
+    Erlaubt sind zwei Stups-Fassungen: ACT-Text (Chat + Mission) und nativ (Cloud,
+    dort waere ein "(ACT ...)" schlicht falsch). Die Beweis-Nachfrage kommt aus einer
+    einzigen Funktion, die den Unterschied selbst setzt."""
+    assert SRC.count("Der Auftrag liegt bereits vor") == 2, \
+        "es gibt mehr Stups-Wortlaute als die zwei erlaubten Konstanten"
+    assert SRC.count("lief KEIN Werkzeug") == 1, \
+        "die Beweis-Nachfrage wurde kopiert statt geteilt"
+    assert "STUPS_ACT" in SRC and "STUPS_NATIV" in SRC
+    assert "def beweis_nachfrage(" in SRC
+
+
+def test_die_ausgangswache_hat_einen_festen_wortlaut():
+    """Was der Harness dem Modell sagt, wenn eine Antwort unbrauchbar war — und was
+    Kira sagt, wenn auch das nicht half. Beides ist modellgerichteter bzw.
+    nutzersichtbarer Text und darf nicht still driften."""
+    assert "Deine letzte Antwort war unbrauchbar" in SRC
+    assert SRC.count("keine brauchbare Antwort zustande gebracht") == 1, \
+        "der Kapitulations-Satz braucht GENAU eine Quelle — die Trainingsmitschrift " \
+        "sortiert ihn daran aus"
+
+
 def test_hauptrollen_weiche_im_chat_pfad():
     # der lokale Chat baut das kuratierte haupt-Manifest, act() filtert nach Rolle —
     # und es gibt KEIN drittes, ungefiltertes manifest() im Prompt-Bau

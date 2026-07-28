@@ -51,9 +51,12 @@ def _hard_cap_seconds(lokal: bool = False) -> float:
     Missionen (16), Wartung (4) und Heartbeat (3). Eine einzige Zahl galt fuer den
     schnellen Cloud-Call und fuer ein 35B auf der heimischen GPU.
 
-    Gemessen an den Latenzen der letzten Wochen liegt die Grenze fuer grosse lokale
-    Modelle MITTEN im Normalbetrieb: qwen35b p90 = 268s (27 % seiner Aufrufe ueber
-    150s), nacht35b p99 = 378s. Cloud dagegen: p99 unter 90s.
+    Gemessen: die DIREKTEN lokalen Aufrufe enden bei 122s, 131s und 135s — das ist
+    kein Zufall, sondern die 120s-Marke von litellm, an der sie abgeschnitten wurden.
+    68 der Wall-Clock-Timeouts entfallen auf lokale Modelle. Wie lange lokale
+    Generierungen wirklich brauchen duerfen, zeigt der gestreamte Pfad, der gar keine
+    Grenze hat: dort laufen sie regulaer bis 573s durch (qwen35b) und werden fertig.
+    Cloud dagegen: p99 unter 90s.
 
     Ein lokaler Call kostet nichts ausser Zeit, und ihn abzuschiessen wirft die ganze
     Runde weg. Cloud bleibt eng: dort ist ein haengender Socket real (ein Call hing
@@ -68,7 +71,16 @@ def _completion(**kwargs):
     """litellm.completion mit harter Wall-Clock-Grenze. Wirft TimeoutError statt
     einen Turn minutenlang einzufrieren (der aufgegebene Call laeuft ggf. im
     Hintergrund aus, blockiert aber den Turn nicht mehr)."""
-    cap = _hard_cap_seconds(_ist_lokaler_call(kwargs))
+    lokal = _ist_lokaler_call(kwargs)
+    cap = _hard_cap_seconds(lokal)
+    if lokal:
+        # DER bindende Deckel ist litellms eigenes `timeout`, nicht die Wall-Clock
+        # aussen herum. Die Grenze hier hochzusetzen und litellm weiter mit
+        # request_timeout=120 laufen zu lassen, bringt gar nichts: litellm bricht
+        # nach 120s ab und versucht es zweimal neu. Ein langsames lokales Modell
+        # wird beim zweiten Versuch nicht schneller — es blockiert nur laenger und
+        # scheitert am Ende trotzdem. Deshalb zieht fuer lokale Calls dieselbe Zahl.
+        kwargs["timeout"] = max(float(kwargs.get("timeout") or 0), cap)
     fut = _LLM_POOL.submit(litellm.completion, **kwargs)
     try:
         return fut.result(timeout=cap)
@@ -84,7 +96,19 @@ _CTX_RE = re.compile(r"\((\d+) tokens?\)[^(]*?\((\d+) tokens?\)")
 
 
 def _zeichen(msgs: list[dict]) -> int:
-    return sum(len(str(m.get("content") or "")) for m in msgs)
+    """Umfang einer Nachrichtenliste. Auf dem nativen Pfad steckt der halbe Verlauf
+    NICHT im content, sondern in tool_calls — wer nur content zaehlt, haelt eine
+    volle History faelschlich fuer leer und kuerzt dann viel zu scharf."""
+    n = 0
+    for m in msgs:
+        n += len(str(m.get("content") or ""))
+        rufe = m.get("tool_calls")
+        if rufe:
+            try:
+                n += len(json.dumps(rufe, ensure_ascii=False, default=str))
+            except Exception:  # noqa: BLE001
+                n += 200 * len(rufe)
+    return n
 
 
 def _kontext_ziel(fehlertext: str, msgs: list[dict], max_tokens_out: int) -> int:
@@ -119,8 +143,21 @@ def _kontext_ausgabe_deckel(fehlertext: str, gewuenscht: int) -> int:
 def _auf_mass_kuerzen(msgs: list[dict], ziel_zeichen: int) -> list[dict]:
     """Kuerzt eine Nachrichtenliste auf ein Zeichenbudget.
 
-    Reihenfolge des Verzichts: erst die Zwischenschritte (aelteste zuerst), dann die
-    Mitte ganz, dann die letzte Nachricht, zuletzt der System-Prompt.
+    Reihenfolge des Verzichts: erst die Zwischenschritte (aelteste zuerst), dann ganze
+    Zuege von vorne, dann die letzte Nachricht, zuletzt der System-Prompt.
+
+    ZWEI Dinge muessen dabei heil bleiben, sonst wird aus einem heilbaren Kontext-
+    Ueberlauf ein harter Anbieter-Fehler:
+
+    * Die PAARUNG von Werkzeugaufruf und Werkzeug-Antwort. Auf dem nativen Pfad
+      besteht der Verlauf aus {"role":"assistant","tool_calls":[…]} gefolgt von
+      {"role":"tool","tool_call_id":…}. Die erste Fassung schnitt die MITTE heraus und
+      liess die tool-Antwort ohne ihren Aufruf stehen — jeder OpenAI-kompatible Server
+      lehnt das ab ("messages with role tool must be a response to a preceding message
+      with tool_calls"). Deshalb wird von VORNE geschnitten: was bleibt, ist ein
+      zusammenhaengendes Stueck.
+    * Der urspruengliche AUFTRAG. Faellt die erste Nutzer-Nachricht weg, sieht das
+      Modell nur noch ein Werkzeug-Ergebnis ohne die Frage, zu der es gehoert.
 
     Die letzte Nachricht ist die wichtigste (darauf soll das Modell antworten) — aber
     sie ist auf diesem Pfad oft AUCH die groesste, naemlich die frische Observation mit
@@ -133,20 +170,37 @@ def _auf_mass_kuerzen(msgs: list[dict], ziel_zeichen: int) -> list[dict]:
         return out
     hat_system = bool(out) and out[0].get("role") == "system"
     erste = 1 if hat_system else 0
-    mitte = list(range(erste, len(out) - 1))
 
-    for i in mitte:                                    # 1. Zwischenschritte stutzen
+    for i in range(erste, len(out) - 1):                # 1. Zwischenschritte stutzen
         if _zeichen(out) <= ziel_zeichen:
             return out
         c = str(out[i].get("content") or "")
         if len(c) > 300:
             out[i]["content"] = c[:300] + "\n[… gekuerzt, der Kontext war zu klein]"
 
-    if _zeichen(out) > ziel_zeichen and len(mitte) > 1:  # 2. Mitte ganz raus
-        behalten = [out[0]] if hat_system else []
-        behalten.append({"role": "user", "content":
-                         "[… frueherer Verlauf ausgelassen, der Kontext war zu klein]"})
-        out = behalten + [out[-1]]
+    if _zeichen(out) > ziel_zeichen and len(out) - erste > 2:
+        # 2. Ganze Zuege von vorne wegnehmen. Der Auftrag (die erste Nutzer-Nachricht)
+        # bleibt als Anker stehen, danach folgt ein zusammenhaengendes Endstueck.
+        anker = next((i for i in range(erste, len(out)) if out[i].get("role") == "user"), None)
+        kopf = out[:erste] + ([out[anker]] if anker is not None else [])
+        schwanz = out[(anker + 1) if anker is not None else erste:]
+        while len(schwanz) > 1 and _zeichen(kopf + schwanz) > ziel_zeichen:
+            schwanz.pop(0)
+            # Eine tool-Antwort ohne ihren Aufruf ist ungueltig — mit wegnehmen.
+            while len(schwanz) > 1 and schwanz[0].get("role") == "tool":
+                schwanz.pop(0)
+        if schwanz and schwanz[0].get("role") == "tool":
+            # Selbst das Endstueck beginnt noch mit einer Waise: dann lieber ihren
+            # Inhalt als normale Nachricht weiterreichen als eine ungueltige Folge.
+            schwanz[0] = {"role": "user", "content":
+                          "Ergebnis des letzten Schritts:\n"
+                          + str(schwanz[0].get("content") or "")}
+        if len(kopf) + len(schwanz) < len(out):
+            hinweis = [{"role": "user", "content":
+                        "[… frueherer Verlauf ausgelassen, der Kontext war zu klein]"}]
+            out = kopf + hinweis + schwanz
+        else:
+            out = kopf + schwanz
 
     if _zeichen(out) > ziel_zeichen and len(out) > 1:
         # 3. Jetzt sind im Wesentlichen nur noch System und letzte Nachricht uebrig,
