@@ -67,6 +67,16 @@ class TestWallClockFolgetDemModell:
         """Ein haengender Cloud-Socket kostet Geld — da bleibt der Deckel scharf."""
         assert r._hard_cap_seconds(lokal=False) <= 300
 
+    def test_der_turn_watchdog_liegt_ueber_der_lokalen_grenze(self):
+        """Abnahme-Befund 28.07.: die neue lokale Grenze (600s) lag UEBER dem
+        Turn-Watchdog (480s). Damit haette der Watchdog einen lokalen Call
+        abgeschossen, der noch voellig regulaer laeuft — das grosse Modell braucht
+        dokumentiert bis 573s. Die Reihenfolge muss lauten: Cloud < lokal < Watchdog."""
+        from core.config import CONFIG
+
+        watchdog = float(CONFIG["agency"]["turn_stall_seconds"])
+        assert r._hard_cap_seconds(lokal=False) < r._hard_cap_seconds(lokal=True) < watchdog
+
 
 class TestKontextZielAusrechnen:
     FEHLER = ("litellm.ContextWindowExceededError: request (16412 tokens) exceeds "

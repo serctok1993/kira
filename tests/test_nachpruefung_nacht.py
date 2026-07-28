@@ -358,6 +358,55 @@ class TestBeideRichtungenAmEchtenKorpus:
         assert act._ist_roher_werkzeugaufruf(text) is False
 
 
+class TestDieVierzigZeichenSindEineWeicheKeinVeto:
+    """Abnahme-Prüfung 28.07.: zwischen den beiden Sieben klaffte ein Loch.
+
+    Das eine verlangte, dass der Text MIT dem Aufruf beginnt; das andere verlangte
+    40 Zeichen Rest, um zu bereinigen. Bei "Ok, notiere ich.\\nACTremember_fact {…}"
+    traf keins von beiden zu — der Aufruf ging samt Inhalt wörtlich raus, ohne dass
+    auch nur ein Ereignis davon zeugte.
+
+    Die 40-Zeichen-Marke entscheidet, WAS geschieht (bereinigen oder nachfassen),
+    nicht OB etwas geschieht. Beide Siebe prüfen jetzt dasselbe Merkmal."""
+
+    def _mit_vorspann(self, vorspann: str) -> str:
+        return ((vorspann + "\n") if vorspann else "") + \
+            'ACTremember_fact {"fact": "Kontonummer 12345678"}'
+
+    @pytest.mark.parametrize("vorspann", [
+        pytest.param("", id="ohne-vorspann"),
+        pytest.param("Ok.", id="drei-zeichen"),
+        pytest.param("Ok, notiere ich.", id="sechzehn-zeichen"),
+        pytest.param("Ok, das notiere ich mir gern fuer di", id="knapp-unter-vierzig"),
+    ])
+    def test_kurzer_rest_fuehrt_zum_nachfass_zug(self, vorspann, monkeypatch):
+        from core.kernel import events
+        events.init_db()
+        monkeypatch.setattr(act, "_complete_resilient", lambda *a, **k: {"text": "Die echte Antwort."})
+        text = self._mit_vorspann(vorspann)
+        assert act._ist_roher_werkzeugaufruf(text) is True
+        assert act._brauchbare_antwort(text, [], "S", session_id=None) == "Die echte Antwort."
+
+    def test_langer_rest_wird_bereinigt_und_behalten(self, monkeypatch):
+        from core.kernel import events
+        events.init_db()
+        monkeypatch.setattr(act, "_complete_resilient",
+                            lambda *a, **k: {"text": "sollte nicht noetig sein"})
+        text = self._mit_vorspann("Ok, das notiere ich mir gerne fuer dich und melde mich dann.")
+        raus = act._brauchbare_antwort(text, [], "S", session_id=None)
+        assert "Kontonummer" not in raus
+        assert "notiere ich mir gerne" in raus
+
+    @pytest.mark.parametrize("vorspann", ["", "Ok.", "Ok, notiere ich.",
+                                          "Ok, das notiere ich mir gerne fuer dich und melde mich."])
+    def test_in_keinem_fall_verlaesst_die_kontonummer_das_haus(self, vorspann, monkeypatch):
+        from core.kernel import events
+        events.init_db()
+        monkeypatch.setattr(act, "_complete_resilient", lambda *a, **k: {"text": "Die echte Antwort."})
+        raus = act._brauchbare_antwort(self._mit_vorspann(vorspann), [], "S", session_id=None)
+        assert "Kontonummer" not in raus and "ACT" not in raus
+
+
 class TestDasLochZwischenParserUndWache:
     """Zwei Änderungen desselben Commits benutzten für DIESELBE Textform zwei
     verschiedene Kriterien. `_parse_act` führt die argumentlose Form nur aus, wenn
@@ -417,6 +466,12 @@ class TestDasZeilenMerkmal:
     ])
     def test_aufruf_im_satz_ist_ein_beispiel(self, text):
         assert act._AUFRUF_ZEILENANFANG.search(text) is None
+
+    @pytest.mark.parametrize("text", ["ACT health()", "ACT health ( )", "ACT jetzt ()"])
+    def test_auch_die_klammer_form_zaehlt(self, text):
+        """Beim Umbau auf das Zeilen-Merkmal fiel 'ACT health()' zuerst heraus: das
+        Muster erlaubte eine oeffnende Klammer, verlangte danach aber Zeilenende."""
+        assert act._AUFRUF_ZEILENANFANG.search(text) is not None
 
     def test_das_wort_action_ist_kein_aufruf(self):
         """Ohne das Leerzeichen-Zugestaendnis braucht es eine Bremse gegen Wortfunde."""

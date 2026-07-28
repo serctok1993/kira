@@ -213,8 +213,11 @@ _ACT_LOCKER = re.compile(r"ACT\s*([a-z_]\w*)\s*\{")
 # richtige Antworten von bis zu 4434 Zeichen), dann wieder zu wenig. Weder "beginnt
 # mit dem Aufruf" noch "endet damit" noch die Klammerbilanz trifft die Sache — die
 # Zeile tut es.
-_AUFRUF_ZEILENANFANG = re.compile(r"^[\s`*\-–•>]*ACT\s*[a-z_]\w*\s*[\{(]?\s*$|"
-                                  r"^[\s`*\-–•>]*ACT\s*[a-z_]\w*\s*\{", re.MULTILINE)
+_AUFRUF_ZEILENANFANG = re.compile(
+    # argumentlos, die Zeile endet danach — auch "ACT health()" mit leerem Klammerpaar
+    r"^[\s`*\-–•>]*ACT\s*[a-z_]\w*\s*(?:\(\s*\))?\s*$"
+    # oder mit Argumenten: die oeffnende Klammer folgt direkt
+    r"|^[\s`*\-–•>]*ACT\s*[a-z_]\w*\s*\{", re.MULTILINE)
 
 
 def _aufruf_ende(t: str, klammer: int) -> int:
@@ -331,9 +334,17 @@ def _ist_roher_werkzeugaufruf(text: str) -> bool:
     den beiden letzten standen private Finanzzahlen als JSON im Chat.
 
     Roh ist deshalb: ein angefangener, nicht lesbarer Aufruf (der Zug ist nicht
-    fertig) ODER ein Text, der mit einem Aufruf beginnt und ohne die Aufrufe nichts
-    Nennenswertes mehr enthaelt. Prosa, die einen Aufruf nur erwaehnt oder als
-    Beispiel zeigt, ist eine richtige Antwort und bleibt."""
+    fertig) ODER ein Aufruf am Anfang einer ZEILE, nach dessen Entfernen nichts
+    Nennenswertes uebrig bleibt. Prosa, die einen Aufruf nur erwaehnt oder als
+    Beispiel zeigt, ist eine richtige Antwort und bleibt.
+
+    Beide Siebe — dieses hier und die Bereinigung in _brauchbare_antwort — pruefen
+    dasselbe Merkmal. Solange sie es nicht taten, klaffte dazwischen ein Loch: bei
+    "Ok, notiere ich.\\nACTremember_fact {...}" verlangte dieses Sieb, dass der Text
+    MIT dem Aufruf beginnt (tut er nicht), und die Bereinigung verlangte 40 Zeichen
+    Rest (sind nur 16) — also griff keins von beiden und der Aufruf ging samt Inhalt
+    woertlich raus. Die 40-Zeichen-Marke ist eine WEICHE zwischen "bereinigen" und
+    "nachfassen", kein Veto gegen beides."""
     t = (text or "").strip()
     if not t:
         return False
@@ -342,7 +353,7 @@ def _ist_roher_werkzeugaufruf(text: str) -> bool:
     rest, n, angefangen = _werkzeugreste(t)
     if angefangen:
         return True
-    return n > 0 and bool(_BEGINNT_MIT_AUFRUF.match(t)) and len(rest) < _MIN_ANTWORT
+    return n > 0 and bool(_AUFRUF_ZEILENANFANG.search(t)) and len(rest) < _MIN_ANTWORT
 
 
 def _brauchbare_antwort(text: str, messages: list[dict], system: str, session_id: str | None,
