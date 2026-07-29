@@ -50,7 +50,10 @@ def test_update_lehrt_bei_unbekannter_id_und_unfug():
     res = termine.update("gibtsnicht", zeit="10:00")
     assert not res["ok"] and "termin_list" in res["error"]
     res2 = termine.update(t["id"], datum="naechste Woche")
-    assert not res2["ok"] and "Heute ist der" in res2["error"]   # Ankerdaten (#190-Muster)
+    # Ankerdaten (#190-Muster). Seit dem 28.07. nennt die Hilfe den Wochentag von
+    # heute UND die naechsten sieben Tage mit Datum — "Heute ist Mittwoch, der …".
+    assert not res2["ok"] and "Heute ist" in res2["error"]
+    assert "heute/morgen" in res2["error"] and "=" in res2["error"]
     res3 = termine.update(t["id"])
     assert not res3["ok"] and "nichts zu aendern" in res3["error"]
 

@@ -83,21 +83,30 @@ def test_relativdatum_wird_aufgeloest(tmp_path, monkeypatch):
 
 
 def test_datumsfehler_nennen_die_aufgeloesten_daten(tmp_path, monkeypatch):
-    # der Ein-Zeilen-Hebel der Werkstatt: der Fehler liefert heute+morgen gleich mit
+    """Der Ein-Zeilen-Hebel der Werkstatt: der Fehler liefert die echten Tage gleich mit.
+
+    Seit dem 28.07. ist "Freitag" KEIN Fehlerfall mehr — der Harness loest Wochentage
+    auf (Katalog-Aufgabe 001). Der Fehlertext muss deshalb an einer Angabe geprueft
+    werden, die wirklich keinen Kalendertag ergibt; dafuer nennt er jetzt nicht nur
+    heute und morgen, sondern die naechsten sieben Wochentage mit Datum."""
     import datetime as dt
 
     from core.agency import erinnerungen, termine
 
-    heute = dt.date.today().strftime("%d.%m.%Y")
-    morgen = (dt.date.today() + dt.timedelta(days=1)).strftime("%d.%m.%Y")
-    err = termine.add("Freitag", "x")["error"]
-    assert f"Heute ist der {heute}, morgen der {morgen}" in err
+    heute = dt.date.today()
+    freitag = termine.datum_aufloesen("Freitag")
+    assert freitag != "Freitag", "Wochentage werden nicht mehr aufgeloest"
+
+    err = termine.add("irgendwann demnaechst", "x")["error"]
+    assert f"Heute ist" in err and heute.strftime("%d.%m.%Y") in err
+    assert "Donnerstag=" in err or "Freitag=" in err          # die konkreten Tage
+    assert "heute/morgen" in err                              # die erlaubten Kurzformen
 
     monkeypatch.setattr(erinnerungen, "_PATH", tmp_path / "erinnerungen.json")
     monkeypatch.setattr(erinnerungen, "_melden", lambda *a, **k: None)
-    _, err = erinnerungen.add("x", "Freitag", "15:00")
-    assert f"Heute ist der {heute}, morgen der {morgen}" in err
-    assert "TT.MM.JJJJ" in err and "JETZT-Zeile" in err       # die Alt-Anker bleiben
+    _, err = erinnerungen.add("x", "irgendwann demnaechst", "15:00")
+    assert f"Heute ist" in err and heute.strftime("%d.%m.%Y") in err
+    assert "TT.MM.JJJJ" in err                                # der Alt-Anker bleibt
 
 
 def test_cron_remove_id_alias_und_lehrt(monkeypatch):

@@ -191,6 +191,59 @@ def beweis_nachfrage(wort: str, nativ: bool = False) -> str:
             "oder du sagst ehrlich, dass es noch offen ist und was du dafuer brauchst. "
             "Nichts behaupten, was nicht passiert ist.")
 
+
+# --- Beweispflicht III: erfundene Aussen-Fakten ---------------------------------------
+# Katalog-Lauf 28.07., Fall [049]: "Es wird morgen 17 Grad Sonne und ein
+# Windgeschwindigkeitsmaximum von 20 km/h" — ohne eine einzige Suche. Das klingt
+# kompetent und ist frei erfunden; fuer ein Produkt ist das teurer als ein nicht
+# erledigter Auftrag, weil der Nutzer es nicht als Fehler erkennt.
+#
+# BEWUSST ENG. Der naheliegende Auslöser "Zahlen und Messwerte" waere unbrauchbar:
+# 182 der 412 zugestellten Antworten (44 %) enthalten eine Zahl, der Waechter feuerte
+# also bei fast jeder zweiten. Getroffen wird nur, was ohne Nachschlagen NICHT zu
+# wissen ist — ein Zustand der Aussenwelt zu einem bestimmten Zeitpunkt. Beides muss
+# zusammenkommen: das Sachgebiet UND der Zeitbezug, nah beieinander.
+#
+# Nicht getroffen wird, was Kira aus ihrem eigenen Kopf weiss: SOUL/GOAL/PERSONA stehen
+# vollstaendig im System-Prompt (20.383 Zeichen), daraus zu zitieren braucht kein
+# Werkzeug. Ein Fehlzitat ist ein Modell-Problem, kein Harness-Loch.
+_JETZT_BEZUG = r"(?:heute|morgen|uebermorgen|übermorgen|gerade|aktuell|derzeit|momentan|jetzt|gleich)"
+_AUSSEN_FAKT_RE = re.compile(
+    # Wetter: Sachwort und Zeitbezug in einem Satz, in beiden Reihenfolgen
+    rf"\b\d+\s*(?:grad|°\s*c)\b[^.!?]{{0,80}}\b{_JETZT_BEZUG}\b"
+    rf"|\b{_JETZT_BEZUG}\b[^.!?]{{0,80}}\b\d+\s*(?:grad|°\s*c)\b"
+    rf"|\b{_JETZT_BEZUG}\b[^.!?]{{0,60}}\b(?:sonnig|bewoelkt|bewölkt|regnerisch|niederschlag|"
+    rf"schneit|gewitter|windgeschwindigkeit)\b"
+    rf"|\b(?:sonnig|bewoelkt|bewölkt|regnerisch|niederschlag|windgeschwindigkeit)\b"
+    rf"[^.!?]{{0,60}}\b{_JETZT_BEZUG}\b"
+    # Preise/Kurse zu einem Zeitpunkt
+    rf"|\b{_JETZT_BEZUG}\b[^.!?]{{0,50}}\b(?:kostet|kosten|preis|kurs|liegt bei|steht bei)\b"
+    rf"|\b(?:kostet|preis|kurs|liegt bei|steht bei)\b[^.!?]{{0,50}}\b{_JETZT_BEZUG}\b",
+    re.IGNORECASE)
+
+
+def _behauptet_aussenfakt(text: str) -> str | None:
+    """Behauptet der Text einen Zustand der Aussenwelt, den man nachschlagen muesste?
+
+    Liefert die Textstelle (fuer die Rueckfrage), sonst None."""
+    t = (text or "").strip()
+    if not t or len(t) > 4000:
+        return None
+    m = _AUSSEN_FAKT_RE.search(t)
+    if not m:
+        return None
+    stelle = " ".join(m.group(0).split())
+    return stelle[:90]
+
+
+def aussenfakt_nachfrage(stelle: str, nativ: bool = False) -> str:
+    """Die Rueckfrage bei einer nachschlagbaren Behauptung ohne Nachschlagen."""
+    wie = "nutze die Suche" if nativ else "nutze web_search/web_fetch"
+    return (f"Halt — du schreibst \"{stelle}\", aber in diesem Zug lief KEINE Recherche. "
+            f"Das kannst du nicht wissen, ohne nachzusehen. Entweder du siehst JETZT nach "
+            f"({wie}), oder du sagst ehrlich, dass du es nicht weisst. "
+            "Erfundene Zahlen sind schlimmer als keine Antwort.")
+
 # Ein Leak FAENGT mit dem Aufruf AN. Erklaert Kira dem Partner das Protokoll, steht
 # Prosa davor — und die Erklaerung braucht ihr Beispiel, die bleibt unangetastet.
 _BEGINNT_MIT_AUFRUF = re.compile(r"^\s*(?:```[a-z]*\s*)?ACT\s+[a-zA-Z_]\w*", re.IGNORECASE)
@@ -241,6 +294,71 @@ def _aufruf_ende(t: str, klammer: int) -> int:
             if tiefe == 0:
                 return i + 1
     return -1
+
+
+# Wortbruecke fuer den "Meintest du"-Vorschlag: deutsche und englische Werkzeugnamen
+# stehen im Manifest nebeneinander, ein Modell mischt sie. find_files -> datei_finden.
+_WORT_BRUECKE = {
+    "find": ("find", "such"), "search": ("such", "find"),
+    "file": ("datei", "file"), "files": ("datei", "dir", "file"),
+    "dir": ("dir", "ordner"), "folder": ("ordner", "dir"),
+    "note": ("notiz", "note", "vault"), "notes": ("notiz", "note", "vault"),
+    "read": ("les", "read"), "write": ("schreib", "write"),
+    "delete": ("loesch", "remove", "entfern", "delete"),
+    "remove": ("remove", "loesch", "entfern"),
+    "create": ("erstell", "add", "new"), "new": ("neu", "add"),
+    "add": ("add", "erstell"), "get": ("hol", "get", "fetch"),
+    "appointment": ("termin",), "date": ("termin",), "calendar": ("termin",),
+    "reminder": ("erinnerung",), "task": ("todo",), "tasks": ("todo",),
+}
+
+
+def _meintest_du(name: str, verfuegbar) -> str:
+    """'find_files' -> ' Meintest du datei_finden?' — sonst leer.
+
+    Katalog-Lauf 28.07., Aufgabe 082: das Modell rief find_files; das Werkzeug heisst
+    datei_finden. Der Lehrfehler griff ("existiert nicht"), aber das Modell stellte
+    danach NICHT auf den richtigen Namen um — die Liste aller Werkzeuge ist zu lang,
+    um daraus den einen zu finden. Ein Vorschlag ist billiger als eine Liste.
+
+    Zwei Wege zur Aehnlichkeit, weil deutsche und englische Namen nebeneinanderstehen:
+    Zeichenaehnlichkeit (find_file/file_find) UND gemeinsame Wortbausteine, damit auch
+    die Uebersetzung greift (find+file -> datei+finden)."""
+    import difflib
+
+    n = (name or "").strip().lower()
+    namen = [str(x) for x in (verfuegbar or [])]
+    if not n or not namen:
+        return ""
+
+    # 1. BEDEUTUNG vor Zeichen. Andersherum gewinnt der Zufall: "find_files" und
+    # "read_file" teilen sich viele Buchstaben, "datei_finden" fast keinen — die
+    # Zeichenaehnlichkeit schlug deshalb genau den falschen Namen vor.
+    woerter = [w for w in re.split(r"[_\-\s]+", n) if w]
+    bewertet = []
+    for kandidat in namen:
+        kteile = [w for w in re.split(r"[_\-\s]+", kandidat.lower()) if w]
+        gemeinsam = 0
+        for w in woerter:
+            formen = _WORT_BRUECKE.get(w, (w,))
+            if any(a[:4] and (a.startswith(b[:4]) or b.startswith(a[:4]))
+                   for a in formen for b in kteile):
+                gemeinsam += 1
+        if gemeinsam:
+            bewertet.append((gemeinsam, -len(kandidat), kandidat))
+    bewertet.sort(reverse=True)
+    # Mindestens ZWEI gemeinsame Bausteine — sonst wird aus "send_telegram" ein
+    # Vorschlag "email_send", und das Modell verschickt eine Mail statt zu antworten.
+    if bewertet and bewertet[0][0] >= 2:
+        return f" Meintest du {bewertet[0][2]}?"
+
+    # 2. Sonst nur noch ein echter TIPPFEHLER — sehr eng. Ein falscher Vorschlag ist
+    # schlimmer als keiner: bei 0,75 wurde aus "list_files" ein "list_skills", und das
+    # Modell haette Faehigkeiten zurueckbekommen und fuer Dateien gehalten. Was hier
+    # noch durchkommt, unterscheidet sich nur um ein paar Zeichen.
+    fuer = {x.lower(): x for x in namen}
+    treffer = difflib.get_close_matches(n, list(fuer), n=1, cutoff=0.88)
+    return f" Meintest du {fuer[treffer[0]]}?" if treffer else ""
 
 
 def _endet_mit_aufruf(text: str) -> bool:
@@ -1129,6 +1247,17 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
                 messages.append({"role": "assistant", "content": text})
                 messages.append({"role": "user", "content": beweis_nachfrage(wort, nativ=True)})
                 continue
+            # Beweispflicht III: nachschlagbare Aussen-Fakten ohne Nachschlagen.
+            # Teilt sich die Fahne mit II — hoechstens EINE Rueckfrage pro Zug.
+            stelle = None if used_tools or beweis_nachgefragt else _behauptet_aussenfakt(text)
+            if stelle:
+                beweis_nachgefragt = True
+                events.emit("aussenfakt_nachgefragt", {"stelle": stelle, "task_type": task_type},
+                            session_id=session_id)
+                messages.append({"role": "assistant", "content": text})
+                messages.append({"role": "user",
+                                 "content": aussenfakt_nachfrage(stelle, nativ=True)})
+                continue
             return text
         used_tools = True
         messages.append({
@@ -1148,7 +1277,8 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
                 from core.agency import rollen as _rollen
                 obs = _rollen.verweigert(name, rolle)
             elif tool is None:
-                obs = f"Fehler: Werkzeug '{name}' existiert nicht."
+                obs = (f"Fehler: Werkzeug '{name}' existiert nicht."
+                       f"{_meintest_du(name, [t.name for t in registry.all_tools()])}")
             else:
                 try:
                     obs = _run_tool_guarded(name, tool, args, session_id)
@@ -1277,6 +1407,19 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
                 messages.append({"role": "assistant", "content": text})
                 messages.append({"role": "user", "content": beweis_nachfrage(wort)})
                 continue
+            # Beweispflicht III: nachschlagbare Aussen-Fakten ohne Nachschlagen.
+            stelle = None if used_tools or beweis_nachgefragt else _behauptet_aussenfakt(text)
+            if stelle:
+                beweis_nachgefragt = True
+                try:
+                    events.emit("aussenfakt_nachgefragt", {"stelle": stelle,
+                                                           "task_type": task_type,
+                                                           "pfad": "mission"}, session_id=session_id)
+                except Exception:  # noqa: BLE001
+                    pass
+                messages.append({"role": "assistant", "content": text})
+                messages.append({"role": "user", "content": aussenfakt_nachfrage(stelle)})
+                continue
             # Dieselbe Wache wie im Chat: ein leerer Zug oder eine ungeparste ACT-Zeile
             # ist keine Antwort. Auf diesem Pfad laufen Crons, Missionen und jeder
             # Plan-Teilschritt — genau dort entstanden die leeren Briefings.
@@ -1293,7 +1436,8 @@ um die Inhalte wirklich zu lesen. Liefere am Ende eine konkrete, belegte Antwort
             obs = _rollen.verweigert(name, rolle)
         elif tool is None:
             verf = sorted(erlaubt) if erlaubt is not None else [t.name for t in registry.all_tools()]
-            obs = f"Fehler: Werkzeug '{name}' existiert nicht. Verfuegbar: {verf}"
+            obs = (f"Fehler: Werkzeug '{name}' existiert nicht."
+                   f"{_meintest_du(name, verf)} Verfuegbar: {verf}")
         else:
             try:
                 obs = _run_tool_guarded(name, tool, args, session_id)
@@ -2202,13 +2346,26 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
                 messages.append({"role": "assistant", "content": text})
                 messages.append({"role": "user", "content": beweis_nachfrage(wort)})
                 continue
+            # Beweispflicht III: nachschlagbare Aussen-Fakten ohne Nachschlagen.
+            stelle = None if used_tools or beweis_nachgefragt else _behauptet_aussenfakt(text)
+            if stelle:
+                beweis_nachgefragt = True
+                try:
+                    events.emit("aussenfakt_nachgefragt", {"stelle": stelle, "task_type": _tt},
+                                session_id=session_id)
+                except Exception:  # noqa: BLE001
+                    pass
+                messages.append({"role": "assistant", "content": text})
+                messages.append({"role": "user", "content": aussenfakt_nachfrage(stelle)})
+                continue
             return _finalize(text)
         name, args = call
         used_tools = True
         emit({"kind": "tool", "name": name, "args": args})
         tool = registry.get(name)
         if tool is None:
-            obs = f"Fehler: Werkzeug '{name}' existiert nicht."
+            obs = (f"Fehler: Werkzeug '{name}' existiert nicht."
+                   f"{_meintest_du(name, [t.name for t in registry.all_tools()])}")
         else:
             try:
                 obs = _run_tool_guarded(name, tool, args, session_id)
