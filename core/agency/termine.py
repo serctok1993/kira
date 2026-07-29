@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import re
 import uuid
 
 from core.config import DATA_DIR
@@ -34,16 +35,73 @@ def _save(items: list[dict]) -> None:
 
 _RELATIV = {"heute": 0, "morgen": 1, "uebermorgen": 2, "übermorgen": 2}
 
+# Wochentage — die haeufigste Datumsangabe des Alltags ("Trag mir Donnerstag 14 Uhr ein").
+_WOCHENTAGE = {
+    "montag": 0, "dienstag": 1, "mittwoch": 2, "donnerstag": 3, "freitag": 4,
+    "samstag": 5, "sonnabend": 5, "sonntag": 6,
+    "mo": 0, "di": 1, "mi": 2, "do": 3, "fr": 4, "sa": 5, "so": 6,
+}
+# Fuellwoerter, die vor dem Wochentag stehen duerfen. "naechsten"/"kommenden" heben
+# einen Treffer auf HEUTE auf die kommende Woche — sonst sind sie bedeutungsgleich.
+_VORSATZ = re.compile(r"^(am|diesen|diesem|kommenden|kommende[nrs]?|naechsten|nächsten|"
+                      r"naechste[nrs]?|nächste[nrs]?)\s+", re.IGNORECASE)
+_NAECHSTEN = re.compile(r"^(kommend|naechst|nächst)", re.IGNORECASE)
+
+
+def _wochentag_aufloesen(t: str, heute: datetime.date) -> str | None:
+    """'Donnerstag' / 'am Montag' / 'naechsten Freitag' -> TT.MM.JJJJ, sonst None.
+
+    Regel: die NAECHSTE Gelegenheit, heute eingeschlossen. Wer die Woche darauf meint,
+    sagt "naechsten Donnerstag" — dann wird ein Treffer auf heute um sieben Tage
+    geschoben. Das ist die Lesart, die im Alltag gemeint ist, und sie ist vorhersagbar."""
+    rest = t
+    vorsatz = ""
+    m = _VORSATZ.match(rest)
+    if m:
+        vorsatz = m.group(1)
+        rest = rest[m.end():].strip()
+    tag = _WOCHENTAGE.get(rest.rstrip("."))
+    if tag is None:
+        return None
+    abstand = (tag - heute.weekday()) % 7
+    if abstand == 0 and _NAECHSTEN.match(vorsatz):
+        abstand = 7
+    return (heute + datetime.timedelta(days=abstand)).strftime("%d.%m.%Y")
+
 
 def datum_aufloesen(s: str) -> str:
-    """Eindeutige Relativ-Angaben ('heute'/'morgen'/'uebermorgen') -> TT.MM.JJJJ,
-    alles andere unveraendert. Live-Fund 17.07.: Modelle rechnen Relativdaten
-    selbst — und verrechnen sich (Erinnerung einen Tag zu spaet). Eindeutiges
-    loest der Harness auf, der Rest lehrt mit den aufgeloesten Daten."""
+    """Eindeutige Relativ-Angaben -> TT.MM.JJJJ, alles andere unveraendert.
+
+    'heute'/'morgen'/'uebermorgen' seit dem 17.07.; Wochentage seit dem 28.07.
+    Live-Fund 17.07.: Modelle rechnen Relativdaten selbst — und verrechnen sich
+    (Erinnerung einen Tag zu spaet). Katalog-Lauf 28.07., Aufgabe 001: auf "Trag mir
+    Donnerstag 14 Uhr ein" antwortete das Modell, es gebe "zwei Donnerstage im Juli
+    (30. und 6. August)" — und fragte zurueck, statt einzutragen.
+
+    Eindeutiges loest der Harness auf. Das ist billiger und zuverlaessiger, als es
+    einem 9B beizubringen."""
     t = str(s or "").strip().lower()
     if t in _RELATIV:
         return (datetime.date.today() + datetime.timedelta(days=_RELATIV[t])).strftime("%d.%m.%Y")
-    return str(s or "").strip()
+    tag = _wochentag_aufloesen(t, datetime.date.today())
+    return tag if tag else str(s or "").strip()
+
+
+def datums_hilfe() -> str:
+    """Konkrete Datumshilfe fuer Fehlertexte — mit den ECHTEN Tagen, nicht der Regel.
+
+    Ein kleines Modell, dem man "Format TT.MM.JJJJ" sagt, rechnet weiter selbst. Eines,
+    das "Donnerstag = 30.07.2026" liest, schreibt beim naechsten Versuch das Richtige."""
+    heute = datetime.date.today()
+    namen = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+    kommend = []
+    for i in range(1, 8):
+        d = heute + datetime.timedelta(days=i)
+        kommend.append(f"{namen[d.weekday()]}={d:%d.%m.%Y}")
+    return (f"Heute ist {namen[heute.weekday()]}, der {heute:%d.%m.%Y} "
+            "— siehe auch deine JETZT-Zeile. "
+            f"Du darfst auch direkt heute/morgen/uebermorgen oder einen Wochentag "
+            f"schicken — ich rechne das um. Die naechsten: {', '.join(kommend)}")
 
 
 def parse_datum(s: str) -> datetime.date | None:
@@ -59,11 +117,8 @@ def add(datum: str, titel: str, zeit: str = "", jaehrlich: bool = False,
         quelle: str = "chat") -> dict:
     d = parse_datum(datum)
     if d is None:
-        heute = datetime.date.today()
-        morgen = heute + datetime.timedelta(days=1)
         return {"ok": False,
-                "error": (f"Datum '{datum}' ergibt keinen Kalendertag (Format TT.MM.JJJJ). "
-                          f"Heute ist der {heute:%d.%m.%Y}, morgen der {morgen:%d.%m.%Y}")}
+                "error": (f"Datum '{datum}' ergibt keinen Kalendertag. {datums_hilfe()}")}
     titel = (titel or "").strip()
     if not titel:
         return {"ok": False, "error": "titel fehlt"}
@@ -106,11 +161,8 @@ def update(termin_id: str, datum: str = "", zeit: str | None = None,
     if str(datum or "").strip():
         d = parse_datum(datum)
         if d is None:
-            heute = datetime.date.today()
-            morgen = heute + datetime.timedelta(days=1)
             return {"ok": False,
-                    "error": (f"Datum '{datum}' ergibt keinen Kalendertag (Format TT.MM.JJJJ). "
-                              f"Heute ist der {heute:%d.%m.%Y}, morgen der {morgen:%d.%m.%Y}")}
+                    "error": (f"Datum '{datum}' ergibt keinen Kalendertag. {datums_hilfe()}")}
         eintrag["datum"] = d.strftime("%d.%m.%Y")
         geaendert.append("datum")
     if zeit is not None and str(zeit).strip():

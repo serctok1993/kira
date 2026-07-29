@@ -113,10 +113,15 @@ def _auto(monkeypatch, tmp_path):
     from core.kernel import models
     _cfg(monkeypatch)
     monkeypatch.setattr(nachtdenker, "_STATE_FILE", tmp_path / "nachtdenker.json")
-    welt = {"health": False, "alive": True, "events": [], "rollen": {"reason": "openrouter/z-ai/glm-5.2",
+    # "bereit" ist seit dem 28.07. eine EIGENE Bedingung: ein lauschender Port heisst
+    # noch nicht, dass das Modell antwortet (drei Live-Laeufe hingen je 30 Minuten).
+    welt = {"health": False, "bereit": True, "alive": True, "events": [],
+            "rollen": {"reason": "openrouter/z-ai/glm-5.2",
                                                                      "worker": "openrouter/deepseek/deepseek-v4-flash"},
             "gestartet": [], "beendet": [], "entladen": 0}
     monkeypatch.setattr(nachtdenker, "_health", lambda: welt["health"])
+    monkeypatch.setattr(nachtdenker, "_bereit",
+                        lambda: (True, "") if welt["bereit"] else (False, "keine Antwort in 30s"))
     monkeypatch.setattr(nachtdenker, "pid_alive", lambda pid: welt["alive"])
     monkeypatch.setattr(nachtdenker, "_server_starten", lambda: welt["gestartet"].append(4242) or 4242)
     monkeypatch.setattr(nachtdenker, "_server_beenden", lambda pid: welt["beendet"].append(pid))
