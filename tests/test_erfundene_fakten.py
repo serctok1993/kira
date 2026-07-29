@@ -3,7 +3,7 @@
 Zwei Antworten des 92er-Katalogs klingen kompetent und sind frei erfunden. Die
 schwerere:
 
-    „Es wird morgen in Koblenz 17 Grad Sonne und ein Windgeschwindigkeitsmaximum
+    „Es wird morgen 17 Grad Sonne und ein Windgeschwindigkeitsmaximum
      von 20 Kilometern pro Stunde erwartet."
 
 Keine Suche, kein Werkzeug. Für ein Produkt ist das teurer als ein nicht erledigter
@@ -39,7 +39,7 @@ from core.agency import act
 
 class TestWasNachgeschlagenWerdenMuss:
     @pytest.mark.parametrize("text", [
-        pytest.param("Es wird morgen in Koblenz 17 Grad Sonne und ein "
+        pytest.param("Es wird morgen 17 Grad Sonne und ein "
                      "Windgeschwindigkeitsmaximum von 20 km/h erwartet.", id="der-echte-fall-049"),
         pytest.param("Morgen ist es in Berlin meist bewölkt, vereinzelt leichter Regen.",
                      id="wetter-ohne-zahl"),
@@ -61,7 +61,7 @@ class TestWasKiraOhneNachschlagenWeiss:
         pytest.param("Dein Zahnarzttermin ist am 06.08. um 09:00.", id="aus-dem-kalender"),
         pytest.param("Ich habe 5 Vorschläge für dich.", id="selbstbezug"),
         pytest.param("Wasser kocht bei 100 Grad.", id="allgemeinwissen-mit-grad"),
-        pytest.param("Luvex kostet 49, 99 oder 199 Euro je nach Paket.",
+        pytest.param("Das Paket kostet 49, 99 oder 199 Euro je nach Umfang.",
                      id="eigene-preise-ohne-zeitbezug"),
         pytest.param("Ein Tag hat 24 Stunden, das sind 1440 Minuten.", id="mathematik"),
         pytest.param("Heute ist Dienstag, der 28.07.2026.", id="datum-aus-der-jetzt-zeile"),
@@ -91,8 +91,8 @@ class TestWasKiraOhneNachschlagenWeiss:
 
 class TestDieRueckfrage:
     def test_sie_nennt_die_stelle_und_den_ausweg(self):
-        text = act.aussenfakt_nachfrage("morgen in Koblenz 17 Grad")
-        assert "morgen in Koblenz 17 Grad" in text
+        text = act.aussenfakt_nachfrage("morgen 17 Grad Sonne")
+        assert "morgen 17 Grad Sonne" in text
         assert "web_search" in text
         assert "nicht weisst" in text
 
