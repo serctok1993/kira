@@ -18,7 +18,7 @@ from core.agency.tools.registry import tool
       "Traegt einen Termin in {{USER_NAME_S}} Kalender ein — er erscheint im TERMIN-RADAR der "
       "Briefings und im Cockpit (Me -> Tag). Faellt im Gespraech ein Datum (Zahnarzt, "
       "Geburtstag, Frist), trag es VON DIR AUS ein. Geburtstage/Jahrestage: jaehrlich=ja.",
-      {"datum": "TT.MM.JJJJ, z.B. 15.08.2026",
+      {"datum": "TT.MM.JJJJ (z.B. 15.08.2026) ODER direkt heute/morgen/uebermorgen oder ein Wochentag (Donnerstag, am Montag, naechsten Freitag) — rechne NICHT selbst",
        "titel": "was ansteht, z.B. Zahnarzt",
        "zeit": "optional HH:MM, z.B. 14:30",
        "jaehrlich": "optional: ja = wiederholt sich jedes Jahr (Geburtstag/Jahrestag)"})
@@ -69,7 +69,7 @@ def termin_list(tage: str = "", **falsche_args) -> str:
       "korrigieren) — NIE einen zweiten Termin fuer dieselbe Sache anlegen. Die id "
       "steht in termin_list. Nur die Felder angeben, die sich aendern.",
       {"id": "die Termin-id aus termin_list, z.B. 7c31a9d2",
-       "datum": "optional: neues Datum TT.MM.JJJJ (auch heute/morgen/uebermorgen)",
+       "datum": "optional: neues Datum TT.MM.JJJJ, heute/morgen/uebermorgen oder ein Wochentag (Donnerstag, naechsten Freitag) — rechne NICHT selbst",
        "zeit": "optional: neue Uhrzeit HH:MM",
        "titel": "optional: neuer Titel",
        "jaehrlich": "optional: ja/nein"})
@@ -114,7 +114,7 @@ def termin_remove(id: str = "", **falsche_args) -> str:
       "heutige Datum steht in deiner JETZT-Zeile. Fuer wiederkehrende Routinen cron_add, "
       "fuer Kalender-Eintraege ohne Weckruf termin_add.",
       {"text": "die Weck-Nachricht, z.B. 'Aufstehen — Termin um 16 Uhr'",
-       "datum": "TT.MM.JJJJ, z.B. 16.07.2026",
+       "datum": "TT.MM.JJJJ (z.B. 16.07.2026) ODER direkt heute/morgen/uebermorgen oder ein Wochentag (Donnerstag, am Montag, naechsten Freitag) — rechne NICHT selbst",
        "zeit": "HH:MM, z.B. 15:00"})
 def erinnerung(text: str = "", datum: str = "", zeit: str = "", **falsche_args) -> str:
     from core.agency import erinnerungen

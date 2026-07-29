@@ -11,7 +11,7 @@ import time
 import uuid
 from typing import Any
 
-from core.config import DB_PATH
+from core.config import CONFIG, DB_PATH
 
 
 def _conn() -> sqlite3.Connection:
@@ -201,6 +201,29 @@ def describe(etype: str, payload: dict | None) -> dict:
             return {"text": text, "detail": detail}
         if t == "act_start":
             return {"text": "▶ Auftrag gestartet", "detail": str(p.get("task") or "")[:110]}
+        if t in ("nachtdenker_start", "nachtdenker_stop", "nachtdenker_fehler",
+                 "nachtdenker_neustart"):
+            # Katalog-Befund 28.07.: der Automat legt beim Fensterbeginn ALLE
+            # konfigurierten Rollen auf das grosse Modell — auch die, die von Hand
+            # anders gesetzt waren. Das war bisher nirgends sichtbar; aus Sicht des
+            # Nutzers wechselte Kira ohne Grund das Modell.
+            if t == "nachtdenker_start":
+                rollen = p.get("rollen") or []
+                rtext = ", ".join(str(r) for r in rollen) if rollen else "keine"
+                bis = str((CONFIG.get("nachtdenker") or {}).get("ende") or "").strip()
+                detail = f"{rtext} laufen auf {p.get('alias') or '?'}"
+                return {"text": "◗ Nachtfenster aktiv",
+                        "detail": detail + (f" · bis {bis}" if bis else "")}
+            if t == "nachtdenker_stop":
+                zurueck = p.get("rollen_zurueck") or p.get("rollen") or []
+                rtext = ", ".join(str(r) for r in zurueck)
+                return {"text": "◗ Nachtfenster beendet",
+                        "detail": " · ".join(x for x in (str(p.get("grund") or ""),
+                                                         (f"{rtext} zurueck" if rtext else "")) if x)}
+            if t == "nachtdenker_neustart":
+                return {"text": "◗ Nachtdenker startet neu",
+                        "detail": f"Versuch {p.get('versuch', '?')}"}
+            return {"text": "◗ Nachtdenker gestoert", "detail": str(p.get("error") or "")[:120]}
         if t == "act_done":
             steps = p.get("steps")
             return {"text": "✓ Auftrag fertig", "detail": f"{steps} Schritte" if steps else ""}

@@ -90,6 +90,41 @@ def _health() -> bool:
         return False
 
 
+_BEREIT_TIMEOUT_S = 30
+
+
+def _bereit() -> tuple[bool, str]:
+    """Antwortet der Server WIRKLICH — oder lauscht nur der Port?
+
+    Katalog-Lauf 28.07.: drei Aufgaben liefen je bis zur harten Wall-Clock-Grenze
+    (1.390 s, 1.815 s, 1.808 s) ohne eine einzige Antwort, waehrend /models brav 200
+    lieferte. Nach einem taskkill war die Karte sofort frei.
+
+    Ein tauber Server ist schlimmer als ein abgeschalteter: jede einzelne Anfrage
+    kostet erst die volle Zeitgrenze, bevor sie aufgibt. Deshalb ein echter Mini-Call,
+    bevor der Automat ihm die Rollen anvertraut — zehn Token, harte halbe Minute."""
+    base = str(_cfg().get("endpunkt") or "").rstrip("/")
+    if not base:
+        return False, "kein Endpunkt konfiguriert"
+    modell = str(_cfg().get("modell") or "nachtdenker").split("/")[-1]
+    try:
+        r = httpx.post(base + "/chat/completions",
+                       json={"model": modell, "max_tokens": 10, "temperature": 0,
+                             "messages": [{"role": "user", "content": "Antworte nur mit: OK"}]},
+                       timeout=_BEREIT_TIMEOUT_S)
+    except httpx.TimeoutException:
+        return False, f"keine Antwort in {_BEREIT_TIMEOUT_S}s (Port lauscht, Modell taub)"
+    except Exception as e:  # noqa: BLE001
+        return False, f"{type(e).__name__}: {str(e)[:80]}"
+    if r.status_code != 200:
+        return False, f"HTTP {r.status_code}"
+    try:
+        text = (r.json()["choices"][0]["message"].get("content") or "").strip()
+    except Exception:  # noqa: BLE001
+        return False, "Antwort ohne verwertbaren Inhalt"
+    return (True, "") if text else (False, "leere Antwort")
+
+
 def _boot_ts() -> float:
     """Zeitpunkt des letzten System-Boots — PIDs aus frueheren Boot-Sitzungen
     gelten als wiederverwendet und werden nie gekillt."""
@@ -194,7 +229,9 @@ def _abschalten(st: dict, grund: str) -> None:
             # sehr wahrscheinlich wiederverwendete Fremd-PID: NIE blind killen.
             events.emit("nachtdenker_pid_verwaist", {"pid": pid})
     _merken({"phase": "aus"})
-    events.emit("nachtdenker_stop", {"grund": grund})
+    events.emit("nachtdenker_stop",
+                {"grund": grund,
+                 "rollen_zurueck": sorted((st.get("rollen_snapshot") or {}).keys())})
 
 
 def tick(now: _dt.datetime | None = None) -> None:
@@ -233,14 +270,17 @@ def tick(now: _dt.datetime | None = None) -> None:
                      "versuche": versuche, "rollen_snapshot": st.get("rollen_snapshot")})
             return
         if phase == "startend":
-            if _health():
+            bereit, grund = (_bereit() if _health() else (False, "Endpunkt antwortet nicht"))
+            if bereit:
                 _aktivieren(st)
             elif time.time() - float(st.get("gestartet") or 0) > _START_TIMEOUT_S:
                 if st.get("pid"):
                     _server_beenden(st["pid"])
                 events.emit("nachtdenker_fehler",
-                            {"error": f"Endpunkt nach {_START_TIMEOUT_S}s nicht erreichbar "
-                                      f"({cfg.get('endpunkt')}) — pruefe server_cmd/Port."})
+                            {"error": f"Endpunkt nach {_START_TIMEOUT_S}s nicht bereit "
+                                      f"({cfg.get('endpunkt')}): {grund}. "
+                                      "Pruefe server_cmd/Port — ein lauschender Port allein "
+                                      "reicht nicht, das Modell muss auch antworten."})
                 if st.get("rollen_snapshot"):
                     _abschalten(st, "start-timeout")  # Rollen zurueck, nichts haengen lassen
                 _merken({"phase": "fehler"})
@@ -249,7 +289,16 @@ def tick(now: _dt.datetime | None = None) -> None:
             return  # bis Fensterende geparkt (naechste Nacht = neuer Versuch)
         # phase == "aus": Fenster beginnt -> Server zuenden
         if _health():
-            # Endpunkt laeuft schon (von Hand gestartet) -> direkt uebernehmen
+            # Endpunkt laeuft schon (von Hand gestartet). Erst pruefen, ob er auch
+            # ANTWORTET — sonst uebernimmt der Automat die Rollen fuer einen tauben
+            # Server, und jede Anfrage laeuft in die Zeitgrenze statt zu antworten.
+            bereit, grund = _bereit()
+            if not bereit:
+                events.emit("nachtdenker_fehler",
+                            {"error": f"Endpunkt lauscht, ist aber nicht bereit: {grund}. "
+                                      "Rollen bleiben, wo sie sind."})
+                _merken({"phase": "fehler"})
+                return
             st = {"phase": "startend", "pid": None, "gestartet": time.time(), "versuche": 0}
             _aktivieren(st)
             return
