@@ -1136,3 +1136,5 @@ from core.agency import computer as _computer_tools  # noqa: E402,F401
 # Alltags-Kern (Phase 2): Kalender + aktiver Obsidian-Schreibpfad + Stammbaum-Pflege.
 from core.agency.tools import termin_tools  # noqa: E402,F401
 from core.agency.tools import vault_tools  # noqa: E402,F401
+# Resonanz: was zu einem Thema wirklich ankommt (Reddit + Hacker News, ohne Schluessel).
+from core.agency.tools import resonanz_tools  # noqa: E402,F401

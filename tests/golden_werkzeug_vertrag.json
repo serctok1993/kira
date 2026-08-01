@@ -420,6 +420,16 @@
         "reason"
       ]
     },
+    "resonanz": {
+      "args": [
+        "limit",
+        "tage",
+        "thema"
+      ],
+      "pflicht": [
+        "thema"
+      ]
+    },
     "restart_self": {
       "args": [
         "which"
