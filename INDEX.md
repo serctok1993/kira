@@ -41,10 +41,23 @@ und das Ergebnis mit `playbook_result` zurückgemeldet — daraus lernt es. Reif
 Fehlschlag stuft automatisch zurück. Neues Playbook: `playbooks/_VORLAGE.md` kopieren.
 
 <!-- AUTO:START -->
-Stand: — (automatisch generiert — nicht von Hand editieren)
+Stand: 09.08.2026 01:23 (automatisch generiert — nicht von Hand editieren)
 
-## Playbooks (0)
+## Playbooks (13)
 
 | Playbook | Reifegrad | Wann | Erfolge | Fehlschlaege | Lektionen | Letzte |
 |---|---|---|---|---|---|---|
+| [[playbooks/akquise-email\|akquise-email]] | entwurf | Eine Kaltakquise-Mail an einen Lead schreiben (Beispiel-Projekt/KI-Cha | 0 | 0 | 1 | — |
+| [[playbooks/brief-antwort\|brief-antwort]] | entwurf | der Nutzer schickt ein Foto von einem Brief/Dokument (Telegram oder Ch | 0 | 0 | 0 | — |
+| [[playbooks/dienst-andocken\|dienst-andocken]] | entwurf | der Nutzer will einen Dienst nutzen, den Kira noch nicht kann (z.B. bu | 0 | 0 | 0 | — |
+| [[playbooks/dossier-recherche\|dossier-recherche]] | entwurf | Ein Thema selbststaendig recherchieren und als Dossier in des Nutzers  | 0 | 0 | 0 | — |
+| [[playbooks/leads-recherche\|leads-recherche]] | entwurf | der Nutzer will Leads/Kontakte/Firmen einer Branche+Region gesammelt h | 0 | 0 | 0 | — |
+| [[playbooks/linkedin-post\|linkedin-post]] | entwurf | der Nutzer will etwas auf LinkedIn posten — Kira entwirft, der Nutzer  | 0 | 0 | 0 | — |
+| [[playbooks/logbuch-pflege\|logbuch-pflege]] | entwurf | der Nutzer beantwortet eine Logbuch-Frage oder nennt beilaeufig ein ne | 0 | 0 | 0 | — |
+| [[playbooks/monats-verdichtung\|monats-verdichtung]] | entwurf | Am 1. des Monats (Cron) die Wochenseiten zu EINER Monatsseite verdicht | 0 | 0 | 0 | — |
+| [[playbooks/projekt-onboarding\|projekt-onboarding]] | entwurf | der Nutzer sagt "neues Projekt", "lass uns X starten" oder will ein Vo | 0 | 0 | 0 | — |
+| [[playbooks/tages-einstieg\|tages-einstieg]] | entwurf | der Nutzer beginnt den Tag ("Hallo", "Guten Morgen", "was liegt an?")  | 0 | 0 | 0 | — |
+| [[playbooks/tages-journal\|tages-journal]] | entwurf | Abends (Cron ~21:30) eine kurze Journal-Seite ueber den Tag schreiben. | 0 | 0 | 0 | — |
+| [[playbooks/wochen-review\|wochen-review]] | entwurf | Einmal pro Woche Bilanz ziehen — was lief, was hakt, was sind die naec | 0 | 0 | 0 | — |
+| [[playbooks/wochen-verdichtung\|wochen-verdichtung]] | entwurf | Sonntagabend (Cron) die 7 Tagesseiten zu EINER Wochenseite verdichten. | 0 | 0 | 0 | — |
 <!-- AUTO:END -->

@@ -5,7 +5,7 @@ reifegrad: entwurf
 erfolge: 0
 fehlschlaege: 0
 serie: 0
-letzte:
+letzte: 
 ---
 
 # Akquise-E-Mail an regionale KMU
@@ -70,3 +70,4 @@ letzte:
 - Entwurf liegt in der Freigabe-Inbox — nicht gesendet.
 
 ## Lektionen
+- 2026-08-04: Platzhalter im Betreff vermeiden — wirkt unseriös.
