@@ -25,6 +25,6 @@ echo === Starte Kira sauber neu (Supervisor, ~20 Sekunden) ...
 echo all> data\restart.flag
 echo.
 echo Fertig! Danach im Browser Strg+F5 druecken.
-echo (Falls oben "CONFLICT" steht, sag Claude Bescheid - deine Notizen sind sicher im stash.)
+echo (Falls oben "CONFLICT" steht: deine Notizen liegen sicher im stash.)
 timeout /t 15
 rem Fenster schliesst sich nach 15s von selbst (vorher: pause = blieb ewig offen)

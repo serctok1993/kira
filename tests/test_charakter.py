@@ -67,13 +67,6 @@ def test_neue_subtabs_sind_in_kira_gruppen_sichtbar():
     assert not fehlend, f"Subtabs ohne Gruppe (unsichtbar!): {fehlend}"
 
 
-def test_fable_review_notiz_vorhanden():
-    from core.config import ROOT
-    t = (ROOT / "docs" / "FABLE-REVIEW.md").read_text(encoding="utf-8")
-    for m in ("Modell-Setup", "Coding-Basis", "Persona-Kohärenz", "Report-", "Audit-Reste"):
-        assert m in t, m
-
-
 def test_dateien_liste_hat_alle_charakter_dateien():
     """Alle vier Charakter-Dateien leben in der EINEN Dateien-Liste, mit erklaerenden Labels."""
     from fastapi.testclient import TestClient

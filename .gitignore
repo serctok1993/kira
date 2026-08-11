@@ -52,6 +52,7 @@ projects/
 docs/KIRA-IST.md
 docs/cockpit-redesign.md
 docs/harness-diaet.md
+docs/FABLE-REVIEW.md
 docs/radar/
 core/tools/sunrise*.py
 sunrise_simulation.py
