@@ -64,3 +64,4 @@ sunrise_simulation.py
 # Dienst mit falschem Arbeitsverzeichnis startet (Fund 26.07.) — nie ins Repo.
 core/logs/
 *.log
+test-claude-ablage/
