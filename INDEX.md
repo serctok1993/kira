@@ -41,7 +41,7 @@ und das Ergebnis mit `playbook_result` zurückgemeldet — daraus lernt es. Reif
 Fehlschlag stuft automatisch zurück. Neues Playbook: `playbooks/_VORLAGE.md` kopieren.
 
 <!-- AUTO:START -->
-Stand: 09.08.2026 01:23 (automatisch generiert — nicht von Hand editieren)
+Stand: 13.08.2026 10:53 (automatisch generiert — nicht von Hand editieren)
 
 ## Playbooks (13)
 
