@@ -67,7 +67,7 @@ def test_maskiere_erkennt_gaengige_token_formate():
 def test_maskiere_laesst_normalen_text_in_ruhe():
     from core.governance.secrets import maskiere
 
-    t = "Der Termin ist morgen um 9, Projekt luvex-app, Kosten 12,90 EUR."
+    t = "Der Termin ist morgen um 9, Projekt beispiel-app, Kosten 12,90 EUR."
     assert maskiere(t) == t
 
 

@@ -1,9 +1,24 @@
+# Standard: alle Textdateien mit LF im Repo (beendet die Windows-CRLF-Altlast der
+# Migration; Git erkennt Binaerdateien automatisch und laesst sie in Ruhe).
+* text=auto eol=lf
+
 # Zeilenenden plattformfest: Shell-Skripte + systemd-Units brauchen LF,
 # Windows-Batches CRLF — egal auf welchem System ausgecheckt wird.
 *.sh       text eol=lf
 *.service  text eol=lf
 *.bat      text eol=crlf
 *.ps1      text eol=crlf
+
+# Binaerdateien explizit schuetzen (Git-Autodetektion abgesichert).
+*.sqlite   binary
+*.db       binary
+*.jpg      binary
+*.jpeg     binary
+*.png      binary
+*.gguf     binary
+*.webm     binary
+*.pdf      binary
+
 # P6-Golden-Datei: BYTE-identisch auf jeder Plattform — Git darf die
 # Zeilenenden nie anfassen, sonst bricht der Golden-Test nach frischem
 # Windows-Checkout (autocrlf wuerde LF -> CRLF wandeln).
