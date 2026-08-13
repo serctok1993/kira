@@ -52,9 +52,10 @@ def test_kontext_objekt_traegt_alle_sektionen(monkeypatch):
 
     _nageln(monkeypatch)
     c = agent.prompt_context("Probe")
-    assert list(c) == ["jetzt", "verfassung", "seele", "ziel", "partner", "koerper",
-                       "playbooks", "lektionen", "skills", "erinnerungen",
-                       "antrieb", "arbeitsweise", "persona", "auftrag", "user_name"]
+    assert list(c) == ["verfassung", "seele", "ziel", "partner", "koerper",
+                       "playbooks", "lektionen", "skills",
+                       "antrieb", "arbeitsweise", "persona",
+                       "erinnerungen", "jetzt", "auftrag", "user_name"]
     assert all(isinstance(v, str) for v in c.values())
     # der Zusammenbau nutzt GENAU dieses Objekt
     assert "<<constitution.md>>" in agent._prompt_zusammenbauen(c)
@@ -67,5 +68,7 @@ def test_dump_endpunkt_liefert_sektionen_und_prompt(monkeypatch):
     _nageln(monkeypatch)
     r = TestClient(s.app).get("/api/prompt/context", params={"message": "Probe"}).json()
     assert list(r["sections"]) == list(agent.prompt_context("Probe"))
-    assert r["rendered"].startswith("JETZT: Mittwoch, 15.07.2026")
+    # Cache-Umbau 13.08.: JETZT-Zeile steht jetzt im dynamischen Schwanz, nicht mehr vorn
+    assert r["rendered"].startswith("# DEINE VERFASSUNG")
+    assert "JETZT: Mittwoch, 15.07.2026" in r["rendered"]
     assert "<<constitution.md>>" in r["rendered"]

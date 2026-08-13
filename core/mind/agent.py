@@ -147,7 +147,6 @@ def prompt_context(user_message: str, session_id: str | None = None) -> dict:
     from core.agency import auftrag
 
     return {
-        "jetzt": jetzt_zeile(),
         "verfassung": _read("constitution.md"),
         "seele": _read("SOUL.md"),
         "ziel": _read("GOAL.md"),
@@ -156,10 +155,12 @@ def prompt_context(user_message: str, session_id: str | None = None) -> dict:
         "playbooks": _playbooks_block(),
         "lektionen": "\n".join(f"- {l}" for l in lessons) if lessons else "(noch keine Lektionen)",
         "skills": "\n".join(f"- {s}" for s in skills) if skills else "(noch keine Skills)",
-        "erinnerungen": mem_block,
         "antrieb": antrieb_direktive(),
         "arbeitsweise": arbeitsweise_block(),
         "persona": persona_text(),
+        # Cache-Umbau 13.08.: Dynamik (Erinnerungen/JETZT) ans Prompt-ENDE — s. _prompt_zusammenbauen
+        "erinnerungen": mem_block,
+        "jetzt": jetzt_zeile(),
         # P1: der aktive Auftrag ans PROMPT-ENDE (Werkstatt-Messung: +11 Punkte);
         # ohne Auftrag "" -> byte-identischer Prompt (Golden-Test bleibt gueltig)
         "auftrag": auftrag.prompt_block(),
@@ -167,12 +168,15 @@ def prompt_context(user_message: str, session_id: str | None = None) -> dict:
     }
 
 
-def _prompt_zusammenbauen(c: dict) -> str:
-    """Das Prompt-Geruest — EXAKT der historische f-String, nur mit Werten aus dem
-    Kontext-Objekt. Jede Aenderung hier bricht den Golden-Test (absichtlich)."""
-    return f"""{c["jetzt"]}
+def _prompt_zusammenbauen(c: dict, einschub: str = "") -> str:
+    """Das Prompt-Geruest. Jede Aenderung hier bricht den Golden-Test (absichtlich).
 
-# DEINE VERFASSUNG (unveraenderlich, hoechste Prioritaet)
+    Cache-Umbau 13.08.2026: Statik nach VORN, Dynamik ans ENDE. Die JETZT-Zeile
+    (minutengenau) stand als erstes Token und machte den Prompt-Cache des lokalen
+    llama-servers bei JEDER Nachricht kalt -> 30-40s Prefill fuer ~9k Token, pro Zug.
+    Jetzt bleibt der statische Vorspann (Verfassung..Persona) byte-stabil und der
+    Server prefillt nur noch den kurzen dynamischen Schwanz (Erinnerungen/JETZT/Auftrag)."""
+    return f"""# DEINE VERFASSUNG (unveraenderlich, hoechste Prioritaet)
 {c["verfassung"]}
 
 # DEINE SEELE (wer du bist)
@@ -195,25 +199,33 @@ def _prompt_zusammenbauen(c: dict) -> str:
 # DEINE SKILLS (wiederverwendbare Faehigkeiten — nutze sie, wenn passend)
 {c["skills"]}
 
+{c["antrieb"]}
+
+{c["arbeitsweise"]}---
+{c["persona"]}
+{einschub}
 # FRUEHERE ERINNERUNGEN (nur Hintergrund-Kontext, teils VERALTET — NICHT abschreiben!)
 # Bei Widerspruch zu "WAS DU WIRKLICH KANNST" gilt immer dein aktuelles Selbstwissen.
 # Abgeschlossene Fix-/Diagnose-/Debug-Threads sind ERLEDIGT — greife sie NICHT von dir aus wieder auf,
 # nur weil sie hier oder im Verlauf auftauchen. Reagiere auf die AKTUELLE Nachricht von {c["user_name"]}.
 {c["erinnerungen"]}
 
-{c["antrieb"]}
-
-{c["arbeitsweise"]}---
-{c["persona"]}
+{c["jetzt"]}
 
 Antworte auf Deutsch. Nutze deine Erinnerungen, wenn sie relevant sind.{c["auftrag"]}"""
 
 
-def build_system_prompt(user_message: str, session_id: str | None = None) -> str:
+def build_system_prompt(user_message: str, session_id: str | None = None,
+                        einschub: str = "") -> str:
     from core import identity
 
     # W2: Platzhalter im ganzen Prompt zentral fuellen (Templates bleiben neutral).
-    return identity.render(_prompt_zusammenbauen(prompt_context(user_message, session_id)))
+    # einschub (Cache-Umbau 13.08.): statische Zusatzbloecke (z.B. das ACT-Werkzeug-
+    # Manifest) landen VOR dem dynamischen Schwanz (Erinnerungen/JETZT/Auftrag) —
+    # angehaengt HINTER build_system_prompt() zerrissen sie den Prompt-Cache bei
+    # jedem Zug an der 50%-Marke (gemessen: f_sim 0.51 statt >0.9).
+    return identity.render(_prompt_zusammenbauen(prompt_context(user_message, session_id),
+                                                 einschub=einschub))
 
 
 class Agent:

@@ -31,6 +31,9 @@ def _fake_complete(text: str):
 
 def test_money_gate_includes_council_verdict(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
+    # Assistent-Pivot 13.08.: Live-Config hat council_gate=[] (Rat aus). Der Test prueft
+    # den MECHANISMUS und pinnt das Gate deshalb selbst — W0: nie an Live-Daten haengen.
+    monkeypatch.setitem(CONFIG["governance"], "council_gate", ["money"])
     fake = _fake_complete("ENTSCHEIDUNG: Ja, aber erst nach Preisvergleich.\nBEGRUENDUNG: ...")
     monkeypatch.setattr(llm_router, "complete", fake)
 
@@ -48,6 +51,8 @@ def test_money_gate_includes_council_verdict(monkeypatch, tmp_path):
 
 def test_council_crash_still_files_request(monkeypatch, tmp_path):
     _setup(monkeypatch, tmp_path)
+    # Assistent-Pivot 13.08.: Mechanismus-Test pinnt das Council-Gate selbst (s.o.).
+    monkeypatch.setitem(CONFIG["governance"], "council_gate", ["money"])
 
     def boom(*a, **k):
         raise RuntimeError("Modell weg")

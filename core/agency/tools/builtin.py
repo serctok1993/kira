@@ -108,13 +108,55 @@ def _strip_html(raw: str) -> str:
     return re.sub(r"\s+", " ", raw).strip()
 
 
-@tool("web_fetch", "Laedt eine URL und gibt den lesbaren Textinhalt zurueck (gekuerzt).",
-      {"url": "die vollstaendige URL inkl. https://"})
-def web_fetch(url: str, limit: int = 3000) -> str:
-    r = httpx.get(url, timeout=20, follow_redirects=True, headers=_UA)
-    r.raise_for_status()
+# Vertriebs-Ketten-Haertung 13.08.2026 (Analyse-Befund): mailto-/Kontakt-Links
+# ueberleben _strip_html nicht — fuer "Impressum-Mail finden" (Hauptnutzung) werden
+# sie deshalb VOR dem Strippen eingesammelt und ans Ergebnis angehaengt.
+_MAILTO_RE = re.compile(r'mailto:([^"\'>?\s]+)', re.IGNORECASE)
+_EMAIL_RE = re.compile(r"[a-zA-Z0-9._%+-]+\s?(?:@|\[at\]|\(at\))\s?[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}")
+_KONTAKT_LINK_RE = re.compile(
+    r'<a[^>]+href=["\']([^"\']*(?:impressum|kontakt|imprint|legal|contact|about)[^"\']*)["\']',
+    re.IGNORECASE)
+
+
+def _kontakt_extrakt(raw: str) -> str:
+    """E-Mail-Adressen + Impressum-/Kontakt-Links aus rohem HTML — als Anhang fuers Modell."""
+    mails = list(dict.fromkeys(_MAILTO_RE.findall(raw) + _EMAIL_RE.findall(raw)))[:5]
+    links = list(dict.fromkeys(_KONTAKT_LINK_RE.findall(raw)))[:5]
+    teile = []
+    if mails:
+        teile.append("Gefundene E-Mail-Adressen: " + ", ".join(mails))
+    if links:
+        teile.append("Gefundene Kontakt-/Impressum-Links: " + ", ".join(links))
+    return ("\n\n[" + " | ".join(teile) + "]") if teile else ""
+
+
+@tool("web_fetch", "Laedt eine URL und gibt den lesbaren Textinhalt zurueck (gekuerzt); haengt "
+      "gefundene E-Mail-Adressen und Impressum-/Kontakt-Links automatisch an.",
+      {"url": "die vollstaendige URL inkl. https://",
+       "limit": "max. Zeichen des Textinhalts (optional, Standard 12000)"})
+def web_fetch(url: str, limit: int = 12000) -> str:
+    # Lehr-Fehlertexte statt Exceptions (Befund 13.08.): raise -> 3 sinnlose Executor-Retries
+    # bei deterministischen 403/404 + Circuit-Breaker-Vergiftung (historisch 41% Fehlerquote).
+    # Ein String ist der Erfolgspfad — das Modell liest den Hinweis und weicht auf browse aus.
+    try:
+        r = httpx.get(url, timeout=20, follow_redirects=True, headers=_UA)
+        r.raise_for_status()
+    except httpx.HTTPStatusError as e:
+        code = e.response.status_code
+        if code in (401, 403, 406, 429) or code >= 500:
+            return (f"Seite blockt einfache Abrufe (HTTP {code}) — nutze das browse-Werkzeug "
+                    f"fuer diese URL, das rendert wie ein echter Browser.")
+        if code in (404, 410):
+            return f"URL existiert nicht (HTTP {code}) — pruefe die Adresse oder versuche eine andere Unterseite."
+        return f"Abruf fehlgeschlagen (HTTP {code}) — ggf. mit browse versuchen."
+    except httpx.TransportError as e:
+        return (f"Verbindung fehlgeschlagen ({type(e).__name__}) — Domain pruefen; "
+                f"falls die Seite existiert, mit browse versuchen.")
     text = _strip_html(r.text)
-    return text[:limit] if text else "(kein Textinhalt gefunden)"
+    anhang = _kontakt_extrakt(r.text)
+    if not text:
+        return "(kein Textinhalt gefunden)" + anhang
+    return text[:limit] + anhang
 
 
 def _fmt_hits(hits: list[tuple[str, str, str]], n: int) -> str | None:
@@ -519,6 +561,97 @@ def request_secret(name: str, reason: str = "") -> str:
 
     secrets.request(name, reason)
     return f"Zugang '{name}' angefordert. {_id.user_name()} traegt ihn im Dashboard unter 'Zugaenge' ein."
+
+
+@tool("secret_speichern",
+      "Speichert einen Zugang/Key/Token SOFORT sicher im Tresor — nutze das IMMER, wenn "
+      "{{USER_NAME}} dir ein Secret direkt im Chat schickt (z.B. unterwegs vom Handy). "
+      "Danach: Secret NIE wiederholen, NIE in Configs/Dateien schreiben — nur beim Namen nennen. "
+      "Vorfall 13.08.: ein im Chat geposteter GitHub-PAT endete in einer Sackgasse, weil dieses "
+      "Werkzeug fehlte.",
+      {"name": "Env-Name, z.B. GITHUB_TOKEN", "wert": "das Secret selbst (wird nur im Tresor abgelegt)"})
+def secret_speichern(name: str, wert: str) -> str:
+    from core.governance import secrets
+
+    name = (name or "").strip().upper().replace(" ", "_")
+    wert = (wert or "").strip()
+    if not name or not wert:
+        return "Name und Wert duerfen nicht leer sein."
+    if len(wert) < 8:
+        return "Das sieht nicht nach einem echten Secret aus (zu kurz) — nichts gespeichert."
+    secrets.set_secret(name, wert)
+    secrets.load_into_env()  # sofort nutzbar (z.B. fuer MCP-Start), kein Neustart noetig
+    events.emit("secret_stored", {"name": name})  # NIE den Wert loggen
+    return (f"Sicher im Tresor abgelegt als '{name}' und geladen. Ich nenne ihn ab jetzt nur noch "
+            f"beim Namen. Bitte loesche die Chat-Nachricht mit dem Klartext, wenn moeglich.")
+
+
+@tool("gedaechtnis_pflegen",
+      "Raeumt dein Langzeitgedaechtnis auf: Secrets raus, alte Episodik (>14 Tage) loeschen, "
+      "Skills und Lektionen konsolidieren. Alles mit Backup und Schrumpf-Wache. "
+      "Laeuft woechentlich per Cron — manuell nur auf Bitte von {{USER_NAME}}.", {})
+def gedaechtnis_pflegen() -> str:
+    from core.mind import curator_haertung
+    import json as _j
+
+    r = curator_haertung.volle_pflege()
+    teile = []
+    if r.get("secrets", {}).get("entfernt"):
+        teile.append(f"{r['secrets']['entfernt']} Secret-Fakten entfernt")
+    if r.get("episodik", {}).get("geloescht"):
+        teile.append(f"{r['episodik']['geloescht']} alte Chat-Erinnerungen gealtert")
+    for k in ("skills", "lektionen"):
+        d = r.get(k, {})
+        if "before" in d:
+            teile.append(f"{k}: {d['before']} -> {d['after']}"
+                         + (f" ACHTUNG {d['warnung']}" if d.get("warnung") else ""))
+    return "Gedaechtnis gepflegt. " + ("; ".join(teile) if teile else "Nichts zu tun.")
+
+
+@tool("mcp_verwalten",
+      "Zeigt oder schaltet MCP-Server (data/mcp_servers.json). aktion 'liste' = Status aller "
+      "Server inkl. benoetigter Tresor-Namen; 'an'/'aus' = Server (de)aktivieren. Vorhandene "
+      "Vorlagen: github (braucht Tresor-Name GITHUB_TOKEN), supabase. Nach 'an' den Neustart "
+      "abwarten und mit 'liste' den Zustand pruefen — NIE Erfolg behaupten ohne Pruefung.",
+      {"aktion": "liste | an | aus", "server": "Server-Name (bei an/aus), z.B. github"})
+def mcp_verwalten(aktion: str = "liste", server: str = "") -> str:
+    import json as _json
+
+    from core.config import DATA_DIR
+    p = DATA_DIR / "mcp_servers.json"
+    cfg = _json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+    aktion = (aktion or "liste").strip().lower()
+    if aktion == "liste":
+        if not cfg:
+            return "Keine MCP-Server konfiguriert."
+        zeilen = []
+        for n, c in cfg.items():
+            envs = ", ".join(str(v)[1:] for v in (c.get("env") or {}).values()
+                             if isinstance(v, str) and v.startswith("$"))
+            import os as _os
+            fehlend = [str(v)[1:] for v in (c.get("env") or {}).values()
+                       if isinstance(v, str) and v.startswith("$") and not _os.getenv(v[1:])]
+            status = "AN" if c.get("enabled") else "aus"
+            hinweis = f" — FEHLT im Tresor: {', '.join(fehlend)}" if fehlend else ""
+            zeilen.append(f"- {n} [{status}] (braucht: {envs or 'nichts'}){hinweis}")
+        return "MCP-Server:\n" + "\n".join(zeilen)
+    server = (server or "").strip().lower()
+    if server not in cfg:
+        return f"Unbekannter Server '{server}'. Vorhanden: {', '.join(cfg)}."
+    if aktion not in ("an", "aus"):
+        return "aktion muss 'liste', 'an' oder 'aus' sein."
+    cfg[server]["enabled"] = (aktion == "an")
+    p.write_text(_json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+    events.emit("mcp_toggled", {"server": server, "enabled": aktion == "an"})
+    if aktion == "an":
+        import os as _os
+        fehlend = [str(v)[1:] for v in (cfg[server].get("env") or {}).values()
+                   if isinstance(v, str) and v.startswith("$") and not _os.getenv(v[1:])]
+        warnung = (f" ACHTUNG: Im Tresor fehlt noch {', '.join(fehlend)} — erst secret_speichern "
+                   f"oder request_secret, sonst startet der Server nicht.") if fehlend else ""
+        return (f"'{server}' aktiviert.{warnung} Die Bruecke laedt den Server beim naechsten "
+                f"Neustart (restart_self) — danach mit mcp_verwalten('liste') pruefen.")
+    return f"'{server}' deaktiviert."
 
 
 # Gedaechtnis-Diaet (Fund 09.07.): "okay, super." landete als Dauer-Fakt im

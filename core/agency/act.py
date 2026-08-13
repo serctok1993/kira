@@ -35,6 +35,61 @@ _AG = CONFIG.get("agency", {}) if isinstance(CONFIG.get("agency"), dict) else {}
 _MAX_STEPS = int(_AG.get("max_steps", 40))                 # Werkzeug-Runden pro TASK (vorher hart 8)
 _MAX_STEPS_PLAN = int(_AG.get("max_steps_plan_step", 12))  # Runden pro Plan-Teilschritt (vorher hart 6)
 _OBS_MAX = int(_AG.get("obs_max_chars", 16000))            # wie viel Werkzeug-Ergebnis das Modell sieht (vorher 6000)
+# Abbruch-Registry (Fix 13.08.2026): trennt sich das Cockpit (Tab zu, Neustart),
+# rechnete der act_chat-Thread bisher minutenlang fuer niemanden weiter — die GPU
+# generierte ins Leere und die naechste Nachricht musste dagegen ankaempfen.
+# Der WS-Handler setzt den Abbruch, die Schritt-Schleife prueft ihn zwischen den Zuegen.
+_ABBRUCH_SIDS: set = set()
+
+# Anti-Loop-Nudge (13.08.2026, geplündert aus DeepSeek repeat-tool-reminder):
+# lokale Modelle wiederholen denselben Tool-Call mit identischen Args, wenn sie
+# nicht weiterkommen (v2-Test: 4x db_query). Wir zaehlen konsekutive identische
+# Aufrufe und injizieren bei 3/5/7 eine eskalierende Erinnerung STATT zu blocken.
+def _call_key(name: str, args) -> str:
+    import json as _j
+    try:
+        return name + ":" + _j.dumps(args, sort_keys=True, ensure_ascii=False)
+    except Exception:  # noqa: BLE001
+        return name + ":" + str(args)
+
+
+def _loop_nudge(schluessel: str, verlauf: list[str]) -> str | None:
+    """Reminder-Text, wenn derselbe Call sich haeuft — sonst None."""
+    verlauf.append(schluessel)
+    n = 1
+    for k in reversed(verlauf[:-1]):
+        if k == schluessel:
+            n += 1
+        else:
+            break
+    if n == 3:
+        return ("HINWEIS: Du hast diesen Werkzeug-Aufruf mit identischen Argumenten schon 3x "
+                "gemacht. Aendere den Ansatz — andere Argumente, anderes Werkzeug, oder antworte "
+                "mit dem, was du bereits weisst.")
+    if n == 5:
+        return ("WARNUNG: 5x derselbe Aufruf ohne Fortschritt. Wiederhole ihn NICHT noch einmal. "
+                "Nutze ein anderes Werkzeug oder gib jetzt deine beste Antwort mit dem bisherigen Stand.")
+    if n >= 7:
+        return ("STOPP: Diese Schleife fuehrt nicht weiter. Beende die Werkzeug-Nutzung und "
+                "antworte direkt — erklaere ehrlich, was nicht klappt.")
+    return None
+
+
+
+def abbruch_setzen(session_id: str) -> None:
+    """Laufenden Zug dieser Session zwischen den Schritten stoppen (idempotent)."""
+    if session_id:
+        _ABBRUCH_SIDS.add(session_id)
+
+
+def _abbruch_pruefen(session_id: str) -> bool:
+    """True + Aufraeumen, wenn fuer diese Session ein Abbruch vorliegt."""
+    if session_id in _ABBRUCH_SIDS:
+        _ABBRUCH_SIDS.discard(session_id)
+        return True
+    return False
+
+
 _MAX_STEPS_CHAT = int(_AG.get("max_steps_chat", 8))        # knapper Deckel fuer NORMALEN Chat -> kein 80er-Sturm bei Small-Talk (voller Task-Deckel via /work oder /plan)
 _AUTO_PLAN = bool(_AG.get("auto_plan", True))              # Arbeitsauftraege im Plain-Chat automatisch planen
 _CLAIM_CHECK = bool(_AG.get("claim_check", True))          # Datei-Behauptungen in Antworten nachpruefen
@@ -1107,6 +1162,36 @@ def _falsche_argumente(name: str, tool, args: dict) -> str:
         return ""
 
 
+# Spill (13.08.2026, geplündert aus DeepSeek packages/spill): ein einziger fetter
+# Tool-Output (HTML, Log, SQL-Dump) frisst bei 32k-Kontext sofort alles. Statt hart
+# zu kappen (Info weg) wird der Volltext session-scoped auf Platte gelegt und im
+# Kontext durch Kopf + Fuss + Verweis ersetzt — Kira kann gezielt nachlesen.
+_SPILL_SCHWELLE = 6000  # Zeichen
+
+
+def _spill(name: str, obs: str, session_id: str | None) -> str:
+    if len(obs) <= _SPILL_SCHWELLE:
+        return obs
+    from core.config import DATA_DIR
+    import time as _t
+    d = DATA_DIR / "spill"
+    try:
+        d.mkdir(parents=True, exist_ok=True)
+        sid = (session_id or "chat").replace("/", "_")[:40]
+        # deterministischer, aber kollisionsarmer Name ohne Zeitstempel-Import-Zwang
+        stamp = str(int(_t.monotonic() * 1000))[-9:]
+        f = d / f"{sid}_{name}_{stamp}.txt"
+        f.write_text(obs, encoding="utf-8")
+    except Exception:  # noqa: BLE001
+        return obs  # Spill darf nie den Tool-Output verlieren
+    kopf, fuss = obs[:2500], obs[-1500:]
+    events.emit("obs_spilled", {"tool": name, "chars": len(obs), "pfad": str(f)},
+                session_id=session_id)
+    return (f"{kopf}\n\n[... {len(obs)-4000} Zeichen ausgelagert nach {f} — "
+            f"bei Bedarf gezielt lesen: read_file(\"{f}\") oder "
+            f"run_command(\"grep MUSTER {f}\") ...]\n\n{fuss}")
+
+
 def _run_tool_guarded(name: str, tool, args: dict, session_id: str | None) -> str:
     """Zentraler Werkzeug-Runner aller Loops: Guard davor, Buchhaltung danach.
     W2: {{AGENT_NAME}}/{{USER_NAME}}-Platzhalter in Werkzeug-AUSGABEN werden hier
@@ -1126,7 +1211,7 @@ def _run_tool_guarded(name: str, tool, args: dict, session_id: str | None) -> st
         obs = _ident.render(obs)
     _rbe_record(session_id, name, args, obs)
     _edit_fail_record(session_id, name, obs)
-    return obs
+    return _spill(name, obs, session_id)
 
 
 def _complete_resilient(*args, **kwargs):
@@ -2263,7 +2348,8 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     # Cloud-Modelle: natives Function-Calling (robust, kein ACT-Text-Leak)
     _vstyle = _VOICE_STYLE if voice_mode else ""
     if _cloud(escalate, _tt):
-        system = build_system_prompt(user_message, session_id=session_id) + _NATIVE_TOOLS_HINT + _vstyle
+        system = build_system_prompt(user_message, session_id=session_id,
+                                     einschub=_NATIVE_TOOLS_HINT + _vstyle)
         text = _native_loop(messages, system, session_id, escalate, emit, max_steps=step_ceiling,
                             task_type=_tt, reasoning=reasoning_level)
         return _finalize(text)
@@ -2275,7 +2361,8 @@ def act_chat(user_message: str, session_id: str, max_steps: int = _MAX_STEPS, es
     # weiter aufrufbar; Coding laeuft ueber code:/plan (volle Flotte), Cloud-Chat
     # (nativer FC-Pfad oben) unveraendert mit allen Schemas.
     from core.agency import rollen as _hrollen
-    system = build_system_prompt(user_message, session_id=session_id) + _vstyle + f"""
+    system = build_system_prompt(user_message, session_id=session_id,
+                                 einschub=_vstyle + f"""
 
 # WERKZEUGE (nutze sie, wenn die Aufgabe es braucht)
 {registry.manifest(nur=_hrollen.toolset("haupt"))}
@@ -2285,13 +2372,17 @@ ACT <werkzeug_name> {{"argument": "wert"}}
 Beispiel: ACT web_search {{"query": "Wetter Berlin heute"}}
 Danach bekommst du das ERGEBNIS und kannst weiter ein Werkzeug nutzen oder normal antworten.
 Wenn du etwas Aktuelles nicht sicher weisst (Wetter, Preise, News, Webinhalte): NICHT raten,
-sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und vollstaendig."""
+sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und vollstaendig.""")
 
     used_tools = False
     nudged = False
     beweis_nachgefragt = False      # Beweispflicht II: hoechstens EINE Rueckfrage pro Zug
     obs_cap = _budget("obs_max_chars", _OBS_MAX, _tt, escalate)  # starkes Modell -> sieht mehr
+    _call_verlauf: list[str] = []
     for step in range(step_ceiling):
+        if _abbruch_pruefen(session_id):
+            emit({"kind": "final", "text": "(abgebrochen — Verbindung wurde getrennt)"})
+            return "(abgebrochen)"
         _compact_history(messages)
         parts = []
         for piece in llm_router.stream_tagged(
@@ -2376,6 +2467,10 @@ sondern web_search/web_fetch nutzen. Sonst antworte direkt, natuerlich und volls
         messages.append({"role": "assistant", "content": text})
         obs = obs[:obs_cap]  # Slot-Schutz: Riesen-Observation kappen (wie im nativen Loop)
         messages.append({"role": "user", "content": obs_wrapper(name, obs)})
+        nudge = _loop_nudge(_call_key(name, args), _call_verlauf)
+        if nudge:
+            messages.append({"role": "user", "content": nudge})
+            events.emit("loop_nudge", {"tool": name, "step": step}, session_id=session_id)
 
     messages.append({"role": "user", "content": f"Fasse jetzt final fuer {_id.user_name()} zusammen — ohne weiteres ACT."})
     _compact_history(messages)

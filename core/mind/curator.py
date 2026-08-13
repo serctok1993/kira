@@ -33,14 +33,14 @@ def curate_skills(escalate: bool = False) -> dict:
             memory.delete(s["id"])
         except Exception:  # noqa: BLE001
             pass
-    for ns in new_skills[:30]:
+    for ns in new_skills[:8]:  # Prompt zeigt 6 — Deckel angeglichen (Fix 13.08.)
         memory.remember(ns, role="self", kind="skill")
     events.emit("skills_curated", {"before": len(skills), "after": len(new_skills)})
     return {"before": len(skills), "after": len(new_skills)}
 
 
 def curate_lessons(escalate: bool = False) -> dict:
-    """Konsolidiert Kiras Lektionen: Duplikate zusammenfassen, Triviales raus (max 10).
+    """Konsolidiert Kiras Lektionen: Duplikate zusammenfassen, Triviales raus (max 5 — Prompt-Fenster zeigt nur 5, Fix 13.08.).
 
     Lektionen fliessen in JEDEN System-Prompt (recall_lessons) — ohne Pflege wachsen
     sie unbegrenzt und verwaessern sich gegenseitig. Loescht NIE blind: ohne saubere
@@ -71,7 +71,7 @@ def curate_lessons(escalate: bool = False) -> dict:
             memory.delete(l["id"])
         except Exception:  # noqa: BLE001
             pass
-    for nl in new_lessons[:10]:
+    for nl in new_lessons[:5]:
         text = nl.split(":", 1)[1].strip() if ":" in nl else nl
         if text:
             memory.remember(text, role="self", kind="lesson")

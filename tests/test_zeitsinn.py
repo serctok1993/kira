@@ -41,7 +41,10 @@ def test_identity_und_systemprompt_beginnen_mit_jetzt(monkeypatch, tmp_path):
     from core.mind.memory import store as memory
     monkeypatch.setattr(memory, "DB_PATH", str(tmp_path / "mem.db"))
     memory.init_memory()
-    assert agent.build_system_prompt("hallo").startswith("JETZT: ")
+    # Cache-Umbau 13.08.: JETZT steht jetzt im dynamischen Schwanz (Prompt-Cache!),
+    # der Zeitsinn selbst bleibt: genau EINE JETZT-Zeile im Prompt.
+    _sp = agent.build_system_prompt("hallo")
+    assert _sp.count("JETZT: ") == 1 and not _sp.startswith("JETZT: ")
 
 
 def test_cron_prompt_bekommt_echte_zeit(monkeypatch, tmp_path):

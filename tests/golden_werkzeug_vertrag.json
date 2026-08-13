@@ -196,6 +196,10 @@
         "kennung"
       ]
     },
+    "gedaechtnis_pflegen": {
+      "args": [],
+      "pflicht": []
+    },
     "harness_report": {
       "args": [
         "window"
@@ -465,6 +469,16 @@
         "url"
       ]
     },
+    "secret_speichern": {
+      "args": [
+        "name",
+        "wert"
+      ],
+      "pflicht": [
+        "name",
+        "wert"
+      ]
+    },
     "self_edit": {
       "args": [
         "instruction",
@@ -654,6 +668,7 @@
     },
     "web_fetch": {
       "args": [
+        "limit",
         "url"
       ],
       "pflicht": [
@@ -760,20 +775,21 @@
       "cron_remove",
       "cron_update",
       "datei_finden",
+      "db_query",
       "delegate",
       "delete_file",
-      "email_check",
-      "email_reply",
       "email_send",
       "erinnerung",
       "erinnerung_list",
       "erinnerung_remove",
+      "gedaechtnis_pflegen",
       "health",
       "jetzt",
       "knowledge_note",
       "knowledge_search",
       "list_dir",
       "make_dir",
+      "mcp_verwalten",
       "move_file",
       "person_fakt",
       "playbook_list",
@@ -784,6 +800,7 @@
       "request_approval",
       "schwarm",
       "screenshot_url",
+      "secret_speichern",
       "switch_model",
       "termin_add",
       "termin_list",

@@ -43,6 +43,22 @@ def init_db() -> None:
 def emit(type: str, payload: dict[str, Any] | None = None, session_id: str | None = None) -> str:
     """Schreibt ein Event und gibt seine ID zurueck."""
     eid = uuid.uuid4().hex
+    # Secret-Wache (13.08.2026): Klartext-Tokens duerfen NIE ins Event-Log —
+    # maskiert wird nur die Aufbewahrung, der laufende Zug ist unberuehrt.
+    try:
+        from core.governance.secrets import maskiere
+
+        def _tief(v):
+            if isinstance(v, str):
+                return maskiere(v)
+            if isinstance(v, dict):
+                return {k: _tief(w) for k, w in v.items()}
+            if isinstance(v, list):
+                return [_tief(w) for w in v]
+            return v
+        payload = _tief(payload or {})
+    except Exception:  # noqa: BLE001 — Maskierung darf das Loggen nie verhindern
+        pass
     with _conn() as c:
         c.execute(
             "INSERT INTO events (id, ts, type, session_id, payload) VALUES (?,?,?,?,?)",

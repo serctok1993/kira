@@ -50,7 +50,20 @@ def write_note(titel: str, text: str, ordner: str = "notizen") -> dict:
     text = (text or "").strip()
     if not titel or not text:
         return {"ok": False, "error": "titel und text duerfen nicht leer sein"}
-    f = vault_root() / (_slug(ordner or "notizen")) / f"{_slug(titel)}.md"
+    # Ordner-Aufloesung 13.08.2026 (Analyse-Befund): Serges Vault hat Grossbuchstaben-
+    # Ordner (GELERNT, IDEEN, Business...) — der Slug erzeugte auf Linux Duplikate
+    # (gelernt/ neben GELERNT/). Erst case-insensitiv gegen EXISTIERENDE Ordner
+    # aufloesen; nur wenn nichts passt, greift der Slug wie bisher.
+    wunsch = (ordner or "notizen").strip().strip("/")
+    ziel_ordner = _slug(wunsch)
+    try:
+        for d in vault_root().iterdir():
+            if d.is_dir() and d.name.lower() == wunsch.lower():
+                ziel_ordner = d.name
+                break
+    except OSError:
+        pass
+    f = vault_root() / ziel_ordner / f"{_slug(titel)}.md"
     datum = datetime.date.today().strftime("%d.%m.%Y")
     if f.exists():
         alt = f.read_text(encoding="utf-8")

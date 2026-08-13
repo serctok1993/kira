@@ -36,8 +36,8 @@ def test_run_suite_bewertet_ueber_verify():
     from core.testkit import bench
     stub = lambda wt, env, task: {"stub": True}  # kein echtes act -> kein Modell noetig  # noqa: E731
     suite = {"tasks": [
-        {"id": "pass", "verify_cmd": "python -c \"import sys; sys.exit(0)\""},
-        {"id": "fail", "verify_cmd": "python -c \"import sys; sys.exit(1)\""},
+        {"id": "pass", "verify_cmd": sys.executable + " -c \"import sys; sys.exit(0)\""},
+        {"id": "fail", "verify_cmd": sys.executable + " -c \"import sys; sys.exit(1)\""},
     ]}
     summary = bench.run_suite(suite, exec_fn=stub)
     assert summary["total"] == 2 and summary["passed"] == 1
@@ -59,8 +59,8 @@ def test_stream_suite_streamt_ereignisse():
     fake_attempt = lambda wt, env, t: iter(  # noqa: E731
         [{"kind": "think", "text": "ich denke nach"}, {"kind": "tool", "name": "edit_datei"}])
     suite = {"tasks": [
-        {"id": "a", "prompt": "mach was", "verify_cmd": "python -c \"import sys;sys.exit(0)\""},
-        {"id": "b", "prompt": "und das", "verify_cmd": "python -c \"import sys;sys.exit(1)\""},
+        {"id": "a", "prompt": "mach was", "verify_cmd": sys.executable + " -c \"import sys;sys.exit(0)\""},
+        {"id": "b", "prompt": "und das", "verify_cmd": sys.executable + " -c \"import sys;sys.exit(1)\""},
     ]}
     evs = list(bench.stream_suite(suite, attempt_fn=fake_attempt))
     kinds = [e["kind"] for e in evs]

@@ -18,7 +18,7 @@ import subprocess
 
 from pathlib import Path
 
-from core.config import ROOT
+from core.config import ROOT, CONFIG
 
 # W4b: die Shell selbst ist portabel (shell=True -> cmd.exe bzw. /bin/sh). Nur der
 # Unix-Verwechslungs-Hinweis ist ein WINDOWS-Schutz — unter Linux sind head/grep/cat
@@ -125,6 +125,75 @@ def _core_wache(command: str, wd) -> str | None:
     return None
 
 
+# --- Sudo-Wache (13.08.2026, Serges Auftrag: Kira darf System-Pflege) -----------
+# Enge Allowlist, deckungsgleich mit /etc/sudoers.d/kira-agent (~/local/kira-sudo/):
+# Updates, Paket-Installation (validierter Wrapper), Hardware-Info, System-Logs.
+# ALLES andere mit sudo wird nicht ausgefuehrt, sondern an Serge verwiesen —
+# Kira fuehrt LLM-generierte Befehle aus, Root-Blanko waere ein Scheunentor.
+_SUDO_RE = re.compile(r"(^|[;&|]\s*)sudo\b")
+_SUDO_KETTE = re.compile(r"[;&|`]|\$\(")
+_SUDO_ALLOW = (
+    re.compile(r"^sudo\s+(/usr/bin/)?apt-get\s+update\s*$"),
+    re.compile(r"^sudo\s+(/usr/bin/)?apt-get\s+upgrade\s+-y\s*$"),
+    re.compile(r"^sudo\s+(/usr/local/bin/)?kira-apt-install(\s+[a-z0-9][a-z0-9.+-]*)+\s*$"),
+    re.compile(r"^sudo\s+(/usr/sbin/)?dmidecode(\s+-t\s+[\w,]+)?\s*$"),
+    re.compile(r"^sudo\s+(/usr/bin/)?journalctl(\s+[-\w=./:@ ]*)?$"),
+)
+
+
+def _sudo_wache(command: str) -> str | None:
+    """None = darf laufen. Sonst: Erklaerung statt Ausfuehrung."""
+    if not _SUDO_RE.search(command):
+        return None
+    if _SUDO_KETTE.search(command):
+        return ("Blockiert: sudo in Befehlsketten (;, &&, |, Subshells) fuehre ich nicht aus. "
+                "Bitte als EINZELNEN Befehl aus meiner Allowlist formulieren.")
+    if any(rx.match(command.strip()) for rx in _SUDO_ALLOW):
+        return None
+    return ("Dieser sudo-Befehl steht nicht auf meiner Allowlist (apt-get update/upgrade, "
+            "kira-apt-install <paket>, dmidecode, journalctl). Ich fuehre ihn nicht selbst aus — "
+            "sag Serge Bescheid oder lass die Allowlist erweitern (~/local/kira-sudo/).")
+
+
+# --- Landlock-Sandbox (13.08.2026, geplündert aus DeepSeek-Harness native/landlock-run) ---
+# Kernel-erzwungene Dateisystem-Grenze statt Regex-Hoffnung: Lesen ueberall,
+# Schreiben NUR in Repo, Brain-Vault, Schreibtisch, /tmp und ~/.cache.
+# Fail-open: fehlt das Binary oder der Kernel-Support, laeuft der Befehl wie bisher
+# (einmaliges Event statt Dauerbremse). Sudo-Allowlist-Befehle laufen UNGEWRAPPT —
+# Landlock setzt no_new_privs, darunter verweigert sudo grundsaetzlich.
+_LL_BIN = Path.home() / "local/bin/landlock-run"
+_LL_STATUS: dict = {}  # {'ok': bool} nach erstem Probe
+
+
+def _sandbox_argv(command: str) -> list[str] | None:
+    """argv-Prefix fuer die Sandbox — None, wenn ungewrappt gelaufen werden soll."""
+    cfg = (CONFIG.get("agency") or {}).get("shell_sandbox", {})
+    if cfg.get("enabled") is False:
+        return None
+    if _SUDO_RE.search(command):
+        return None  # Allowlist-sudo braucht echte Privilegien
+    if not _LL_STATUS:
+        try:
+            ok = (_LL_BIN.exists() and subprocess.run(
+                [str(_LL_BIN), "--probe"], capture_output=True, text=True, timeout=5
+            ).returncode == 0)
+        except Exception:  # noqa: BLE001
+            ok = False
+        _LL_STATUS["ok"] = ok
+        if not ok:
+            events.emit("sandbox_unavailable", {"binary": str(_LL_BIN)})
+    if not _LL_STATUS.get("ok"):
+        return None
+    rw = [str(ROOT), str(Path.home() / "Brain"), str(Path.home() / "Schreibtisch"),
+          "/tmp", str(Path.home() / ".cache")]
+    rw += [str(p) for p in (cfg.get("extra_rw") or [])]
+    argv = [str(_LL_BIN), "--ro", "/"]
+    for p in rw:
+        if Path(p).exists():
+            argv += ["--rw", p]
+    return argv + ["--", "/bin/sh", "-c"]
+
+
 def run_shell(command: str, cwd: str | None = None, timeout: int = 60) -> str:
     command = (command or "").strip()
     if not command:
@@ -134,6 +203,10 @@ def run_shell(command: str, cwd: str | None = None, timeout: int = 60) -> str:
     if _is_dangerous(command):
         events.emit("shell_blocked", {"command": command[:200]})
         return "Blockiert: dieser Befehl wirkt potenziell zerstoererisch. Ausfuehrung verweigert."
+    sudo_veto = _sudo_wache(command)
+    if sudo_veto:
+        events.emit("shell_blocked", {"command": command[:200], "grund": "sudo"})
+        return sudo_veto
     if _IS_WIN and _UNIX_ISH.search(command):  # Unix-Verwechslung (nur Windows) -> sofort korrigieren
         events.emit("shell_hint", {"command": command[:200]})
         return _UNIX_HINT
@@ -158,10 +231,17 @@ def run_shell(command: str, cwd: str | None = None, timeout: int = 60) -> str:
         timeout = 60
 
     try:
-        p = subprocess.run(
-            command, shell=True, cwd=str(wd), capture_output=True, text=True,
-            timeout=timeout, encoding="utf-8", errors="replace",
-        )
+        _sbx = _sandbox_argv(command)
+        if _sbx:
+            p = subprocess.run(
+                _sbx + [command], shell=False, cwd=str(wd), capture_output=True, text=True,
+                timeout=timeout, encoding="utf-8", errors="replace",
+            )
+        else:
+            p = subprocess.run(
+                command, shell=True, cwd=str(wd), capture_output=True, text=True,
+                timeout=timeout, encoding="utf-8", errors="replace",
+            )
     except subprocess.TimeoutExpired:
         events.emit("shell_timeout", {"command": command[:200], "timeout": timeout})
         return f"Timeout nach {timeout}s — Befehl abgebrochen."

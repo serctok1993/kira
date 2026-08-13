@@ -129,7 +129,13 @@ def start_watchdog(check_every: int = 30) -> None:
             try:
                 if not turn_active():
                     continue
-                stalled = time.time() - _newest_event_ts()
+                letzte = _newest_event_ts()
+                if letzte <= 0.0:
+                    # Fix 13.08.: 0.0 heisst "keine Events sichtbar" (frische Session oder
+                    # DB-Fehler) — NICHT "seit 1970 kein Fortschritt". Der alte Vergleich
+                    # ergab stalled_s=<Epoch> und schoss laufende Zuege sofort ab.
+                    continue
+                stalled = time.time() - letzte
                 if stalled > stall_s:
                     events.emit("turn_timeout", {"stalled_s": round(stalled), "limit_s": stall_s})
                     _write_flag("all")  # Deferral bewusst umgangen: der festgefahrene Zug IST das Problem

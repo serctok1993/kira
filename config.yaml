@@ -90,7 +90,7 @@ features:
 # Kosten sind durch governance.budget gedeckelt.
 agency:
   max_steps: 80              # Werkzeug-Runden pro TASK (schwere/lange Aufgaben; via /work oder /plan)
-  max_steps_chat: 8          # knapper Deckel fuer NORMALEN Chat -> kein 80er-Tool-Sturm bei Small-Talk
+  max_steps_chat: 12          # knapper Deckel fuer NORMALEN Chat -> kein 80er-Tool-Sturm bei Small-Talk
   max_steps_plan_step: 12   # Werkzeug-Runden pro Teilschritt im Plan-Modus (vorher: 6)
   obs_max_chars: 16000      # wie viel eines Werkzeug-Ergebnisses das Modell sieht (vorher: 6000)
   # Kontext-Abriss-Schutz (Forensik 23.07.): lokale Slots sind klein (16k Token) — die
@@ -108,7 +108,7 @@ agency:
   # Call in 21 Tagen ueber 150s), aber sobald qwen35b wieder auf chat/reason liegt,
   # reisst die Marke.
   turn_stall_seconds: 660
-  auto_plan: true           # klarer Arbeitsauftrag im Plain-Chat -> automatisch Plan-Modus (Denker-Rang, nicht Eskalation); Aenderung braucht Neustart
+  auto_plan: false           # klarer Arbeitsauftrag im Plain-Chat -> automatisch Plan-Modus (Denker-Rang, nicht Eskalation); Aenderung braucht Neustart
   claim_check: true         # Beweispflicht: behauptete Dateien in Antworten werden nachgeprueft, fehlende sichtbar gestempelt
   # Fable-freundliche Arbeitsflaeche: laeuft die Runde REAL auf einem starken Cloud-Modell
   # (Marker unten, kein Fallback), gelten diese grosszuegigeren Decken statt der Basis oben.
@@ -148,7 +148,7 @@ agency:
 # Selbst-Entwicklung: nach jedem self_edit laeuft dieser Test; faellt er durch -> Auto-Rollback.
 # Leer = Standard (Import-Smoke der Kernmodule mit dem venv-Python). Beispiel: "uv run pytest -q"
 selfdev:
-  verify_cmd: '.venv\Scripts\python.exe -m pytest tests -q'
+  verify_cmd: '.venv/bin/python -m pytest tests -q'
   # Paket B: im code:-Lauf pro .py-Edit nur Syntax-/Truncation-Check, die volle Suite laeuft
   # EINMAL am Lauf-Ende (bei Rot: gesamter Lauf zurueckgerollt). Spart die 375-Test-Suite nach
   # JEDEM Edit (das waren die 5-15 Minuten). false = alte Sicherheit (volle Suite pro Edit).
@@ -162,7 +162,7 @@ governance:
     daily_eur: 20.0              # Experimentier-Topf 300 EUR: 20/Tag = mutig, aber begrenzt (Live-Override gleichgezogen)
     monthly_eur: 150.0           # harter Monatsdeckel — DIE eigentliche Kostenbremse
   kill_switch_file: data/STOP     # existiert diese Datei -> Heartbeat haelt sofort
-  council_gate: ["money"]         # diese Gate-Arten bekommen VOR dem Inbox-Eintrag eine
+  council_gate: []         # diese Gate-Arten bekommen VOR dem Inbox-Eintrag eine
                                   # Rats-Debatte (Visionaer/Skeptiker/Macher + Judge) —
                                   # das Urteil liegt dem Nutzer als Entscheidungsgrundlage bei
 
@@ -170,7 +170,7 @@ governance:
 # Akzeptanzkriterien geprueft; scheitert er, folgt ein Retry mit ANDERER Strategie
 # statt blindem 'done'. enabled: false -> Alt-Verhalten (blind 'done').
 outcomes:
-  enabled: true
+  enabled: false
   pass_score: 70              # ab diesem Judge-Score (0-100) gilt ein Task als bestanden
   max_quality_retries: 2      # Qualitaets-Retries, GETRENNT von Absturz-Retries (reset_stuck)
   verifier_task_type: reason  # Route des Pruefers: DENKER (Fable-Review) — der Judge darf nicht dasselbe
@@ -183,7 +183,7 @@ outcomes:
 # aus, auch wenn hier true steht. Scharf wird der 24/7-Betrieb erst per Cockpit-Toggle
 # (schreibt "on") — nach gruenem Doctor-Check und unter Aufsicht des Nutzers (S6.5).
 heartbeat:
-  enabled: true                   # Baseline an — aber inert bis der Flag "on" ist
+  enabled: false                   # Baseline an — aber inert bis der Flag "on" ist
   interval_seconds: 1800          # alle 30 min ein Mission-Schritt
 
 # Die 24/7-Mission — Zweck: den Alltag des Nutzers tragen + dich selbst pflegen (Dienst-Mission
@@ -191,7 +191,7 @@ heartbeat:
 # Mission ueber Betriebs-Metriken: erledigte Schritte, Fehlerquote, Briefing-Puenktlichkeit).
 mission:
   name: "Assistenz & Selbstpflege"
-  self_every: 3                   # S8.1: jeder 3. Tick ist ein Selbst-Optimierungs-Tick
+  self_every: 0                   # S8.1: jeder 3. Tick ist ein Selbst-Optimierungs-Tick
   steps_per_objective_daily: 3    # Werktakt: max. erledigte Schritte PRO ZIEL und Tag (0 = aus)
                                   # — dosiert statt 4-6 Fallstudien am Tag; Rest rueckt auf morgen
   goal: >

@@ -74,4 +74,6 @@ def test_lokal_extra_trennt_die_familien():
     ollama = llm_router._lokal_extra("ollama_chat/kira-c6", None, None)
     assert "api_base" not in ollama and "keep_alive" in ollama
     ep = llm_router._lokal_extra("openai/qwen3.6-35b", "http://127.0.0.1:8081/v1", "")
-    assert ep == {"api_base": "http://127.0.0.1:8081/v1", "api_key": "sk-lokal"}
+    # Fix 13.08.: lokale Endpunkte steuern Thinking explizit (Standard: aus)
+    assert ep == {"api_base": "http://127.0.0.1:8081/v1", "api_key": "sk-lokal",
+                  "extra_body": {"chat_template_kwargs": {"enable_thinking": False}}}

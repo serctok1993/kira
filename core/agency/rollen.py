@@ -88,10 +88,18 @@ ROLLEN: dict[str, dict] = {
             "todo_add", "todo_done", "todo_list",
             "todo_plan", "todo_update", "todo_stand",
             "knowledge_search", "knowledge_note",
-            "delegate", "schwarm",
-            "email_check", "email_send", "email_reply",
+            "delegate", "schwarm", "email_send",
+            # 13.08.2026: email_check/email_reply raus — Mail-Kanal ist tot konfiguriert
+            # (channels.email.enabled=false), die halbe Familie kostet nur Manifest-Platz.
+            # Kommen zurueck, sobald ein Postfach hinterlegt ist.
             "playbook_list", "playbook_read", "vault_note", "person_fakt",
             "request_approval", "switch_model", "read_logs",
+            # Katalog-Fund 13.08. (Test db_query): Alltagsfragen wie "wieviele Nachrichten
+            # heute?" brauchen Selbst-Auskunft — db_query ist read-only (mode=ro), sicher.
+            "db_query",
+            # Secret-Intake + MCP-Selbstverwaltung (Vorfall 13.08.: PAT-Sackgasse im Chat)
+            "secret_speichern", "mcp_verwalten",
+            "gedaechtnis_pflegen",
         ],
     },
 }

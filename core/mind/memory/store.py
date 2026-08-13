@@ -81,6 +81,12 @@ def remember(
     kind: str = "episodic",
     session_id: str | None = None,
 ) -> str:
+    # Secret-Wache 13.08.2026: nie Klartext-Tokens ins Langzeitgedaechtnis.
+    try:
+        from core.governance.secrets import maskiere
+        text = maskiere(text)
+    except Exception:  # noqa: BLE001
+        pass
     mid = uuid.uuid4().hex
     emb = None
     try:

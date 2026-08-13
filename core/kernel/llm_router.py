@@ -335,7 +335,8 @@ def has_key(model: str) -> bool:
     return _has_key(model)
 
 
-def _lokal_extra(real: str, api_base: str | None, key_env: str | None) -> dict:
+def _lokal_extra(real: str, api_base: str | None, key_env: str | None,
+                 reasoning: str | None = None) -> dict:
     """litellm-Zusatzargumente fuer LOKALE Modelle im Streaming-Pfad: Ollama bekommt
     keep_alive/num_ctx, ein eigener Endpunkt (llama.cpp) api_base + (Dummy-)Key."""
     extra: dict = {}
@@ -347,6 +348,11 @@ def _lokal_extra(real: str, api_base: str | None, key_env: str | None) -> dict:
     if api_base:
         extra["api_base"] = api_base
         extra["api_key"] = os.getenv(key_env) if key_env else "sk-lokal"
+    if api_base and ("127.0.0.1" in api_base or "localhost" in api_base):
+        # Thinking-Steuerung (Fix 13.08.): llama.cpp ignoriert reasoning_effort still,
+        # und das Qwen-Chat-Template startet sonst JEDE Antwort als Denk-Block
+        # (Live-Messung: 'Sag nur: OK' = 168 Tokens statt 2). Denken nur auf Ansage.
+        extra["extra_body"] = {"chat_template_kwargs": {"enable_thinking": bool(reasoning)}}
     return extra
 
 
@@ -558,6 +564,9 @@ def complete(
     if tools:
         extra["tools"] = tools
     extra.update(_reasoning_extra(real, reasoning))   # Denk-Tiefe -> nur bei denk-faehigen Modellen
+    if api_base and ("127.0.0.1" in api_base or "localhost" in api_base):
+        # Thinking-Steuerung (Fix 13.08.): siehe _lokal_extra — llama.cpp denkt sonst immer.
+        extra["extra_body"] = {"chat_template_kwargs": {"enable_thinking": bool(reasoning)}}
 
     want_max_tokens = CONFIG["models"].get("max_tokens", 2048)
 
@@ -758,7 +767,7 @@ def stream(messages, system=None, task_type="chat", session_id=None, escalate=Fa
         msgs.append({"role": "system", "content": system})
     msgs.extend(messages)
 
-    extra: dict = _lokal_extra(real, api_base, key_env)
+    extra: dict = _lokal_extra(real, api_base, key_env, reasoning)
 
     t0 = time.time()
     resp = litellm.completion(
@@ -835,7 +844,7 @@ def stream_tagged(messages, system=None, task_type="chat", session_id=None, esca
         msgs.append({"role": "system", "content": system})
     msgs.extend(messages)
 
-    extra: dict = _lokal_extra(real, api_base, key_env)
+    extra: dict = _lokal_extra(real, api_base, key_env, reasoning)
 
     t0 = time.time()
     resp = litellm.completion(

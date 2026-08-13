@@ -65,3 +65,23 @@ def request(name: str, reason: str = "") -> bool:
 
 def pending() -> list[dict]:
     return _load().get("requests", [])
+
+
+# Secret-Maskierung (13.08.2026, Vorfall: GitHub-PAT im Telegram-Chat landete im
+# Klartext in events+memory). Zentrale Wache fuer ALLE Speicherpfade: bekannte
+# Token-Formate werden VOR der Persistierung unkenntlich gemacht. Der laufende
+# Zug sieht das Original (damit secret_speichern den Wert in den Tresor legen
+# kann) — nur die AUFBEWAHRUNG wird maskiert.
+import re as _re
+
+_SECRET_MUSTER = _re.compile(
+    r"(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}"
+    r"|xox[baprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16}|glpat-[A-Za-z0-9_-]{15,}"
+    r"|eyJ[A-Za-z0-9_-]{30,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,})")
+
+
+def maskiere(text: str) -> str:
+    """Ersetzt erkennbare Secrets durch einen Platzhalter (fuer Logs/Memory/Events)."""
+    if not text or not isinstance(text, str):
+        return text
+    return _SECRET_MUSTER.sub("<SECRET-MASKIERT>", text)

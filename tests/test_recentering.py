@@ -48,7 +48,9 @@ def test_mission_goal_reordered():
     from core.config import CONFIG
 
     m = CONFIG.get("mission", {})
-    assert m.get("self_every") == 3
+    # Assistent-Pivot 13.08.: Selbstverbesserungs-Tick ist bewusst deaktiviert (Audit:
+    # 64 Ticks, 0 nuetzliche Ergebnisse). 0 = aus; der Schluessel selbst muss existieren.
+    assert m.get("self_every") == 0
     g = m.get("goal", "")
     assert "DEN ALLTAG DEINES PARTNERS TRAGEN" in g and "DICH SELBST PFLEGEN" in g
     # Assistenz steht VOR der Selbstpflege; kein Business-/Etappen-Ziel mehr in der Mission

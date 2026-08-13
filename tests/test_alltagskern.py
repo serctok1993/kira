@@ -259,7 +259,7 @@ def test_neue_tools_im_manifest():
                  "vault_note", "vault_dossier", "person_fakt"):
         assert f"- {name} (" in m, f"{name} fehlt im Manifest"
     schemas = [s for s in registry.tool_schemas() if not s["function"]["name"].startswith("mcp_")]
-    assert len(schemas) <= 81  # 80 aktiv (Generalinventur 27.07. +3: cron_update,
+    assert len(schemas) <= 84  # +3 am 13.08.2026: secret_speichern, mcp_verwalten, gedaechtnis_pflegen  # 80 aktiv (Generalinventur 27.07. +3: cron_update,
     # erinnerung_list, erinnerung_remove), Luft fuer Synthese
     # Registry-Konvention: optionale Parameter tragen "optional"/"Standard" -> nicht required
     ta = next(s for s in schemas if s["function"]["name"] == "termin_add")

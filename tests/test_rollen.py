@@ -39,7 +39,7 @@ def test_hauptrolle_fuer_den_lokalen_chat():
     # "haupt" = kuratiertes Alltags-Manifest fuer Kiras lokalen Chat (c5-Hebel):
     # klein genug fuer kleine Modelle, traegt aber Delegation + Aussenwirkung.
     ts = rollen.toolset("haupt")
-    assert 20 <= len(ts) <= 48
+    assert 20 <= len(ts) <= 50  # +2 am 13.08.2026: secret_speichern, mcp_verwalten, gedaechtnis_pflegen rein / email_check+email_reply raus
     for muss in ("web_search", "erinnerung", "cron_add", "todo_stand", "todo_list",
                  "delegate", "schwarm", "email_send", "remember_fact", "request_approval",
                  "watch_add", "watch_list", "screenshot_url", "read_logs"):   # c5b-Befund (1)
@@ -53,7 +53,7 @@ def test_hauptrolle_fuer_den_lokalen_chat():
     # code_suche bewusst NICHT: die Coding-Familie bleibt KOMPLETT im code:-Modus —
     # halbe Werkzeug-Familien verwirren kleine Modelle (todo_list-Lehre).
     for nie in ("restart_self", "request_secret", "run_command", "edit_datei",
-                "self_edit", "db_query", "code_suche"):
+                "self_edit", "code_suche"):  # db_query seit 13.08. Alltag (read-only Selbstauskunft)
         assert nie not in ts, f"{nie} gehoert nicht in den Plain-Chat (Coding/System via code:)"
     # kein delegierbarer Rang, keine Eskalationsstufe, aber voll in der Uebersicht
     from core.agency.tools import delegate_tools as dt

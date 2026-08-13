@@ -2089,7 +2089,10 @@ async def ws_chat(ws: WebSocket) -> None:
             finally:
                 runstate.exit_turn(sid)  # idle -> ein aufgeschobener Neustart wird jetzt ausgeloest (nach der Antwort)
     except WebSocketDisconnect:
-        pass
+        # Fix 13.08.: Client weg -> laufenden Zug zwischen den Schritten stoppen,
+        # statt fuer niemanden weiterzurechnen (GPU-Leerlaufbrand, blockierte Folgezuege).
+        from core.agency import act as _act
+        _act.abbruch_setzen(sid)
 
 
 def _bench_record(meta: dict, ev: dict) -> None:
