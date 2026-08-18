@@ -86,6 +86,12 @@ def _verify_cmd() -> str:
         posix_py = ROOT / ".venv" / "bin" / "python"
         py = str(posix_py) if posix_py.exists() else _sys.executable
         return f'"{py}" -m pytest tests -q'
+    if cmd and cmd.startswith(".venv/") and not (ROOT / ".venv").exists():
+        # Worktree-Fall (Bench/Sandbox): .venv ist gitignored und existiert dort NICHT —
+        # der relative Config-Pfad lief auf exit 127, die Endabnahme wurde ROT und rollte
+        # einen GRUENEN Fix zurueck (Suite-v3-Befund: edit-bugfix, Nemotron). Kommando
+        # deterministisch neu bauen wie im Windows-Zweig; im Hauptrepo aendert sich nichts.
+        return f'"{_sys.executable}" -m pytest tests -q'
     if cmd:
         return cmd
     for cand in (ROOT / ".venv" / "Scripts" / "python.exe", ROOT / ".venv" / "bin" / "python"):

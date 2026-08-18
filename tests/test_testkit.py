@@ -131,3 +131,25 @@ def test_setup_cmd_laeuft_vor_dem_versuch():
     summary = bench.run_suite(suite, exec_fn=stub)
     assert gesehen["vorher_da"] is True
     assert summary["passed"] == 1
+
+
+def test_setup_material_ueberlebt_run_rollback():
+    """Die Endabnahme rollt einen roten Lauf per git reset --hard zurueck. Material aus
+    setup_cmd muss das ueberleben (committet), sonst liest sich 'Datei weg' als
+    Modellversagen statt als 'Aufgabe nicht geloest'."""
+    import subprocess as sp
+    from core.testkit import bench
+    def stub(wt, env, task):
+        # Kiras Lauf: committet einen (kaputten) Edit, Endabnahme rollt ALLES auf den
+        # Stand vor dem Versuch zurueck — exakt das reset --hard aus act._endabnahme.
+        (Path(wt) / "material.txt").write_text("kaputter edit", encoding="utf-8")
+        sp.run(["git", "-C", str(wt), "commit", "-am", "edit"], capture_output=True)
+        sp.run(["git", "-C", str(wt), "reset", "--hard", "HEAD~1"], capture_output=True)
+        return {"stub": True}
+    suite = {"tasks": [{
+        "id": "s2",
+        "setup_cmd": "printf 'original' > material.txt",
+        "verify_cmd": sys.executable + " -c \"import sys;sys.exit(0 if open('material.txt').read()=='original' else 1)\"",
+    }]}
+    summary = bench.run_suite(suite, exec_fn=stub)
+    assert summary["passed"] == 1, summary["results"][0]

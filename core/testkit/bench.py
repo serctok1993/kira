@@ -44,6 +44,13 @@ def _setup(worktree: Path, env: dict, task: dict) -> None:
         return
     subprocess.run(cmd, shell=True, cwd=str(worktree), env=env,
                    capture_output=True, text=True, timeout=int(task.get("setup_timeout", 120)))
+    # Material COMMITTEN (Wegwerf-Branch): die Endabnahme rollt einen roten Lauf per
+    # git reset --hard auf den Stand VOR dem Versuch zurueck — uncommittetes Material,
+    # das Kira waehrend des Laufs committet hat, wuerde dabei restlos verschwinden und
+    # verify saehe "Datei fehlt" statt "Aufgabe nicht geloest" (Suite-v3-Befund).
+    for args in (("add", "-A"), ("commit", "-m", "bench-setup", "--no-verify", "--quiet")):
+        subprocess.run(["git", "-C", str(worktree), *args],
+                       capture_output=True, text=True, timeout=60)
 
 
 def _verify(worktree: Path, env: dict, task: dict) -> tuple[int, str]:

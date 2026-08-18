@@ -445,3 +445,21 @@ class TestKeinNachschubAnKarteileichen:
         zeile = next(z for z in registry.manifest().splitlines() if "objective_add" in z)
         assert "Heartbeat" not in zeile
         assert "NICHT automatisch abgearbeitet" in zeile
+
+
+def test_verify_cmd_faellt_im_worktree_auf_den_eigenen_interpreter(monkeypatch, tmp_path):
+    """Worktree-Fall: .venv ist gitignored und existiert dort nicht — ein relativer
+    Config-Pfad (.venv/bin/python) lief auf exit 127 und die Endabnahme rollte einen
+    GRUENEN Fix zurueck. Das Kommando wird deterministisch neu gebaut (wie im
+    Windows-Zweig); existiert .venv, bleibt die Config unangetastet."""
+    import os
+    import sys
+    from core.agency import selfdev
+    from core.config import CONFIG
+    monkeypatch.setitem(CONFIG, "selfdev", {"verify_cmd": ".venv/bin/python -m pytest tests -q"})
+    if os.name == "nt":  # der Zweig ist posix-only
+        return
+    monkeypatch.setattr(selfdev, "ROOT", tmp_path)          # Worktree ohne .venv
+    assert sys.executable in selfdev._verify_cmd()
+    (tmp_path / ".venv").mkdir()                            # .venv existiert -> Config gilt
+    assert selfdev._verify_cmd() == ".venv/bin/python -m pytest tests -q"
