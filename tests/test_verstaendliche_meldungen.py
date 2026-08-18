@@ -463,3 +463,21 @@ def test_verify_cmd_faellt_im_worktree_auf_den_eigenen_interpreter(monkeypatch, 
     assert sys.executable in selfdev._verify_cmd()
     (tmp_path / ".venv").mkdir()                            # .venv existiert -> Config gilt
     assert selfdev._verify_cmd() == ".venv/bin/python -m pytest tests -q"
+
+
+def test_verify_streift_bench_variablen_in_der_sandbox(monkeypatch, tmp_path):
+    """In der Sandbox (Bench-Worktree) laeuft die Endabnahme-Suite wie in CI — die
+    Bench-Variablen (KIRA_FORCE_MODEL/NO_OUTBOUND/ROOT/DATA_DIR) gehen NICHT in den
+    Suite-Subprozess: unter Bench-Env fielen 165 Tests, die unter Normal-Env gruen
+    sind, und die rote Endabnahme rollte gruene Fixes zurueck (Suite-v3-Befund)."""
+    import sys
+    from core.agency import selfdev
+    from core.config import CONFIG
+    monkeypatch.setenv("KIRA_DATA_DIR", str(tmp_path))        # sandbox_active() -> True
+    monkeypatch.setenv("KIRA_FORCE_MODEL", "openrouter/x/y")
+    monkeypatch.setenv("KIRA_NO_OUTBOUND", "1")
+    probe = (sys.executable + " -c \"import os,sys; sys.exit(1 if (os.getenv('KIRA_FORCE_MODEL')"
+             " or os.getenv('KIRA_NO_OUTBOUND') or os.getenv('KIRA_DATA_DIR')) else 0)\"")
+    monkeypatch.setitem(CONFIG, "selfdev", {"verify_cmd": probe})
+    ok, out = selfdev._verify()
+    assert ok, out

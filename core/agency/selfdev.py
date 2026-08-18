@@ -126,6 +126,34 @@ def _verify() -> tuple[bool, str]:
     die volle Suite braucht inzwischen ~6 Minuten — beim alten 300s-Deckel zaehlte der
     Timeout als FEHLSCHLAG und rollte GUTE Edits zurueck (W0-Fund B4, 8x in 7 Tagen).
     Gibt (ok, ausgabe)."""
+    from core import config as _cfg
+
+    if _cfg.sandbox_active():
+        # Bench-/Sandbox-Worktree: die Suite laeuft wie in CI — OHNE die Bench-Variablen.
+        # Gemessen (Suite-v3-Diagnose): unter Bench-Env fallen 165 Tests, die im selben
+        # Worktree unter Normal-Env gruen sind — KIRA_FORCE_MODEL kippt Routing-Tests,
+        # KIRA_NO_OUTBOUND Outbound-Tests, und mit gesetztem KIRA_ROOT/KIRA_DATA_DIR legt
+        # conftest keine eigene Wegwerf-Datenwurzel (+ onboarded.flag) an -> das
+        # Onboarding-Gate faerbt die halbe API-Suite rot. Massstab der Endabnahme ist der
+        # WORKTREE-CODE unter Normalbedingungen, nicht das Bench-Env; die Firewall der
+        # Sandbox bleibt unberuehrt (pytest setzt KIRA_TEST_MODE selbst).
+        import os as _os
+        import subprocess as _sp
+
+        env = {k: v for k, v in _os.environ.items()
+               if k not in ("KIRA_FORCE_MODEL", "KIRA_NO_OUTBOUND", "KIRA_ALLOW_LLM",
+                            "KIRA_ROOT", "KIRA_DATA_DIR", "KIRA_TEST_DATA_DIR")}
+        try:
+            pr = _sp.run(_verify_cmd(), shell=True, cwd=str(ROOT), env=env,
+                         capture_output=True, text=True, timeout=600,
+                         encoding="utf-8", errors="replace")
+        except _sp.TimeoutExpired:
+            return False, "[timeout] Endabnahme-Suite ueberschritt 600s"
+        body = (pr.stdout or "").strip()
+        if pr.stderr:
+            body += "\n[stderr]\n" + pr.stderr.strip()
+        return pr.returncode == 0, f"[exit {pr.returncode}]\n" + body[:3000]
+
     from core.agency.shelltool import run_shell
 
     out = run_shell(_verify_cmd(), timeout=600)

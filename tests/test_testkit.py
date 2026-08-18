@@ -143,7 +143,8 @@ def test_setup_material_ueberlebt_run_rollback():
         # Kiras Lauf: committet einen (kaputten) Edit, Endabnahme rollt ALLES auf den
         # Stand vor dem Versuch zurueck — exakt das reset --hard aus act._endabnahme.
         (Path(wt) / "material.txt").write_text("kaputter edit", encoding="utf-8")
-        sp.run(["git", "-C", str(wt), "commit", "-am", "edit"], capture_output=True)
+        sp.run(["git", "-C", str(wt), "-c", "user.name=t", "-c", "user.email=t@t",
+                "commit", "-am", "edit"], capture_output=True)
         sp.run(["git", "-C", str(wt), "reset", "--hard", "HEAD~1"], capture_output=True)
         return {"stub": True}
     suite = {"tasks": [{

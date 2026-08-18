@@ -48,7 +48,12 @@ def _setup(worktree: Path, env: dict, task: dict) -> None:
     # git reset --hard auf den Stand VOR dem Versuch zurueck — uncommittetes Material,
     # das Kira waehrend des Laufs committet hat, wuerde dabei restlos verschwinden und
     # verify saehe "Datei fehlt" statt "Aufgabe nicht geloest" (Suite-v3-Befund).
-    for args in (("add", "-A"), ("commit", "-m", "bench-setup", "--no-verify", "--quiet")):
+    # Identitaet explizit mitgeben: auf CI-Runnern (und frischen Maschinen) ist keine
+    # git-Identitaet konfiguriert — der Commit scheiterte dort still ("Author identity
+    # unknown") und das Material blieb uncommittet, der Test fiel NUR auf CI.
+    ident = ("-c", "user.name=kira-bench", "-c", "user.email=bench@kira.local",
+             "-c", "commit.gpgsign=false")
+    for args in (("add", "-A"), (*ident, "commit", "-m", "bench-setup", "--no-verify", "--quiet")):
         subprocess.run(["git", "-C", str(worktree), *args],
                        capture_output=True, text=True, timeout=60)
 
