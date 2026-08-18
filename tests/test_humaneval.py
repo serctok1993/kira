@@ -128,3 +128,19 @@ def test_stream_humaneval_direktwahl_modell(monkeypatch):
     assert seen.get("model") == "openrouter/neu/super-6"
     assert evs[0]["model"] == "openrouter/neu/super-6"
     assert evs[-1]["model"] == "openrouter/neu/super-6"
+
+
+def test_stream_humaneval_initialisiert_db_auf_frischer_wurzel(monkeypatch, tmp_path):
+    """Auf einer frischen Datenwurzel (keine events-Tabelle) darf der Lauf nicht VOR dem
+    Modell-Call an der Budget-Pruefung sterben — der Score laese sich sonst als 0% des
+    Modells, obwohl kein einziger Call stattfand."""
+    from core.kernel import events
+    from core.testkit import humaneval
+    monkeypatch.setattr(events, "DB_PATH", str(tmp_path / "state.db"))  # frisch, keine Tabellen
+    monkeypatch.setattr(humaneval, "load_problems",
+                        lambda limit=None: [{"task_id": "T/0", "prompt": "def f():\n", "test": "", "entry_point": "f"}])
+    monkeypatch.setattr(humaneval, "solve", lambda pr, role="reason", model=None: (True, "m"))
+    evs = list(humaneval.stream_humaneval(limit=1, model="egal/direkt"))
+    assert evs[-1]["passed"] == 1
+    # und die Tabelle existiert jetzt wirklich (init_db lief)
+    assert events.recent(1) == []
