@@ -1,10 +1,35 @@
 {
-  "name": "Kira Coding-Benchmark (Starter)",
+  "name": "Kira Harness-Suite: der ganze Kreis (Dateien, Lesen, Code, Shell, Edit)",
   "tasks": [
     {
       "id": "smoke-echo",
       "prompt": "Lege im aktuellen Ordner eine Datei bench_ok.txt mit dem Inhalt 'ok' an.",
       "verify_cmd": "python -c \"import os,sys; sys.exit(0 if os.path.exists('bench_ok.txt') else 1)\"",
+      "timeout": 900
+    },
+    {
+      "id": "code-funktion",
+      "prompt": "Schreibe im aktuellen Ordner eine Python-Datei fib.py mit einer Funktion fib(n), die die n-te Fibonacci-Zahl zurueckgibt (fib(0)=0, fib(1)=1). Keine Ausgabe, nur die Funktion.",
+      "verify_cmd": "python -c \"from fib import fib; assert fib(0)==0 and fib(1)==1 and fib(10)==55; print('fib ok')\"",
+      "timeout": 900
+    },
+    {
+      "id": "repo-lesen",
+      "prompt": "Im Projektordner liegt eine Datei location_numbers.py. Lies sie und schreibe den Namen der darin definierten Funktion (nur den Namen, ohne Klammern) in eine neue Datei antwort.txt im aktuellen Ordner.",
+      "verify_cmd": "python -c \"s=open('antwort.txt').read(); assert 'getLocationNumbers' in s, s; print('lesen ok')\"",
+      "timeout": 900
+    },
+    {
+      "id": "shell-nutzung",
+      "prompt": "Fuehre im aktuellen Ordner das Shell-Kommando python --version aus und speichere dessen Ausgabe in einer Datei version.txt.",
+      "verify_cmd": "python -c \"s=open('version.txt').read(); assert 'Python' in s, s; print('shell ok')\"",
+      "timeout": 900
+    },
+    {
+      "id": "edit-bugfix",
+      "prompt": "Im aktuellen Ordner liegt kaputt.py mit einem Fehler: die Funktion summe(liste) gibt immer 0 zurueck, weil die Schleife das Ergebnis nicht aufaddiert. Repariere die Datei mit einem minimalen Edit, sodass summe([1,2,3]) == 6 ergibt.",
+      "setup_cmd": "printf 'def summe(liste):\\n    ergebnis = 0\\n    for x in liste:\\n        pass\\n    return ergebnis\\n' > kaputt.py",
+      "verify_cmd": "python -c \"from kaputt import summe; assert summe([1,2,3])==6; print('edit ok')\"",
       "timeout": 900
     }
   ]

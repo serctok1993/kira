@@ -86,3 +86,48 @@ def test_cockpit_hat_benchmark_tab():
     html = TestClient(s.app).get("/").text
     assert 'id="v-bench"' in html and 'id="bench-start"' in html
     assert "loadBench" in html and "/ws/bench" in html
+
+
+def test_sandbox_model_direktwahl_setzt_force_model():
+    """model= reicht KIRA_FORCE_MODEL in den Sandbox-Env durch (gleiche Semantik wie
+    swebench._agent_env) — vorher erbte der Coding-Bench stur die Live-Rollen aus
+    config.yaml und war als Modell-Pruefstand unbrauchbar. Ohne model verschwindet ein
+    geerbter Wert (kein Durchsickern aus der Eltern-Umgebung in einen Lauf ohne Wahl)."""
+    import os
+    from unittest import mock
+    from core.testkit import sandbox
+    e = sandbox.sandbox_env("/tmp/x", allow_llm=True, model="openrouter/neu/modell-x")
+    assert e["KIRA_FORCE_MODEL"] == "openrouter/neu/modell-x"
+    with mock.patch.dict(os.environ, {"KIRA_FORCE_MODEL": "geerbt/alt"}):
+        e_ohne = sandbox.sandbox_env("/tmp/x", allow_llm=True)
+    assert "KIRA_FORCE_MODEL" not in e_ohne
+
+
+def test_run_suite_reicht_model_in_den_worktree():
+    """run_suite(model=...) landet als KIRA_FORCE_MODEL im Env des Versuchs-Subprozesses."""
+    from core.testkit import bench
+    gesehen = {}
+    def stub(wt, env, task):
+        gesehen[task["id"]] = (env.get("KIRA_FORCE_MODEL"), env.get("KIRA_ALLOW_LLM"))
+        return {"stub": True}
+    suite = {"tasks": [{"id": "t1", "verify_cmd": sys.executable + " -c \"import sys;sys.exit(0)\""}]}
+    bench.run_suite(suite, exec_fn=stub, allow_llm=True, model="openrouter/zukunft/super-5")
+    assert gesehen["t1"] == ("openrouter/zukunft/super-5", "1")
+
+
+def test_setup_cmd_laeuft_vor_dem_versuch():
+    """setup_cmd legt Material in den Worktree, BEVOR der Versuch startet (z.B. die kaputte
+    Datei, die die Aufgabe reparieren soll) — und verify sieht denselben Zustand."""
+    from core.testkit import bench
+    gesehen = {}
+    def stub(wt, env, task):
+        gesehen["vorher_da"] = (Path(wt) / "material.txt").exists()
+        return {"stub": True}
+    suite = {"tasks": [{
+        "id": "s1",
+        "setup_cmd": "printf 'da' > material.txt",
+        "verify_cmd": sys.executable + " -c \"import sys;sys.exit(0 if open('material.txt').read()=='da' else 1)\"",
+    }]}
+    summary = bench.run_suite(suite, exec_fn=stub)
+    assert gesehen["vorher_da"] is True
+    assert summary["passed"] == 1

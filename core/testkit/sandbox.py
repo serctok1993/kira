@@ -31,12 +31,16 @@ def _git(root: Path, *args: str) -> subprocess.CompletedProcess:
                           capture_output=True, text=True, check=True)
 
 
-def sandbox_env(worktree: str | Path, allow_llm: bool = False) -> dict:
+def sandbox_env(worktree: str | Path, allow_llm: bool = False, model: str | None = None) -> dict:
     """Env-Dict fuer einen Subprozess, der IN der Sandbox laeuft: Datenpfade zeigen in den
     Worktree, Outbound-Firewall an. Erbt die bestehende Umgebung (Keys etc.).
 
     allow_llm=True: erlaubt das ECHTE (konfigurierte) Modell — noetig, um Modelle real zu
-    vergleichen (hy3 vs. GLM vs. lokal). Mail/Telegram bleiben trotzdem blockiert."""
+    vergleichen (hy3 vs. GLM vs. lokal). Mail/Telegram bleiben trotzdem blockiert.
+
+    model: Direktwahl EINES Modells fuer alle Rollen im Lauf (KIRA_FORCE_MODEL) — gleiche
+    Semantik wie in swebench._agent_env(). Ohne das erbte der Coding-Bench stur die
+    Live-Rollen aus config.yaml und war als Modell-Pruefstand unbrauchbar."""
     w = str(Path(worktree).resolve())
     env = {**os.environ,
            "KIRA_ROOT": w,
@@ -47,12 +51,16 @@ def sandbox_env(worktree: str | Path, allow_llm: bool = False) -> dict:
         env["KIRA_ALLOW_LLM"] = "1"
     else:
         env.pop("KIRA_ALLOW_LLM", None)
+    if model:
+        env["KIRA_FORCE_MODEL"] = model
+    else:
+        env.pop("KIRA_FORCE_MODEL", None)
     return env
 
 
 @contextlib.contextmanager
 def make_worktree(repo_root: str | Path | None = None, run_id: str | None = None,
-                  allow_llm: bool = False):
+                  allow_llm: bool = False, model: str | None = None):
     """Kontextmanager: legt einen git-Worktree auf Branch bench/<run_id> an und yieldet
     (worktree_pfad: Path, env: dict). Beim Verlassen wird Worktree + Branch restlos entfernt —
     auch bei einer Exception im Block. Der Live-Branch/Arbeitsbaum bleibt unangetastet."""
@@ -64,7 +72,7 @@ def make_worktree(repo_root: str | Path | None = None, run_id: str | None = None
     try:
         _git(root, "worktree", "add", "-b", branch, str(wt), "HEAD")
         (wt / "data").mkdir(parents=True, exist_ok=True)
-        yield wt, sandbox_env(wt, allow_llm=allow_llm)
+        yield wt, sandbox_env(wt, allow_llm=allow_llm, model=model)
     finally:
         with contextlib.suppress(Exception):
             _git(root, "worktree", "remove", "--force", str(wt))
