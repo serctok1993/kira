@@ -1122,15 +1122,19 @@ def _edit_fail_get(session_id: str | None) -> str:
 _EDIT_TRY_TOOLS = ("edit_datei", "self_edit", "write_file")
 _EDIT_TRIED: dict = {}
 
+# implementier/korrigier NUR als Verbformen — das Substantiv ("finde die
+# Implementierung") ist ein Lese-Ziel, kein Edit-Auftrag (SWE-bench-v2-Fehlschuss:
+# der Guard erzwang einen Edit-Retry mitten in der Erkundung und verbrannte Budget).
 _EDIT_INTENT = re.compile(
-    r"\b(patch|edit|fix|fixe|behebe|beheben|implementier\w*|korrigier\w*)\b"
+    r"\b(patch|edit|fix|fixe|behebe|beheben|implementier(?!ung)\w*|korrigier(?!ung)\w*)\b"
     r"|\bf(?:ue|\u00fc)ge\b.+\bhinzu\b"
-    r"|\b(?:ae|\u00e4)nder\w*\b", re.IGNORECASE)
+    r"|\b(?:ae|\u00e4)nder(?!ung)\w*\b", re.IGNORECASE)
 
 # Ein fuehrendes Lese-/Test-Verb definiert den Schritt ("Teste die Aenderung lokal",
 # "Analysiere den Fix") — solche Schritte verlangen selbst KEINEN Edit.
 _EDIT_INTENT_NOT = re.compile(
     r"^\s*(test\w*|pr(?:ue|\u00fc)f\w*|verifizier\w*|analysier\w*|erkunde\w*|"
+    r"explorier\w*|finde\b|suche\b|oeffne\b|\u00f6ffne\b|"
     r"lies\b|liste\w*|untersuch\w*|miss\b|beobacht\w*|dokumentier\w*)", re.IGNORECASE)
 
 

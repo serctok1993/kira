@@ -79,3 +79,16 @@ def test_zaehler_bleibt_pro_session_getrennt():
     act._edit_tried_bump("s-a", "read_file")   # zaehlt nicht
     assert act._edit_tried_get("s-a") == 2
     assert act._edit_tried_get("s-b") == 0
+
+
+def test_substantiv_implementierung_ist_kein_edit_auftrag():
+    """SWE-bench-v2-Fehlschuss: 'Exploriere ... und finde die separability_matrix
+    Implementierung' loeste den Edit-Zwangs-Retry mitten in der ERKUNDUNG aus (das
+    Substantiv matchte implementier\\w*, 'Exploriere' fehlte in der Ausschlussliste)
+    und verbrannte das Runden-Budget. Verbformen bleiben Auftraege, Substantive nicht."""
+    treffer = lambda t: bool(act._EDIT_INTENT.search(t) and not act._EDIT_INTENT_NOT.search(t))
+    assert not treffer("Exploriere die Repository-Struktur und finde die separability_matrix Implementierung")
+    assert not treffer("Finde die Implementierung des QDP-Readers")
+    assert not treffer("Analysiere die Änderung")
+    assert treffer("Implementiere die Funktion case-insensitive")
+    assert treffer("Ändere die Regex auf case-insensitive")
