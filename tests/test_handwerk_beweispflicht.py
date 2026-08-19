@@ -131,3 +131,51 @@ def test_budget_env_override_greift_und_live_bleibt(monkeypatch):
     assert act._budget("max_steps_plan_step", 12) >= 1  # Basis-/Stufenwert, kein Crash
     monkeypatch.setenv("KIRA_BUDGET_MAX_STEPS_PLAN_STEP", "quatsch")
     assert act._budget("max_steps_plan_step", 12) >= 1  # kaputter Wert faellt zurueck
+
+
+def test_neue_datei_ist_kein_fix(monkeypatch):
+    """9B-Befund (SWE-bench-Baseline, 4/10 Patches nur in NEUEN Dateien): ein
+    Fix-Auftrag ist mit write_file (neue Repro-/Testdatei) NICHT erfuellt — nur
+    edit_datei/self_edit aendern Bestehendes. Genau EIN Zwangs-Retry, danach steht
+    'KEIN FIX AM BESTAND' ehrlich im Ergebnis."""
+    sid = "t-handwerk-7"
+    _mini_plan(monkeypatch, "Behebe den Bug in qdp.py")
+    laeufe = []
+    def fake_act(task, **kw):
+        laeufe.append(task)
+        act._edit_tried_bump(sid, "write_file")  # legt NUR eine neue Datei an
+        return {"text": "Repro-Datei test.qdp angelegt, Bug nachgestellt."}
+    monkeypatch.setattr(act, "act", fake_act)
+    out = act.plan_and_execute("Behebe den QDP-Bug", session_id=sid)
+    assert len(laeufe) == 2, "genau EIN Modify-Zwangs-Retry"
+    assert "NUR NEUE DATEIEN" in laeufe[1]
+    assert "KEIN FIX AM BESTAND" in out
+
+
+def test_echter_edit_erfuellt_den_fix_auftrag(monkeypatch):
+    sid = "t-handwerk-8"
+    _mini_plan(monkeypatch, "Behebe den Bug in qdp.py")
+    laeufe = []
+    def fake_act(task, **kw):
+        laeufe.append(task)
+        act._edit_tried_bump(sid, "edit_datei")  # aendert Bestehendes
+        return {"text": "Regex in qdp.py auf IGNORECASE gestellt."}
+    monkeypatch.setattr(act, "act", fake_act)
+    out = act.plan_and_execute("Behebe den QDP-Bug", session_id=sid)
+    assert len(laeufe) == 1, "kein Retry bei echtem Edit"
+    assert "KEIN FIX AM BESTAND" not in out
+
+
+def test_fuege_hinzu_darf_neue_datei(monkeypatch):
+    """'Fuege X hinzu'-Auftraege duerfen legitim mit write_file erfuellt werden —
+    der Modify-Guard greift NUR bei Fix-Verben."""
+    sid = "t-handwerk-9"
+    _mini_plan(monkeypatch, "Füge eine Hilfsdatei helpers.py hinzu")
+    laeufe = []
+    def fake_act(task, **kw):
+        laeufe.append(task)
+        act._edit_tried_bump(sid, "write_file")
+        return {"text": "helpers.py angelegt."}
+    monkeypatch.setattr(act, "act", fake_act)
+    act.plan_and_execute("Baue helpers", session_id=sid)
+    assert len(laeufe) == 1, "write_file erfuellt einen Hinzufuege-Auftrag"

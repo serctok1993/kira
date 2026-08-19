@@ -1132,7 +1132,13 @@ def _edit_fail_get(session_id: str | None) -> str:
 # (die editierte existiert ja), der Edit-rot-Reflex nur MISSGLUECKTE Edits (es gab
 # keinen Versuch). Dieser Zaehler macht den Versuch selbst messbar.
 _EDIT_TRY_TOOLS = ("edit_datei", "self_edit", "write_file")
+# 9B-Befund (SWE-bench-Baseline): Kleinmodelle "erfuellen" einen Fix-Auftrag gern mit
+# einer NEUEN Repro-/Testdatei (write_file) — der Edit-Zaehler war zufrieden, der Fix
+# fehlte (4 von 10 Patches nur in falschen/neuen Dateien). Fuer MODIFIKATIONS-Auftraege
+# zaehlen darum nur Werkzeuge, die Bestehendes aendern.
+_MODIFY_TOOLS = ("edit_datei", "self_edit")
 _EDIT_TRIED: dict = {}
+_MODIFY_TRIED: dict = {}
 
 # implementier/korrigier NUR als Verbformen — das Substantiv ("finde die
 # Implementierung") ist ein Lese-Ziel, kein Edit-Auftrag (SWE-bench-v2-Fehlschuss:
@@ -1140,6 +1146,12 @@ _EDIT_TRIED: dict = {}
 _EDIT_INTENT = re.compile(
     r"\b(patch|edit|fix|fixe|behebe|beheben|implementier(?!ung)\w*|korrigier(?!ung)\w*)\b"
     r"|\bf(?:ue|\u00fc)ge\b.+\bhinzu\b"
+    r"|\b(?:ae|\u00e4)nder(?!ung)\w*\b", re.IGNORECASE)
+
+# MODIFIKATIONS-Absicht: der Auftrag verlangt eine Aenderung BESTEHENDEN Codes
+# (fix/behebe/patch/korrigier/aender/reparier) — dann ist eine neue Datei kein Beweis.
+_MODIFY_INTENT = re.compile(
+    r"\b(patch|fix|fixe|behebe|beheben|korrigier(?!ung)\w*|reparier\w*)\b"
     r"|\b(?:ae|\u00e4)nder(?!ung)\w*\b", re.IGNORECASE)
 
 # Ein fuehrendes Lese-/Test-Verb definiert den Schritt ("Teste die Aenderung lokal",
@@ -1155,9 +1167,15 @@ def _edit_tried_get(session_id: str | None) -> int:
 
 
 def _edit_tried_bump(session_id: str | None, name: str) -> None:
+    sid = session_id or "_"
     if name in _EDIT_TRY_TOOLS:
-        sid = session_id or "_"
         _EDIT_TRIED[sid] = _EDIT_TRIED.get(sid, 0) + 1
+    if name in _MODIFY_TOOLS:
+        _MODIFY_TRIED[sid] = _MODIFY_TRIED.get(sid, 0) + 1
+
+
+def _modify_tried_get(session_id: str | None) -> int:
+    return int(_MODIFY_TRIED.get(session_id or "_", 0))
 
 
 def _edit_fail_clear(session_id: str | None) -> None:
@@ -1882,6 +1900,7 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
     done: list[str] = []
     red_unfixed: list[int] = []
     nur_analyse: list[int] = []      # Edit-Auftrag blieb auch nach Zwangs-Retry ohne Schreib-Werkzeug
+    kein_fix_bestand: list[int] = [] # Fix-Auftrag endete nur mit NEUEN Dateien (Bestand unveraendert)
     budget_leaks: list[int] = []     # Schritt endete mit rohem Tool-Aufruf (Runden-Budget zu Ende)
     for i, sp in enumerate(steps, 1):
         step, rang = sp["schritt"], sp["rang"]
@@ -1910,6 +1929,7 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
         step_task = f"{ctx}Gesamtziel: {task_g}\n\nFuehre jetzt NUR diesen Schritt aus: {step}"
         _edit_fail_clear(session_id)  # roten Edit-Marker fuer diesen Schritt frisch starten
         edits_vorher = _edit_tried_get(session_id)
+        modify_vorher = _modify_tried_get(session_id)
         try:
             out = act(step_task, session_id=session_id,
                       max_steps=_budget("max_steps_plan_step", _MAX_STEPS_PLAN, task_type, step_escalate),
@@ -2002,6 +2022,34 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
                 nur_analyse.append(i)
                 events.emit("plan_step_edit_still_missing", {"n": i}, session_id=session_id)
 
+        # Modifikations-Beweispflicht (9B-Befund): verlangt der Schritt einen FIX an
+        # bestehendem Code, zaehlt eine NEUE Datei (write_file) nicht als Erfuellung —
+        # 4 von 10 SWE-bench-Patches der 9B-Baseline lagen nur in neuen Repro-Dateien.
+        # Genau EIN Zwangs-Retry mit klarer Ansage; write_file-Legitimfaelle
+        # (fuege-hinzu-Auftraege) laufen weiter ueber den allgemeinen Guard oben.
+        if (_MODIFY_INTENT.search(step) and not _EDIT_INTENT_NOT.search(step)
+                and _modify_tried_get(session_id) == modify_vorher
+                and _edit_tried_get(session_id) != edits_vorher):
+            events.emit("plan_step_modify_missing", {"n": i}, session_id=session_id)
+            emit({"kind": "obs", "name": f"Schritt {i} \u26a0",
+                  "text": "Fix-Auftrag, aber nur NEUE Dateien geschrieben -> Zwangs-Retry"})
+            mod_task = (f"{step_task}\n\nDEIN VORHERIGER VERSUCH HAT NUR NEUE DATEIEN ANGELEGT "
+                        "(write_file), aber der Auftrag verlangt einen FIX an BESTEHENDEM Code. "
+                        "Eine Repro- oder Testdatei ist kein Fix. Aendere jetzt die bestehende(n) "
+                        "Datei(en) mit edit_datei (exakter, eindeutiger Suchtext) und antworte "
+                        "erst DANACH.")
+            try:
+                out = act(mod_task, session_id=session_id,
+                          max_steps=_budget("max_steps_plan_step", _MAX_STEPS_PLAN, task_type, step_escalate),
+                          escalate=step_escalate, task_type=task_type)["text"].strip()
+            except Exception as e:  # noqa: BLE001
+                out = f"Fehler: {e}"
+            out = _leak_benannt(out)
+            if _modify_tried_get(session_id) == modify_vorher:
+                out += " \u26a0 KEIN FIX AM BESTAND: nur neue Dateien, bestehender Code unveraendert."
+                kein_fix_bestand.append(i)
+                events.emit("plan_step_modify_still_missing", {"n": i}, session_id=session_id)
+
         done.append(f"{step} -> {out[:160]}")
         emit({"kind": "obs", "name": f"Schritt {i}", "text": out[:200]})
         events.emit("plan_step", {"n": i, "step": step, "rang": rang, "result": out[:300]}, session_id=session_id)
@@ -2026,6 +2074,10 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
         review_note += ("\n\n⚠ NUR ANALYSE in Schritt " + ", ".join(map(str, nur_analyse))
                         + " — ein Edit war verlangt, aber kein Schreib-Werkzeug lief; "
                         "es wurde NICHTS geaendert.")
+    if kein_fix_bestand:
+        review_note += ("\n\n⚠ KEIN FIX AM BESTAND in Schritt " + ", ".join(map(str, kein_fix_bestand))
+                        + " — es wurden nur NEUE Dateien angelegt; der bestehende Code, den der "
+                        "Auftrag reparieren sollte, ist unveraendert.")
     if budget_leaks:
         review_note += ("\n\n⚠ Runden-Budget erschoepft in Schritt " + ", ".join(map(str, budget_leaks))
                         + " — der Schritt endete mitten in der Arbeit und ist NICHT fertig.")
