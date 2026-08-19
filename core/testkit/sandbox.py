@@ -43,7 +43,12 @@ def _write_spend_cap(data_dir: Path, eur: float = 1.0) -> None:
     try:
         data_dir.mkdir(parents=True, exist_ok=True)
         (data_dir / "overrides.json").write_text(_j.dumps(
-            {"governance.budget.daily_eur": eur, "governance.budget.monthly_eur": eur}),
+            {"governance.budget.daily_eur": eur, "governance.budget.monthly_eur": eur,
+             # Eval-Temperatur: die Live-0.7 wuerfelt bei kleinen Modellen so stark,
+             # dass Harness-Deltas im Rauschen ertrinken (gemessen: 5/9 -> 3/9 bei
+             # UNVERAENDERTEN Aufgaben). Ein Messgeraet braucht Wiederholbarkeit;
+             # der Live-Betrieb behaelt seine 0.7.
+             "models.temperature": 0.1}),
             encoding="utf-8")
     except Exception:  # noqa: BLE001 — der Deckel darf den Lauf nicht verhindern; ohne ihn
         pass           # greift weiterhin die Live-Budget-Bremse (nur eben pro Sandbox neu)

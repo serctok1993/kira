@@ -2009,7 +2009,8 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
                          "verlangt eine AENDERUNG, aber kein einziges Schreib-Werkzeug "
                          "(edit_datei/write_file) lief. Du kennst die Stelle bereits — fuehre den "
                          "Edit JETZT aus (edit_datei mit exaktem, eindeutigem Suchtext) und "
-                         "antworte erst DANACH mit dem Ergebnis.")
+                         "antworte erst DANACH mit dem Ergebnis. Es gibt hier KEINEN Nutzer zum "
+                         "Rueckfragen — stelle keine Fragen, entscheide selbst und handle.")
             try:
                 out = act(edit_task, session_id=session_id,
                           max_steps=_budget("max_steps_plan_step", _MAX_STEPS_PLAN, task_type, step_escalate),
@@ -2037,7 +2038,8 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
                         "(write_file), aber der Auftrag verlangt einen FIX an BESTEHENDEM Code. "
                         "Eine Repro- oder Testdatei ist kein Fix. Aendere jetzt die bestehende(n) "
                         "Datei(en) mit edit_datei (exakter, eindeutiger Suchtext) und antworte "
-                        "erst DANACH.")
+                        "erst DANACH. Es gibt hier KEINEN Nutzer zum Rueckfragen — stelle keine "
+                        "Fragen, entscheide selbst und handle.")
             try:
                 out = act(mod_task, session_id=session_id,
                           max_steps=_budget("max_steps_plan_step", _MAX_STEPS_PLAN, task_type, step_escalate),

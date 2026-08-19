@@ -167,6 +167,7 @@ def test_sandbox_bekommt_geld_deckel(tmp_path):
     ov = json.loads((tmp_path / "wt" / "data" / "overrides.json").read_text(encoding="utf-8"))
     assert ov["governance.budget.daily_eur"] == 1.0
     assert ov["governance.budget.monthly_eur"] == 1.0
+    assert ov["models.temperature"] == 0.1  # Eval-Temperatur: Messgeraet wuerfelt nicht
     assert env["KIRA_DATA_DIR"].endswith("data")
 
 
