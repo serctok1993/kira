@@ -142,7 +142,19 @@ def _tier_cfg(task_type: str = "chat", escalate: bool = False) -> dict:
 
 
 def _budget(name: str, base: int, task_type: str = "chat", escalate: bool = False) -> int:
-    """Budget fuer diese Runde: Stufen-Wert (strong/medium) je realem Modell, sonst Basis."""
+    """Budget fuer diese Runde: Stufen-Wert (strong/medium) je realem Modell, sonst Basis.
+
+    Env-Override KIRA_BUDGET_<NAME> (nur von Bench-Runnern gesetzt): SWE-bench-Befund —
+    in grossen Fremd-Repos frisst die Lokalisierung die 12 Runden des Arbeiter-Schritts,
+    der Lauf wird MITTEN im Zug abgeschnitten (roher tool_call als Schritt-Ergebnis,
+    9/10 Patches leer, obwohl das Modell weiterarbeiten wollte). Live bleibt der Wert
+    unangetastet — die Env setzt nur die Sandbox."""
+    ov = _os.getenv("KIRA_BUDGET_" + name.upper())
+    if ov:
+        try:
+            return max(1, int(ov))
+        except Exception:  # noqa: BLE001
+            pass
     cfg = _tier_cfg(task_type, escalate)
     try:
         return int(cfg.get(name, base)) if cfg else base
@@ -1952,11 +1964,18 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
         # Werkzeug-Leck: endet ein Schritt mit einem ROHEN Tool-Aufruf statt einer Antwort,
         # war das Runden-Budget mitten in der Arbeit zu Ende (SWE-bench-Befund: der rohe
         # <tool_call> wurde als "Ergebnis" zugestellt). Ehrlich benennen statt durchreichen.
-        if "<tool_call>" in out or "<function=" in out:
+        # Als Funktion, weil auch das ERGEBNIS DES EDIT-RETRYS unten wieder lecken kann
+        # (v4-Ordering-Befund: der Retry-Ausgang ging ungefiltert durch).
+        def _leak_benannt(text: str) -> str:
+            if "<tool_call>" not in text and "<function=" not in text:
+                return text
             events.emit("plan_step_toolcall_leak", {"n": i}, session_id=session_id)
-            budget_leaks.append(i)
-            out = ("\u26a0 Runden-Budget erschoepft \u2014 der letzte Zug war ein Werkzeug-Aufruf "
-                   "statt einer Antwort; der Schritt ist NICHT fertig.")
+            if i not in budget_leaks:
+                budget_leaks.append(i)
+            return ("\u26a0 Runden-Budget erschoepft \u2014 der letzte Zug war ein Werkzeug-Aufruf "
+                    "statt einer Antwort; der Schritt ist NICHT fertig.")
+
+        out = _leak_benannt(out)
 
         # Beweispflicht fuers Handwerk: verlangt der Schritt eine AENDERUNG (Patch/Fix/
         # Hinzufuegen), muss mindestens EIN Schreib-Werkzeug gelaufen sein — sonst genau
@@ -1977,6 +1996,7 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
                           escalate=step_escalate, task_type=task_type)["text"].strip()
             except Exception as e:  # noqa: BLE001
                 out = f"Fehler: {e}"
+            out = _leak_benannt(out)
             if _edit_tried_get(session_id) == edits_vorher:
                 out += " \u26a0 NUR ANALYSE: kein Schreib-Werkzeug lief, nichts geaendert."
                 nur_analyse.append(i)

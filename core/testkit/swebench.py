@@ -123,6 +123,10 @@ def _agent_env(allow_llm: bool = True, model: str | None = None) -> dict:
            # Rang-Boden: kein Schritt faellt auf reflex/lokal zurueck — im Fremd-Repo
            # (riesige Dateien) waere das Zeitlupe und verfaelscht den Harness-Messwert.
            "KIRA_RANK_FLOOR": "reason",
+           # Runden-Budget je Plan-Schritt verdoppeln: in Fremd-Repos frisst die
+           # Lokalisierung sonst alle Runden, der Edit faellt hinten runter (v4: 9/10
+           # Arbeiter-Schritte mitten im Zug abgeschnitten, Patches leer).
+           "KIRA_BUDGET_MAX_STEPS_PLAN_STEP": "24",
            "PYTHONPATH": str(_kira_repo())}
     env.pop("KIRA_ROOT", None)
     if model:  # Direktwahl: DIESES Modell fuer alle Rollen im Bench-Subprozess

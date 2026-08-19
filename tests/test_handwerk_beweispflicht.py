@@ -106,3 +106,28 @@ def test_synthese_toolcall_wird_aus_schritten_gebaut(monkeypatch):
     out = act.plan_and_execute("Analysiere separability", session_id=sid)
     assert "<tool_call>" not in out and "<function=" not in out
     assert "Analyse fertig." in out, "das Ergebnis kommt aus den echten Schritten"
+
+
+def test_auch_das_retry_ergebnis_leckt_keinen_toolcall(monkeypatch):
+    """v4-Ordering-Befund: der Leak-Check lief VOR dem Edit-Zwangs-Retry — endete der
+    Retry selbst mit einem rohen <tool_call> (Runden-Budget wieder zu Ende), ging das
+    Markup ungefiltert ins Schritt-Ergebnis. Jetzt laeuft die Benennung auch danach."""
+    sid = "t-handwerk-6"
+    _mini_plan(monkeypatch, "Erstelle einen minimalen Patch fuer qdp.py")
+    antworten = iter(["Nur Prosa, kein Edit.",
+                      "<tool_call>\n<function=read_file>\n<parameter=path>x.py</parameter>"])
+    monkeypatch.setattr(act, "act", lambda task, **kw: {"text": next(antworten)})
+    out = act.plan_and_execute("Behebe den QDP-Bug", session_id=sid)
+    assert "<tool_call>" not in out and "<function=" not in out
+    assert "NUR ANALYSE" in out
+
+
+def test_budget_env_override_greift_und_live_bleibt(monkeypatch):
+    """SWE-bench-Runden-Budget: KIRA_BUDGET_MAX_STEPS_PLAN_STEP hebt das Budget NUR
+    wenn gesetzt (Sandbox); ohne Env gilt der Config-/Stufen-Wert wie bisher."""
+    monkeypatch.setenv("KIRA_BUDGET_MAX_STEPS_PLAN_STEP", "24")
+    assert act._budget("max_steps_plan_step", 12, "reason", True) == 24
+    monkeypatch.delenv("KIRA_BUDGET_MAX_STEPS_PLAN_STEP")
+    assert act._budget("max_steps_plan_step", 12) >= 1  # Basis-/Stufenwert, kein Crash
+    monkeypatch.setenv("KIRA_BUDGET_MAX_STEPS_PLAN_STEP", "quatsch")
+    assert act._budget("max_steps_plan_step", 12) >= 1  # kaputter Wert faellt zurueck
