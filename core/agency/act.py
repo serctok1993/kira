@@ -2018,6 +2018,13 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
         system=_identity(), task_type="reason", session_id=session_id, escalate=escalate,
     )
     final = synth["text"].strip()
+    if "<tool_call>" in final or "<function=" in final:
+        # Auch die SYNTHESE kann statt einer Zusammenfassung einen rohen Werkzeug-Aufruf
+        # liefern (v4-Befund 12907: das Modell wollte weiterarbeiten) — der Schritt-Guard
+        # sieht das nicht, denn das hier ist sein eigener Ausgang. Gleiches Rezept: ehrlich
+        # aus den Schritten bauen statt Markup durchreichen.
+        events.emit("plan_synth_toolcall_leak", {}, session_id=session_id)
+        final = ""
     if not final:  # Synthese leer (Modell-Haenger/Timeout) -> NIE leer: aus den Schritten zusammenbauen
         final = ("Ich habe die Aufgabe abgearbeitet — die Abschluss-Zusammenfassung kam leer zurueck, "
                  "darum hier die Ergebnisse der Schritte direkt:\n" + "\n".join(f"• {d}" for d in done))

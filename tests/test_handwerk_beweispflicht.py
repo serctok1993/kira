@@ -92,3 +92,17 @@ def test_substantiv_implementierung_ist_kein_edit_auftrag():
     assert not treffer("Analysiere die Änderung")
     assert treffer("Implementiere die Funktion case-insensitive")
     assert treffer("Ändere die Regex auf case-insensitive")
+
+
+def test_synthese_toolcall_wird_aus_schritten_gebaut(monkeypatch):
+    """v4-Befund (12907): auch die ABSCHLUSS-Synthese kann einen rohen Werkzeug-Aufruf
+    liefern — der Schritt-Guard sieht das nicht (es ist sein eigener Ausgang). Dann wird
+    das Endergebnis ehrlich aus den Schritten gebaut statt Markup durchzureichen."""
+    sid = "t-handwerk-5"
+    _mini_plan(monkeypatch, "Lies die Datei separable.py")
+    monkeypatch.setattr(act, "act", lambda task, **kw: {"text": "Analyse fertig."})
+    monkeypatch.setattr(act.llm_router, "complete", lambda *a, **k: {
+        "text": "<tool_call>\n<function=run_command>\n<parameter=command>grep -n x</parameter>"})
+    out = act.plan_and_execute("Analysiere separability", session_id=sid)
+    assert "<tool_call>" not in out and "<function=" not in out
+    assert "Analyse fertig." in out, "das Ergebnis kommt aus den echten Schritten"
