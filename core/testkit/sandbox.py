@@ -31,6 +31,24 @@ def _git(root: Path, *args: str) -> subprocess.CompletedProcess:
                           capture_output=True, text=True, check=True)
 
 
+def _write_spend_cap(data_dir: Path, eur: float = 1.0) -> None:
+    """Harter Geld-Deckel je Sandbox-Lauf, ueber die NORMALE Override-Mechanik
+    (data/overrides.json). Befund 6: die Budget-Bremse liest den Spend aus der
+    events-DB unter KIRA_DATA_DIR — jede frische Sandbox-Datenwurzel startete
+    also mit leerer Historie und bekam die vollen 20 EUR/Tag AUS DER LIVE-CONFIG.
+    Bei N Aufgaben pro Suite waeren das N x 20 EUR Spielraum. Jetzt: 1 EUR pro
+    Sandbox — grosszuegig fuer eine Aufgabe, katastrophenfest fuers Konto."""
+    import json as _j
+
+    try:
+        data_dir.mkdir(parents=True, exist_ok=True)
+        (data_dir / "overrides.json").write_text(_j.dumps(
+            {"governance.budget.daily_eur": eur, "governance.budget.monthly_eur": eur}),
+            encoding="utf-8")
+    except Exception:  # noqa: BLE001 — der Deckel darf den Lauf nicht verhindern; ohne ihn
+        pass           # greift weiterhin die Live-Budget-Bremse (nur eben pro Sandbox neu)
+
+
 def sandbox_env(worktree: str | Path, allow_llm: bool = False, model: str | None = None) -> dict:
     """Env-Dict fuer einen Subprozess, der IN der Sandbox laeuft: Datenpfade zeigen in den
     Worktree, Outbound-Firewall an. Erbt die bestehende Umgebung (Keys etc.).
@@ -42,9 +60,11 @@ def sandbox_env(worktree: str | Path, allow_llm: bool = False, model: str | None
     Semantik wie in swebench._agent_env(). Ohne das erbte der Coding-Bench stur die
     Live-Rollen aus config.yaml und war als Modell-Pruefstand unbrauchbar."""
     w = str(Path(worktree).resolve())
+    data = Path(w) / "data"
+    _write_spend_cap(data)
     env = {**os.environ,
            "KIRA_ROOT": w,
-           "KIRA_DATA_DIR": str(Path(w) / "data"),
+           "KIRA_DATA_DIR": str(data),
            "KIRA_TEST_MODE": "1",
            "KIRA_NO_OUTBOUND": "1"}
     if allow_llm:

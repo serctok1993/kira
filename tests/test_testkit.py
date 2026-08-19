@@ -154,3 +154,26 @@ def test_setup_material_ueberlebt_run_rollback():
     }]}
     summary = bench.run_suite(suite, exec_fn=stub)
     assert summary["passed"] == 1, summary["results"][0]
+
+
+def test_sandbox_bekommt_geld_deckel(tmp_path):
+    """Befund 6: jede frische Sandbox-Datenwurzel bekam die vollen 20 EUR/Tag der
+    Live-Config (leere events-DB = leere Spend-Historie). Jetzt legt die Sandbox
+    einen 1-EUR-Deckel als overrides.json — die NORMALE Override-Mechanik zieht
+    ihn beim Config-Import; N Aufgaben koennen nicht mehr N x 20 EUR ziehen."""
+    import json
+    from core.testkit.sandbox import sandbox_env
+    env = sandbox_env(tmp_path / "wt")
+    ov = json.loads((tmp_path / "wt" / "data" / "overrides.json").read_text(encoding="utf-8"))
+    assert ov["governance.budget.daily_eur"] == 1.0
+    assert ov["governance.budget.monthly_eur"] == 1.0
+    assert env["KIRA_DATA_DIR"].endswith("data")
+
+
+def test_swebench_datendir_bekommt_geld_deckel(monkeypatch):
+    """Auch der SWE-bench-Datenordner (eigener mkdtemp-Pfad) traegt den Deckel."""
+    import json, pathlib
+    from core.testkit.swebench import _agent_env
+    env = _agent_env(allow_llm=True)
+    ov = json.loads((pathlib.Path(env["KIRA_DATA_DIR"]) / "overrides.json").read_text(encoding="utf-8"))
+    assert ov["governance.budget.daily_eur"] == 1.0

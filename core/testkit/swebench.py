@@ -116,6 +116,8 @@ def _agent_env(allow_llm: bool = True, model: str | None = None) -> dict:
     import os
 
     data = Path(tempfile.mkdtemp(prefix="kira-swb-data-"))
+    from core.testkit.sandbox import _write_spend_cap
+    _write_spend_cap(data)
     env = {**os.environ,
            "KIRA_DATA_DIR": str(data),
            "KIRA_TEST_MODE": "1",
