@@ -36,7 +36,7 @@
       "id": "kette-fix-und-test",
       "prompt": "Mehrstufige Aufgabe im aktuellen Ordner: 1) In rechner.py ist teile(a, b) kaputt (gibt immer None zurueck) — repariere sie, sodass sie a/b zurueckgibt und bei b==0 eine ValueError wirft. 2) Schreibe dazu eine Testdatei test_rechner.py mit mindestens zwei pytest-Tests: einer prueft teile(10, 2) == 5, einer prueft die ValueError bei b==0. 3) Fuehre die Tests aus und stelle sicher, dass sie GRUEN sind, bevor du fertig meldest.",
       "setup_cmd": "printf 'def teile(a, b):\\n    return None\\n' > rechner.py",
-      "verify_cmd": "python -m pytest test_rechner.py -q --no-header 2>&1 | grep -q '2 passed' && python -c \"from rechner import teile; assert teile(10,2)==5\"",
+      "verify_cmd": "python -m pytest test_rechner.py -q --no-header && python -c \"import ast; t=ast.parse(open('test_rechner.py').read()); n=[x for x in ast.walk(t) if isinstance(x, ast.FunctionDef) and x.name.startswith('test')]; assert len(n)>=2, 'nur %d Tests' % len(n); from rechner import teile; assert teile(10,2)==5\"",
       "timeout": 1200
     },
     {
