@@ -135,10 +135,13 @@ def test_coding_schutz_hebt_arbeiter_auf_reason(monkeypatch, tmp_path):
     monkeypatch.setattr(act, "act", fake_act)
     act.plan_and_execute("gemischte Aufgabe", session_id="cg1", escalate=True)
 
-    # Code-Schritt -> reason (GLM) trotz Plan-Rang 'arbeiter'; Mail-Schritt bleibt worker
+    # Code-Schritt -> reason (GLM) trotz Plan-Rang 'arbeiter'; Mail-Schritt bleibt worker.
+    # Dazwischen liegt seit der Handwerks-Beweispflicht EIN Zwangs-Retry des Code-Schritts
+    # (der Fake behauptet "ok" ohne Schreib-Werkzeug) — ebenfalls auf reason.
     assert calls[0]["task_type"] == "reason"
     assert calls[0]["escalate"] is True
-    assert calls[1]["task_type"] == "worker"
+    assert calls[1]["task_type"] == "reason"
+    assert calls[-1]["task_type"] == "worker"
     assert "plan_step_code_guard" in [e["type"] for e in events.recent(30)]
 
 

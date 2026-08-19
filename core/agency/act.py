@@ -1113,6 +1113,37 @@ def _edit_fail_get(session_id: str | None) -> str:
     return _EDIT_FAIL.get(session_id or "_", "")
 
 
+# SWE-bench-Befund (3/3 Aufgaben, 19.08.): Arbeiter-Schritte mit klarem Edit-Auftrag
+# ("Erstelle einen minimalen Patch", "Fuege header_rows Support hinzu") endeten in
+# reiner ANALYSE-Prosa — 36 Lese-Werkzeuge, kein einziges Schreib-Werkzeug, Patch leer.
+# Die bestehenden Waechter griffen nicht: _missing_claims prueft nur NEUE Dateien
+# (die editierte existiert ja), der Edit-rot-Reflex nur MISSGLUECKTE Edits (es gab
+# keinen Versuch). Dieser Zaehler macht den Versuch selbst messbar.
+_EDIT_TRY_TOOLS = ("edit_datei", "self_edit", "write_file")
+_EDIT_TRIED: dict = {}
+
+_EDIT_INTENT = re.compile(
+    r"\b(patch|edit|fix|fixe|behebe|beheben|implementier\w*|korrigier\w*)\b"
+    r"|\bf(?:ue|\u00fc)ge\b.+\bhinzu\b"
+    r"|\b(?:ae|\u00e4)nder\w*\b", re.IGNORECASE)
+
+# Ein fuehrendes Lese-/Test-Verb definiert den Schritt ("Teste die Aenderung lokal",
+# "Analysiere den Fix") — solche Schritte verlangen selbst KEINEN Edit.
+_EDIT_INTENT_NOT = re.compile(
+    r"^\s*(test\w*|pr(?:ue|\u00fc)f\w*|verifizier\w*|analysier\w*|erkunde\w*|"
+    r"lies\b|liste\w*|untersuch\w*|miss\b|beobacht\w*|dokumentier\w*)", re.IGNORECASE)
+
+
+def _edit_tried_get(session_id: str | None) -> int:
+    return int(_EDIT_TRIED.get(session_id or "_", 0))
+
+
+def _edit_tried_bump(session_id: str | None, name: str) -> None:
+    if name in _EDIT_TRY_TOOLS:
+        sid = session_id or "_"
+        _EDIT_TRIED[sid] = _EDIT_TRIED.get(sid, 0) + 1
+
+
 def _edit_fail_clear(session_id: str | None) -> None:
     _EDIT_FAIL.pop(session_id or "_", None)
 
@@ -1211,6 +1242,7 @@ def _run_tool_guarded(name: str, tool, args: dict, session_id: str | None) -> st
         obs = _ident.render(obs)
     _rbe_record(session_id, name, args, obs)
     _edit_fail_record(session_id, name, obs)
+    _edit_tried_bump(session_id, name)
     return _spill(name, obs, session_id)
 
 
@@ -1833,6 +1865,8 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
 
     done: list[str] = []
     red_unfixed: list[int] = []
+    nur_analyse: list[int] = []      # Edit-Auftrag blieb auch nach Zwangs-Retry ohne Schreib-Werkzeug
+    budget_leaks: list[int] = []     # Schritt endete mit rohem Tool-Aufruf (Runden-Budget zu Ende)
     for i, sp in enumerate(steps, 1):
         step, rang = sp["schritt"], sp["rang"]
         # Dispatcher: Rang -> Modellroute. Eskalation (starkes Modell) nur fuer Denker-Schritte
@@ -1859,6 +1893,7 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
         ctx = ("Bisher erledigt:\n" + "\n".join(f"- {d}" for d in done) + "\n\n") if done else ""
         step_task = f"{ctx}Gesamtziel: {task_g}\n\nFuehre jetzt NUR diesen Schritt aus: {step}"
         _edit_fail_clear(session_id)  # roten Edit-Marker fuer diesen Schritt frisch starten
+        edits_vorher = _edit_tried_get(session_id)
         try:
             out = act(step_task, session_id=session_id,
                       max_steps=_budget("max_steps_plan_step", _MAX_STEPS_PLAN, task_type, step_escalate),
@@ -1910,6 +1945,39 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
                 red_unfixed.append(i)
                 events.emit("plan_step_edit_unfixed", {"n": i}, session_id=session_id)
 
+        # Werkzeug-Leck: endet ein Schritt mit einem ROHEN Tool-Aufruf statt einer Antwort,
+        # war das Runden-Budget mitten in der Arbeit zu Ende (SWE-bench-Befund: der rohe
+        # <tool_call> wurde als "Ergebnis" zugestellt). Ehrlich benennen statt durchreichen.
+        if "<tool_call>" in out or "<function=" in out:
+            events.emit("plan_step_toolcall_leak", {"n": i}, session_id=session_id)
+            budget_leaks.append(i)
+            out = ("\u26a0 Runden-Budget erschoepft \u2014 der letzte Zug war ein Werkzeug-Aufruf "
+                   "statt einer Antwort; der Schritt ist NICHT fertig.")
+
+        # Beweispflicht fuers Handwerk: verlangt der Schritt eine AENDERUNG (Patch/Fix/
+        # Hinzufuegen), muss mindestens EIN Schreib-Werkzeug gelaufen sein — sonst genau
+        # EIN Zwangs-Retry. Analyse-Prosa ist kein Patch.
+        if (_EDIT_INTENT.search(step) and not _EDIT_INTENT_NOT.search(step)
+                and _edit_tried_get(session_id) == edits_vorher):
+            events.emit("plan_step_edit_missing", {"n": i}, session_id=session_id)
+            emit({"kind": "obs", "name": f"Schritt {i} \u26a0",
+                  "text": "Edit-Auftrag, aber kein Schreib-Werkzeug lief -> Zwangs-Retry"})
+            edit_task = (f"{step_task}\n\nDEIN VORHERIGER VERSUCH HAT NUR ANALYSIERT: der Schritt "
+                         "verlangt eine AENDERUNG, aber kein einziges Schreib-Werkzeug "
+                         "(edit_datei/write_file) lief. Du kennst die Stelle bereits — fuehre den "
+                         "Edit JETZT aus (edit_datei mit exaktem, eindeutigem Suchtext) und "
+                         "antworte erst DANACH mit dem Ergebnis.")
+            try:
+                out = act(edit_task, session_id=session_id,
+                          max_steps=_budget("max_steps_plan_step", _MAX_STEPS_PLAN, task_type, step_escalate),
+                          escalate=step_escalate, task_type=task_type)["text"].strip()
+            except Exception as e:  # noqa: BLE001
+                out = f"Fehler: {e}"
+            if _edit_tried_get(session_id) == edits_vorher:
+                out += " \u26a0 NUR ANALYSE: kein Schreib-Werkzeug lief, nichts geaendert."
+                nur_analyse.append(i)
+                events.emit("plan_step_edit_still_missing", {"n": i}, session_id=session_id)
+
         done.append(f"{step} -> {out[:160]}")
         emit({"kind": "obs", "name": f"Schritt {i}", "text": out[:200]})
         events.emit("plan_step", {"n": i, "step": step, "rang": rang, "result": out[:300]}, session_id=session_id)
@@ -1930,6 +1998,13 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
         review_note += ("\n\n⚠ Nicht sauber angewendet: Schritt " + ", ".join(map(str, red_unfixed))
                         + " — der Edit ging rot und blieb rot (zurueckgerollt). Sag mir Bescheid, "
                         "dann nehme ich einen anderen Ansatz.")
+    if nur_analyse:  # dito: Analyse statt Handwerk darf die Synthese nicht glaetten
+        review_note += ("\n\n⚠ NUR ANALYSE in Schritt " + ", ".join(map(str, nur_analyse))
+                        + " — ein Edit war verlangt, aber kein Schreib-Werkzeug lief; "
+                        "es wurde NICHTS geaendert.")
+    if budget_leaks:
+        review_note += ("\n\n⚠ Runden-Budget erschoepft in Schritt " + ", ".join(map(str, budget_leaks))
+                        + " — der Schritt endete mitten in der Arbeit und ist NICHT fertig.")
 
     synth = llm_router.complete(
         [{"role": "user", "content":
