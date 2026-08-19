@@ -224,3 +224,28 @@ def test_api_model_resolve(monkeypatch):
                         lambda role="default", escalate=False: ("openrouter/z-ai/glm-5.2", False))
     d = TestClient(s.app).get("/api/model/resolve?role=reason").json()
     assert d["model"] == "openrouter/z-ai/glm-5.2" and d["fallback"] is False
+
+
+def test_run_agent_meldet_crash_statt_funkstille(monkeypatch, tmp_path):
+    """v3-Befund (14365, 8s): der Agent-Subprozess starb sofort, stderr ging ins
+    DEVNULL und das @RESULT-{"error"} wurde verworfen — uebrig blieb nur 'kein
+    Patch erzeugt'. Jetzt werden beide Kanaele als Events sichtbar."""
+    import sys
+    from core.testkit import swebench as swb
+    # Fake-attempt: meldet einen @RESULT-Fehler, schreibt stderr, stirbt rot.
+    fake = tmp_path / "fake_attempt.py"
+    fake.write_text(
+        'import sys\n'
+        'print(\'@RESULT {"error": "LLM-Call scheiterte: 429"}\'  , flush=True)\n'
+        'print("Traceback: kaboom", file=sys.stderr)\n'
+        'sys.exit(3)\n', encoding="utf-8")
+    echt = swb.subprocess.Popen
+    def popen(cmd, **kw):
+        return echt([sys.executable, str(fake)], **kw)
+    monkeypatch.setattr(swb.subprocess, "Popen", popen)
+    monkeypatch.setattr(swb, "_agent_env", lambda **kw: {**dict(__import__("os").environ),
+                                                          "KIRA_DATA_DIR": str(tmp_path / "d")})
+    evs = list(swb._run_agent(tmp_path, {"instance_id": "x", "problem_statement": "p"}, timeout=30))
+    texte = " | ".join(str(e) for e in evs)
+    assert "429" in texte, "der @RESULT-Fehler ist als Event sichtbar"
+    assert "kaboom" in texte and "exit 3" in texte, "der stderr-Schwanz ist als Event sichtbar"
