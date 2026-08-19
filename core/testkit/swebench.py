@@ -43,8 +43,13 @@ def _kira_repo() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def load_tasks(limit: int | None = None) -> list[dict]:
-    """Laedt die 300 Lite-Aufgaben (Download beim ersten Mal, danach Cache)."""
+def load_tasks(limit: int | None = None, instances: list[str] | None = None) -> list[dict]:
+    """Laedt die 300 Lite-Aufgaben (Download beim ersten Mal, danach Cache).
+
+    instances: feste Auswahl per instance_id, in GENAU dieser Reihenfolge — die
+    Grundlage fuer ein eingefrorenes Vergleichs-Subset (gleiche Aufgaben, gleiches
+    Modell, verschiedene Harness-Staende -> das Delta ist der Harness). Ohne das
+    ging nur "die ersten N", also praktisch 3x astropy."""
     cache = _bench_dir() / "swebench_lite.jsonl"
     if not cache.exists():
         import httpx
@@ -63,6 +68,12 @@ def load_tasks(limit: int | None = None) -> list[dict]:
                          encoding="utf-8")
     tasks = [json.loads(line) for line in
              cache.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if instances:
+        by_id = {t.get("instance_id"): t for t in tasks}
+        fehlend = [i for i in instances if i not in by_id]
+        if fehlend:
+            raise KeyError(f"unbekannte instance_ids: {fehlend[:5]}")
+        tasks = [by_id[i] for i in instances]
     return tasks[: int(limit)] if limit else tasks
 
 
@@ -265,13 +276,16 @@ def _record_prediction(instance_id: str, model: str, patch: str) -> None:
 
 
 def stream_swebench(limit: int = 3, allow_llm: bool = True, agent_fn=None,
-                    model: str | None = None):
+                    model: str | None = None, instances: list[str] | None = None):
     """Generator fuer die Live-Ansicht im Cockpit — gleiche Ereignis-Formen wie
     bench.stream_suite/stream_humaneval. 'passed' = PROGNOSE (siehe oben), der
     Endstand traegt zusaetzlich den Pfad der predictions.jsonl."""
     agent_fn = agent_fn or _run_agent
     try:
-        tasks = load_tasks(limit=max(1, min(int(limit or 3), 300)))
+        if instances:
+            tasks = load_tasks(instances=instances)
+        else:
+            tasks = load_tasks(limit=max(1, min(int(limit or 3), 300)))
     except Exception as e:  # noqa: BLE001
         yield {"kind": "error", "text": f"SWE-bench-Datensatz nicht ladbar: {str(e)[:200]}"}
         return
