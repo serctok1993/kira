@@ -1,5 +1,5 @@
 {
-  "name": "Kira Harness-Suite: der ganze Kreis (Dateien, Lesen, Code, Shell, Edit)",
+  "name": "Kira Harness-Suite: der ganze Kreis + mehrstufige Ketten",
   "tasks": [
     {
       "id": "smoke-echo",
@@ -31,6 +31,34 @@
       "setup_cmd": "printf 'def summe(liste):\\n    ergebnis = 0\\n    for x in liste:\\n        pass\\n    return ergebnis\\n' > kaputt.py",
       "verify_cmd": "python -c \"from kaputt import summe; assert summe([1,2,3])==6; print('edit ok')\"",
       "timeout": 900
+    },
+    {
+      "id": "kette-fix-und-test",
+      "prompt": "Mehrstufige Aufgabe im aktuellen Ordner: 1) In rechner.py ist teile(a, b) kaputt (gibt immer None zurueck) — repariere sie, sodass sie a/b zurueckgibt und bei b==0 eine ValueError wirft. 2) Schreibe dazu eine Testdatei test_rechner.py mit mindestens zwei pytest-Tests: einer prueft teile(10, 2) == 5, einer prueft die ValueError bei b==0. 3) Fuehre die Tests aus und stelle sicher, dass sie GRUEN sind, bevor du fertig meldest.",
+      "setup_cmd": "printf 'def teile(a, b):\\n    return None\\n' > rechner.py",
+      "verify_cmd": "python -m pytest test_rechner.py -q --no-header 2>&1 | grep -q '2 passed' && python -c \"from rechner import teile; assert teile(10,2)==5\"",
+      "timeout": 1200
+    },
+    {
+      "id": "kette-refactor-zwei-dateien",
+      "prompt": "Mehrstufige Refactor-Aufgabe im aktuellen Ordner: bestellung.py und rechnung.py enthalten BEIDE eine identische Funktion netto_zu_brutto(betrag). Extrahiere sie in eine neue Datei steuern.py und stelle beide Module so um, dass sie die Funktion von dort importieren (from steuern import netto_zu_brutto) und selbst KEINE eigene Definition mehr enthalten. Das Verhalten muss identisch bleiben.",
+      "setup_cmd": "printf 'def netto_zu_brutto(betrag):\\n    return round(betrag * 1.19, 2)\\n\\ndef bestellsumme(posten):\\n    return netto_zu_brutto(sum(posten))\\n' > bestellung.py && printf 'def netto_zu_brutto(betrag):\\n    return round(betrag * 1.19, 2)\\n\\ndef rechnungsbetrag(netto):\\n    return netto_zu_brutto(netto)\\n' > rechnung.py",
+      "verify_cmd": "python -c \"import ast,sys; b=ast.parse(open('bestellung.py').read()); r=ast.parse(open('rechnung.py').read()); defs=[n.name for m in (b,r) for n in ast.walk(m) if isinstance(n, ast.FunctionDef)]; assert 'netto_zu_brutto' not in defs, 'Duplikat lebt noch: '+str(defs); from bestellung import bestellsumme; from rechnung import rechnungsbetrag; from steuern import netto_zu_brutto; assert bestellsumme([10, 10]) == 23.8 and rechnungsbetrag(100) == 119.0; print('refactor ok')\"",
+      "timeout": 1200
+    },
+    {
+      "id": "kette-daten-pipeline",
+      "prompt": "Mehrstufige Daten-Aufgabe im aktuellen Ordner: verkauf.csv enthaelt Spalten produkt,menge,preis. Schreibe ein Skript auswertung.py, das die CSV liest, je Produkt den Umsatz (menge*preis, ueber alle Zeilen summiert) berechnet und das Ergebnis als JSON-Objekt {produkt: umsatz} in ergebnis.json schreibt (Umsatz als Zahl, 2 Nachkommastellen). Fuehre das Skript aus, sodass ergebnis.json existiert.",
+      "setup_cmd": "printf 'produkt,menge,preis\\napfel,3,1.50\\nbirne,2,2.00\\napfel,1,1.50\\n' > verkauf.csv",
+      "verify_cmd": "python -c \"import json; d=json.load(open('ergebnis.json')); assert abs(d['apfel']-6.0)<0.01 and abs(d['birne']-4.0)<0.01, d; print('pipeline ok')\"",
+      "timeout": 1200
+    },
+    {
+      "id": "kette-signatur-migration",
+      "prompt": "Mehrstufige Migrations-Aufgabe im aktuellen Ordner: In werkzeug.py gibt es formatiere(text). Erweitere die Funktion um einen Parameter breite mit Default 20 (sie soll text.ljust(breite) zurueckgeben statt text.ljust(20) hart zu kodieren) und stelle ALLE Aufrufer in report_a.py und report_b.py auf explizite breite=30 um. Alte Aufrufe ohne breite muessen weiter funktionieren (Default).",
+      "setup_cmd": "printf 'def formatiere(text):\\n    return text.ljust(20)\\n' > werkzeug.py && printf 'from werkzeug import formatiere\\n\\ndef zeile_a(t):\\n    return formatiere(t)\\n' > report_a.py && printf 'from werkzeug import formatiere\\n\\ndef zeile_b(t):\\n    return formatiere(t)\\n' > report_b.py",
+      "verify_cmd": "python -c \"from werkzeug import formatiere; from report_a import zeile_a; from report_b import zeile_b; assert len(formatiere('x')) == 20, 'Default kaputt'; assert len(zeile_a('x')) == 30 and len(zeile_b('x')) == 30, 'Aufrufer nicht migriert'; print('migration ok')\"",
+      "timeout": 1200
     }
   ]
 }
