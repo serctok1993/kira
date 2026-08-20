@@ -86,3 +86,95 @@ def test_cockpit_hat_benchmark_tab():
     html = TestClient(s.app).get("/").text
     assert 'id="v-bench"' in html and 'id="bench-start"' in html
     assert "loadBench" in html and "/ws/bench" in html
+
+
+def test_sandbox_model_direktwahl_setzt_force_model():
+    """model= reicht KIRA_FORCE_MODEL in den Sandbox-Env durch (gleiche Semantik wie
+    swebench._agent_env) — vorher erbte der Coding-Bench stur die Live-Rollen aus
+    config.yaml und war als Modell-Pruefstand unbrauchbar. Ohne model verschwindet ein
+    geerbter Wert (kein Durchsickern aus der Eltern-Umgebung in einen Lauf ohne Wahl)."""
+    import os
+    from unittest import mock
+    from core.testkit import sandbox
+    e = sandbox.sandbox_env("/tmp/x", allow_llm=True, model="openrouter/neu/modell-x")
+    assert e["KIRA_FORCE_MODEL"] == "openrouter/neu/modell-x"
+    with mock.patch.dict(os.environ, {"KIRA_FORCE_MODEL": "geerbt/alt"}):
+        e_ohne = sandbox.sandbox_env("/tmp/x", allow_llm=True)
+    assert "KIRA_FORCE_MODEL" not in e_ohne
+
+
+def test_run_suite_reicht_model_in_den_worktree():
+    """run_suite(model=...) landet als KIRA_FORCE_MODEL im Env des Versuchs-Subprozesses."""
+    from core.testkit import bench
+    gesehen = {}
+    def stub(wt, env, task):
+        gesehen[task["id"]] = (env.get("KIRA_FORCE_MODEL"), env.get("KIRA_ALLOW_LLM"))
+        return {"stub": True}
+    suite = {"tasks": [{"id": "t1", "verify_cmd": sys.executable + " -c \"import sys;sys.exit(0)\""}]}
+    bench.run_suite(suite, exec_fn=stub, allow_llm=True, model="openrouter/zukunft/super-5")
+    assert gesehen["t1"] == ("openrouter/zukunft/super-5", "1")
+
+
+def test_setup_cmd_laeuft_vor_dem_versuch():
+    """setup_cmd legt Material in den Worktree, BEVOR der Versuch startet (z.B. die kaputte
+    Datei, die die Aufgabe reparieren soll) — und verify sieht denselben Zustand."""
+    from core.testkit import bench
+    gesehen = {}
+    def stub(wt, env, task):
+        gesehen["vorher_da"] = (Path(wt) / "material.txt").exists()
+        return {"stub": True}
+    suite = {"tasks": [{
+        "id": "s1",
+        "setup_cmd": "printf 'da' > material.txt",
+        "verify_cmd": sys.executable + " -c \"import sys;sys.exit(0 if open('material.txt').read()=='da' else 1)\"",
+    }]}
+    summary = bench.run_suite(suite, exec_fn=stub)
+    assert gesehen["vorher_da"] is True
+    assert summary["passed"] == 1
+
+
+def test_setup_material_ueberlebt_run_rollback():
+    """Die Endabnahme rollt einen roten Lauf per git reset --hard zurueck. Material aus
+    setup_cmd muss das ueberleben (committet), sonst liest sich 'Datei weg' als
+    Modellversagen statt als 'Aufgabe nicht geloest'."""
+    import subprocess as sp
+    from core.testkit import bench
+    def stub(wt, env, task):
+        # Kiras Lauf: committet einen (kaputten) Edit, Endabnahme rollt ALLES auf den
+        # Stand vor dem Versuch zurueck — exakt das reset --hard aus act._endabnahme.
+        (Path(wt) / "material.txt").write_text("kaputter edit", encoding="utf-8")
+        sp.run(["git", "-C", str(wt), "-c", "user.name=t", "-c", "user.email=t@t",
+                "commit", "-am", "edit"], capture_output=True)
+        sp.run(["git", "-C", str(wt), "reset", "--hard", "HEAD~1"], capture_output=True)
+        return {"stub": True}
+    suite = {"tasks": [{
+        "id": "s2",
+        "setup_cmd": "printf 'original' > material.txt",
+        "verify_cmd": sys.executable + " -c \"import sys;sys.exit(0 if open('material.txt').read()=='original' else 1)\"",
+    }]}
+    summary = bench.run_suite(suite, exec_fn=stub)
+    assert summary["passed"] == 1, summary["results"][0]
+
+
+def test_sandbox_bekommt_geld_deckel(tmp_path):
+    """Befund 6: jede frische Sandbox-Datenwurzel bekam die vollen 20 EUR/Tag der
+    Live-Config (leere events-DB = leere Spend-Historie). Jetzt legt die Sandbox
+    einen 1-EUR-Deckel als overrides.json — die NORMALE Override-Mechanik zieht
+    ihn beim Config-Import; N Aufgaben koennen nicht mehr N x 20 EUR ziehen."""
+    import json
+    from core.testkit.sandbox import sandbox_env
+    env = sandbox_env(tmp_path / "wt")
+    ov = json.loads((tmp_path / "wt" / "data" / "overrides.json").read_text(encoding="utf-8"))
+    assert ov["governance.budget.daily_eur"] == 1.0
+    assert ov["governance.budget.monthly_eur"] == 1.0
+    assert ov["models.temperature"] == 0.1  # Eval-Temperatur: Messgeraet wuerfelt nicht
+    assert env["KIRA_DATA_DIR"].endswith("data")
+
+
+def test_swebench_datendir_bekommt_geld_deckel(monkeypatch):
+    """Auch der SWE-bench-Datenordner (eigener mkdtemp-Pfad) traegt den Deckel."""
+    import json, pathlib
+    from core.testkit.swebench import _agent_env
+    env = _agent_env(allow_llm=True)
+    ov = json.loads((pathlib.Path(env["KIRA_DATA_DIR"]) / "overrides.json").read_text(encoding="utf-8"))
+    assert ov["governance.budget.daily_eur"] == 1.0

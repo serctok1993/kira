@@ -117,6 +117,15 @@ def solve(problem: dict, role: str = "reason", model: str | None = None) -> tupl
 def stream_humaneval(limit: int = 20, role: str = "reason", model: str | None = None):
     """Generator fuer die Live-Ansicht im Cockpit — gleiche Ereignis-Formen wie
     bench.stream_suite (suite_start/task_start/task_done/summary)."""
+    # DB sicherstellen (wie attempt.py): auf einer FRISCHEN Datenwurzel (Sandbox, Standalone-
+    # Lauf) scheitert sonst schon die Budget-Pruefung im ersten complete() an "no such table:
+    # events" — VOR jedem Modell-Call, und der Score liest sich faelschlich als 0% des Modells.
+    try:
+        from core.kernel import events
+
+        events.init_db()
+    except Exception:  # noqa: BLE001 — im Cockpit-Prozess existiert die DB laengst
+        pass
     try:
         probs = load_problems(limit=limit)
     except Exception as e:  # noqa: BLE001

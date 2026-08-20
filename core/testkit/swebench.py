@@ -43,8 +43,13 @@ def _kira_repo() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def load_tasks(limit: int | None = None) -> list[dict]:
-    """Laedt die 300 Lite-Aufgaben (Download beim ersten Mal, danach Cache)."""
+def load_tasks(limit: int | None = None, instances: list[str] | None = None) -> list[dict]:
+    """Laedt die 300 Lite-Aufgaben (Download beim ersten Mal, danach Cache).
+
+    instances: feste Auswahl per instance_id, in GENAU dieser Reihenfolge — die
+    Grundlage fuer ein eingefrorenes Vergleichs-Subset (gleiche Aufgaben, gleiches
+    Modell, verschiedene Harness-Staende -> das Delta ist der Harness). Ohne das
+    ging nur "die ersten N", also praktisch 3x astropy."""
     cache = _bench_dir() / "swebench_lite.jsonl"
     if not cache.exists():
         import httpx
@@ -63,6 +68,12 @@ def load_tasks(limit: int | None = None) -> list[dict]:
                          encoding="utf-8")
     tasks = [json.loads(line) for line in
              cache.read_text(encoding="utf-8").splitlines() if line.strip()]
+    if instances:
+        by_id = {t.get("instance_id"): t for t in tasks}
+        fehlend = [i for i in instances if i not in by_id]
+        if fehlend:
+            raise KeyError(f"unbekannte instance_ids: {fehlend[:5]}")
+        tasks = [by_id[i] for i in instances]
     return tasks[: int(limit)] if limit else tasks
 
 
@@ -105,6 +116,8 @@ def _agent_env(allow_llm: bool = True, model: str | None = None) -> dict:
     import os
 
     data = Path(tempfile.mkdtemp(prefix="kira-swb-data-"))
+    from core.testkit.sandbox import _write_spend_cap
+    _write_spend_cap(data)
     env = {**os.environ,
            "KIRA_DATA_DIR": str(data),
            "KIRA_TEST_MODE": "1",
@@ -112,6 +125,10 @@ def _agent_env(allow_llm: bool = True, model: str | None = None) -> dict:
            # Rang-Boden: kein Schritt faellt auf reflex/lokal zurueck — im Fremd-Repo
            # (riesige Dateien) waere das Zeitlupe und verfaelscht den Harness-Messwert.
            "KIRA_RANK_FLOOR": "reason",
+           # Runden-Budget je Plan-Schritt verdoppeln: in Fremd-Repos frisst die
+           # Lokalisierung sonst alle Runden, der Edit faellt hinten runter (v4: 9/10
+           # Arbeiter-Schritte mitten im Zug abgeschnitten, Patches leer).
+           "KIRA_BUDGET_MAX_STEPS_PLAN_STEP": "24",
            "PYTHONPATH": str(_kira_repo())}
     env.pop("KIRA_ROOT", None)
     if model:  # Direktwahl: DIESES Modell fuer alle Rollen im Bench-Subprozess
@@ -148,10 +165,15 @@ def _run_agent(workdir: Path, task: dict, allow_llm: bool = True, timeout: int =
                # SWE-bench-Eval IST die Abnahme.
                "code_review": False,
                "timeout": timeout}
+    # stderr NICHT verwerfen: ein Agent, der beim Import/ersten Call stirbt, hinterliess
+    # sonst nur "kein Patch erzeugt · 8s" — die Ursache war unsichtbar (v3-Befund 14365).
+    import tempfile as _tf
+
+    _errf = _tf.TemporaryFile(mode="w+", encoding="utf-8", errors="replace")
     proc = subprocess.Popen([sys.executable, "-m", "core.testkit.attempt"],
                             cwd=str(_kira_repo()), env=env,
                             stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                            stderr=subprocess.DEVNULL, text=True, bufsize=1)
+                            stderr=_errf, text=True, bufsize=1)
     # Lebenszeichen + harter Timeout (des Nutzers 'haengt er oder denkt er?'-Problem):
     # ein Reader-Thread fuettert eine Queue; bleibt sie ~25s still, melden wir
     # 'arbeitet noch' statt Funkstille, und nach 'timeout' wird hart abgebrochen.
@@ -187,13 +209,33 @@ def _run_agent(workdir: Path, task: dict, allow_llm: bool = True, timeout: int =
                        "text": f"arbeitet noch ({laufzeit}s) — Modell denkt/antwortet gerade"}
                 continue
             if line is None:
+                # Prozess-Ende: starb er rot, den stderr-Schwanz als Event melden —
+                # NICHT im finally (yield dort bricht bei GeneratorExit).
+                with contextlib.suppress(Exception):
+                    proc.wait(timeout=10)
+                with contextlib.suppress(Exception):
+                    _errf.seek(0)
+                    _err_tail = _errf.read()[-800:].strip()
+                    if _err_tail and proc.returncode not in (0, None):
+                        yield {"kind": "obs", "name": "\u26a0 Agent-stderr",
+                               "text": f"[exit {proc.returncode}] " + _err_tail}
                 break
             if line.startswith("@EV "):
                 with contextlib.suppress(Exception):
                     yield json.loads(line[4:])
+            elif line.startswith("@RESULT "):
+                # Fehler-Resultate sichtbar machen: attempt faengt Crashs und meldet sie
+                # als {"error": ...} — der Runner warf das bisher weg (v3-Befund).
+                with contextlib.suppress(Exception):
+                    res = json.loads(line[8:])
+                    if res.get("error"):
+                        yield {"kind": "obs", "name": "\u26a0 Agent-Fehler",
+                               "text": str(res["error"])[:400]}
     finally:
         with contextlib.suppress(Exception):
             proc.wait(timeout=10)
+        with contextlib.suppress(Exception):
+            _errf.close()
         with contextlib.suppress(Exception):
             shutil.rmtree(env["KIRA_DATA_DIR"], ignore_errors=True)
 
@@ -240,13 +282,16 @@ def _record_prediction(instance_id: str, model: str, patch: str) -> None:
 
 
 def stream_swebench(limit: int = 3, allow_llm: bool = True, agent_fn=None,
-                    model: str | None = None):
+                    model: str | None = None, instances: list[str] | None = None):
     """Generator fuer die Live-Ansicht im Cockpit — gleiche Ereignis-Formen wie
     bench.stream_suite/stream_humaneval. 'passed' = PROGNOSE (siehe oben), der
     Endstand traegt zusaetzlich den Pfad der predictions.jsonl."""
     agent_fn = agent_fn or _run_agent
     try:
-        tasks = load_tasks(limit=max(1, min(int(limit or 3), 300)))
+        if instances:
+            tasks = load_tasks(instances=instances)
+        else:
+            tasks = load_tasks(limit=max(1, min(int(limit or 3), 300)))
     except Exception as e:  # noqa: BLE001
         yield {"kind": "error", "text": f"SWE-bench-Datensatz nicht ladbar: {str(e)[:200]}"}
         return

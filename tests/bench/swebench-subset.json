@@ -1,0 +1,15 @@
+{
+  "name": "kira-vergleichs-subset-v1",
+  "instances": [
+    "astropy__astropy-12907",
+    "astropy__astropy-14182",
+    "astropy__astropy-14365",
+    "django__django-10914",
+    "matplotlib__matplotlib-18869",
+    "mwaskom__seaborn-2848",
+    "pallets__flask-4045",
+    "psf__requests-1963",
+    "pydata__xarray-3364",
+    "pylint-dev__pylint-5859"
+  ]
+}
