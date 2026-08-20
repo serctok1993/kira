@@ -150,7 +150,7 @@ _PROMPT = ("SWE-BENCH-AUFGABE. Ein fremdes Python-Repository liegt in DIESEM Pro
 
 
 def _run_agent(workdir: Path, task: dict, allow_llm: bool = True, timeout: int = 1800,
-               model: str | None = None):
+               model: str | None = None, single_loop: bool = True):
     """Kiras Coding-Kreis auf dem fremden Repo (Subprozess) — yieldet @EV-Ereignisse live."""
     env = _agent_env(allow_llm=allow_llm, model=model)
     try:
@@ -164,6 +164,10 @@ def _run_agent(workdir: Path, task: dict, allow_llm: bool = True, timeout: int =
                # wuerde den fertigen Patch zurueckrollen (0%-Bug). Das offizielle
                # SWE-bench-Eval IST die Abnahme.
                "code_review": False,
+               # Referenz-Harness-Muster: durchgehender Loop, hohes Budget (statt
+               # Plan-Zerlegung) — abschaltbar via single_loop=False fuer A/B-Deltas.
+               "single_loop": bool(single_loop),
+               "max_steps": 80,
                "timeout": timeout}
     # stderr NICHT verwerfen: ein Agent, der beim Import/ersten Call stirbt, hinterliess
     # sonst nur "kein Patch erzeugt · 8s" — die Ursache war unsichtbar (v3-Befund 14365).
@@ -282,7 +286,8 @@ def _record_prediction(instance_id: str, model: str, patch: str) -> None:
 
 
 def stream_swebench(limit: int = 3, allow_llm: bool = True, agent_fn=None,
-                    model: str | None = None, instances: list[str] | None = None):
+                    model: str | None = None, instances: list[str] | None = None,
+                    single_loop: bool = True):
     """Generator fuer die Live-Ansicht im Cockpit — gleiche Ereignis-Formen wie
     bench.stream_suite/stream_humaneval. 'passed' = PROGNOSE (siehe oben), der
     Endstand traegt zusaetzlich den Pfad der predictions.jsonl."""
@@ -319,7 +324,8 @@ def stream_swebench(limit: int = 3, allow_llm: bool = True, agent_fn=None,
             t0 = time.time()
             checkout(str(t.get("repo")), str(t.get("base_commit")), wd)
             for ev in agent_fn(wd, t, allow_llm=allow_llm,
-                               model=(model if model != "?" else None)):
+                               model=(model if model != "?" else None),
+                               single_loop=single_loop):
                 yield {"kind": "act", "id": tid, "ev": ev}
             patch = collect_patch(wd)
             ok, info = prognose(patch, t.get("patch") or "")

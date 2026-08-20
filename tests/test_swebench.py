@@ -86,7 +86,7 @@ def test_stream_swebench_ende_zu_ende_offline(monkeypatch, tmp_path):
     monkeypatch.setattr(llm_router, "resolve_model",
                         lambda role="default", escalate=False: ("test-modell", False))
 
-    def fake_agent(wd, task, allow_llm=True, model=None):
+    def fake_agent(wd, task, allow_llm=True, model=None, **kw):
         (wd / "modul.py").write_text("def kaputt():\n    return 2\n", encoding="utf-8")
         yield {"type": "tool_call", "payload": {"tool": "edit_datei"}}
     evs = list(swb.stream_swebench(limit=1, agent_fn=fake_agent))
@@ -268,3 +268,19 @@ def test_load_tasks_mit_fester_instanz_auswahl(monkeypatch, tmp_path):
     import pytest as pt
     with pt.raises(KeyError):
         swb.load_tasks(instances=["r__x-1", "gibts-nicht"])
+
+
+def test_single_loop_modus_nutzt_act_direkt(monkeypatch, tmp_path):
+    """Referenz-Harness-Muster: single_loop=True laesst attempt EINEN durchgehenden
+    act()-Lauf mit hohem Runden-Budget fahren statt der Plan-Zerlegung — Nemotron & Co.
+    sind auf dieses Muster trainiert (offizielle Scaffolds: mini-swe-agent/OpenHands).
+    Der Payload traegt single_loop+max_steps; A/B via single_loop=False bleibt moeglich."""
+    import inspect
+    from core.testkit import swebench as swb, attempt
+    src = inspect.getsource(attempt.main)
+    assert 'task.get("single_loop")' in src and "max_steps" in src
+    src2 = inspect.getsource(swb._run_agent)
+    assert '"single_loop": bool(single_loop)' in src2 and '"max_steps": 80' in src2
+    import inspect as _i
+    sig = _i.signature(swb.stream_swebench)
+    assert sig.parameters["single_loop"].default is True

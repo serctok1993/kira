@@ -26,8 +26,19 @@ def main() -> None:
     from core.mind.memory import store
     events.init_db()
     store.init_memory()
-    from core.agency.act import plan_and_execute
+    from core.agency.act import act, plan_and_execute
     try:
+        if task.get("single_loop"):
+            # Referenz-Harness-Muster (mini-swe-agent/OpenHands): EIN durchgehender Loop
+            # mit hohem Runden-Budget, das Modell steuert selbst. Nemotron & Co. sind auf
+            # genau dieses Muster trainiert; die Plan-Zerlegung verliert pro Teilschritt
+            # Kontext (v5-Vergleichsgrundlage: 3/10 im Plan-Modus).
+            out = act(task.get("prompt", ""),
+                      session_id="bench-" + str(task.get("id", "x")),
+                      max_steps=int(task.get("max_steps", 80)),
+                      escalate=True, task_type="reason")["text"]
+            print("@RESULT " + json.dumps({"text": (out or "")[:2000]}), flush=True)
+            return
         # code_review=False fuer SWE-bench: dort ist die Endabnahme das OFFIZIELLE Eval —
         # Kiras eigene Testsuite-Abnahme waere im Fremd-Repo immer rot und wuerde den
         # fertigen Patch per Rollback wieder loeschen (der 0%-Bug vom ersten Lauf).
