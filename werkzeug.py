@@ -1,2 +1,2 @@
-def formatiere(text):
-    return text.ljust(20)
+def formatiere(text, breite=20):
+    return text.ljust(breite)
