@@ -57,7 +57,10 @@ class TestEreignisseBleibenInReihenfolge:
         monkeypatch.setattr(events.time, "time", lambda: fest)
         for typ in ("a1", "a2", "a3"):
             events.emit(typ, {})
-        letzte = [e["type"] for e in events.recent(3)]
+        # Nur die EIGENEN Ereignisse pruefen: Hintergrund-Threads (z.B. ein MCP-
+        # Watchdog aus einem Nachbartest) duerfen hier zwischenfunken, ohne die
+        # Ordnungs-Aussage zu kippen (CI-Flake auf fb1720e).
+        letzte = [e["type"] for e in events.recent(10) if e["type"] in ("a1", "a2", "a3")]
         assert letzte == ["a3", "a2", "a1"], letzte
 
 
