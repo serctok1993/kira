@@ -179,3 +179,38 @@ def test_fuege_hinzu_darf_neue_datei(monkeypatch):
     monkeypatch.setattr(act, "act", fake_act)
     act.plan_and_execute("Baue helpers", session_id=sid)
     assert len(laeufe) == 1, "write_file erfuellt einen Hinzufuege-Auftrag"
+
+
+def test_rueckfrage_im_endergebnis_wird_im_autonomen_lauf_fortgesetzt(monkeypatch, tmp_path):
+    """Workflow-Befund (wf-friseur-leads): das Modell kannte den naechsten Schritt und
+    endete trotzdem mit 'Soll ich direkt loslegen?' — im Bench wartet niemand. Im
+    Sandbox-Kontext erzwingt eine End-Rueckfrage genau EINE Fortsetzungsrunde."""
+    sid = "t-handwerk-10"
+    monkeypatch.setenv("KIRA_DATA_DIR", str(tmp_path))  # sandbox_active() -> True
+    _mini_plan(monkeypatch, "Lies die Datei x.py")
+    monkeypatch.setattr(act.llm_router, "complete", lambda *a, **k: {
+        "text": "Auswahl steht. Die Mails fehlen noch.\n\nSoll ich direkt loslegen?"})
+    laeufe = []
+    def fake_act(task, **kw):
+        laeufe.append(task)
+        if "KEINEN Nutzer" in task:
+            return {"text": "Mails geschrieben, alles erledigt."}
+        return {"text": "Schritt fertig."}
+    monkeypatch.setattr(act, "act", fake_act)
+    out = act.plan_and_execute("Leads bearbeiten", session_id=sid)
+    assert any("KEINEN Nutzer" in t for t in laeufe), "Fortsetzungsrunde lief nicht"
+    assert "Soll ich direkt loslegen?" not in out
+    assert "alles erledigt" in out
+
+
+def test_rueckfrage_im_live_chat_bleibt_unangetastet(monkeypatch):
+    """Ohne Sandbox-Kontext (Live-Chat) ist eine Rueckfrage LEGITIM — kein Zwang."""
+    sid = "t-handwerk-11"
+    _mini_plan(monkeypatch, "Lies die Datei x.py")
+    monkeypatch.setattr(act.llm_router, "complete", lambda *a, **k: {
+        "text": "Fertig. Soll ich noch einen Testfall ergaenzen?"})
+    laeufe = []
+    monkeypatch.setattr(act, "act", lambda task, **kw: (laeufe.append(task), {"text": "ok."})[1])
+    out = act.plan_and_execute("Aufgabe", session_id=sid)
+    assert not any("KEINEN Nutzer" in t for t in laeufe)
+    assert "Soll ich noch einen Testfall ergaenzen?" in out

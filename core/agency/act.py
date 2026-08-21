@@ -1162,6 +1162,15 @@ _EDIT_INTENT_NOT = re.compile(
     r"lies\b|liste\w*|untersuch\w*|miss\b|beobacht\w*|dokumentier\w*)", re.IGNORECASE)
 
 
+def _frage_am_ende(text: str) -> bool:
+    """Endet ein Ergebnis mit einer Rueckfrage an den Nutzer? (Workflow-Befund
+    wf-friseur-leads: das Modell kannte den naechsten Schritt exakt und fragte
+    trotzdem 'Soll ich direkt loslegen?' — im autonomen Lauf wartet dann niemand.)
+    Bewusst konservativ: nur die LETZTE nicht-leere Zeile zaehlt."""
+    zeilen = [z.strip() for z in (text or "").strip().splitlines() if z.strip()]
+    return bool(zeilen) and zeilen[-1].endswith("?")
+
+
 def _edit_tried_get(session_id: str | None) -> int:
     return int(_EDIT_TRIED.get(session_id or "_", 0))
 
@@ -2102,6 +2111,26 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
     if not final:  # Synthese leer (Modell-Haenger/Timeout) -> NIE leer: aus den Schritten zusammenbauen
         final = ("Ich habe die Aufgabe abgearbeitet — die Abschluss-Zusammenfassung kam leer zurueck, "
                  "darum hier die Ergebnisse der Schritte direkt:\n" + "\n".join(f"• {d}" for d in done))
+    # Autonome Laeufe (Sandbox/Bench): endet das ENDERGEBNIS mit einer Rueckfrage,
+    # wartet niemand auf eine Antwort — der angekuendigte Schritt muss JETZT passieren.
+    # Genau EINE Fortsetzungsrunde; im Live-Chat (kein Sandbox-Kontext) unveraendert.
+    from core import config as _cfgmod2
+    if _frage_am_ende(final) and (_cfgmod2.sandbox_active() or _cfgmod2.outbound_blocked()):
+        events.emit("plan_final_rueckfrage", {}, session_id=session_id)
+        emit({"kind": "obs", "name": "\u26a0 Rueckfrage im Endergebnis",
+              "text": "autonomer Lauf -> EINE Fortsetzungsrunde statt warten"})
+        weiter_task = (f"Gesamtziel: {task}\n\nDein bisheriges Ergebnis endete mit einer "
+                       f"Rueckfrage:\n{final[-600:]}\n\nEs gibt hier KEINEN Nutzer, der "
+                       "antworten koennte. Entscheide selbst und fuehre den von dir "
+                       "angekuendigten naechsten Schritt JETZT vollstaendig aus. Melde danach "
+                       "das Ergebnis — ohne neue Rueckfrage.")
+        try:
+            final = act(weiter_task, session_id=session_id,
+                        max_steps=_budget("max_steps_plan_step", _MAX_STEPS_PLAN, "reason", escalate),
+                        escalate=escalate, task_type="reason")["text"].strip() or final
+        except Exception:  # noqa: BLE001 — die Fortsetzung darf das Ergebnis nie verlieren
+            pass
+
     final += review_note
     events.emit("plan_done", {"task": task, "steps": len(steps)}, session_id=session_id)
 
