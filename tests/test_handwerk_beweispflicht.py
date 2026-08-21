@@ -214,3 +214,51 @@ def test_rueckfrage_im_live_chat_bleibt_unangetastet(monkeypatch):
     out = act.plan_and_execute("Aufgabe", session_id=sid)
     assert not any("KEINEN Nutzer" in t for t in laeufe)
     assert "Soll ich noch einen Testfall ergaenzen?" in out
+
+
+def _fake_act(aufrufe, text="Erledigt.", schreibt=None):
+    """act()-Ersatz fuer run_single_loop: protokolliert Prompts, schreibt optional eine Datei."""
+    def fn(prompt, **kw):
+        aufrufe.append(prompt)
+        if schreibt is not None:
+            schreibt.write_text("x", encoding="utf-8")
+        return {"text": text}
+    return fn
+
+
+def test_single_loop_ohne_aenderung_bekommt_fortsetzungsrunde(monkeypatch, tmp_path):
+    import subprocess
+
+    from core.testkit import attempt
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    monkeypatch.chdir(tmp_path)
+    aufrufe: list[str] = []
+    attempt.run_single_loop({"id": "t", "prompt": "Behebe den Fehler im Parser."},
+                            _fake_act(aufrufe))
+    assert len(aufrufe) == 2
+    assert "OHNE eine einzige Aenderung" in aufrufe[1]
+    assert "KEINEN Nutzer" in aufrufe[1]
+
+
+def test_single_loop_mit_aenderung_laeuft_ohne_stups(monkeypatch, tmp_path):
+    import subprocess
+
+    from core.testkit import attempt
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    monkeypatch.chdir(tmp_path)
+    aufrufe: list[str] = []
+    attempt.run_single_loop({"id": "t", "prompt": "Behebe den Fehler."},
+                            _fake_act(aufrufe, schreibt=tmp_path / "fix.py"))
+    assert len(aufrufe) == 1
+
+
+def test_single_loop_ohne_gitrepo_schweigt_der_waechter(monkeypatch, tmp_path):
+    from core.testkit import attempt
+
+    monkeypatch.chdir(tmp_path)
+    aufrufe: list[str] = []
+    attempt.run_single_loop({"id": "t", "prompt": "Behebe den Fehler."},
+                            _fake_act(aufrufe))
+    assert len(aufrufe) == 1

@@ -278,7 +278,9 @@ def test_single_loop_modus_nutzt_act_direkt(monkeypatch, tmp_path):
     import inspect
     from core.testkit import swebench as swb, attempt
     src = inspect.getsource(attempt.main)
-    assert 'task.get("single_loop")' in src and "max_steps" in src
+    assert 'task.get("single_loop")' in src and "run_single_loop" in src
+    src_loop = inspect.getsource(attempt.run_single_loop)
+    assert "max_steps" in src_loop
     src2 = inspect.getsource(swb._run_agent)
     assert '"single_loop": bool(single_loop)' in src2 and '"max_steps": 80' in src2
     import inspect as _i
