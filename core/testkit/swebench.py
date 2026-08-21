@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -88,17 +89,23 @@ def _git(*args: str, cwd: str | Path | None = None) -> subprocess.CompletedProce
 
 def checkout(repo: str, commit: str, dest: Path) -> None:
     """Repo am base_commit nach dest auschecken — ueber einen gecachten Bare-Spiegel.
-    GitHub erlaubt Fetch per Commit-SHA; der Spiegel macht Folge-Laeufe fast kostenlos."""
+    GitHub erlaubt Fetch per Commit-SHA; der Spiegel macht Folge-Laeufe fast kostenlos.
+    Der Spiegel-Abschnitt ist per Datei-Lock geschuetzt: parallele Bench-Worker duerfen
+    denselben Spiegel nicht gleichzeitig anlegen/befuellen (Ref-Lock-Kollisionen)."""
+    import fcntl
+
     mirror = _bench_dir() / "repos" / (repo.replace("/", "__") + ".git")
-    if not mirror.exists():
-        mirror.parent.mkdir(parents=True, exist_ok=True)
-        _git("init", "--bare", str(mirror))
-        _git("remote", "add", "origin", _repo_url(repo), cwd=mirror)
-    ref = f"refs/bench/{commit}"
-    have = subprocess.run(["git", "rev-parse", "--verify", "--quiet", ref],
-                          cwd=str(mirror), capture_output=True, text=True)
-    if have.returncode != 0:
-        _git("fetch", "--depth", "1", "origin", f"{commit}:{ref}", cwd=mirror)
+    mirror.parent.mkdir(parents=True, exist_ok=True)
+    with open(str(mirror) + ".lock", "w", encoding="utf-8") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not mirror.exists():
+            _git("init", "--bare", str(mirror))
+            _git("remote", "add", "origin", _repo_url(repo), cwd=mirror)
+        ref = f"refs/bench/{commit}"
+        have = subprocess.run(["git", "rev-parse", "--verify", "--quiet", ref],
+                              cwd=str(mirror), capture_output=True, text=True)
+        if have.returncode != 0:
+            _git("fetch", "--depth", "1", "origin", f"{commit}:{ref}", cwd=mirror)
     # clone uebertraegt refs/bench/* nicht und der Spiegel ist shallow -> direkter
     # depth-1-Fetch der Bench-Ref in einen frischen Baum + Checkout von FETCH_HEAD.
     dest.mkdir(parents=True, exist_ok=True)
@@ -146,7 +153,12 @@ _PROMPT = ("SWE-BENCH-AUFGABE. Ein fremdes Python-Repository liegt in DIESEM Pro
            "gezielten Patch (edit_datei mit exaktem Suchtext).\n"
            "HARTE REGELN: Aendere AUSSCHLIESSLICH Dateien unter '{repo}/' — NIE Dateien "
            "ausserhalb (das eigene System ist tabu). Keine Tests, keine Doku anfassen, "
-           "nichts loeschen, was du nicht verstehst.\n\nISSUE:\n{issue}")
+           "nichts loeschen, was du nicht verstehst.\n"
+           "FOKUS: ALLE deine Datei- und Suchoperationen gehoeren nach '{repo}/'. Das "
+           "Wirts-Projekt drumherum (core/, tests/, config.yaml) ist NICHT die Aufgabe — "
+           "durchsuche es nicht, fuehre seine Tests nicht aus. Issue-Reproduktion und "
+           "Tests laufen NUR im Fremd-Repo (z.B. cd '{repo}' && python -m pytest <datei>)."
+           "\n\nISSUE:\n{issue}")
 
 
 def _run_agent(workdir: Path, task: dict, allow_llm: bool = True, timeout: int = 1800,
@@ -160,6 +172,9 @@ def _run_agent(workdir: Path, task: dict, allow_llm: bool = True, timeout: int =
     payload = {"id": task.get("instance_id", "swb"),
                "prompt": _PROMPT.format(repo=rel,
                                         issue=(task.get("problem_statement") or "")[:6000]),
+               # Fuer die Patch-Beweispflicht: der Diff-Check gehoert ins FREMD-Repo,
+               # nicht in Kiras cwd (dort ist der Baum praktisch immer sauber).
+               "workdir": str(workdir),
                # KEINE Kira-Endabnahme im Fremd-Repo: die waere dort immer rot und
                # wuerde den fertigen Patch zurueckrollen (0%-Bug). Das offizielle
                # SWE-bench-Eval IST die Abnahme.
@@ -272,7 +287,11 @@ def prognose(model_patch: str, gold_patch: str) -> tuple[bool, str]:
 
 
 def _predictions_path() -> Path:
-    return _bench_dir() / "swebench-predictions.jsonl"
+    """Ablage der predictions.jsonl. KIRA_SWB_PRED uebersteuert den Pfad — parallele
+    Bench-Worker bekommen so je eine eigene Datei (grosse Patch-Zeilen aus mehreren
+    Prozessen in EINE Datei zu appenden kann Zeilen zerreissen)."""
+    ov = os.getenv("KIRA_SWB_PRED")
+    return Path(ov) if ov else _bench_dir() / "swebench-predictions.jsonl"
 
 
 def _record_prediction(instance_id: str, model: str, patch: str) -> None:

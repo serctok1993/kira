@@ -262,3 +262,22 @@ def test_single_loop_ohne_gitrepo_schweigt_der_waechter(monkeypatch, tmp_path):
     attempt.run_single_loop({"id": "t", "prompt": "Behebe den Fehler."},
                             _fake_act(aufrufe))
     assert len(aufrufe) == 1
+
+
+def test_single_loop_prueft_das_fremdrepo_nicht_das_cwd(monkeypatch, tmp_path):
+    """SWE-bench: der Diff-Check gehoert ins Fremd-Repo (task['workdir']). Ein sauberes
+    cwd-Repo darf NICHT anschlagen, wenn im Fremd-Repo laengst editiert wurde."""
+    import subprocess
+
+    from core.testkit import attempt
+
+    cwd_repo = tmp_path / "kira"
+    fremd = tmp_path / "fremd"
+    for d in (cwd_repo, fremd):
+        d.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=d, check=True)
+    monkeypatch.chdir(cwd_repo)
+    aufrufe: list[str] = []
+    attempt.run_single_loop({"id": "t", "prompt": "Fix.", "workdir": str(fremd)},
+                            _fake_act(aufrufe, schreibt=fremd / "fix.py"))
+    assert len(aufrufe) == 1

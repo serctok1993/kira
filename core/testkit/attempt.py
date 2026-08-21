@@ -19,11 +19,12 @@ def _emit(ev: dict) -> None:
         pass
 
 
-def _arbeitsbaum_unveraendert() -> bool:
-    """True nur, wenn das aktuelle Verzeichnis ein Git-Repo OHNE jede Aenderung ist.
+def _arbeitsbaum_unveraendert(workdir: str | None = None) -> bool:
+    """True nur, wenn das Arbeitsverzeichnis ein Git-Repo OHNE jede Aenderung ist.
+    workdir = das FREMD-Repo der Aufgabe (SWE-bench); ohne Angabe das cwd.
     Kein Repo/kein git -> False: der Waechter schweigt, statt faelschlich anzuschlagen."""
     try:
-        r = subprocess.run(["git", "status", "--porcelain"],
+        r = subprocess.run(["git", "status", "--porcelain"], cwd=workdir or None,
                            capture_output=True, text=True, timeout=30)
         return r.returncode == 0 and not (r.stdout or "").strip()
     except Exception:  # noqa: BLE001
@@ -43,7 +44,7 @@ def run_single_loop(task: dict, act_fn) -> str:
     # Modell fertig, ohne dass im Arbeitsbaum auch nur EINE Datei angefasst wurde, ist
     # das kein Ergebnis — eine Fortsetzungsrunde mit klarer Ansage, dann ist Schluss.
     # (Shared-10-Befund: flask-4045 endete nach 82s "fertig" ohne jede Aenderung.)
-    if _arbeitsbaum_unveraendert():
+    if _arbeitsbaum_unveraendert(task.get("workdir")):
         _emit({"kind": "obs", "name": "Beweispflicht",
                "text": "Lauf endete ohne Aenderung im Arbeitsbaum — Fortsetzungsrunde"})
         weiter = (task.get("prompt", "") +
