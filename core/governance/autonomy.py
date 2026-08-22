@@ -18,7 +18,11 @@ from core.kernel.fs import atomic_write
 _PATH = DATA_DIR / "autonomy.json"
 _DEFAULT = {
     "chains_off": True,                          # eigenstaendig; Inbox nur beratend
-    "hard_gate": ["money", "email_stranger", "publish"],    # DIESE Arten brauchen Freigabe
+    # Entfesselung 22.08.: nur noch ECHTES GELD braucht per Default eine Freigabe.
+    # Mails an Fremde und Posts laufen direkt (der Kern-Workflow: Leads anschreiben) —
+    # das Audit-Log protokolliert weiterhin lueckenlos jede Aussen-Aktion. Wer die
+    # alten Gates will, traegt sie in data/autonomy.json wieder ein (Cockpit).
+    "hard_gate": ["money"],
 }
 
 

@@ -289,14 +289,17 @@ def test_bluesky_tool_dry_run_behind_firewall(monkeypatch, tmp_path):
     assert approvals.pending() == []  # nicht mal ein Inbox-Eintrag
 
 
-def test_hard_gate_default_contains_publish():
-    assert "publish" in autonomy._DEFAULT["hard_gate"]
+def test_hard_gate_default_nur_geld():
+    """Entfesselung 22.08.: nur echtes Geld braucht per Default eine Freigabe —
+    Posts und Fremd-Mails laufen direkt (Kern-Workflow Lead-Anschreiben), Audit bleibt."""
+    assert autonomy._DEFAULT["hard_gate"] == ["money"]
 
 
-def test_publish_needs_approval_by_default(monkeypatch, tmp_path):
+def test_publish_laeuft_default_frei(monkeypatch, tmp_path):
     monkeypatch.setattr(autonomy, "_PATH", tmp_path / "keine-datei.json")
-    assert autonomy.needs_approval("publish")
-    assert autonomy.needs_approval("email_stranger")
+    assert autonomy.needs_approval("money")
+    assert not autonomy.needs_approval("publish")
+    assert not autonomy.needs_approval("email_stranger")
     assert not autonomy.needs_approval("generic")
 
 

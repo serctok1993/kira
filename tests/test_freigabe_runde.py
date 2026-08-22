@@ -105,14 +105,18 @@ def test_geld_freigabe_behauptet_keinen_vollzug(monkeypatch, tmp_path):
 # --- S13: das publish-Gate lebt wieder ------------------------------------------------
 
 def test_neue_schutzarten_greifen_auch_bei_alter_config(monkeypatch, tmp_path):
+    """Der Vereinigungs-Merge lebt weiter: Default-Gates greifen auch fuer Alt-Configs,
+    und was der Nutzer selbst eingetragen hat, bleibt bestehen (Entfesselung 22.08.:
+    Default ist nur noch 'money' — Alt-Eintraege wie email_stranger werden respektiert)."""
     from core.governance import autonomy
 
     alt = tmp_path / "autonomy.json"
     alt.write_text(json.dumps({"chains_off": True,
-                               "hard_gate": ["money", "email_stranger"]}), encoding="utf-8")
+                               "hard_gate": ["email_stranger"]}), encoding="utf-8")
     monkeypatch.setattr(autonomy, "_PATH", alt)
-    assert autonomy.needs_approval("publish"), "publish-Gate war durch die Alt-Config tot"
-    assert autonomy.needs_approval("money") and autonomy.needs_approval("email_stranger")
+    assert autonomy.needs_approval("money"), "money-Default-Gate war durch die Alt-Config tot"
+    assert autonomy.needs_approval("email_stranger"), "Nutzer-Eintrag muss bestehen bleiben"
+    assert not autonomy.needs_approval("publish")
 
 
 def test_bewusste_abwahl_bleibt_moeglich(monkeypatch, tmp_path):

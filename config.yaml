@@ -155,6 +155,13 @@ selfdev:
   fast_verify_in_run: true
 
 # Autonomie & Sicherung
+prompt:
+  # Entfesselung 22.08.: EIN Modell faehrt alles -> der 9k-Token-Vollprompt (Verfassung+
+  # Seele+Ziel+Koerper+Playbooks) ist Prefill-Ballast und sein Vorsichts-Ton bremste
+  # simple Arbeit (Datei loeschen -> "unumkehrbar?"). schlank=true: operativer Kern,
+  # direkte Ausfuehrung, Arbeitsbereich frei. false = historischer Vollprompt (Golden-Test).
+  schlank: true
+
 governance:
   trust_level: 3                  # DEPRECATED (S8.3): Gating laeuft ueber data/autonomy.json
                                   # (hard_gate im Cockpit unter Gewissen->Autonomie einstellbar)
