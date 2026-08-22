@@ -1,0 +1,2 @@
+{"kind": "shard_info", "shard": 5, "aufgaben": 50}
+{"kind": "suite_start", "total": 50, "suite": "swebench", "role": "harness", "model": "openrouter/stealth/ox-alpha"}
