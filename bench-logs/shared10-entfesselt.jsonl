@@ -1,2 +1,3 @@
 {"kind": "suite_start", "total": 10, "suite": "swebench", "role": "harness", "model": "openrouter/stealth/ox-alpha"}
 {"kind": "task_done", "id": "astropy__astropy-12907", "passed": true, "rc": 0, "out": "Patch beruehrt Gold-Datei(en): astropy/modeling/separable.py · 678s"}
+{"kind": "task_done", "id": "astropy__astropy-14182", "passed": true, "rc": 0, "out": "Patch beruehrt Gold-Datei(en): astropy/io/ascii/rst.py · 1168s"}
