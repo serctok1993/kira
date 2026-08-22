@@ -155,6 +155,17 @@ selfdev:
   fast_verify_in_run: true
 
 # Autonomie & Sicherung
+# Entfesselung II (22.08.): Zwei-Rollen-Betrieb statt 5-Etagen-Kaskade. Sobald
+# models.kopf/ausfuehrer gesetzt sind, laufen ALLE Aufgaben ueber genau zwei Rollen:
+#   kopf       = Planung + finale Urteile (escalate=True, task_type 'plan')
+#   ausfuehrer = alles andere (Chat, Coding, Delegation, Masse)
+# Beide duerfen DASSELBE Modell sein (Ziel: Qwen 3.8 lokal fuer beides), oder getrennt
+# (stark planen, guenstig ausfuehren). Beispiel fuer den Umstieg:
+#   models:
+#     kopf: ollama_chat/qwen3.8
+#     ausfuehrer: ollama_chat/qwen3.8
+# Ohne die Keys gilt das historische Routing unten unveraendert (Cloud-Mix).
+
 prompt:
   # Entfesselung 22.08.: EIN Modell faehrt alles -> der 9k-Token-Vollprompt (Verfassung+
   # Seele+Ziel+Koerper+Playbooks) ist Prefill-Ballast und sein Vorsichts-Ton bremste

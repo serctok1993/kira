@@ -436,6 +436,20 @@ def resolve_model(task_type: str = "default", escalate: bool = False) -> tuple[s
     forced = os.getenv("KIRA_FORCE_MODEL")
     if forced:
         return forced, False
+    # Entfesselung II (22.08., Kurs Ein-Modell-Betrieb): sind models.kopf/ausfuehrer
+    # gesetzt, kollabiert die 5-Etagen-Kaskade auf ZWEI Rollen — Kopf (Planung/Urteil:
+    # escalate=True und task_type 'plan') und Ausfuehrer (alles andere). Beide duerfen
+    # dasselbe Modell sein (Qwen 3.8 lokal) oder getrennt (stark planen, guenstig
+    # ausfuehren). Ohne die Keys laeuft das historische Routing unveraendert.
+    kopf = models.get("kopf")
+    ausfuehrer = models.get("ausfuehrer")
+    if kopf or ausfuehrer:
+        ziel = (kopf if (escalate or task_type == "plan") else ausfuehrer) \
+            or kopf or ausfuehrer
+        if _has_key(ziel):
+            return ziel, False
+        _note_fallback(task_type, ziel, models["local_fallback"])
+        return models["local_fallback"], True
     if escalate:
         target = models.get("escalation_model")
         if target and _has_key(target):

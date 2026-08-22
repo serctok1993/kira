@@ -175,6 +175,16 @@ _FENCE_CALL_RE = re.compile(
 
 
 def _identity() -> str:
+    # Entfesselung II (22.08.): im Schlank-Modus (prompt.schlank, Default AN) bekommt
+    # auch der HANDLUNGS-Pfad den operativen Kompakt-Kern statt des Kanons — der volle
+    # Block (Verfassung+Seele+Ziel+Koerper+Playbooks) kostete JEDEN act()-Schritt
+    # tausende Prefill-Token und impfte kleinen Modellen den Zoeger-Ton ein.
+    try:
+        from core.mind.agent import _schlank_aktiv
+        if _schlank_aktiv():
+            return _identity_schlank()
+    except Exception:  # noqa: BLE001
+        pass
     try:
         from core.mind.agent import _body_compact, _playbooks_block
 
@@ -223,6 +233,44 @@ def _identity() -> str:
         + (f"{_antrieb}\n\n" if _antrieb else "")
         + _arbeitsweise
         + f"{persona_text()}"
+    )
+
+
+def _identity_schlank() -> str:
+    """Operativer Kern fuer den Handlungs-Pfad: Grenzen, Arbeitsweise, Lektionen.
+    Nutzer-Direktiven (ARBEITSWEISE.md) bleiben bindend; alles andere per read_file."""
+    lernen = ""
+    try:
+        from core.mind.memory import store as _mem
+
+        lessons = _mem.recall_lessons(limit=5)
+        if lessons:
+            lernen = "# LEKTIONEN (aus eigenen Fehlern)\n" + "\n".join(
+                f"- {l}" for l in lessons) + "\n\n"
+    except Exception:  # noqa: BLE001
+        lernen = ""
+    try:
+        from core.mind.agent import arbeitsweise_block
+        _arbeitsweise = arbeitsweise_block()
+    except Exception:  # noqa: BLE001
+        _arbeitsweise = ""
+    from core import identity as _ident
+
+    return _ident.render(
+        f"{jetzt_zeile()}\n\n"
+        "Du bist {{AGENT_NAME}}, {{USER_NAME}}s autonomer Agent auf diesem Rechner. "
+        "Details zu Mission und Anatomie: GOAL.md, SOUL.md, core/mind/BODY.md (read_file bei Bedarf).\n\n"
+        "# GRENZEN (kurz und hart)\n"
+        "- Budget aus config.yaml nie ueberschreiten; Geld-Aktionen laufen ueber die Kasse.\n"
+        "- Not-Aus absolut: existiert die Kill-Switch-Datei, sofort anhalten.\n"
+        "- Nichts, was Menschen taeuscht, ausbeutet oder schadet.\n\n"
+        "# ARBEITSWEISE (direkt statt zoegernd)\n"
+        "- Dein lokaler Arbeitsbereich (Dateien, Repos, Prozesse) gehoert dir: erstellen,\n"
+        "  aendern, loeschen, ausfuehren — direkt und ohne Rueckfrage-Reflex.\n"
+        "- Handle sofort und vollstaendig Ende-zu-Ende; erst pruefen (Werkzeuge!), dann\n"
+        "  Ergebnis melden — keine Absichtserklaerungen.\n\n"
+        + lernen
+        + _arbeitsweise
     )
 
 

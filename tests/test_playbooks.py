@@ -149,10 +149,13 @@ def test_echte_vault_dateien():
     assert idx.count("<!-- AUTO:START -->") == 1 and idx.count("<!-- AUTO:END -->") == 1
 
 
-def test_router_steht_in_beiden_prompt_pfaden():
+def test_router_steht_in_beiden_prompt_pfaden(monkeypatch):
+    """Vollprompt-Vertrag: Playbooks stehen in beiden Pfaden. Im Schlank-Modus
+    (Live-Default) sind sie bewusst NICHT im Prompt — playbook_list/read bleiben."""
     from core.agency.act import _identity
     from core.mind import agent
 
+    monkeypatch.setattr(agent, "_schlank_aktiv", lambda: False)
     assert "DEINE PLAYBOOKS" in _identity()                   # Task-Pfad
     assert "DEINE PLAYBOOKS" in agent._playbooks_block()      # Chat-Pfad (Kopf-Funktion)
 

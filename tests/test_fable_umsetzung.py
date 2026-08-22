@@ -26,23 +26,33 @@ def test_verifier_route_ist_denker():
 # ---- Motor liest eigene Lektionen -------------------------------------------------------
 
 def test_identity_enthaelt_lektionen_und_skills(monkeypatch):
+    """Vollprompt-Vertrag (prompt.schlank: false) — der Schlank-Pfad hat eigene Tests
+    (test_zweirollen); Lektionen fliessen dort ebenfalls ein."""
     from core.agency import act
+    from core.mind import agent
     from core.mind.memory import store
+    monkeypatch.setattr(agent, "_schlank_aktiv", lambda: False)
     monkeypatch.setattr(store, "recall_lessons", lambda limit=5: ["nie ohne test pushen"])
     monkeypatch.setattr(store, "recall_skills", lambda limit=6: ["leads recherchieren"])
     ident = act._identity()
     assert "DEINE GELERNTEN LEKTIONEN" in ident and "nie ohne test pushen" in ident
     assert "DEINE SKILLS" in ident and "leads recherchieren" in ident
+    # Schlank-Pfad (Live-Default): Lektionen bleiben drin — aus Fehlern lernen gilt immer
+    monkeypatch.setattr(agent, "_schlank_aktiv", lambda: True)
+    assert "nie ohne test pushen" in act._identity()
 
 
 def test_identity_failsoft_ohne_memory(monkeypatch):
     from core.agency import act
+    from core.mind import agent
     from core.mind.memory import store
     def boom(limit=5):
         raise RuntimeError("db weg")
     monkeypatch.setattr(store, "recall_lessons", boom)
-    ident = act._identity()  # darf nie raisen
-    assert "DEINE VERFASSUNG" in ident
+    ident = act._identity()  # darf nie raisen (Schlank-Pfad, Live-Default)
+    assert "ARBEITSWEISE" in ident
+    monkeypatch.setattr(agent, "_schlank_aktiv", lambda: False)
+    assert "DEINE VERFASSUNG" in act._identity()  # Vollprompt-Pfad ebenso fail-soft
 
 
 # ---- Doctor: Eskalations-Warnung (flexibel, kein Festnageln) ---------------------------
