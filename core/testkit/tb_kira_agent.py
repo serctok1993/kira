@@ -156,9 +156,11 @@ class KiraAgent(BaseAgent):
 
                 events.init_db()
                 messages = [{"role": "user", "content": instruction}]
+                # max_steps grosszuegig: die echte Grenze ist Harbors Task-Wall-Clock
+                # (900-1800s); der Loop endet frueher, sobald die Aufgabe fertig ist.
                 return act._native_loop(
                     messages, _SYSTEM, session_id=sid, escalate=True,
-                    emit=lambda ev: None, max_steps=80, task_type="reason",
+                    emit=lambda ev: None, max_steps=150, task_type="reason",
                     erlaubt=frozenset({"terminal"}), rolle="terminal-bench")
             finally:
                 _TL.loop = None
