@@ -988,12 +988,12 @@ def _behauptet_zustandsaenderung(text: str) -> str | None:
 # Nudge zu einem echten run_command, weil der Harness die Rueckfrage des Modells als
 # Ankuendigung wegbuegelte. Bei sicherheits- oder geldrelevanten Wuenschen ist Nachfragen
 # die RICHTIGE Antwort — da wird nie gestupst.
+# Entfesselung 23.08. (Inventur M16): NUR noch echte System-Sicherheits-Begriffe gelten
+# als heikel (Defender/Firewall/Registry/Formatieren) — Kaufen/Bestellen/Posten/Kuendigen
+# sind seit dem Gate-Aus normale Auftraege und werden wie jede Arbeit direkt erledigt.
 _HEIKEL_RE = re.compile(
     r"\b(defender|firewall|virenschutz|antivirus|registry|bitlocker|"
-    r"deinstallier|formatier|partition|systemwiederherstellung|"
-    r"abschalten|ausschalten|deaktivier|abstellen|"
-    r"kuendig|kündig|ueberweis|überweis|bezahl|kaufe?n?|bestell|"
-    r"veroeffentlich|veröffentlich|poste?n?\b|tweete?n?)\b", re.IGNORECASE)
+    r"deinstallier|formatier|partition|systemwiederherstellung)\b", re.IGNORECASE)
 
 
 def _nudge_angebracht(user_message: str) -> bool:

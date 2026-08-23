@@ -114,7 +114,9 @@ agency:
   # Call in 21 Tagen ueber 150s), aber sobald qwen35b wieder auf chat/reason liegt,
   # reisst die Marke.
   turn_stall_seconds: 660
-  auto_plan: false           # klarer Arbeitsauftrag im Plain-Chat -> automatisch Plan-Modus (Denker-Rang, nicht Eskalation); Aenderung braucht Neustart
+  auto_plan: true            # Entfesselung 23.08.: klarer Arbeitsauftrag im Plain-Chat geht
+                             # automatisch in den Plan-Modus, statt im 24-Runden-Chat zu
+                             # ersticken (Denker-Rang, keine Eskalation); braucht Neustart
   claim_check: true         # Beweispflicht: behauptete Dateien in Antworten werden nachgeprueft, fehlende sichtbar gestempelt
   # Fable-freundliche Arbeitsflaeche: laeuft die Runde REAL auf einem starken Cloud-Modell
   # (Marker unten, kein Fallback), gelten diese grosszuegigeren Decken statt der Basis oben.

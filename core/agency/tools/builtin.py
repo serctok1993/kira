@@ -472,17 +472,21 @@ def _destruktiv_guard(p: Path, tool_name: str, was: str,
         return ("BLOCKIERT: data/backups ist der Sicherungs-Ordner (auch der Papierkorb). "
                 f"Dort raeumt nur {_id.user_name()} selbst auf. Etwas aus dem Papierkorb "
                 "zurueckholen geht mit move_file.")
-    if rp.suffix.lower() in _CODE_EXT and rp.exists():
+    # Entfesselung 23.08. (Inventur M8): nur noch der KERN (core/**) ist vor move/delete
+    # geschuetzt — vorher war JEDE Code-Datei im Repo unloeschbar, und genau das war die
+    # Ur-Beschwerde des Besitzers ('selbst eine Datei loeschen wurde blockiert').
+    # Eigene Skripte, Daten-Ablagen und Wegwerf-Code raeumt der Agent jetzt direkt weg;
+    # Git macht es umkehrbar, das write_blocked-Event protokolliert den Kern-Fall.
+    if rp.suffix.lower() in _CODE_EXT and rp.exists() and _core_schutz(rp):
+        rel = str(rp)
         try:
-            in_repo = rp.is_relative_to(ROOT.resolve())
-        except Exception:  # noqa: BLE001
-            in_repo = False
-        if in_repo:
             rel = rp.relative_to(ROOT.resolve()).as_posix()
-            _melden("write_blocked",
-                    {"path": str(rp), "tool": tool_name, "grund": "code_destruktiv"})
-            return (f"BLOCKIERT: bestehende Code-Datei ({rel}) nicht per {tool_name} {was} — "
-                    "das umgeht Verify + Gate. Code-Umbauten laufen ueber self_edit.")
+        except Exception:  # noqa: BLE001
+            pass
+        _melden("write_blocked",
+                {"path": str(rp), "tool": tool_name, "grund": "code_destruktiv"})
+        return (f"BLOCKIERT: Kern-Datei ({rel}) nicht per {tool_name} {was} — "
+                "Kern-Umbauten laufen ueber self_edit (Verify + Rollback).")
     return None
 
 

@@ -32,7 +32,8 @@ def test_parse_valid_list():
     (json.dumps([{"action": "click"}]), "selector"),
     (json.dumps([{"action": "fill", "selector": "#a"}]), "text"),
     (json.dumps([{"action": "press"}]), "key"),
-    (json.dumps([{"action": "read"}] * 16), "Hoechstens 15"),
+    (json.dumps([{"action": "read"}] * (browser.MAX_ACTIONS + 1)),
+     f"Hoechstens {browser.MAX_ACTIONS}"),
 ])
 def test_parse_rejects(bad, hint):
     with pytest.raises(ValueError) as e:

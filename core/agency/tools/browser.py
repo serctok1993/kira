@@ -25,8 +25,11 @@ from core import identity as _id
 from core.agency.tools.registry import tool
 
 ACTIONS = ("goto", "click", "fill", "press", "wait", "read", "screenshot")
-MAX_ACTIONS = 15
-_DEADLINE_S = 60
+# Entfesselung 23.08. (Inventur M10): 15 Aktionen / 60s reichten fuer echte Web-Ketten
+# nicht (Login -> Navigation -> Formular -> Absenden -> Pruefen). Beides jetzt aus der
+# config steuerbar; die Deadline schuetzt weiter vor haengenden Seiten.
+MAX_ACTIONS = 40
+_DEADLINE_S = 180
 
 _SESSION_DIR = DATA_DIR / "browser"
 
