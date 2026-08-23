@@ -18,6 +18,7 @@ Befehl per run_coroutine_threadsafe an environment.exec() zurueck.
 from __future__ import annotations
 
 import asyncio
+import base64
 import os
 import sys
 import tempfile
@@ -106,8 +107,31 @@ class KiraAgent(BaseAgent):
         return "2026.08"
 
     async def setup(self, environment: BaseEnvironment) -> None:
-        # Kira laeuft AUSSERHALB des Containers — nichts zu installieren.
-        return None
+        # Kira laeuft AUSSERHALB des Containers — nichts fuer den Agenten zu
+        # installieren. Aber: In dieser Sandbox laeuft ALLER HTTPS-Verkehr durch
+        # einen TLS-Proxy mit eigener CA. Damit Laufzeit-Downloads im Task-
+        # Container (pip/curl/git/apt) nicht an der Verifikation scheitern,
+        # wird die Proxy-CA VOR dem Agenten-Lauf in den Container installiert —
+        # reine Umgebungs-Akkommodation, die Task-Definition bleibt unberuehrt.
+        # Ausserhalb dieser Sandbox (keine CA-Datei) ist das ein No-op.
+        ca = Path("/root/.ccr/agent-proxy-ca.crt")
+        if not ca.exists():
+            return
+        b64 = base64.b64encode(ca.read_bytes()).decode()
+        cmd = (
+            "mkdir -p /usr/local/share/ca-certificates /etc/ssl/certs && "
+            f"echo {b64} | base64 -d > /usr/local/share/ca-certificates/ccr-proxy-ca.crt && "
+            "cat /usr/local/share/ca-certificates/ccr-proxy-ca.crt >> /etc/ssl/certs/ca-certificates.crt && "
+            "{ command -v update-ca-certificates >/dev/null 2>&1 && update-ca-certificates >/dev/null 2>&1 || true; } && "
+            "printf '[global]\\ncert = /etc/ssl/certs/ca-certificates.crt\\n' > /etc/pip.conf && "
+            "printf 'SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt\\n"
+            "REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt\\n"
+            "NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt\\n' >> /etc/environment"
+        )
+        try:
+            await environment.exec(command=cmd, timeout_sec=60)
+        except Exception:  # noqa: BLE001 — Container ohne base64/sh: Agent laeuft trotzdem
+            pass
 
     async def run(self, instruction: str, environment: BaseEnvironment,
                   context: AgentContext) -> None:
