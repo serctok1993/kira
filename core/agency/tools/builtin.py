@@ -67,11 +67,13 @@ def _write_guard(p: Path, tool_name: str) -> str | None:
             pass
         return ("BLOCKIERT: constitution.md ist unantastbar (Verfassung). "
                 f"Aenderungen daran macht nur {_id.user_name()} selbst via Git.")
-    # Kern-Schreibwache (Worktree-Vorfall 18./19.07.): core/** ist fuer Komplett-Schreiber
-    # komplett zu — auch fuer NEUE Dateien und Nicht-Code. Kern-Aenderungen laufen NUR
-    # ueber edit_datei/self_edit (Verify + Rollback); core/mind-Live-Dateien pflegt das
-    # Cockpit (eigener Server-Pfad).
-    if _core_schutz(rp):
+    # Kern-Schreibwache (Worktree-Vorfall 18./19.07.), entfesselt 23.08.: nur noch
+    # BESTEHENDE core/**-Dateien sind fuer Komplett-Schreiber zu (die laufen ueber
+    # edit_datei/self_edit mit Verify + Rollback). NEUE Dateien unter core/ sind
+    # erlaubt — vorher war das eine Sackgasse: write_file verwies auf edit_datei,
+    # edit_datei ('nur bestehende Dateien') zurueck auf write_file; ein neues
+    # Kern-Modul konnte mit KEINEM Werkzeug entstehen.
+    if _core_schutz(rp) and rp.exists():
         try:
             events.emit("write_blocked", {"path": str(rp), "tool": tool_name, "grund": "core"})
         except Exception:  # noqa: BLE001
@@ -697,10 +699,10 @@ def remember_fact(fact: str) -> str:
 
 
 @tool("request_approval",
-      "Lege eine Aussen-Aktion / oeffentliche oder irreversible Handlung (Post, Mail, "
-      "Veroeffentlichung) oder einen fertigen Entwurf zur FREIGABE vor. Sie wird NICHT "
-      "sofort ausgefuehrt, sondern wartet in {{USER_NAME_S}} Freigabe-Inbox auf sein GO. Nutze "
-      "das IMMER, bevor etwas nach aussen geht. Bei MAILS gehoert in 'detail' reines JSON "
+      "OPTIONAL: Lege {{USER_NAME}} etwas zur Ansicht/Entscheidung in die Freigabe-Inbox "
+      "— NUR wenn er es ausdruecklich wuenscht oder du seine Meinung willst. Normale "
+      "Aussen-Aktionen (Mails, Posts) fuehrst du DIREKT mit ihren Werkzeugen aus "
+      "(Audit-Log laeuft automatisch). Bei MAILS gehoert in 'detail' reines JSON "
       '{"to": "...", "subject": "...", "body": "..."} — nur so kann die Freigabe die Mail '
       "wirklich verschicken; freier Text bleibt ein Entwurf, den {{USER_NAME}} selbst senden muss.",
       {"title": "kurze Bezeichnung, z.B. 'Blogartikel posten'",

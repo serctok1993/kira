@@ -26,6 +26,10 @@ def _repo(monkeypatch, tmp_path):
     _git(tmp_path, "commit", "-q", "-m", "seed")
     monkeypatch.setattr(selfdev, "ROOT", tmp_path)
     monkeypatch.setattr(selfdev, "_request_restart", lambda which="all": None)
+    # Diese Tests pruefen den VOLLPRUEFUNGS-Vertrag (Suite vor Commit, Rollback bei Rot).
+    # Seit der Entfesselung 23.08. ist der schnelle Syntax-Check der Default (sonst kostete
+    # jeder Einzel-Edit Minuten) — fuer den Vertrag hier schalten wir ihn ab.
+    monkeypatch.setattr(selfdev, "fast_verify_active", lambda: False)
     return tmp_path
 
 
@@ -100,3 +104,48 @@ def test_verify_cmd_plattformfest(monkeypatch, tmp_path):
     # ohne verify_cmd: Import-Smoke mit existierendem Python
     monkeypatch.setitem(CONFIG, "selfdev", {})
     assert "import core.api.server" in selfdev._verify_cmd()
+
+
+# --- Entfesselung 23.08.: Schnellpruefung ist Default -------------------------------
+def test_schnellpruefung_ist_default_und_spart_die_suite(monkeypatch, tmp_path):
+    """Inventur-Befund H7/H11: ausserhalb von code:-Laeufen lief nach JEDEM Einzel-Edit
+    die komplette Testsuite (Minuten pro Edit). Jetzt reicht der Syntax-/Truncation-Check;
+    die Suite laeuft am Lauf-Ende bzw. auf Wunsch."""
+    from core.agency import selfdev
+    repo = _repo(monkeypatch, tmp_path)
+    monkeypatch.setattr(selfdev, "fast_verify_active", lambda: True)  # der echte Default
+    gelaufen = []
+    monkeypatch.setattr(selfdev, "_verify", lambda: (gelaufen.append(1), (True, ""))[1])
+
+    r = selfdev.apply_edit("mod.py", "def f():\n    return 2\n", reason="schnell")
+
+    assert r["ok"] is True and r["verified"] is False
+    assert not gelaufen, "die volle Suite darf pro Einzel-Edit NICHT laufen"
+    assert (repo / "mod.py").read_text(encoding="utf-8") == "def f():\n    return 2\n"
+    assert _git(repo, "log", "-1", "--pretty=%s").startswith("selfdev:")   # trotzdem committet
+
+
+def test_kaputte_syntax_wird_auch_schnell_abgelehnt(monkeypatch, tmp_path):
+    """Die Schnellpruefung ist kein Blankoscheck: Syntaxfehler fliegen weiter raus."""
+    from core.agency import selfdev
+    repo = _repo(monkeypatch, tmp_path)
+    monkeypatch.setattr(selfdev, "fast_verify_active", lambda: True)
+
+    r = selfdev.apply_edit("mod.py", "def f(:\n  kaputt\n", reason="kaputt")
+
+    assert r["ok"] is False
+    assert (repo / "mod.py").read_text(encoding="utf-8") == "def f():\n    return 1\n"
+
+
+def test_config_dateien_behalten_die_vollpruefung(monkeypatch, tmp_path):
+    """YAML/JSON koennen die ganze Instanz lahmlegen (config-Import) — dort bleibt die
+    volle Verify PFLICHT, auch im Schnell-Modus."""
+    from core.agency import selfdev
+    repo = _repo(monkeypatch, tmp_path)
+    monkeypatch.setattr(selfdev, "fast_verify_active", lambda: True)
+    gelaufen = []
+    monkeypatch.setattr(selfdev, "_verify", lambda: (gelaufen.append(1), (True, ""))[1])
+
+    r = selfdev.apply_edit("konf.yaml", "a: 1\n", reason="konfig")
+
+    assert r["ok"] is True and gelaufen, "Config-Edit muss die Suite laufen lassen"

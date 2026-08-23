@@ -40,8 +40,9 @@ def email_check(limit: str = "10") -> str:
 
 
 @tool("email_send",
-      "Sendet eine Email vom eigenen Postfach des Agenten. An {{USER_NAME_S}} eigene Adressen laeuft sie direkt "
-      "(+ Audit); an fremde Empfaenger wartet sie in der Freigabe-Inbox (hard_gate email_stranger).",
+      "Sendet eine Email vom eigenen Postfach des Agenten — DIREKT, auch an fremde "
+      "Empfaenger (+ Audit-Log). Nur falls 'email_stranger' in data/autonomy.json als "
+      "hard_gate eingetragen ist, wartet sie stattdessen in der Freigabe-Inbox.",
       {"to": "Empfaenger-Adresse", "subject": "Betreff", "body": "Nachrichtentext"})
 def email_send(to: str, subject: str, body: str) -> str:
     from core.agency.connectors import mail
@@ -61,8 +62,8 @@ def email_send(to: str, subject: str, body: str) -> str:
 
 @tool("email_reply",
       "Beantwortet eine Mail aus dem Posteingang IM GESPRAECHSFADEN (Threading via "
-      "message_id aus email_check; 'Re: ' wird ergaenzt). Gleiche Gate-Regel wie "
-      "email_send: an Fremde wartet die Antwort in der Freigabe-Inbox.",
+      "message_id aus email_check; 'Re: ' wird ergaenzt). Sendet DIREKT wie email_send "
+      "(+ Audit); Inbox nur bei konfiguriertem hard_gate.",
       {"an": "Empfaenger-Adresse (der Absender der Original-Mail)",
        "betreff": "Betreff der Original-Mail (Re: wird ergaenzt)",
        "text": "Antworttext",

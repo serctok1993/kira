@@ -2115,7 +2115,18 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
 
     # Diff-Review (nur code:-Laeufe): ein frischer Denker liest den entstandenen Diff
     # gegen den Auftrag — Maengel -> EIN Fix-Schritt, danach ehrlicher Vermerk.
-    review_note = _code_review_run(task, head0, session_id, escalate, emit) if code_review else ""
+    # Entfesselung 23.08. (Inventur H12): der Review-Zyklus kostet pro Lauf einen extra
+    # LLM-Call (+ ggf. Fix-Lauf) und ist jetzt OPT-IN via selfdev.code_review: true.
+    # Die Endabnahme (Testsuite am Lauf-Ende + Rollback bei Rot) bleibt unveraendert —
+    # SIE ist das Sicherheitsnetz, der Review war die zweite Meinung.
+    def _review_aktiv() -> bool:
+        try:
+            from core.config import CONFIG as _C
+            return bool((_C.get("selfdev", {}) or {}).get("code_review", False))
+        except Exception:  # noqa: BLE001
+            return False
+    review_note = (_code_review_run(task, head0, session_id, escalate, emit)
+                   if code_review and _review_aktiv() else "")
     # Endabnahme + Fast-Verify-Flag SICHER zuruecksetzen (auch die Review-Fixes liefen schnell).
     endab = _endabnahme(head0, session_id, emit) if fast_on else ""
     if fast_on:

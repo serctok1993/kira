@@ -35,12 +35,15 @@ def test_schlank_flag_kommt_aus_der_config(monkeypatch):
     assert agent._schlank_aktiv() is True   # Default: entfesselt
 
 
-def test_hard_gate_default_nur_geld(monkeypatch, tmp_path):
-    """Entfesselung: nur Geld braucht per Default eine Freigabe — Mails an Fremde und
-    Posts laufen direkt (Audit-Log bleibt)."""
+def test_hard_gate_default_leer(monkeypatch, tmp_path):
+    """Voll-Entfesselung 23.08. (Besitzer-Entscheid): KEIN Default-Gate mehr — die
+    Grenzen sind Budget (Treasury), Kill-Switch und eigene Prompts; Audit bleibt."""
     from core.governance import autonomy
 
     monkeypatch.setattr(autonomy, "_PATH", tmp_path / "autonomy.json")
-    assert autonomy.needs_approval("money") is True
+    assert autonomy.needs_approval("money") is False
     assert autonomy.needs_approval("email_stranger") is False
     assert autonomy.needs_approval("publish") is False
+    # Eigene Gates in data/autonomy.json wirken weiterhin
+    (tmp_path / "autonomy.json").write_text('{"hard_gate": ["money"]}', encoding="utf-8")
+    assert autonomy.needs_approval("money") is True
