@@ -7,3 +7,4 @@
 {"kind": "task_done", "id": "mwaskom__seaborn-2848", "passed": true, "rc": 0, "out": "Patch beruehrt Gold-Datei(en): seaborn/_oldcore.py · 825s"}
 {"kind": "task_done", "id": "pallets__flask-4045", "passed": true, "rc": 0, "out": "Patch beruehrt Gold-Datei(en): src/flask/blueprints.py · 895s"}
 {"kind": "task_done", "id": "psf__requests-1963", "passed": true, "rc": 0, "out": "Patch beruehrt Gold-Datei(en): requests/sessions.py · 897s"}
+{"kind": "task_done", "id": "pydata__xarray-3364", "passed": true, "rc": 0, "out": "Patch beruehrt Gold-Datei(en): xarray/core/concat.py · 1612s"}
