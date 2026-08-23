@@ -122,9 +122,17 @@ class KiraAgent(BaseAgent):
             return
         try:
             await environment.exec(
-                command="mkdir -p /etc/ssl/certs /usr/local/share/ca-certificates",
+                command="mkdir -p /etc/ssl/certs /usr/local/share/ca-certificates /etc/uv",
                 timeout_sec=30)
             await environment.upload_file(ca, "/etc/ssl/certs/ca-certificates.crt")
+            anth = self._anthropic_cas(ca)
+            if anth:
+                tmp = Path(tempfile.mkstemp(suffix=".pem")[1])
+                tmp.write_text(anth, encoding="utf-8")
+                try:
+                    await environment.upload_file(tmp, "/etc/ssl/ccr-anthropic.pem")
+                finally:
+                    tmp.unlink(missing_ok=True)
             cmd = (
                 "awk '/BEGIN CERTIFICATE/{c++; keep=1} "
                 "keep{print > (\"/usr/local/share/ca-certificates/ccr-\" c \".crt\")} "
@@ -132,13 +140,45 @@ class KiraAgent(BaseAgent):
                 "{ command -v update-ca-certificates >/dev/null 2>&1 && "
                 "update-ca-certificates >/dev/null 2>&1 || true; } && "
                 "printf '[global]\\ncert = /etc/ssl/certs/ca-certificates.crt\\n' > /etc/pip.conf && "
+                # uv (rustls) liest NICHT den System-Store: native-tls global erzwingen —
+                # TB2-Verifier holen pytest via uv, sonst 0 Punkte trotz geloester Aufgabe.
+                "printf 'native-tls = true\\n' > /etc/uv/uv.toml && "
+                # certifi-Bundles (requests/httpx/pip-vendored) dateibasiert ergaenzen,
+                # damit auch Prozesse OHNE die Env-Variablen verifizieren koennen.
+                "{ [ -f /etc/ssl/ccr-anthropic.pem ] && "
+                "find /usr /opt /root -name cacert.pem 2>/dev/null | "
+                "while read -r f; do cat /etc/ssl/ccr-anthropic.pem >> \"$f\"; done || true; } && "
                 "printf 'SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt\\n"
                 "REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt\\n"
-                "NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt\\n' >> /etc/environment"
+                "NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt\\n"
+                "UV_NATIVE_TLS=1\\n' >> /etc/environment"
             )
             await environment.exec(command=cmd, timeout_sec=120)
         except Exception:  # noqa: BLE001 — Minimal-Container ohne awk/sh: Agent laeuft trotzdem
             pass
+
+    @staticmethod
+    def _anthropic_cas(bundle: Path) -> str:
+        """Nur die Sandbox-Abfang-CAs aus dem Bundle (DER-Bytes nach 'Anthropic'
+        durchsucht — bewusst ohne x509-Abhaengigkeit); fuer certifi-Appends."""
+        import base64 as b64
+        import re
+        try:
+            pem = bundle.read_text(encoding="utf-8")
+            blocks = re.findall(
+                r"-----BEGIN CERTIFICATE-----\n.*?-----END CERTIFICATE-----\n?", pem, re.S)
+            treffer = []
+            for b in blocks:
+                koerper = "".join(b.strip().splitlines()[1:-1])
+                try:
+                    if b"Anthropic" in b64.b64decode(koerper):
+                        treffer.append(b if b.endswith("\n") else b + "\n")
+                except Exception:  # noqa: BLE001
+                    continue
+            # Duplikate raus (das Bundle enthaelt einige CAs doppelt)
+            return "".join(dict.fromkeys(treffer))
+        except Exception:  # noqa: BLE001
+            return ""
 
     async def run(self, instruction: str, environment: BaseEnvironment,
                   context: AgentContext) -> None:
