@@ -12,3 +12,5 @@ echo '  set -a && . ./.env && set +a'
 echo '  .tb-venv/bin/harbor run -d "terminal-bench@2.0" \'
 echo '      -a core.testkit.tb_kira_agent:KiraAgent \'
 echo '      -m openrouter/nvidia/nemotron-3-ultra-550b-a55b:free -o tb-jobs'
+# Kira fuer den Harbor-Prozessbaum importierbar machen (Subprozesse verlieren PYTHONPATH)
+echo "$(cd "$(dirname "$0")/.." && pwd)" > .tb-venv/lib/python3.13/site-packages/kira_root.pth
