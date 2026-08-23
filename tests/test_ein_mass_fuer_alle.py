@@ -370,3 +370,18 @@ class TestDieVerdrahtungInComplete:
         monkeypatch.setattr(r, "resolve_model", lambda *a, **k: ("nacht35b", False))
         r.complete([{"role": "user", "content": "kurz"}], system="S")
         assert len(zaehler) == 1
+
+
+def test_bench_override_hebt_die_wallclock(monkeypatch):
+    """KIRA_HARD_CALL_TIMEOUT (Bench-Sandbox): Gratis-Reasoning-Modelle denken teils
+    >300s pro Zug — der Geld-Schutz greift dort ins Leere. Der Override gilt fuer
+    Cloud UND lokal; ohne ihn bleibt der scharfe Live-Deckel (test_cloud_bleibt_eng)."""
+    from core.kernel import llm_router as r
+
+    monkeypatch.setenv("KIRA_HARD_CALL_TIMEOUT", "600")
+    assert r._hard_cap_seconds(lokal=False) == 600
+    assert r._hard_cap_seconds(lokal=True) == 600
+    monkeypatch.setenv("KIRA_HARD_CALL_TIMEOUT", "quatsch")
+    assert r._hard_cap_seconds(lokal=False) <= 300  # kaputter Wert -> Live-Deckel
+    monkeypatch.delenv("KIRA_HARD_CALL_TIMEOUT")
+    assert r._hard_cap_seconds(lokal=False) <= 300

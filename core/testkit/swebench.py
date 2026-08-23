@@ -136,6 +136,10 @@ def _agent_env(allow_llm: bool = True, model: str | None = None) -> dict:
            # Lokalisierung sonst alle Runden, der Edit faellt hinten runter (v4: 9/10
            # Arbeiter-Schritte mitten im Zug abgeschnitten, Patches leer).
            "KIRA_BUDGET_MAX_STEPS_PLAN_STEP": "24",
+           # Reasoning-Modelle (ox-alpha & Co.) denken teils >300s pro Zug — die
+           # Cloud-Wall-Clock (Geld-Schutz) greift bei Gratis-Modellen ins Leere
+           # und wuerde fertige Loesungen abreissen (wf2-Befund 23.08.).
+           "KIRA_HARD_CALL_TIMEOUT": "600",
            "PYTHONPATH": str(_kira_repo())}
     env.pop("KIRA_ROOT", None)
     if model:  # Direktwahl: DIESES Modell fuer alle Rollen im Bench-Subprozess

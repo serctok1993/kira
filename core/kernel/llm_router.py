@@ -60,7 +60,18 @@ def _hard_cap_seconds(lokal: bool = False) -> float:
 
     Ein lokaler Call kostet nichts ausser Zeit, und ihn abzuschiessen wirft die ganze
     Runde weg. Cloud bleibt eng: dort ist ein haengender Socket real (ein Call hing
-    ~8 Minuten) und laeuft aufs Geld."""
+    ~8 Minuten) und laeuft aufs Geld.
+
+    KIRA_HARD_CALL_TIMEOUT (Bench-Knopf, 23.08.): kostenlose Reasoning-Modelle
+    (ox-alpha & Co.) denken teils >300s pro Zug — der Geld-Schutz greift dort ins
+    Leere und riss im wf2-Lauf einen fertigen Task ab. Die Bench-Sandbox setzt den
+    Override; Live-Verhalten bleibt unveraendert."""
+    ov = os.getenv("KIRA_HARD_CALL_TIMEOUT")
+    if ov:
+        try:
+            return float(ov)
+        except ValueError:
+            pass
     base = float(CONFIG["models"].get("request_timeout", 120))
     if lokal:
         return float(CONFIG["models"].get("hard_call_timeout_local", 600))
