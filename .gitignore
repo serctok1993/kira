@@ -65,3 +65,9 @@ sunrise_simulation.py
 core/logs/
 *.log
 test-claude-ablage/
+
+# Terminal-Bench: eigene Runner-Umgebung + Datensatz-Cache (extern, nie einchecken)
+.tb-venv/
+terminal-bench/
+tb-jobs/
+jobs/
