@@ -18,7 +18,6 @@ Befehl per run_coroutine_threadsafe an environment.exec() zurueck.
 from __future__ import annotations
 
 import asyncio
-import base64
 import os
 import sys
 import tempfile
@@ -108,29 +107,37 @@ class KiraAgent(BaseAgent):
 
     async def setup(self, environment: BaseEnvironment) -> None:
         # Kira laeuft AUSSERHALB des Containers — nichts fuer den Agenten zu
-        # installieren. Aber: In dieser Sandbox laeuft ALLER HTTPS-Verkehr durch
-        # einen TLS-Proxy mit eigener CA. Damit Laufzeit-Downloads im Task-
-        # Container (pip/curl/git/apt) nicht an der Verifikation scheitern,
-        # wird die Proxy-CA VOR dem Agenten-Lauf in den Container installiert —
-        # reine Umgebungs-Akkommodation, die Task-Definition bleibt unberuehrt.
+        # installieren. Aber: Diese Sandbox re-terminiert ALLEN HTTPS-Verkehr
+        # (Container transparent via Egress-Gateway-CA, nicht ueber die lokale
+        # Agent-Proxy-CA!). Damit Laufzeit-Downloads im Task-Container
+        # (pip/curl/git/apt) nicht an der Verifikation scheitern, wird das
+        # komplette Host-CA-Bundle (Mozilla-Roots + Anthropic-Abfang-CAs) VOR dem
+        # Agenten-Lauf installiert — reine Umgebungs-Akkommodation, die
+        # Task-Definition bleibt unberuehrt. Einzelzert-Dateien in
+        # /usr/local/share machen das Vertrauen fest gegen ein spaeteres
+        # update-ca-certificates im Task (das ueberschreibt das Bundle sonst).
         # Ausserhalb dieser Sandbox (keine CA-Datei) ist das ein No-op.
-        ca = Path("/root/.ccr/agent-proxy-ca.crt")
+        ca = Path("/root/.ccr/ca-bundle.crt")
         if not ca.exists():
             return
-        b64 = base64.b64encode(ca.read_bytes()).decode()
-        cmd = (
-            "mkdir -p /usr/local/share/ca-certificates /etc/ssl/certs && "
-            f"echo {b64} | base64 -d > /usr/local/share/ca-certificates/ccr-proxy-ca.crt && "
-            "cat /usr/local/share/ca-certificates/ccr-proxy-ca.crt >> /etc/ssl/certs/ca-certificates.crt && "
-            "{ command -v update-ca-certificates >/dev/null 2>&1 && update-ca-certificates >/dev/null 2>&1 || true; } && "
-            "printf '[global]\\ncert = /etc/ssl/certs/ca-certificates.crt\\n' > /etc/pip.conf && "
-            "printf 'SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt\\n"
-            "REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt\\n"
-            "NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt\\n' >> /etc/environment"
-        )
         try:
-            await environment.exec(command=cmd, timeout_sec=60)
-        except Exception:  # noqa: BLE001 — Container ohne base64/sh: Agent laeuft trotzdem
+            await environment.exec(
+                command="mkdir -p /etc/ssl/certs /usr/local/share/ca-certificates",
+                timeout_sec=30)
+            await environment.upload_file(ca, "/etc/ssl/certs/ca-certificates.crt")
+            cmd = (
+                "awk '/BEGIN CERTIFICATE/{c++; keep=1} "
+                "keep{print > (\"/usr/local/share/ca-certificates/ccr-\" c \".crt\")} "
+                "/END CERTIFICATE/{keep=0}' /etc/ssl/certs/ca-certificates.crt && "
+                "{ command -v update-ca-certificates >/dev/null 2>&1 && "
+                "update-ca-certificates >/dev/null 2>&1 || true; } && "
+                "printf '[global]\\ncert = /etc/ssl/certs/ca-certificates.crt\\n' > /etc/pip.conf && "
+                "printf 'SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt\\n"
+                "REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt\\n"
+                "NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt\\n' >> /etc/environment"
+            )
+            await environment.exec(command=cmd, timeout_sec=120)
+        except Exception:  # noqa: BLE001 — Minimal-Container ohne awk/sh: Agent laeuft trotzdem
             pass
 
     async def run(self, instruction: str, environment: BaseEnvironment,
