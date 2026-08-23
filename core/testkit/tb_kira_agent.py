@@ -141,6 +141,26 @@ class KiraAgent(BaseAgent):
         context.cost_usd = kosten or None
         context.metadata = {"kira_final": (final or "")[:1500], "session_id": sid}
 
+        # Degradation (Provider-/Quota-Tod: _native_loop liefert einen Degrade-Bericht
+        # statt zu werfen — richtig fuer Live, falsch fuer den Benchmark) als Exception
+        # melden: nur so zaehlt Harbor den Trial als Fehler und `harbor jobs resume`
+        # wiederholt ihn spaeter, statt eine 0 als "fertig" festzuschreiben.
+        deg = self._degradiert(sid)
+        if deg:
+            raise RuntimeError(f"KiraDegraded: {deg}")
+
+    @staticmethod
+    def _degradiert(session_id: str) -> str | None:
+        """Letzter act_degraded-Fehler dieses Tasks aus Kiras Event-Log, sonst None."""
+        try:
+            from core.kernel import events
+            for e in events.recent(5000):
+                if e.get("session_id") == session_id and e["type"] == "act_degraded":
+                    return str((e["payload"] or {}).get("error") or "unbekannt")[:300]
+            return None
+        except Exception:  # noqa: BLE001
+            return None
+
     @staticmethod
     def _bilanz(session_id: str) -> tuple[int, int, float]:
         """Tokens/Kosten aus Kiras eigenem llm_call-Event-Log dieses Tasks."""
