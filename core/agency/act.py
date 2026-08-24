@@ -1456,6 +1456,17 @@ def _typisiert(roh: str):
         return roh
 
 
+def _im_zitat(text: str, start: int) -> bool:
+    """Steht die Fundstelle in einem Code-Zaun oder direkt hinter einem Backtick?
+
+    Eine ungerade Zahl von ``` vor der Stelle heisst: wir sind IN einem Zaun.
+    Der Backtick unmittelbar davor faengt Inline-Zitate wie `<tool_call>…` ab.
+    """
+    if text.count("```", 0, start) % 2 == 1:
+        return True
+    return start > 0 and text[start - 1] == "`"
+
+
 def _parse_leaked_tool_calls(text: str) -> list[dict]:
     """Holt als TEXT geleakte Tool-Calls heraus — drei Dialekte, ein Ergebnis.
 
@@ -1465,18 +1476,29 @@ def _parse_leaked_tool_calls(text: str) -> list[dict]:
     und dessen JSON-Variante `<tool_call>{"name":…,"arguments":{…}}</tool_call>`.
     Ohne sie endete der Lauf 'mailman' nach 4,68 Mio. Token mit einem NICHT ausgefuehrten
     Befehl als Endantwort — der Schritt war formuliert, aber nie gelaufen.
+
+    ZITAT-Schutz: Markup in einem Code-Zaun (```…```) oder direkt hinter einem
+    Backtick ist ein Beispiel, kein Aufruf — Kira liest bei Selbstentwicklung ihre
+    eigenen Tests, und deren Beispielbloecke duerfen nie ausgefuehrt werden. Echte
+    Leaks kommen roh: der mailman-Block stand mit NULL Zeichen Prosa im Text.
     """
     if not text or not _LEAK_HINT_RE.search(text):
         return []
     out: list[dict] = []
     for m in _LEAK_INVOKE_RE.finditer(text):
+        if _im_zitat(text, m.start()):
+            continue
         args = {pm.group(1): _typisiert(pm.group(2)) for pm in _LEAK_PARAM_RE.finditer(m.group(2))}
         out.append({"id": None, "name": m.group(1), "args": args})
     for m in _LEAK_FUNC_RE.finditer(text):
+        if _im_zitat(text, m.start()):
+            continue
         args = {pm.group(1): _typisiert(pm.group(2))
                 for pm in _LEAK_FUNC_PARAM_RE.finditer(m.group(2))}
         out.append({"id": None, "name": m.group(1), "args": args})
     for m in _LEAK_JSON_RE.finditer(text):
+        if _im_zitat(text, m.start()):
+            continue
         try:
             d = json.loads(m.group(1))
         except Exception:  # noqa: BLE001 — halbe JSON-Bloecke einfach ueberspringen

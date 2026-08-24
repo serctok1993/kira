@@ -80,3 +80,29 @@ def test_parse_leaked_hermes_json_arguments_als_string():
 
 def test_parse_leaked_kaputtes_json_wirft_nicht():
     assert _parse_leaked_tool_calls('<tool_call>{"name": "x", "argu</tool_call>') == []
+
+
+# --- Zitat-Schutz --------------------------------------------------------------------
+# Kira liest bei Selbstentwicklung ihre eigenen Tests — deren Beispielbloecke (wie die
+# oben in DIESER Datei!) duerfen niemals als echte Aufrufe ausgefuehrt werden.
+
+def test_zitat_im_code_zaun_wird_nicht_ausgefuehrt():
+    txt = ("Der Parser kennt jetzt auch den Hermes-Stil, zum Beispiel:\n"
+           "```\n" + _HERMES + "\n```\n"
+           "Das deckt der neue Test ab.")
+    assert _parse_leaked_tool_calls(txt) == []
+
+
+def test_zitat_hinter_backtick_wird_nicht_ausgefuehrt():
+    txt = 'Der Marker `<tool_call>{"name": "terminal", "arguments": {"befehl": "rm -rf /"}}</tool_call>` ist der Vorfilter.'
+    assert _parse_leaked_tool_calls(txt) == []
+
+
+def test_echter_leak_neben_zitat_wird_trotzdem_geborgen():
+    """Ein Zaun-Zitat im selben Text darf den ECHTEN rohen Leak nicht verschlucken."""
+    txt = ("Beispiel aus der Doku:\n```\n<function=read_file><parameter=path>x</parameter></function>\n```\n"
+           "Und jetzt fuehre ich aus:\n" + _HERMES)
+    calls = _parse_leaked_tool_calls(txt)
+    assert len(calls) == 1
+    assert calls[0]["name"] == "terminal"
+    assert calls[0]["args"]["befehl"] == "python3 /app/eval.py 2>&1"
