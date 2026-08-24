@@ -1,0 +1,113 @@
+Traceback (most recent call last):
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 406, in run
+    await self._prepare()
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 444, in _prepare
+    await self._setup_agent_environment()
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 1423, in _setup_agent_environment
+    await self._start_agent_environment()
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 1429, in _start_agent_environment
+    await asyncio.wait_for(
+    ...<4 lines>...
+    )
+  File "/usr/lib/python3.13/asyncio/tasks.py", line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker.py", line 913, in start
+    await self._run_docker_compose_command(["up", "--detach", "--wait"])
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker.py", line 656, in _run_docker_compose_command
+    raise RuntimeError(
+    ...<5 lines>...
+    )
+RuntimeError: Docker compose command failed for environment extract-elf. Command: docker compose --project-name extract-elf__r9mz6eu__env --project-directory /root/.cache/harbor/tasks/3HV9wmSrWRW9TuYurepoFx/extract-elf/environment -f /tmp/tmpzuktgzm1/extract-elf__r9mZ6eu__env-docker-compose-resources.json -f /home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker-compose-prebuilt.yaml -f /tmp/tmpfbru64r4/docker-compose-environment.json -f /tmp/tmpj54977s8/docker-compose-mounts.json up --detach --wait. Return code: 1. Stdout:  Image alexgshaw/extract-elf:20251031 Pulling 
+ 4f4fb700ef54 Pulling fs layer 0B
+ 8e96d75cb011 Pulling fs layer 0B
+ 6bcd540b5d24 Pulling fs layer 0B
+ a8bae8ccd625 Pulling fs layer 0B
+ 4f4fb700ef54 Download complete 0B
+ 6bcd540b5d24 Download complete 0B
+ a8bae8ccd625 Download complete 0B
+ 8e96d75cb011 Downloading 4.194MB
+ 8e96d75cb011 Downloading 14.68MB
+ 8e96d75cb011 Downloading 25.17MB
+ 8e96d75cb011 Downloading 32.51MB
+ 8e96d75cb011 Downloading 39.85MB
+ 8e96d75cb011 Downloading 48.23MB
+ 8e96d75cb011 Downloading 58.72MB
+ 8e96d75cb011 Downloading 69.21MB
+ 8e96d75cb011 Downloading 75.5MB
+ 8e96d75cb011 Downloading 75.5MB
+ 8e96d75cb011 Downloading 75.5MB
+ 8e96d75cb011 Downloading 82.84MB
+ 8e96d75cb011 Downloading 88.08MB
+ 8e96d75cb011 Downloading 97.52MB
+ 8e96d75cb011 Downloading 104.9MB
+ 8e96d75cb011 Downloading 112.2MB
+ 8e96d75cb011 Downloading 117.4MB
+ 8e96d75cb011 Downloading 121.6MB
+ 8e96d75cb011 Downloading 130MB
+ 8e96d75cb011 Downloading 134.2MB
+ 8e96d75cb011 Downloading 140.5MB
+ 8e96d75cb011 Downloading 148.9MB
+ 8e96d75cb011 Downloading 157.3MB
+ 8e96d75cb011 Downloading 165.7MB
+ 8e96d75cb011 Downloading 167.8MB
+ 8e96d75cb011 Downloading 170.9MB
+ 8e96d75cb011 Downloading 179.3MB
+ 8e96d75cb011 Downloading 184.5MB
+ 8e96d75cb011 Downloading 190.8MB
+ 8e96d75cb011 Downloading 197.1MB
+ 8e96d75cb011 Downloading 203.4MB
+ 8e96d75cb011 Downloading 209.7MB
+ 8e96d75cb011 Downloading 216MB
+ 8e96d75cb011 Downloading 223.3MB
+ 8e96d75cb011 Downloading 230.7MB
+ 8e96d75cb011 Downloading 234.9MB
+ 8e96d75cb011 Downloading 235.9MB
+ 8e96d75cb011 Downloading 242.2MB
+ 8e96d75cb011 Downloading 247.5MB
+ 8e96d75cb011 Downloading 254.8MB
+ 8e96d75cb011 Downloading 262.1MB
+ 8e96d75cb011 Downloading 268.4MB
+ 8e96d75cb011 Downloading 275.8MB
+ 8e96d75cb011 Downloading 283.1MB
+ 8e96d75cb011 Downloading 289.4MB
+ 8e96d75cb011 Downloading 296.7MB
+ 8e96d75cb011 Downloading 306.2MB
+ 8e96d75cb011 Downloading 317.7MB
+ 8e96d75cb011 Downloading 317.7MB
+ 8e96d75cb011 Downloading 317.7MB
+ 8e96d75cb011 Downloading 317.7MB
+ 8e96d75cb011 Downloading 317.7MB
+ 8e96d75cb011 Downloading 317.7MB
+ 8e96d75cb011 Download complete 0B
+ 8e96d75cb011 Extracting 1B
+ 8e96d75cb011 Extracting 1B
+ 8e96d75cb011 Extracting 1B
+ 8e96d75cb011 Extracting 1B
+ 8e96d75cb011 Extracting 1B
+ 8e96d75cb011 Extracting 1B
+ 8e96d75cb011 Extracting 1B
+ 8e96d75cb011 Extracting 1B
+ 8e96d75cb011 Extracting 1B
+ 8e96d75cb011 Extracting 1B
+ 8e96d75cb011 Extracting 1B
+ 8e96d75cb011 Extracting 2B
+ 8e96d75cb011 Extracting 2B
+ 8e96d75cb011 Extracting 2B
+ 8e96d75cb011 Extracting 2B
+ 8e96d75cb011 Extracting 2B
+ 8e96d75cb011 Extracting 2B
+ 8e96d75cb011 Extracting 2B
+ 8e96d75cb011 Extracting 2B
+ 8e96d75cb011 Extracting 2B
+ 8e96d75cb011 Extracting 2B
+ 8e96d75cb011 Extracting 3B
+ 8e96d75cb011 Extracting 3B
+ 8e96d75cb011 Extracting 3B
+ 8e96d75cb011 Extracting 3B
+ 8e96d75cb011 Extracting 3B
+ 8e96d75cb011 Extracting 3B
+ 8e96d75cb011 Extracting 3B
+ 8e96d75cb011 Extracting 3B
+failed to extract layer (application/vnd.docker.image.rootfs.diff.tar.gzip sha256:8e96d75cb01110fe744da6a8aad95d5d773a0f1ec31c5d9ed22735cdb81fc71f) to overlayfs as "extract-99869377-23Y_ sha256:607000404cc81487665e4e87e49c84996285c3e2b2803047ba07eb17dafb431b": failed to Lchown "/var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/200/fs/usr/lib/x86_64-linux-gnu/libLLVM.so.20.1" for UID 0, GID 0: lchown /var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/200/fs/usr/lib/x86_64-linux-gnu/libLLVM.so.20.1: no such file or directory
+. Stderr: None. 

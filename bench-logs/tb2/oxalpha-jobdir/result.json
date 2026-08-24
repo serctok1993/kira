@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T21:33:53.389694Z",
+    "updated_at": "2026-08-24T21:47:10.925348Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 54,
-        "n_errored_trials": 13,
+        "n_completed_trials": 57,
+        "n_errored_trials": 15,
         "n_running_trials": 3,
-        "n_pending_trials": 32,
+        "n_pending_trials": 29,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 49,
-                "n_errors": 13,
+                "n_trials": 51,
+                "n_errors": 15,
                 "metrics": [
                     {
-                        "mean": 0.3888888888888889
+                        "mean": 0.3684210526315789
                     }
                 ],
                 "pass_at_k": {},
@@ -74,7 +74,9 @@
                             "gcode-to-text__nZy8c3k",
                             "extract-moves-from-video__PUgyedh",
                             "train-fasttext__GAwYcXF",
-                            "circuit-fibsqrt__cHDzPBA"
+                            "circuit-fibsqrt__cHDzPBA",
+                            "raman-fitting__mjf7Rpb",
+                            "make-mips-interpreter__Sc6ANqN"
                         ]
                     }
                 },
@@ -87,21 +89,23 @@
                         "adaptive-rejection-sampler__rPuFdW6",
                         "crack-7z-hash__aqZANRS",
                         "gcode-to-text__nZy8c3k",
-                        "train-fasttext__GAwYcXF"
+                        "train-fasttext__GAwYcXF",
+                        "make-mips-interpreter__Sc6ANqN"
                     ],
                     "RuntimeError": [
                         "mteb-retrieve__JkmNqEj",
                         "custom-memory-heap-crash__w7aixk9",
                         "hf-model-inference__FVEHfDk",
                         "install-windows-3.11__yZZAmJe",
-                        "mteb-leaderboard__5Xcvhy7"
+                        "mteb-leaderboard__5Xcvhy7",
+                        "extract-elf__r9mZ6eu"
                     ]
                 }
             }
         },
-        "n_input_tokens": 54924128,
+        "n_input_tokens": 55464883,
         "n_cache_tokens": null,
-        "n_output_tokens": 348954,
+        "n_output_tokens": 360097,
         "cost_usd": null
     }
 }
