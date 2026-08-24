@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T22:51:18.787766Z",
+    "updated_at": "2026-08-24T22:58:52.865107Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 77,
-        "n_errored_trials": 19,
+        "n_completed_trials": 81,
+        "n_errored_trials": 20,
         "n_running_trials": 3,
-        "n_pending_trials": 9,
+        "n_pending_trials": 5,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 69,
-                "n_errors": 19,
+                "n_trials": 73,
+                "n_errors": 20,
                 "metrics": [
                     {
-                        "mean": 0.35064935064935066
+                        "mean": 0.37037037037037035
                     }
                 ],
                 "pass_at_k": {},
@@ -50,7 +50,10 @@
                             "regex-log__xhmtLFW",
                             "mcmc-sampling-stan__8ukvFyU",
                             "git-leak-recovery__V8qWtMD",
-                            "feal-differential-cryptanalysis__JYJyoif"
+                            "feal-differential-cryptanalysis__JYJyoif",
+                            "sqlite-db-truncate__FfjToFy",
+                            "sanitize-git-repo__RbhqHTB",
+                            "build-pmars__K6RVfk7"
                         ],
                         "0.0": [
                             "merge-diff-arc-agi-task__S3u4eek",
@@ -94,7 +97,8 @@
                             "sam-cell-seg__xfYr9HZ",
                             "nginx-request-logging__ALNACUi",
                             "sparql-university__kYhibgg",
-                            "large-scale-text-editing__5iVrTDX"
+                            "large-scale-text-editing__5iVrTDX",
+                            "model-extraction-relu-logits__4PkWd5Y"
                         ]
                     }
                 },
@@ -110,7 +114,8 @@
                         "train-fasttext__GAwYcXF",
                         "make-mips-interpreter__Sc6ANqN",
                         "code-from-image__Qp5H9xU",
-                        "regex-log__xhmtLFW"
+                        "regex-log__xhmtLFW",
+                        "model-extraction-relu-logits__4PkWd5Y"
                     ],
                     "RuntimeError": [
                         "mteb-retrieve__JkmNqEj",
@@ -125,9 +130,9 @@
                 }
             }
         },
-        "n_input_tokens": 64009562,
+        "n_input_tokens": 64083692,
         "n_cache_tokens": null,
-        "n_output_tokens": 466790,
+        "n_output_tokens": 473245,
         "cost_usd": null
     }
 }
