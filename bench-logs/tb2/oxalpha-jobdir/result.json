@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T18:12:26.885018Z",
+    "updated_at": "2026-08-24T18:33:05.160098Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 18,
-        "n_errored_trials": 6,
+        "n_completed_trials": 21,
+        "n_errored_trials": 7,
         "n_running_trials": 3,
-        "n_pending_trials": 68,
+        "n_pending_trials": 65,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 14,
-                "n_errors": 6,
+                "n_trials": 17,
+                "n_errors": 7,
                 "metrics": [
                     {
-                        "mean": 0.2777777777777778
+                        "mean": 0.2857142857142857
                     }
                 ],
                 "pass_at_k": {},
@@ -32,14 +32,17 @@
                             "llm-inference-batching-scheduler__fsNB6Aq",
                             "torch-tensor-parallelism__fXAjcFP",
                             "path-tracing-reverse__yPEv9i4",
-                            "regex-chess__gQxxvd4"
+                            "regex-chess__gQxxvd4",
+                            "caffe-cifar-10__kAhvpms",
+                            "path-tracing__5qt9zwA"
                         ],
                         "1.0": [
                             "log-summary-date-ranges__yEnjEDC",
                             "largest-eigenval__wdaJCsD",
                             "pytorch-model-cli__irc6uix",
                             "portfolio-optimization__4gbeFYf",
-                            "prove-plus-comm__B8SmKuF"
+                            "prove-plus-comm__B8SmKuF",
+                            "pypi-server__U5R94Gj"
                         ]
                     }
                 },
@@ -52,14 +55,15 @@
                     ],
                     "AgentTimeoutError": [
                         "gpt2-codegolf__8e2oe7s",
-                        "write-compressor__4dmJHgw"
+                        "write-compressor__4dmJHgw",
+                        "caffe-cifar-10__kAhvpms"
                     ]
                 }
             }
         },
-        "n_input_tokens": 17483830,
+        "n_input_tokens": 22358265,
         "n_cache_tokens": null,
-        "n_output_tokens": 84307,
+        "n_output_tokens": 108483,
         "cost_usd": null
     }
 }
