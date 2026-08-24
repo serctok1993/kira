@@ -1,0 +1,131 @@
+{
+    "id": "d024cb96-d5d0-4b0e-ac9e-241ce1bc10c6",
+    "task_name": "cobol-modernization",
+    "trial_name": "cobol-modernization__KCQZCeh",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/cobol-modernization__KCQZCeh",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "cobol-modernization"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "f8220a33bf193106989df1a28e4806985b12e5f93dcf07efb86acd8dbbc44f6a",
+    "config": {
+        "task": {
+            "path": "cobol-modernization",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "cobol-modernization__KCQZCeh",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 61515,
+        "n_cache_tokens": null,
+        "n_output_tokens": 3137,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "All three hashes are identical (the only diff was the path prefix in my md5 listing) — the Python implementation matches GnuCOBOL exactly. Original state and INPUT.DAT have been restored.\n\n**Done.** `/app/program.py` re-implements `program.cbl`:\n\n- Reads the 22-byte fixed record from `/app/src/INPUT.DAT` (buyer, seller, book, PIC 9(10) amount; short records space-padded like GnuCOBOL).\n- Validates buyer/seller exist in ACCOUNTS.DAT (34-byte records: ID X(4), name X(20), balance 9(10)) and that BOOKS.DAT contains the book owned by the seller.\n- On success: subtracts amount from buyer's balance, adds to seller's (zero-padded 10 digits), transfers book ownership to the buyer, and appends a 22-byte transaction record (`book + amount + seller + buyer`) to TRANSACTIONS.DAT.\n- Prints the same messages (\"Transaction failed due to validation errors\" / \"Transaction completed successfully\") and leaves files untouched on failure.\n\nVerified against the compiled COBOL program with both a valid transaction input and the given short/invalid input — resulting `.DAT` file checksums are identical.",
+            "session_id": "tb-a9877a6de3"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 1.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T20:16:08.167196Z",
+    "finished_at": "2026-08-24T20:18:39.416101Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T20:16:08.168669Z",
+        "finished_at": "2026-08-24T20:16:18.235719Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T20:16:18.235774Z",
+        "finished_at": "2026-08-24T20:16:22.077785Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T20:16:22.077966Z",
+        "finished_at": "2026-08-24T20:18:13.029135Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T20:18:13.780873Z",
+        "finished_at": "2026-08-24T20:18:25.273345Z"
+    },
+    "step_results": null
+}
