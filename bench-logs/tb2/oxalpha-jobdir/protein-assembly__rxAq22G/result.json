@@ -1,0 +1,131 @@
+{
+    "id": "d7b23573-6e69-44f8-9e73-72dec8b3059b",
+    "task_name": "protein-assembly",
+    "trial_name": "protein-assembly__rxAq22G",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/protein-assembly__rxAq22G",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "protein-assembly"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "b8df06c6c42605ec37afb3b9c6e2f4feb1be9663380bd7129fcbaa9559253a60",
+    "config": {
+        "task": {
+            "path": "protein-assembly",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "protein-assembly__rxAq22G",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 3472960,
+        "n_cache_tokens": null,
+        "n_output_tokens": 24250,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "# Zusammenfassung für Partner\n\n## Aufgabe\nDesign eines gBlocks (`/app/gblock.txt`) für ein FRET-Stabilitäts-Experiment an DHFR, mit Fusion: **Antikörper-Binder – Donor – DHFR – Akzeptor – Molekül-Binder** (N→C), verbunden durch GS-Linker.\n\n## Ermittelte Komponenten\n\n**Donor & Akzeptor (via fpbase-API + Filter 505/610 nm):**\n- Donor: **Clover** (exMax exakt 505 nm) — PDB-ID `5WJ2` aus `/app/pdb_ids.txt`\n- Akzeptor: **mCherry** (emMax exakt 610 nm) — PDB-ID `2H5Q` aus `/app/pdb_ids.txt`\n- Beide Sequenzen stammen exakt aus der RCSB-FASTA der jeweiligen PDB-IDs; N-terminales Methionin entfernt (Clover-FASTA beginnt mit Tag-Sequenz MGSSHHHHHHSSGENLYFQG…, davon wurde nur das initiale M des Konstrukts behandelt).\n\n**Antikörper-Binder:**\n- Antikörper in `antibody.fasta` identifiziert als **anti-FLAG M2** (Mus musculus) via RCSB-Sequenzsuche → Treffer 7BG1/8RMO.\n- Das Antigen ist das **FLAG-Tag: DYKDDDDK** — dies ist die zu kodierende Binder-Einheit (nur einmal, häufigste Variante).\n\n**Molekül-Binder:**\n- SMILES `Nc3nc(OCc1ccccc1)c2nc[nH]c2n3` = **O⁶-Benzylguanine** (PubChem bestätigt).\n- Bindendes Protein: **SNAP-Tag-Komponente** — in den PDB-IDs der Aufgabe enthalten als `2IB5` (Chromoprotein-artige Guanin-Derivat-bindende Struktur, Cnidopus japonicus). Sequenz aus RCSB-FASTA übernommen; das X im Kanonischen entspricht dem Chromophor CRQ (Cyclisiertes Cys-Tyr-Gly), MSE→M zurückübersetzt.\n\n**DHFR:** DNA-CDS direkt aus `plasmid.gb` (Position 88–567, 480 nt) wiederverwendet.\n\n## Konstrukt-Aufbau\n- Reihenfolge: FLAG (DYKDDDDK) – GS-Linker (5–20 aa) – Clover – GS-Linker – DHFR – GS-Linker – mCherry – GS-Linker – 2IB5-Molekülbinder\n- Keine Start-/Stopcodons, keine N-terminalen Methionine, keine GS-Linker an den Termini.\n- Reverse Translation mit Codon-Optimierung auf GC-Gehalt 30–70 % in jedem 50-nt-Fenster.\n- Gesamtlänge < 3000 nt.\n\n## Status\nDie Komponentenidentifikation und alle Sequenzbeschaffungen sind abgeschlossen und verifiziert. Der letzte Schritt — die eigentliche Reverse-Translation, GC-Fenster-Optimierung und das Schreiben von `/app/gblock.txt` — war zum Zeitpunkt dieser Zusammenfassung noch nicht final verifiziert abgeschlossen. Bitte vor Verwendung prüfen, ob `/app/gblock.txt` existiert, ausschließlich eine DNA-Sequenz ohne Leerzeilen enthält, ≤ 3000 nt lang ist und die GC-Fenstervorgabe erfüllt.",
+            "session_id": "tb-cdc8a1d28f"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T21:47:10.924570Z",
+    "finished_at": "2026-08-24T22:04:36.460954Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T21:47:10.925925Z",
+        "finished_at": "2026-08-24T21:47:18.848907Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T21:47:18.848940Z",
+        "finished_at": "2026-08-24T21:47:22.140793Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T21:47:22.140905Z",
+        "finished_at": "2026-08-24T22:04:15.579409Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T22:04:16.034917Z",
+        "finished_at": "2026-08-24T22:04:25.138620Z"
+    },
+    "step_results": null
+}

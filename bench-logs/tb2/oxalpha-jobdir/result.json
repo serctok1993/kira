@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T22:02:38.842280Z",
+    "updated_at": "2026-08-24T22:08:39.825318Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 59,
-        "n_errored_trials": 15,
+        "n_completed_trials": 62,
+        "n_errored_trials": 16,
         "n_running_trials": 3,
-        "n_pending_trials": 27,
+        "n_pending_trials": 24,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 53,
-                "n_errors": 15,
+                "n_trials": 56,
+                "n_errors": 16,
                 "metrics": [
                     {
-                        "mean": 0.3559322033898305
+                        "mean": 0.3548387096774194
                     }
                 ],
                 "pass_at_k": {},
@@ -44,7 +44,8 @@
                             "qemu-alpine-ssh__PsPk7oh",
                             "kv-store-grpc__z6znaip",
                             "tune-mjcf__TAQo5CR",
-                            "count-dataset-tokens__PDAYe6E"
+                            "count-dataset-tokens__PDAYe6E",
+                            "fix-code-vulnerability__NPD5QaM"
                         ],
                         "0.0": [
                             "merge-diff-arc-agi-task__S3u4eek",
@@ -78,7 +79,9 @@
                             "raman-fitting__mjf7Rpb",
                             "make-mips-interpreter__Sc6ANqN",
                             "mailman__4mfUTZy",
-                            "query-optimize__U6Y4DKu"
+                            "query-optimize__U6Y4DKu",
+                            "protein-assembly__rxAq22G",
+                            "code-from-image__Qp5H9xU"
                         ]
                     }
                 },
@@ -92,7 +95,8 @@
                         "crack-7z-hash__aqZANRS",
                         "gcode-to-text__nZy8c3k",
                         "train-fasttext__GAwYcXF",
-                        "make-mips-interpreter__Sc6ANqN"
+                        "make-mips-interpreter__Sc6ANqN",
+                        "code-from-image__Qp5H9xU"
                     ],
                     "RuntimeError": [
                         "mteb-retrieve__JkmNqEj",
@@ -105,9 +109,9 @@
                 }
             }
         },
-        "n_input_tokens": 58926878,
+        "n_input_tokens": 62414274,
         "n_cache_tokens": null,
-        "n_output_tokens": 378466,
+        "n_output_tokens": 403233,
         "cost_usd": null
     }
 }
