@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T19:35:00.502911Z",
+    "updated_at": "2026-08-24T19:45:48.959216Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 27,
-        "n_errored_trials": 0,
+        "n_completed_trials": 30,
+        "n_errored_trials": 2,
         "n_running_trials": 3,
-        "n_pending_trials": 59,
+        "n_pending_trials": 56,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 27,
-                "n_errors": 0,
+                "n_trials": 30,
+                "n_errors": 2,
                 "metrics": [
                     {
-                        "mean": 0.5185185185185185
+                        "mean": 0.5
                     }
                 ],
                 "pass_at_k": {},
@@ -37,7 +37,8 @@
                             "compile-compcert__898kjvc",
                             "largest-eigenval__wdaJCsD",
                             "pytorch-model-cli__irc6uix",
-                            "reshard-c4-data__6AuZqi8"
+                            "reshard-c4-data__6AuZqi8",
+                            "modernize-scientific-stack__EudRVLZ"
                         ],
                         "0.0": [
                             "merge-diff-arc-agi-task__S3u4eek",
@@ -52,16 +53,23 @@
                             "distribution-search__DcovLCU",
                             "chess-best-move__tvJLYDh",
                             "llm-inference-batching-scheduler__fsNB6Aq",
-                            "path-tracing__5qt9zwA"
+                            "path-tracing__5qt9zwA",
+                            "write-compressor__D4FNw53",
+                            "gpt2-codegolf__YNbCouj"
                         ]
                     }
                 },
-                "exception_stats": {}
+                "exception_stats": {
+                    "AgentTimeoutError": [
+                        "write-compressor__D4FNw53",
+                        "gpt2-codegolf__YNbCouj"
+                    ]
+                }
             }
         },
-        "n_input_tokens": 31708510,
+        "n_input_tokens": 31714247,
         "n_cache_tokens": null,
-        "n_output_tokens": 191923,
+        "n_output_tokens": 192461,
         "cost_usd": null
     }
 }
