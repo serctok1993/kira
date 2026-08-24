@@ -1,0 +1,131 @@
+{
+    "id": "e321fe73-111c-4a87-8633-08db901d1f58",
+    "task_name": "llm-inference-batching-scheduler",
+    "trial_name": "llm-inference-batching-scheduler__fsNB6Aq",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/llm-inference-batching-scheduler__fsNB6Aq",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "llm-inference-batching-scheduler"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "3a08e63e0643ea5914eedeecb08cb93a1f0a10b9dc7d19d1f570004af84531c8",
+    "config": {
+        "task": {
+            "path": "llm-inference-batching-scheduler",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "llm-inference-batching-scheduler__fsNB6Aq",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 5171241,
+        "n_cache_tokens": null,
+        "n_output_tokens": 35652,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "## Zusammenfassung für Partner\n\n### Aufgabe\nShape-bewusster Batching-Scheduler für LLM-Inferenz: 800 Requests pro Bucket (`requests_bucket_1/2.jsonl`) wurden in Batches mit festen Tensor-Shapes (seq_align als Vielfaches von 64, heads=32, hidden=4096, max. 8 Shapes) gepackt.\n\n### Ansatz (in `/tmp/opt.py`)\n1. **Gruppierung:** Requests nach `(gen_len, prompt_len)` sortiert und in K=20 Gruppen entlang der Sortierung geschnitten — dadurch ist `G_max` innerhalb jeder Gruppe klein (wenig Decode-Padding).\n2. **Boundary-Optimierung:** Iterative lokale Suche über die Schnittstellen; Zielfunktion = Summe der Batch-Kosten plus gewichteter Latenzterm.\n3. **Shape-Auswahl per DP:** Über die benötigten Mindest-seq_align-Werte wurde ein dynamischer Programm-Ansatz gefahren, der ≤8 Repräsentanten so wählt, dass die Gesamtkosten (Prefill + Decode mit erzwungenem S_max) minimiert werden.\n4. **Ausgabe:** Ein Batch pro Gruppe (`b-0000`…), jeweils einheitliche Shape; alle 800 request_ids exakt einmal abgedeckt.\n\n### Verifizierte Ergebnisse (mit dem offiziellen `cost_model.py`)\n\n| Bucket | Cost | Pad Ratio | P95 Latency | Seq. Timecost | Thresholds (Cost / Pad / P95 / Seq) |\n|---|---|---|---|---|---|\n| b1 | **1.234e12** | **0.0796** | **9.98e6** | **3.62e7** | ≤3.0e11 ✗ / ≤0.055 ✗ / ≤2.1e6 ✗ / ≤2.7e8 ✓ |\n| b2 | **1.09e11** | **0.1931** | **6.83e5** | **7.02e6** | ≤4.8e10 ✗ / ≤0.15 ✗ / ≤2.1e5 ✗ / ≤3.2e7 ✓ |\n\nGegenüber dem Baseline (2.48e12 / 1.67e12 Kosten; Pad 1.44 / 4.04) eine deutliche Verbesserung (~2× bzw. ~15× bei den Kosten, Pad-Ratio stark reduziert), aber **drei der vier Schwellen pro Bucket sind noch nicht erreicht**:\n- Kosten liegen ca. 4× (b1) bzw. 2.3× (b2) über dem Ziel → weitere Kompaktierung nötig (mehr/kleinere Gruppen, feineres Tuning der K).\n- Pad-Ratio knapp über Ziel (0.08 vs 0.055; 0.19 vs 0.15) → engere gen_len-Buckets.\n- P95-Latenz deutlich über Ziel → hier müssten große Gruppen mit hohem G_max weiter aufgeteilt werden.\n\nDie Plan-Dateien liegen unter `/app/task_file/output_data/plan_b1.jsonl` bzw. `plan_b2.jsonl`; Input-Dateien wurden nicht verändert.",
+            "session_id": "tb-90ead4ad4b"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T17:32:22.128082Z",
+    "finished_at": "2026-08-24T17:57:45.986030Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T17:32:22.203552Z",
+        "finished_at": "2026-08-24T17:32:35.713482Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T17:32:35.713569Z",
+        "finished_at": "2026-08-24T17:32:39.433424Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T17:32:39.433812Z",
+        "finished_at": "2026-08-24T17:57:26.660477Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T17:57:27.137150Z",
+        "finished_at": "2026-08-24T17:57:34.966538Z"
+    },
+    "step_results": null
+}

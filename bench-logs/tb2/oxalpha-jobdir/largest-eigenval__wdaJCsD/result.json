@@ -1,0 +1,131 @@
+{
+    "id": "037e8d83-9945-4b98-abef-cb32a3e3583d",
+    "task_name": "largest-eigenval",
+    "trial_name": "largest-eigenval__wdaJCsD",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/largest-eigenval__wdaJCsD",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "largest-eigenval"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "7d9e8c734dc7ccaa01db7fe48f36a6a49d6827d6fd47fe043cb5f4fe3b0a3fd0",
+    "config": {
+        "task": {
+            "path": "largest-eigenval",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "largest-eigenval__wdaJCsD",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 24233,
+        "n_cache_tokens": null,
+        "n_output_tokens": 2104,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "Done. `/app/eigen.py` now calls LAPACK `dgeev` directly (via `scipy.linalg.get_lapack_funcs`, installed system-wide), skipping numpy's wrapper overhead:\n\n- Handles complex eigenpairs correctly by recombining the packed real/imaginary columns of the returned eigenvector matrix.\n- Falls back to `np.linalg.eig` if scipy is unavailable or the factorization fails.\n- Verified correctness: 1800 random matrices (sizes 2–10) all satisfy `A @ v = λ * v` and match the dominant eigenvalue of numpy's solution.\n- Eval passes with a consistent speedup at every size, e.g. 14 µs vs 21 µs (2×2) up to 41 µs vs 48 µs (10×10).",
+            "session_id": "tb-d8a4493da2"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 1.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T17:52:20.753223Z",
+    "finished_at": "2026-08-24T17:54:04.173396Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T17:52:20.754901Z",
+        "finished_at": "2026-08-24T17:52:27.764530Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T17:52:27.764605Z",
+        "finished_at": "2026-08-24T17:52:31.175275Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T17:52:31.175395Z",
+        "finished_at": "2026-08-24T17:53:48.308096Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T17:53:48.771578Z",
+        "finished_at": "2026-08-24T17:53:52.969012Z"
+    },
+    "step_results": null
+}
