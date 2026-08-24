@@ -1,0 +1,131 @@
+{
+    "id": "ebc7e7db-0fb0-4816-ba6d-9ea7f8c0676f",
+    "task_name": "constraints-scheduling",
+    "trial_name": "constraints-scheduling__D7LiFZH",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/constraints-scheduling__D7LiFZH",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "constraints-scheduling"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "c69027b9099bb7ac63a753b310e31cfef9cc20dce2d1c6c88956c8a854d7ac16",
+    "config": {
+        "task": {
+            "path": "constraints-scheduling",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "constraints-scheduling__D7LiFZH",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 14733,
+        "n_cache_tokens": null,
+        "n_output_tokens": 1804,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "**Ergebnis:** `/app/meeting_scheduled.ics` erstellt — **Team Planning Meeting am Mittwoch, 17. Januar 2024, 11:00–12:00 UTC**.\n\nPrüfung aller Constraints:\n- **Alice:** Vormittag (9–12) ✓, endet vor 14:00 ✓, keine Konflikte (ihre Termine Mi: 10–11, 13–14) ✓\n- **Bob:** später Vormittag (11–13, erlaubter Fallback) ✓, ≥10:00 ✓, nicht Di/Do-Nachmittag relevant ✓, kein Konflikt (Mi: 12–13) ✓\n- **Carol:** innerhalb 9–17 ✓, endet vor der Mittagspause (12:00–12:30) ✓, kein Konflikt (Mi: 12–13) ✓\n\nFrühere Slots scheiterten: Mo 12:30 kollidiert mit Alices 13–14-Termin; Di ist alles ≤14:00 belegt bzw. verletzt Regeln (und 14:00+ verstößt gegen Alices „nicht nach 14 Uhr\"). Mittwoch 11:00 ist damit der früheste gültige Slot. Die Eingabekalender wurden nicht verändert.",
+            "session_id": "tb-fb0ce92c41"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 1.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T23:01:26.558075Z",
+    "finished_at": "2026-08-24T23:02:58.306186Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T23:01:26.559327Z",
+        "finished_at": "2026-08-24T23:01:32.360980Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T23:01:32.361014Z",
+        "finished_at": "2026-08-24T23:01:36.782758Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T23:01:36.782881Z",
+        "finished_at": "2026-08-24T23:02:31.863010Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T23:02:32.371547Z",
+        "finished_at": "2026-08-24T23:02:46.453411Z"
+    },
+    "step_results": null
+}

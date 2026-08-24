@@ -1,0 +1,131 @@
+{
+    "id": "9e1d722a-823b-42c4-acea-0277979cbc6d",
+    "task_name": "sqlite-with-gcov",
+    "trial_name": "sqlite-with-gcov__aWo7onU",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/sqlite-with-gcov__aWo7onU",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "sqlite-with-gcov"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "5901f1d2fc3b9b97ab1b215461175a59f0568e224b67caa6f4cbbc38f6f33a04",
+    "config": {
+        "task": {
+            "path": "sqlite-with-gcov",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "sqlite-with-gcov__aWo7onU",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 9226,
+        "n_cache_tokens": null,
+        "n_output_tokens": 667,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "Fertig:\n\n- **Quellen**: `/app/vendor/sqlite-fossil-release.tar.gz` entpackt nach `/app/sqlite/sqlite`\n- **Build**: `./configure CFLAGS=\"-O0 -g --coverage\" LDFLAGS=\"--coverage\"` + `make sqlite3` (gcc/make zuvor per apt installiert, da nicht vorhanden)\n- **gcov-Instrumentierung** verifiziert: `.gcno`-Dateien liegen im Build-Verzeichnis (z. B. `sqlite3-sqlite3.gcno`, `sqlite3-shell.gcno`), Binary mit `--coverage` gelinkt\n- **PATH**: Binary als `/usr/local/bin/sqlite3` (plus Symlink `sqlite`) installiert\n- **Test**: `sqlite3 --version` → 3.50.4; Abfrage `select 1+1;` → 2. Beim Ausführen entstehen `.gcda`-Dateien für Coverage-Analyse.",
+            "session_id": "tb-3a79a64fcc"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 1.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T22:58:52.830046Z",
+    "finished_at": "2026-08-24T23:00:35.196713Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T22:58:52.865937Z",
+        "finished_at": "2026-08-24T22:58:56.771309Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T22:58:56.771343Z",
+        "finished_at": "2026-08-24T22:58:57.179389Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T22:58:57.179527Z",
+        "finished_at": "2026-08-24T23:00:09.667776Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T23:00:10.131349Z",
+        "finished_at": "2026-08-24T23:00:23.892384Z"
+    },
+    "step_results": null
+}

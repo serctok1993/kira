@@ -1,0 +1,131 @@
+{
+    "id": "97a7bf75-7ab5-4b16-a52c-731647344bbd",
+    "task_name": "dna-insert",
+    "trial_name": "dna-insert__Bp4TMom",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/dna-insert__Bp4TMom",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "dna-insert"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "162cd54836ca70b3a4c62f7fab0e369007f76488213865efdf563b20dceebb15",
+    "config": {
+        "task": {
+            "path": "dna-insert",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "dna-insert__Bp4TMom",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 50559,
+        "n_cache_tokens": null,
+        "n_output_tokens": 3881,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "Done. The difference between the plasmids is a 39 bp insertion (part of BBa_I746360) after position 213 of the input, so a single primer pair suffices.\n\n**primers.fasta:**\n```\n>BBa_I746360_ins_F\nagcaagggcgaggagagtagattagaagaagaattaagaagaagattaacagaa\n>BBa_I746360_ins_R\ncatatgtatatctccttcttaaagttaaac\n```\n\nDetails:\n- **Forward primer:** 15 nt anneal to input (`agcaagggcgaggag`, Tm = 59.54 °C per oligotm with the specified flags) + the full 39 nt insertion as 5′ tail.\n- **Reverse primer:** 30 nt fully annealing to input upstream of the insertion site (Tm = 58.08 °C).\n- Both annealing regions are within 15–45 nt, Tms within 58–72 °C, and differ by only ~1.5 °C.\n- Verified in silico: PCR with linearized amplification and blunt re-ligation regenerates exactly the output plasmid sequence.",
+            "session_id": "tb-1309d0abd7"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T23:02:58.312245Z",
+    "finished_at": "2026-08-24T23:06:19.085489Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T23:02:58.313401Z",
+        "finished_at": "2026-08-24T23:03:02.063608Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T23:03:02.063646Z",
+        "finished_at": "2026-08-24T23:03:02.583365Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T23:03:02.583476Z",
+        "finished_at": "2026-08-24T23:05:53.566358Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T23:05:54.139348Z",
+        "finished_at": "2026-08-24T23:06:07.226807Z"
+    },
+    "step_results": null
+}
