@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T18:40:37.652979Z",
+    "updated_at": "2026-08-24T18:52:14.024203Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 25,
-        "n_errored_trials": 9,
+        "n_completed_trials": 29,
+        "n_errored_trials": 11,
         "n_running_trials": 3,
-        "n_pending_trials": 61,
+        "n_pending_trials": 57,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 19,
-                "n_errors": 9,
+                "n_trials": 22,
+                "n_errors": 11,
                 "metrics": [
                     {
-                        "mean": 0.32
+                        "mean": 0.3103448275862069
                     }
                 ],
                 "pass_at_k": {},
@@ -34,7 +34,9 @@
                             "path-tracing-reverse__yPEv9i4",
                             "regex-chess__gQxxvd4",
                             "caffe-cifar-10__kAhvpms",
-                            "path-tracing__5qt9zwA"
+                            "path-tracing__5qt9zwA",
+                            "distribution-search__DcovLCU",
+                            "chess-best-move__tvJLYDh"
                         ],
                         "1.0": [
                             "log-summary-date-ranges__yEnjEDC",
@@ -44,7 +46,8 @@
                             "prove-plus-comm__B8SmKuF",
                             "pypi-server__U5R94Gj",
                             "multi-source-data-merger__v9E9gUY",
-                            "configure-git-webserver__9Wjf7D9"
+                            "configure-git-webserver__9Wjf7D9",
+                            "adaptive-rejection-sampler__SiqCnQU"
                         ]
                     }
                 },
@@ -55,19 +58,21 @@
                         "modernize-scientific-stack__bt9zDzm",
                         "feal-linear-cryptanalysis__FdzfRD4",
                         "custom-memory-heap-crash__4P7P7S9",
-                        "mteb-retrieve__JzSCN8W"
+                        "mteb-retrieve__JzSCN8W",
+                        "cobol-modernization__ePLgEDv"
                     ],
                     "AgentTimeoutError": [
                         "gpt2-codegolf__8e2oe7s",
                         "write-compressor__4dmJHgw",
-                        "caffe-cifar-10__kAhvpms"
+                        "caffe-cifar-10__kAhvpms",
+                        "adaptive-rejection-sampler__SiqCnQU"
                     ]
                 }
             }
         },
-        "n_input_tokens": 22400213,
+        "n_input_tokens": 28588734,
         "n_cache_tokens": null,
-        "n_output_tokens": 113070,
+        "n_output_tokens": 158144,
         "cost_usd": null
     }
 }
