@@ -436,6 +436,13 @@ def _reasoning_extra(model_id: str, level: str | None) -> dict:
     if forced:
         eff = _REASON_EFFORT.get(forced.strip().lower())
         if eff:
+            # ROHER OpenRouter-Parameter statt litellms reasoning_effort: litellm's
+            # drop_params=True verwirft reasoning_effort STILL, wenn es das Modell nicht
+            # als reasoning-faehig kennt — genau der Fall bei Stealth-Modellen (ox-alpha),
+            # fuer die dieser Override ueberhaupt existiert. extra_body wird ungefiltert
+            # in den Request-Body gemergt und kommt daher immer an.
+            if str(model_id).startswith("openrouter/"):
+                return {"extra_body": {"reasoning": {"effort": eff}}}
             return {"reasoning_effort": eff}
     if not level:
         return {}

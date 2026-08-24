@@ -208,6 +208,17 @@ class KiraAgent(BaseAgent):
                   context: AgentContext) -> None:
         if self.model_name:
             os.environ["KIRA_FORCE_MODEL"] = self.model_name
+            # Reasoning-Effort setzt der Adapter SELBST (nicht per Shell-Env — Harbor
+            # spawnt den Agenten in bereinigter Umgebung, genau wie bei KIRA_FORCE_MODEL).
+            # Quelle in Reihenfolge: ausdrueckliche Env-Vorgabe, sonst automatisch 'low'
+            # fuer Stealth-Modelle (ox-alpha), die der OpenRouter-Katalog nicht als
+            # denk-faehig meldet und die sonst ihr ganzes Budget verdenken (8192 Tokens/
+            # 229s pro Zug, nie ein Tool-Call).
+            eff = os.getenv("KIRA_TB_REASONING")
+            if not eff and ("stealth" in self.model_name or "ox-alpha" in self.model_name):
+                eff = "low"
+            if eff:
+                os.environ["KIRA_FORCE_REASONING_EFFORT"] = eff
         sid = "tb-" + uuid.uuid4().hex[:10]
         loop = asyncio.get_running_loop()
         frist_ts = self._frist()
