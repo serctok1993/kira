@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T20:18:39.457310Z",
+    "updated_at": "2026-08-24T20:23:07.124199Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 37,
-        "n_errored_trials": 7,
+        "n_completed_trials": 40,
+        "n_errored_trials": 9,
         "n_running_trials": 3,
-        "n_pending_trials": 49,
+        "n_pending_trials": 46,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 35,
-                "n_errors": 7,
+                "n_trials": 37,
+                "n_errors": 9,
                 "metrics": [
                     {
-                        "mean": 0.43243243243243246
+                        "mean": 0.425
                     }
                 ],
                 "pass_at_k": {},
@@ -39,7 +39,8 @@
                             "pytorch-model-cli__irc6uix",
                             "reshard-c4-data__6AuZqi8",
                             "modernize-scientific-stack__EudRVLZ",
-                            "cobol-modernization__KCQZCeh"
+                            "cobol-modernization__KCQZCeh",
+                            "qemu-startup__nhcnY68"
                         ],
                         "0.0": [
                             "merge-diff-arc-agi-task__S3u4eek",
@@ -60,7 +61,8 @@
                             "winning-avg-corewars__4Viqarw",
                             "caffe-cifar-10__bxUMeaL",
                             "feal-linear-cryptanalysis__3syKzbo",
-                            "adaptive-rejection-sampler__rPuFdW6"
+                            "adaptive-rejection-sampler__rPuFdW6",
+                            "crack-7z-hash__aqZANRS"
                         ]
                     }
                 },
@@ -70,18 +72,20 @@
                         "gpt2-codegolf__YNbCouj",
                         "caffe-cifar-10__bxUMeaL",
                         "feal-linear-cryptanalysis__3syKzbo",
-                        "adaptive-rejection-sampler__rPuFdW6"
+                        "adaptive-rejection-sampler__rPuFdW6",
+                        "crack-7z-hash__aqZANRS"
                     ],
                     "RuntimeError": [
                         "mteb-retrieve__JkmNqEj",
-                        "custom-memory-heap-crash__w7aixk9"
+                        "custom-memory-heap-crash__w7aixk9",
+                        "hf-model-inference__FVEHfDk"
                     ]
                 }
             }
         },
-        "n_input_tokens": 35196584,
+        "n_input_tokens": 35202663,
         "n_cache_tokens": null,
-        "n_output_tokens": 225434,
+        "n_output_tokens": 225888,
         "cost_usd": null
     }
 }
