@@ -1,0 +1,131 @@
+{
+    "id": "a31b485c-e098-4e90-aeea-a87b9c54ce85",
+    "task_name": "break-filter-js-from-html",
+    "trial_name": "break-filter-js-from-html__F55BWXq",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/break-filter-js-from-html__F55BWXq",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "break-filter-js-from-html"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "b33421492e86b07de2a01bc2205f7e7d2fdc36446a84787265d99e5e138fdaaa",
+    "config": {
+        "task": {
+            "path": "break-filter-js-from-html",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "break-filter-js-from-html__F55BWXq",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 5392,
+        "n_cache_tokens": null,
+        "n_output_tokens": 479,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "Done. `/app/out.html` contains a meta-refresh redirect to a `javascript:` URL:\n\n```html\n<html><head><meta http-equiv=\"refresh\" content=\"0;url=javascript:alert(1)\"></head><body>x</body></html>\n```\n\nThe filter removes `<script>` tags, frame/embed tags, and `on*` attributes, but leaves `<meta>` tags untouched — and the browser executes the `javascript:` URL automatically on refresh, no interaction needed. `test_outputs.py` passes (exit 0).",
+            "session_id": "tb-40319aab24"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T17:32:22.134053Z",
+    "finished_at": "2026-08-24T17:34:06.911079Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T17:32:22.272536Z",
+        "finished_at": "2026-08-24T17:32:56.727907Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T17:32:56.727954Z",
+        "finished_at": "2026-08-24T17:33:00.252120Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T17:33:00.252232Z",
+        "finished_at": "2026-08-24T17:33:39.350691Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T17:33:39.828688Z",
+        "finished_at": "2026-08-24T17:33:55.795344Z"
+    },
+    "step_results": null
+}
