@@ -150,4 +150,142 @@ rootdir: /tests
 plugins: json-ctrf-0.3.5
 collected 3 items
 
-../tests/test_outputs.py ..
+../tests/test_outputs.py ..F                                             [100%]
+
+=================================== FAILURES ===================================
+________________________ test_join_announce_leave_flow _________________________
+
+    def test_join_announce_leave_flow():
+        """Full flow of user joining, announcing, and leaving the mailing list."""
+        subject = "Secret Announcement"
+        user = "alicegray"
+        add_user(user)
+        mbox_path = f"/var/mail/{user}"
+    
+        def _assert_mailbox_exists():
+            assert os.path.exists(mbox_path), f"Mailbox not found: {mbox_path}"
+    
+        def _assert_not_member():
+            mlist = get_mlist()
+            user_member = mlist.members.get_member(f"{user}@{DOMAIN_NAME}")
+            assert user_member is None, f"{user} is a member: {user_member=}"
+    
+        def _assert_member():
+            mlist = get_mlist()
+            user_member = mlist.members.get_member(f"{user}@{DOMAIN_NAME}")
+            assert user_member, f"{user} is not a member: {user_member=}"
+    
+        def _assert_announcement():
+            mbox = mailbox.mbox(mbox_path)
+            announce_msgs = [msg for msg in mbox if subject in msg.get("Subject", "")]
+            assert len(announce_msgs) == 1, (
+                f"Expected 1 announcement, found {len(announce_msgs)}"
+            )
+    
+        send_email(
+            body="",
+            subject="",
+            from_addr=f"{user}@{DOMAIN_NAME}",
+            to_addr=JOIN_LIST,
+        )
+        print(f"{user} sends a join request")
+        retry(_assert_not_member)
+        print(f"{user} has not yet confirmed their subscription")
+    
+        retry(_assert_mailbox_exists)
+>       retry(bind(confirm_last_reply, user, "join"))
+
+/tests/test_outputs.py:208: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/tests/test_outputs.py:52: in retry
+    raise e
+/tests/test_outputs.py:48: in retry
+    return func()
+           ^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+user = 'alicegray', subject_contains = 'join'
+
+    def confirm_last_reply(user, subject_contains=""):
+        """Mock user confirmation behavior when they join or leave
+        the mailing list."""
+        mbox_path = f"/var/mail/{user}"
+        mbox = mailbox.mbox(mbox_path)
+        print(f"{user} has {len(mbox)} messages in their inbox")
+        print("the subjects are as follows:")
+        print([msg.get("Subject", "") for msg in mbox])
+        candidate_msgs = [
+            msg
+            for msg in mbox
+            if msg.get("From").startswith("reading-group-confirm")
+            and subject_contains in msg.get("Subject", "")
+        ]
+        print(f"Found {len(candidate_msgs)} candidate confirmation messages")
+>       assert candidate_msgs, "No 'reading-group-confirm' messages found"
+E       AssertionError: No 'reading-group-confirm' messages found
+E       assert []
+
+/tests/test_outputs.py:117: AssertionError
+----------------------------- Captured stdout call -----------------------------
+alicegray added successfully.
+alicegray sends a join request
+alicegray has not yet confirmed their subscription
+Retrying in 2 seconds...
+alicegray has 1 messages in their inbox
+the subjects are as follows:
+['confirm c7c42face82664532d98c419e6ddf15a7e2e6fa1']
+Found 0 candidate confirmation messages
+Retrying in 2 seconds...
+alicegray has 1 messages in their inbox
+the subjects are as follows:
+['confirm c7c42face82664532d98c419e6ddf15a7e2e6fa1']
+Found 0 candidate confirmation messages
+Retrying in 4 seconds...
+alicegray has 1 messages in their inbox
+the subjects are as follows:
+['confirm c7c42face82664532d98c419e6ddf15a7e2e6fa1']
+Found 0 candidate confirmation messages
+Retrying in 8 seconds...
+alicegray has 1 messages in their inbox
+the subjects are as follows:
+['confirm c7c42face82664532d98c419e6ddf15a7e2e6fa1']
+Found 0 candidate confirmation messages
+Retrying in 16 seconds...
+alicegray has 1 messages in their inbox
+the subjects are as follows:
+['confirm c7c42face82664532d98c419e6ddf15a7e2e6fa1']
+Found 0 candidate confirmation messages
+=============================== warnings summary ===============================
+test_outputs.py::test_mlist_exists
+  /app/.tb/lib/python3.12/site-packages/mailman/database/model.py:56: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Model = declarative_base(cls=ModelMeta)
+
+test_outputs.py::test_mlist_exists
+  /app/.tb/lib/python3.12/site-packages/passlib/utils/__init__.py:854: DeprecationWarning: 'crypt' is deprecated and slated for removal in Python 3.13
+    from crypt import crypt as _crypt
+
+test_outputs.py::test_mlist_exists
+test_outputs.py::test_mlist_exists
+test_outputs.py::test_mlist_exists
+test_outputs.py::test_mlist_exists
+test_outputs.py::test_mlist_exists
+test_outputs.py::test_mlist_exists
+  /app/.tb/lib/python3.12/site-packages/importlib_resources/_functional.py:57: DeprecationWarning: importlib.resources.contents is deprecated. Use files(anchor).iterdir() instead.
+    warnings.warn(
+
+test_outputs.py::test_mlist_exists
+  /app/.tb/lib/python3.12/site-packages/mailman/commands/cli_gatenews.py:24: DeprecationWarning: 'nntplib' is deprecated and slated for removal in Python 3.13
+    import nntplib
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+==================================== PASSES ====================================
+__________________________ test_simple_local_delivery __________________________
+----------------------------- Captured stdout call -----------------------------
+bobgreen added successfully.
+Retrying in 2 seconds...
+Direct delivery to bobgreen works: Direct Message
+=========================== short test summary info ============================
+PASSED ../tests/test_outputs.py::test_simple_local_delivery
+PASSED ../tests/test_outputs.py::test_mlist_exists
+FAILED ../tests/test_outputs.py::test_join_announce_leave_flow - AssertionErr...
+=================== 1 failed, 2 passed, 9 warnings in 36.69s ===================
