@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T23:18:05.355079Z",
-    "finished_at": null,
+    "updated_at": "2026-08-24T23:29:24.356768",
+    "finished_at": "2026-08-24T23:29:24.356768",
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 88,
+        "n_completed_trials": 89,
         "n_errored_trials": 20,
-        "n_running_trials": 1,
+        "n_running_trials": 0,
         "n_pending_trials": 0,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 80,
+                "n_trials": 81,
                 "n_errors": 20,
                 "metrics": [
                     {
-                        "mean": 0.38636363636363635
+                        "mean": 0.38202247191011235
                     }
                 ],
                 "pass_at_k": {},
@@ -47,17 +47,17 @@
                             "count-dataset-tokens__PDAYe6E",
                             "fix-code-vulnerability__NPD5QaM",
                             "financial-document-processor__ju22szh",
-                            "regex-log__xhmtLFW",
                             "mcmc-sampling-stan__8ukvFyU",
-                            "git-leak-recovery__V8qWtMD",
+                            "regex-log__xhmtLFW",
                             "feal-differential-cryptanalysis__JYJyoif",
+                            "fix-ocaml-gc__8P6zZTv",
+                            "git-leak-recovery__V8qWtMD",
                             "sqlite-db-truncate__FfjToFy",
                             "sanitize-git-repo__RbhqHTB",
                             "build-pmars__K6RVfk7",
                             "sqlite-with-gcov__aWo7onU",
                             "constraints-scheduling__D7LiFZH",
-                            "vulnerable-secret__MAJ7VhN",
-                            "fix-ocaml-gc__8P6zZTv"
+                            "vulnerable-secret__MAJ7VhN"
                         ],
                         "0.0": [
                             "merge-diff-arc-agi-task__S3u4eek",
@@ -73,24 +73,24 @@
                             "chess-best-move__tvJLYDh",
                             "llm-inference-batching-scheduler__fsNB6Aq",
                             "path-tracing__5qt9zwA",
-                            "write-compressor__D4FNw53",
                             "gpt2-codegolf__YNbCouj",
+                            "write-compressor__D4FNw53",
                             "winning-avg-corewars__4Viqarw",
-                            "caffe-cifar-10__bxUMeaL",
                             "feal-linear-cryptanalysis__3syKzbo",
+                            "caffe-cifar-10__bxUMeaL",
                             "adaptive-rejection-sampler__rPuFdW6",
                             "crack-7z-hash__aqZANRS",
-                            "video-processing__g9hvfbb",
                             "schemelike-metacircular-eval__G2E2vUf",
-                            "torch-pipeline-parallelism__HPQfNn4",
-                            "make-doom-for-mips__yx7HPvu",
-                            "gcode-to-text__nZy8c3k",
-                            "extract-moves-from-video__PUgyedh",
                             "train-fasttext__GAwYcXF",
-                            "circuit-fibsqrt__cHDzPBA",
-                            "raman-fitting__mjf7Rpb",
+                            "video-processing__g9hvfbb",
+                            "make-doom-for-mips__yx7HPvu",
+                            "torch-pipeline-parallelism__HPQfNn4",
+                            "extract-moves-from-video__PUgyedh",
+                            "gcode-to-text__nZy8c3k",
                             "make-mips-interpreter__Sc6ANqN",
+                            "circuit-fibsqrt__cHDzPBA",
                             "mailman__4mfUTZy",
+                            "raman-fitting__mjf7Rpb",
                             "query-optimize__U6Y4DKu",
                             "protein-assembly__rxAq22G",
                             "code-from-image__Qp5H9xU",
@@ -99,26 +99,27 @@
                             "bn-fit-modify__KxMc6Su",
                             "build-cython-ext__wesA4iV",
                             "sam-cell-seg__xfYr9HZ",
+                            "model-extraction-relu-logits__4PkWd5Y",
                             "nginx-request-logging__ALNACUi",
                             "sparql-university__kYhibgg",
                             "large-scale-text-editing__5iVrTDX",
-                            "model-extraction-relu-logits__4PkWd5Y",
+                            "rstan-to-pystan__avKEKvS",
                             "openssl-selfsigned-cert__Gu9aWBZ",
                             "dna-insert__Bp4TMom",
-                            "rstan-to-pystan__avKEKvS"
+                            "dna-assembly__Wa9cpLD"
                         ]
                     }
                 },
                 "exception_stats": {
                     "AgentTimeoutError": [
-                        "write-compressor__D4FNw53",
                         "gpt2-codegolf__YNbCouj",
-                        "caffe-cifar-10__bxUMeaL",
+                        "write-compressor__D4FNw53",
                         "feal-linear-cryptanalysis__3syKzbo",
+                        "caffe-cifar-10__bxUMeaL",
                         "adaptive-rejection-sampler__rPuFdW6",
                         "crack-7z-hash__aqZANRS",
-                        "gcode-to-text__nZy8c3k",
                         "train-fasttext__GAwYcXF",
+                        "gcode-to-text__nZy8c3k",
                         "make-mips-interpreter__Sc6ANqN",
                         "code-from-image__Qp5H9xU",
                         "regex-log__xhmtLFW",
@@ -137,9 +138,9 @@
                 }
             }
         },
-        "n_input_tokens": 64701452,
+        "n_input_tokens": 70433604,
         "n_cache_tokens": null,
-        "n_output_tokens": 496097,
+        "n_output_tokens": 546278,
         "cost_usd": null
     }
 }
