@@ -1,23 +1,23 @@
 {
     "id": "daa371d9-4d04-49ba-9f2f-0328d7b845f1",
     "started_at": "2026-08-23T23:03:04.761365",
-    "updated_at": "2026-08-24T00:01:44.302290Z",
+    "updated_at": "2026-08-24T00:42:11.961618Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 55,
-        "n_errored_trials": 52,
+        "n_completed_trials": 61,
+        "n_errored_trials": 53,
         "n_running_trials": 2,
-        "n_pending_trials": 32,
+        "n_pending_trials": 26,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__nvidia/nemotron-3-ultra-550b-a55b:free__terminal-bench": {
-                "n_trials": 6,
-                "n_errors": 52,
+                "n_trials": 11,
+                "n_errors": 53,
                 "metrics": [
                     {
-                        "mean": 0.03636363636363636
+                        "mean": 0.04918032786885246
                     }
                 ],
                 "pass_at_k": {},
@@ -27,11 +27,16 @@
                             "break-filter-js-from-html__wEbdBcW",
                             "reshard-c4-data__WCXt7mV",
                             "llm-inference-batching-scheduler__LftqDWp",
-                            "write-compressor__37MLbBu"
+                            "write-compressor__37MLbBu",
+                            "raman-fitting__LZfuCQP",
+                            "mailman__8h7paNh",
+                            "extract-elf__u83CaLG",
+                            "protein-assembly__ZGyWAhD"
                         ],
                         "1.0": [
                             "merge-diff-arc-agi-task__t8EpMPs",
-                            "log-summary-date-ranges__rtPQyaH"
+                            "log-summary-date-ranges__rtPQyaH",
+                            "code-from-image__ff4yadG"
                         ]
                     }
                 },
@@ -91,13 +96,16 @@
                         "break-filter-js-from-html__wEbdBcW",
                         "llm-inference-batching-scheduler__LftqDWp",
                         "write-compressor__37MLbBu"
+                    ],
+                    "VerifierTimeoutError": [
+                        "query-optimize__PqQ65eY"
                     ]
                 }
             }
         },
-        "n_input_tokens": 1576056,
+        "n_input_tokens": 8603435,
         "n_cache_tokens": null,
-        "n_output_tokens": 52185,
+        "n_output_tokens": 159440,
         "cost_usd": null
     }
 }
