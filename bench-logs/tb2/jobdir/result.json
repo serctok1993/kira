@@ -1,23 +1,23 @@
 {
     "id": "daa371d9-4d04-49ba-9f2f-0328d7b845f1",
     "started_at": "2026-08-23T23:03:04.761365",
-    "updated_at": "2026-08-24T01:03:54.096374Z",
+    "updated_at": "2026-08-24T01:43:20.667580Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 65,
-        "n_errored_trials": 53,
+        "n_completed_trials": 72,
+        "n_errored_trials": 55,
         "n_running_trials": 2,
-        "n_pending_trials": 22,
+        "n_pending_trials": 15,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__nvidia/nemotron-3-ultra-550b-a55b:free__terminal-bench": {
-                "n_trials": 15,
-                "n_errors": 53,
+                "n_trials": 20,
+                "n_errors": 55,
                 "metrics": [
                     {
-                        "mean": 0.07692307692307693
+                        "mean": 0.08333333333333333
                     }
                 ],
                 "pass_at_k": {},
@@ -33,14 +33,19 @@
                             "extract-elf__u83CaLG",
                             "protein-assembly__ZGyWAhD",
                             "financial-document-processor__5Lo4i6L",
-                            "fix-code-vulnerability__XvoMjPR"
+                            "fix-code-vulnerability__XvoMjPR",
+                            "feal-differential-cryptanalysis__oznMH9E",
+                            "polyglot-c-py__LctetAx",
+                            "bn-fit-modify__UxvUrhZ",
+                            "build-cython-ext__Mgt7Tte"
                         ],
                         "1.0": [
                             "merge-diff-arc-agi-task__t8EpMPs",
                             "log-summary-date-ranges__rtPQyaH",
                             "code-from-image__ff4yadG",
                             "regex-log__ELj3jLM",
-                            "mcmc-sampling-stan__gtZG4y3"
+                            "mcmc-sampling-stan__gtZG4y3",
+                            "cancel-async-tasks__tHo7dz5"
                         ]
                     }
                 },
@@ -94,7 +99,8 @@
                         "count-dataset-tokens__uNLvpQN",
                         "make-mips-interpreter__HFPHQST",
                         "circuit-fibsqrt__osiVkHQ",
-                        "mteb-leaderboard__KE6pjmP"
+                        "mteb-leaderboard__KE6pjmP",
+                        "git-leak-recovery__dUCukcA"
                     ],
                     "AgentTimeoutError": [
                         "break-filter-js-from-html__wEbdBcW",
@@ -102,14 +108,15 @@
                         "write-compressor__37MLbBu"
                     ],
                     "VerifierTimeoutError": [
-                        "query-optimize__PqQ65eY"
+                        "query-optimize__PqQ65eY",
+                        "filter-js-from-html__Ks8xQ8g"
                     ]
                 }
             }
         },
-        "n_input_tokens": 11757306,
+        "n_input_tokens": 15154914,
         "n_cache_tokens": null,
-        "n_output_tokens": 206846,
+        "n_output_tokens": 294144,
         "cost_usd": null
     }
 }

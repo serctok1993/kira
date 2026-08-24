@@ -1,0 +1,131 @@
+{
+    "id": "40245c35-dc39-46a8-a4c3-9358e1a35017",
+    "task_name": "feal-differential-cryptanalysis",
+    "trial_name": "feal-differential-cryptanalysis__oznMH9E",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-official/feal-differential-cryptanalysis__oznMH9E",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "feal-differential-cryptanalysis"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "798945c624cad262a52c46271a557698875990a600a6a5cb35c2dfd9b00bf80d",
+    "config": {
+        "task": {
+            "path": "feal-differential-cryptanalysis",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "feal-differential-cryptanalysis__oznMH9E",
+        "trials_dir": "tb-jobs/kira-tb2-official",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "daa371d9-4d04-49ba-9f2f-0328d7b845f1",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "nvidia/nemotron-3-ultra-550b-a55b:free",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 27789,
+        "n_cache_tokens": null,
+        "n_output_tokens": 19336,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "Let me understand the differential characteristic better. The input diff 0x80800000 gives output diff 0x02000000 with probability 1. This is a very useful characteristic!\n\nLet me trace through the Feistel structure:\n\nThe encryption function:\n1. Initial whitening: left ^= key[0], right ^= key[1]\n2. Pre-round: right ^= left\n3. 4 rounds: for round 0..3:\n   - mixed = f_function(right ^ key[round+2])\n   - temp = right\n   - right = left ^ mixed\n   - left = temp\n4. Post-round: left ^= right\n5. Return merge(right, left)\n\nSo the round keys are key[2], key[3], key[4], key[5] for rounds 0, 1, 2, 3.\n\nI need to recover key[5], which is used in round 3 (the last round).\n\nIn a differential attack on a Feistel cipher, we typically use a differential characteristic that spans multiple rounds. Since we know input diff 0x80800000 -> output diff 0x02000000 for the F function with probability 1, we can try to build a characteristic.\n\nLet me think about the Feistel structure:\n- Round 0: L1 = R0, R1 = L0 ^ F(R0 ^ K2)\n- Round 1: L2 = R1, R2 = L1 ^ F(R1 ^ K3)\n- Round 2: L3 = R2, R3 = L2 ^ F(R2 ^ K4)\n- Round 3: L4 = R3, R4 = L3 ^ F(R3 ^ K5)\n\nAfter 4 rounds, we have left = L4, right = R4, then left ^= right, then swap.\n\nSo output = (R4, L4 ^ R4)\n\nIf we can find a differential that holds through rounds 0-2, we can then attack the last round.\n\nLet's try to find a good differential characteristic. Since F(0x80800000) ^ F(0) = 0x02000000, we know:\nF(x) ^ F(x ^ 0x80800000) = 0x02000000 for all x.\n\nThis mean",
+            "session_id": "tb-ecf74bc09c"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T01:03:54.095668Z",
+    "finished_at": "2026-08-24T01:14:21.082444Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T01:03:54.097833Z",
+        "finished_at": "2026-08-24T01:03:59.054501Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T01:03:59.054537Z",
+        "finished_at": "2026-08-24T01:04:02.277044Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T01:04:02.277161Z",
+        "finished_at": "2026-08-24T01:13:48.930469Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T01:13:49.413791Z",
+        "finished_at": "2026-08-24T01:14:09.579552Z"
+    },
+    "step_results": null
+}
