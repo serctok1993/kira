@@ -1,0 +1,6 @@
+Hit:1 http://deb.debian.org/debian bookworm InRelease
+Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+Hit:3 http://deb.debian.org/debian-security bookworm-security InRelease
+Fetched 55.4 kB in 3s (21.3 kB/s)
+Reading package lists...
+Reading package lists...
