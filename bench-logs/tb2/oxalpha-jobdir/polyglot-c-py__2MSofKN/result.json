@@ -1,0 +1,131 @@
+{
+    "id": "865c2544-a5d2-4093-a72e-def3a7fb0a25",
+    "task_name": "polyglot-c-py",
+    "trial_name": "polyglot-c-py__2MSofKN",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/polyglot-c-py__2MSofKN",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "polyglot-c-py"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "c900ff5db07ad231170f95c658891924a779b0866a4eabfeaa87c932bbce7d9f",
+    "config": {
+        "task": {
+            "path": "polyglot-c-py",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "polyglot-c-py__2MSofKN",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 10061,
+        "n_cache_tokens": null,
+        "n_output_tokens": 1272,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "Done. `/app/polyglot/main.py.c` works both ways:\n\n```c\n#if 0\nimport sys\nn = int(sys.argv[1])\na, b = 0, 1\nfor _ in range(n):\n    a, b = b, a + b\nprint(a)\nr\"\"\"\n#endif\n#include <stdio.h>\n#include <stdlib.h>\nint main(int argc, char **argv) {\n    if (argc < 2) return 1;\n    int n = atoi(argv[1]);\n    long long a = 0, b = 1, t;\n    for (int i = 0; i < n; i++) { t = a + b; a = b; b = t; }\n    printf(\"%lld\n\", a);\n    return 0;\n}\n#if 0\n\"\"\"\n#endif\n```\n\n**How it works:**\n- **C** skips the Python code because it's inside `#if 0 ... #endif`; the `r\"\"\"` line is a syntax warning only.\n- **Python** executes the `#if 0` lines as comments, prints the Fibonacci number, then the `r\"\"\"...\"\"\"` string literal swallows the entire C code.\n\nVerified with gcc 13.2.0 and Python 3.12.3 — outputs match for N = 0, 1, 2, 5, 10, 20, 50, 90 (e.g., f(90) = 2880067194370816120).",
+            "session_id": "tb-338ee70f84"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T22:24:14.134353Z",
+    "finished_at": "2026-08-24T22:25:43.497113Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T22:24:14.135887Z",
+        "finished_at": "2026-08-24T22:24:23.988404Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T22:24:23.988438Z",
+        "finished_at": "2026-08-24T22:24:24.473469Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T22:24:24.473575Z",
+        "finished_at": "2026-08-24T22:25:22.585528Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T22:25:23.100361Z",
+        "finished_at": "2026-08-24T22:25:32.270636Z"
+    },
+    "step_results": null
+}
