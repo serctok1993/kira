@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T21:22:54.195346Z",
+    "updated_at": "2026-08-24T21:26:43.919340Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 51,
-        "n_errored_trials": 11,
+        "n_completed_trials": 53,
+        "n_errored_trials": 13,
         "n_running_trials": 3,
-        "n_pending_trials": 35,
+        "n_pending_trials": 33,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 47,
-                "n_errors": 11,
+                "n_trials": 48,
+                "n_errors": 13,
                 "metrics": [
                     {
-                        "mean": 0.4117647058823529
+                        "mean": 0.39622641509433965
                     }
                 ],
                 "pass_at_k": {},
@@ -72,7 +72,8 @@
                             "torch-pipeline-parallelism__HPQfNn4",
                             "make-doom-for-mips__yx7HPvu",
                             "gcode-to-text__nZy8c3k",
-                            "extract-moves-from-video__PUgyedh"
+                            "extract-moves-from-video__PUgyedh",
+                            "train-fasttext__GAwYcXF"
                         ]
                     }
                 },
@@ -84,13 +85,15 @@
                         "feal-linear-cryptanalysis__3syKzbo",
                         "adaptive-rejection-sampler__rPuFdW6",
                         "crack-7z-hash__aqZANRS",
-                        "gcode-to-text__nZy8c3k"
+                        "gcode-to-text__nZy8c3k",
+                        "train-fasttext__GAwYcXF"
                     ],
                     "RuntimeError": [
                         "mteb-retrieve__JkmNqEj",
                         "custom-memory-heap-crash__w7aixk9",
                         "hf-model-inference__FVEHfDk",
-                        "install-windows-3.11__yZZAmJe"
+                        "install-windows-3.11__yZZAmJe",
+                        "mteb-leaderboard__5Xcvhy7"
                     ]
                 }
             }
