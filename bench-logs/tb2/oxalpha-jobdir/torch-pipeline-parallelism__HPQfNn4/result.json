@@ -1,0 +1,131 @@
+{
+    "id": "f8a03b56-766b-4379-bec1-c1b3d867a0a9",
+    "task_name": "torch-pipeline-parallelism",
+    "trial_name": "torch-pipeline-parallelism__HPQfNn4",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/torch-pipeline-parallelism__HPQfNn4",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "torch-pipeline-parallelism"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "3d4bac3d36d63a48403936af61510e24cce92d6650ab4e4b9b21e1192b183646",
+    "config": {
+        "task": {
+            "path": "torch-pipeline-parallelism",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "torch-pipeline-parallelism__HPQfNn4",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 15727,
+        "n_cache_tokens": null,
+        "n_output_tokens": 4694,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "Implemented `/app/pipeline_parallel.py` with `train_step_pipeline_afab`:\n\n**Design:**\n- **Layer partitioning:** `n_layers` split roughly evenly across `world_size` stages (remainder distributed to earlier ranks); each stage runs `model.model.layers[start:end]`.\n- **AFAB forward:** For every microbatch in order — rank 0 embeds input IDs via `model.model.embed_tokens`; intermediate/last ranks receive hidden states `[mb, seq, hidden]` from the previous rank with `dist.P2POp(dist.irecv)` (moved to device/dtype, then `requires_grad_(True)` so autograd tracks the boundary). Each stage runs its layers, and non-last stages send activations onward with a detached copy (autograd-connected tensor is kept locally).\n- **Loss:** On the last rank, applies `model.model.norm` + `model.lm_head`, computes cross-entropy against targets divided by the number of microbatches.\n- **AFAB backward:** After all forwards, backward passes run for all microbatches in order — last rank calls `.backward()` on its loss; other stages receive the output gradient from the next rank via P2P and call `out.backward(gradient=g)`, which propagates through local layers into parameters and the received-input leaf for further upstream propagation. Losses are summed and returned.\n- **world_size == 1** uses a straightforward local microbatch loop.\n\nNote: this container has no Python interpreter installed, so I couldn't execute tests here — but the file is syntactically clean and follows exactly the required communication pattern (no hooks used).",
+            "session_id": "tb-7cf0a39942"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T20:43:55.492214Z",
+    "finished_at": "2026-08-24T20:48:35.685189Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T20:43:55.493745Z",
+        "finished_at": "2026-08-24T20:44:01.597683Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T20:44:01.597724Z",
+        "finished_at": "2026-08-24T20:44:02.107453Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T20:44:02.107581Z",
+        "finished_at": "2026-08-24T20:46:04.616654Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T20:46:05.171326Z",
+        "finished_at": "2026-08-24T20:48:24.061302Z"
+    },
+    "step_results": null
+}

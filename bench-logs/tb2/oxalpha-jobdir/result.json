@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T20:42:44.336657Z",
+    "updated_at": "2026-08-24T20:48:35.708155Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 42,
-        "n_errored_trials": 9,
+        "n_completed_trials": 46,
+        "n_errored_trials": 10,
         "n_running_trials": 3,
-        "n_pending_trials": 44,
+        "n_pending_trials": 40,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 39,
-                "n_errors": 9,
+                "n_trials": 42,
+                "n_errors": 10,
                 "metrics": [
                     {
-                        "mean": 0.42857142857142855
+                        "mean": 0.41304347826086957
                     }
                 ],
                 "pass_at_k": {},
@@ -41,7 +41,8 @@
                             "modernize-scientific-stack__EudRVLZ",
                             "cobol-modernization__KCQZCeh",
                             "qemu-startup__nhcnY68",
-                            "qemu-alpine-ssh__PsPk7oh"
+                            "qemu-alpine-ssh__PsPk7oh",
+                            "kv-store-grpc__z6znaip"
                         ],
                         "0.0": [
                             "merge-diff-arc-agi-task__S3u4eek",
@@ -64,7 +65,9 @@
                             "feal-linear-cryptanalysis__3syKzbo",
                             "adaptive-rejection-sampler__rPuFdW6",
                             "crack-7z-hash__aqZANRS",
-                            "video-processing__g9hvfbb"
+                            "video-processing__g9hvfbb",
+                            "schemelike-metacircular-eval__G2E2vUf",
+                            "torch-pipeline-parallelism__HPQfNn4"
                         ]
                     }
                 },
@@ -80,14 +83,15 @@
                     "RuntimeError": [
                         "mteb-retrieve__JkmNqEj",
                         "custom-memory-heap-crash__w7aixk9",
-                        "hf-model-inference__FVEHfDk"
+                        "hf-model-inference__FVEHfDk",
+                        "install-windows-3.11__yZZAmJe"
                     ]
                 }
             }
         },
-        "n_input_tokens": 42558483,
+        "n_input_tokens": 47417199,
         "n_cache_tokens": null,
-        "n_output_tokens": 238564,
+        "n_output_tokens": 285774,
         "cost_usd": null
     }
 }
