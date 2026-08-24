@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T20:01:51.663480Z",
+    "updated_at": "2026-08-24T20:06:29.073657Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 33,
-        "n_errored_trials": 4,
+        "n_completed_trials": 34,
+        "n_errored_trials": 5,
         "n_running_trials": 3,
-        "n_pending_trials": 53,
+        "n_pending_trials": 52,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 31,
-                "n_errors": 4,
+                "n_trials": 32,
+                "n_errors": 5,
                 "metrics": [
                     {
-                        "mean": 0.45454545454545453
+                        "mean": 0.4411764705882353
                     }
                 ],
                 "pass_at_k": {},
@@ -56,14 +56,16 @@
                             "path-tracing__5qt9zwA",
                             "write-compressor__D4FNw53",
                             "gpt2-codegolf__YNbCouj",
-                            "winning-avg-corewars__4Viqarw"
+                            "winning-avg-corewars__4Viqarw",
+                            "caffe-cifar-10__bxUMeaL"
                         ]
                     }
                 },
                 "exception_stats": {
                     "AgentTimeoutError": [
                         "write-compressor__D4FNw53",
-                        "gpt2-codegolf__YNbCouj"
+                        "gpt2-codegolf__YNbCouj",
+                        "caffe-cifar-10__bxUMeaL"
                     ],
                     "RuntimeError": [
                         "mteb-retrieve__JkmNqEj",
