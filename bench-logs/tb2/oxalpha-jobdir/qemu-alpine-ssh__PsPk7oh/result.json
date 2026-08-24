@@ -1,0 +1,131 @@
+{
+    "id": "c5ca5147-8465-4470-9dc5-eb6c978cdb42",
+    "task_name": "qemu-alpine-ssh",
+    "trial_name": "qemu-alpine-ssh__PsPk7oh",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/qemu-alpine-ssh__PsPk7oh",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "qemu-alpine-ssh"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "a6cd0bf0752902f3e284a6a9672d801de83fb9d0cf769c95f09fed2fd213548c",
+    "config": {
+        "task": {
+            "path": "qemu-alpine-ssh",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "qemu-alpine-ssh__PsPk7oh",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 55247,
+        "n_cache_tokens": null,
+        "n_output_tokens": 2274,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "Done and verified. ✅\n\n**Setup:**\n- Alpine VM booted in QEMU (running inside a persistent `tmux` session named `vm`, so it survives shell exits) with user-mode networking and port forward `2222 → 22`.\n- Logged in as root, configured networking + the v3.19 main repo, installed `openssh`.\n- Set root password to `password123` and enabled `PermitRootLogin yes` / `PasswordAuthentication yes` in sshd_config.\n- sshd is running and added to the default runlevel.\n\n**Verified:** `sshpass -p password123 ssh -p 2222 root@localhost 'echo SSH-OK'` returned `SSH-OK` from inside the VM.\n\nYou can now run:\n```\nssh -p 2222 root@localhost    # password: password123\n```\n\nNote: this is a live ISO environment — if the VM restarts, changes are lost unless installed to disk.",
+            "session_id": "tb-8976f6028c"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 1.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T20:36:22.987269Z",
+    "finished_at": "2026-08-24T20:42:44.329468Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T20:36:22.988519Z",
+        "finished_at": "2026-08-24T20:37:01.307897Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T20:37:01.307939Z",
+        "finished_at": "2026-08-24T20:37:03.964588Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T20:37:03.964701Z",
+        "finished_at": "2026-08-24T20:42:23.780061Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T20:42:24.306225Z",
+        "finished_at": "2026-08-24T20:42:32.836568Z"
+    },
+    "step_results": null
+}

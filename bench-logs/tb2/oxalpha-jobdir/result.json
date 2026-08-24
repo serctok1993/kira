@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T20:23:07.124199Z",
+    "updated_at": "2026-08-24T20:42:44.336657Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 40,
+        "n_completed_trials": 42,
         "n_errored_trials": 9,
         "n_running_trials": 3,
-        "n_pending_trials": 46,
+        "n_pending_trials": 44,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 37,
+                "n_trials": 39,
                 "n_errors": 9,
                 "metrics": [
                     {
-                        "mean": 0.425
+                        "mean": 0.42857142857142855
                     }
                 ],
                 "pass_at_k": {},
@@ -40,7 +40,8 @@
                             "reshard-c4-data__6AuZqi8",
                             "modernize-scientific-stack__EudRVLZ",
                             "cobol-modernization__KCQZCeh",
-                            "qemu-startup__nhcnY68"
+                            "qemu-startup__nhcnY68",
+                            "qemu-alpine-ssh__PsPk7oh"
                         ],
                         "0.0": [
                             "merge-diff-arc-agi-task__S3u4eek",
@@ -62,7 +63,8 @@
                             "caffe-cifar-10__bxUMeaL",
                             "feal-linear-cryptanalysis__3syKzbo",
                             "adaptive-rejection-sampler__rPuFdW6",
-                            "crack-7z-hash__aqZANRS"
+                            "crack-7z-hash__aqZANRS",
+                            "video-processing__g9hvfbb"
                         ]
                     }
                 },
@@ -83,9 +85,9 @@
                 }
             }
         },
-        "n_input_tokens": 35202663,
+        "n_input_tokens": 42558483,
         "n_cache_tokens": null,
-        "n_output_tokens": 225888,
+        "n_output_tokens": 238564,
         "cost_usd": null
     }
 }
