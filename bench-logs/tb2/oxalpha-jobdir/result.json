@@ -1,43 +1,54 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T17:35:20.142660Z",
+    "updated_at": "2026-08-24T17:52:20.754102Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 2,
-        "n_errored_trials": 1,
+        "n_completed_trials": 7,
+        "n_errored_trials": 4,
         "n_running_trials": 3,
-        "n_pending_trials": 84,
+        "n_pending_trials": 79,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 1,
-                "n_errors": 1,
+                "n_trials": 5,
+                "n_errors": 4,
                 "metrics": [
                     {
-                        "mean": 0.0
+                        "mean": 0.14285714285714285
                     }
                 ],
                 "pass_at_k": {},
                 "reward_stats": {
                     "reward": {
                         "0.0": [
-                            "break-filter-js-from-html__F55BWXq"
+                            "break-filter-js-from-html__F55BWXq",
+                            "gpt2-codegolf__8e2oe7s",
+                            "write-compressor__4dmJHgw",
+                            "merge-diff-arc-agi-task__S3u4eek"
+                        ],
+                        "1.0": [
+                            "log-summary-date-ranges__yEnjEDC"
                         ]
                     }
                 },
                 "exception_stats": {
                     "RuntimeError": [
-                        "reshard-c4-data__s3Feuu8"
+                        "reshard-c4-data__s3Feuu8",
+                        "winning-avg-corewars__HEXHWt9"
+                    ],
+                    "AgentTimeoutError": [
+                        "gpt2-codegolf__8e2oe7s",
+                        "write-compressor__4dmJHgw"
                     ]
                 }
             }
         },
-        "n_input_tokens": 5392,
+        "n_input_tokens": 39159,
         "n_cache_tokens": null,
-        "n_output_tokens": 479,
+        "n_output_tokens": 5806,
         "cost_usd": null
     }
 }
