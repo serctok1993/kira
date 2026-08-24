@@ -1,0 +1,131 @@
+{
+    "id": "04895293-bff7-4990-9fbb-f08aba6c251e",
+    "task_name": "tune-mjcf",
+    "trial_name": "tune-mjcf__TAQo5CR",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/tune-mjcf__TAQo5CR",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "tune-mjcf"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "0014600ed83c316bbc3b495879f147f234d06578281af02817c9955794d4ebef",
+    "config": {
+        "task": {
+            "path": "tune-mjcf",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "tune-mjcf__TAQo5CR",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 55038,
+        "n_cache_tokens": null,
+        "n_output_tokens": 2924,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "Done. The tuned model is saved at `/app/model.xml` — identical to the reference except for one added solver option:\n\n```xml\n<option jacobian=\"dense\" solver=\"PGS\"/>\n```\n\nThe default Newton solver with sparse/auto Jacobian was the bottleneck for this elasticity cable model. Switching to a dense Jacobian with the PGS solver gives:\n\n- **Correctness:** final full-physics state difference = 0.0000 (well within atol=1e-5), no NaN/Inf\n- **Speed:** 2.21× speedup → only **46%** of the reference runtime (target: ≤60%)\n\nBoth `test_correctness()` and `test_model_speed()` in eval.py pass, and physical properties (masses, stiffnesses, timesteps) are untouched.",
+            "session_id": "tb-3d89cb7a61"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 1.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T20:48:35.692765Z",
+    "finished_at": "2026-08-24T20:56:53.882754Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T20:48:35.710299Z",
+        "finished_at": "2026-08-24T20:48:44.240260Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T20:48:44.240300Z",
+        "finished_at": "2026-08-24T20:48:47.453607Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T20:48:47.453726Z",
+        "finished_at": "2026-08-24T20:56:14.333390Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T20:56:14.908152Z",
+        "finished_at": "2026-08-24T20:56:42.412386Z"
+    },
+    "step_results": null
+}
