@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T22:08:39.825318Z",
+    "updated_at": "2026-08-24T22:12:39.798275Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 62,
-        "n_errored_trials": 16,
+        "n_completed_trials": 64,
+        "n_errored_trials": 17,
         "n_running_trials": 3,
-        "n_pending_trials": 24,
+        "n_pending_trials": 22,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 56,
-                "n_errors": 16,
+                "n_trials": 57,
+                "n_errors": 17,
                 "metrics": [
                     {
-                        "mean": 0.3548387096774194
+                        "mean": 0.359375
                     }
                 ],
                 "pass_at_k": {},
@@ -45,7 +45,8 @@
                             "kv-store-grpc__z6znaip",
                             "tune-mjcf__TAQo5CR",
                             "count-dataset-tokens__PDAYe6E",
-                            "fix-code-vulnerability__NPD5QaM"
+                            "fix-code-vulnerability__NPD5QaM",
+                            "financial-document-processor__ju22szh"
                         ],
                         "0.0": [
                             "merge-diff-arc-agi-task__S3u4eek",
@@ -104,14 +105,15 @@
                         "hf-model-inference__FVEHfDk",
                         "install-windows-3.11__yZZAmJe",
                         "mteb-leaderboard__5Xcvhy7",
-                        "extract-elf__r9mZ6eu"
+                        "extract-elf__r9mZ6eu",
+                        "filter-js-from-html__Z7QzuQs"
                     ]
                 }
             }
         },
-        "n_input_tokens": 62414274,
+        "n_input_tokens": 62514882,
         "n_cache_tokens": null,
-        "n_output_tokens": 403233,
+        "n_output_tokens": 407311,
         "cost_usd": null
     }
 }

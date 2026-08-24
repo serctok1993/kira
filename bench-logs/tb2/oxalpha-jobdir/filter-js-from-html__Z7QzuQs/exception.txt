@@ -1,0 +1,23 @@
+Traceback (most recent call last):
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 406, in run
+    await self._prepare()
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 444, in _prepare
+    await self._setup_agent_environment()
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 1423, in _setup_agent_environment
+    await self._start_agent_environment()
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 1429, in _start_agent_environment
+    await asyncio.wait_for(
+    ...<4 lines>...
+    )
+  File "/usr/lib/python3.13/asyncio/tasks.py", line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker.py", line 913, in start
+    await self._run_docker_compose_command(["up", "--detach", "--wait"])
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker.py", line 656, in _run_docker_compose_command
+    raise RuntimeError(
+    ...<5 lines>...
+    )
+RuntimeError: Docker compose command failed for environment filter-js-from-html. Command: docker compose --project-name filter-js-from-html__z7qzuqs__env --project-directory /root/.cache/harbor/tasks/SeKnWxFXAqYwFdRQvLn2Wk/filter-js-from-html/environment -f /tmp/tmpafu1f2f3/filter-js-from-html__Z7QzuQs__env-docker-compose-resources.json -f /home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker-compose-prebuilt.yaml -f /tmp/tmpwpw26b2d/docker-compose-environment.json -f /tmp/tmprnbtdks6/docker-compose-mounts.json up --detach --wait. Return code: 1. Stdout:  Image alexgshaw/filter-js-from-html:20251031 Pulling 
+failed commit on ref "manifest-sha256:92acda0f124b988036a6f426ce0bc47fac19f5efe9fc5e6ea3ea52ccb075d0a4": commit failed: rename /var/lib/docker/containerd/daemon/io.containerd.content.v1.content/ingest/5dbeb0a973cbed11f755749ef8d04a7b2996781892b282e2b9cc59fa21818707/data /var/lib/docker/containerd/daemon/io.containerd.content.v1.content/blobs/sha256/92acda0f124b988036a6f426ce0bc47fac19f5efe9fc5e6ea3ea52ccb075d0a4: no such file or directory
+. Stderr: None. 
