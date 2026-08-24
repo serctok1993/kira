@@ -695,6 +695,11 @@ def complete(
             raise
     latency = time.time() - t0
 
+    # finish_reason durchreichen: "length" heisst, die Generierung wurde am Token-Deckel
+    # GEKAPPT — der Text ist ein Fragment, kein Ergebnis. Ohne dieses Signal nahm der
+    # Loop den abgeschnittenen Halbsatz als Endantwort (TB2-Befund 24.08.: polyglot-c-py
+    # verbrannte seine 8192 Ausgabe-Token in EINEM Denk-Zug und lieferte nie eine Datei).
+    finish_reason = getattr(resp.choices[0], "finish_reason", None) or ""
     message = resp.choices[0].message
     raw_text = message.content or ""
     text = _strip_think(raw_text)
@@ -759,6 +764,7 @@ def complete(
         "escalated": escalate,
         "tool_calls": tool_calls,
         "reasoning": reasoning,
+        "finish_reason": finish_reason,
     }
 
 

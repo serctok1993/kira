@@ -296,6 +296,13 @@ STUPS_ACT = ("Der Auftrag liegt bereits vor — tu es JETZT mit einem Werkzeug (
 STUPS_NATIV = ("Der Auftrag liegt bereits vor — tu es JETZT in diesem Zug: nutze die "
                "passenden Werkzeuge und antworte erst mit dem Ergebnis. Nicht "
                "ankuendigen, nicht zurueckfragen.")
+# Abgabe-Pflicht: deine letzte Antwort war kein Ergebnis, sondern ein Fragment.
+STUPS_ABGABE = ("Deine letzte Antwort war unfertig — ein abgeschnittener oder offener "
+                "Gedanke, kein Ergebnis. Denke kurz, handle dann: fuehre die naechsten "
+                "Schritte mit Werkzeugen aus, pruefe das Ergebnis nach (Datei da? Test "
+                "gruen? Dienst antwortet?) und antworte ERST danach — in wenigen Saetzen, "
+                "nur was tatsaechlich vorliegt. Ist bereits alles fertig und geprueft, "
+                "melde genau das kurz.")
 
 
 def beweis_nachfrage(wort: str, nativ: bool = False) -> str:
@@ -815,6 +822,25 @@ _PROMISE_RE = re.compile(
     # klarem Auftrag genauso wertlos wie ankuendigen -> derselbe Nudge greift.
     r"soll ich|moechtest du|möchtest du|willst du,? dass|bestaetige|bestätige|"
     r"darf ich|gib (mir )?gruenes licht|wenn du einverstanden)", re.IGNORECASE)
+
+
+def _abgabe_unfertig(text: str, finish_reason: str = "") -> bool:
+    """True, wenn die Antwort ein Fragment ist statt einer Abgabe.
+
+    Zwei Gruende, beide aus dem Terminal-Bench-Lauf vom 24.08.2026 belegt:
+      * finish_reason == "length" — der Anbieter hat die Generierung am Token-Deckel
+        GEKAPPT. Kein Urteil noetig, das ist gemessen (polyglot-c-py verbrannte 8192
+        Ausgabe-Token in einem einzigen Denk-Zug und schrieb nie eine Datei).
+      * Der Text endet auf einen Doppelpunkt — die angekuendigte Fortsetzung fehlt
+        schlicht ("Let me parse this:"). Bewusst NUR dieses eine Textmuster: ein
+        fertiger Bericht endet praktisch nie so, waehrend weichere Heuristiken
+        ("Let me ...") an Hoeflichkeitsfloskeln wie "Let me know if ..." falsch
+        anschlagen wuerden. Lieber ein Fragment durchlassen als eine gute Antwort
+        in eine Extrarunde schicken.
+    """
+    if (finish_reason or "").lower() == "length":
+        return True
+    return (text or "").strip().endswith(":")
 
 
 def _looks_like_promise(text: str) -> bool:
@@ -1375,23 +1401,56 @@ def _degrade_text(messages: list[dict], err: Exception) -> str:
 # aus dem Text -> billige Modelle bleiben nutzbar, der Loop wird robust gegen den Leak.
 _LEAK_INVOKE_RE = re.compile(r"invoke\s+name=\"([^\"]+)\"[^>]*>(.*?)</[^>]*invoke\s*>", re.DOTALL)
 _LEAK_PARAM_RE = re.compile(r"parameter\s+name=\"([^\"]+)\"[^>]*>(.*?)</[^>]*parameter\s*>", re.DOTALL)
+# Hermes-Stil (Qwen/Nemotron): <function=name> … <parameter=key>wert</parameter> …
+_LEAK_FUNC_RE = re.compile(r"<function=([A-Za-z_][\w.-]*)\s*>(.*?)</function\s*>", re.DOTALL)
+_LEAK_FUNC_PARAM_RE = re.compile(r"<parameter=([A-Za-z_][\w.-]*)\s*>(.*?)</parameter\s*>", re.DOTALL)
+# JSON-Variante desselben Stils: <tool_call>{"name": …, "arguments": {…}}</tool_call>
+_LEAK_JSON_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
+# Billiger Vorfilter: ohne eines dieser Woerter kann kein Leak drinstehen.
+_LEAK_HINT_RE = re.compile(r"invoke|<function=|<tool_call>")
+
+
+def _typisiert(roh: str):
+    """Zahlen/Bools/JSON sauber typisieren, sonst als String (z.B. SQL/Pfad/Befehl)."""
+    roh = roh.strip()
+    try:
+        return json.loads(roh)
+    except Exception:  # noqa: BLE001
+        return roh
 
 
 def _parse_leaked_tool_calls(text: str) -> list[dict]:
-    """Holt als TEXT geleakte Tool-Calls (DeepSeek-DSML / Claude-XML-Stil) heraus."""
-    if not text or "invoke" not in text:
+    """Holt als TEXT geleakte Tool-Calls heraus — drei Dialekte, ein Ergebnis.
+
+    Neben DeepSeek-DSML/Claude-XML (`invoke name="..."`) kennt der Parser seit dem
+    TB2-Befund vom 24.08.2026 auch den Hermes-Stil von Qwen/Nemotron:
+    `<tool_call><function=name><parameter=key>wert</parameter></function></tool_call>`
+    und dessen JSON-Variante `<tool_call>{"name":…,"arguments":{…}}</tool_call>`.
+    Ohne sie endete der Lauf 'mailman' nach 4,68 Mio. Token mit einem NICHT ausgefuehrten
+    Befehl als Endantwort — der Schritt war formuliert, aber nie gelaufen.
+    """
+    if not text or not _LEAK_HINT_RE.search(text):
         return []
     out: list[dict] = []
     for m in _LEAK_INVOKE_RE.finditer(text):
-        args: dict = {}
-        for pm in _LEAK_PARAM_RE.finditer(m.group(2)):
-            raw = pm.group(2).strip()
-            try:
-                val = json.loads(raw)      # Zahlen/Bools/JSON sauber typisieren ...
-            except Exception:  # noqa: BLE001
-                val = raw                  # ... sonst als String (z.B. SQL/Pfad)
-            args[pm.group(1)] = val
+        args = {pm.group(1): _typisiert(pm.group(2)) for pm in _LEAK_PARAM_RE.finditer(m.group(2))}
         out.append({"id": None, "name": m.group(1), "args": args})
+    for m in _LEAK_FUNC_RE.finditer(text):
+        args = {pm.group(1): _typisiert(pm.group(2))
+                for pm in _LEAK_FUNC_PARAM_RE.finditer(m.group(2))}
+        out.append({"id": None, "name": m.group(1), "args": args})
+    for m in _LEAK_JSON_RE.finditer(text):
+        try:
+            d = json.loads(m.group(1))
+        except Exception:  # noqa: BLE001 — halbe JSON-Bloecke einfach ueberspringen
+            continue
+        name = d.get("name") or d.get("function")
+        if isinstance(name, str) and name:
+            roh_args = d.get("arguments") if d.get("arguments") is not None else d.get("args")
+            if isinstance(roh_args, str):
+                roh_args = _typisiert(roh_args)
+            out.append({"id": None, "name": name,
+                        "args": roh_args if isinstance(roh_args, dict) else {}})
     return out
 
 
@@ -1404,6 +1463,7 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
     used_tools = False
     nudged = False
     beweis_nachgefragt = False      # Beweispflicht II: hoechstens EINE Rueckfrage pro Zug
+    abgabe_gestupst = False         # Abgabe-Pflicht: ebenfalls hoechstens EINMAL pro Lauf
     last_reasoning = ""
 
     def _emit_reasoning(res: dict) -> None:
@@ -1436,6 +1496,25 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
                             session_id=session_id)
         if not calls:
             text = res["text"].strip()
+            # Abgabe-Pflicht (TB2-Befund 24.08.2026): ALLE Waechter darunter sind auf
+            # `not used_tools` verriegelt — sie greifen also nur, wenn ein Lauf NIE ein
+            # Werkzeug angefasst hat. Genau das rettet den Fall nicht, der auf Terminal-
+            # Bench am haeufigsten Punkte kostete: Kira arbeitet 50+ Schritte und bricht
+            # dann mitten im Denken ab; der Halbsatz wird als Endergebnis zurueckgegeben,
+            # obwohl kein Artefakt existiert. Der Abschneide-Fall ist dabei nicht geraten,
+            # sondern gemessen: finish_reason == "length" heisst, der Anbieter hat die
+            # Generierung am Token-Deckel gekappt (polyglot-c-py: 8192 Ausgabe-Token in
+            # EINEM Zug, danach Stille). Ein Zug Luft, dann geht es normal weiter.
+            if (not abgabe_gestupst and step < max_steps - 1
+                    and _abgabe_unfertig(text, res.get("finish_reason") or "")):
+                abgabe_gestupst = True
+                events.emit("abgabe_stups", {"grund": res.get("finish_reason") or "gedankenende",
+                                             "model": res.get("model") or "",
+                                             "used_tools": used_tools},
+                            session_id=session_id)
+                messages.append({"role": "assistant", "content": text})
+                messages.append({"role": "user", "content": STUPS_ABGABE})
+                continue
             # "Promise statt Action": etwas angekuendigt, aber kein Werkzeug genutzt -> einmal anschubsen
             if not used_tools and not nudged and _looks_like_promise(text):
                 nudged = True
