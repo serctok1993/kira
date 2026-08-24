@@ -1,0 +1,113 @@
+{
+    "id": "82d72073-5886-420f-99cd-259a9f0c880f",
+    "task_name": "feal-linear-cryptanalysis",
+    "trial_name": "feal-linear-cryptanalysis__FdzfRD4",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/feal-linear-cryptanalysis__FdzfRD4",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "feal-linear-cryptanalysis"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "3ee298ac4e31a90a460afa5fc10d34fdca7c1e591ccda5fc2c5faee2963991f2",
+    "config": {
+        "task": {
+            "path": "feal-linear-cryptanalysis",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "feal-linear-cryptanalysis__FdzfRD4",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": null,
+    "verifier_result": null,
+    "verifier_environment_mode": "shared",
+    "exception_info": {
+        "exception_type": "RuntimeError",
+        "exception_message": "Docker compose command failed for environment feal-linear-cryptanalysis. Command: docker compose --project-name feal-linear-cryptanalysis__fdzfrd4__env --project-directory /root/.cache/harbor/tasks/LVyG59RRyF7y2PiCy5VT3B/feal-linear-cryptanalysis/environment -f /tmp/tmp24cls7nr/feal-linear-cryptanalysis__FdzfRD4__env-docker-compose-resources.json -f /home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker-compose-prebuilt.yaml -f /tmp/tmpvhhslkcm/docker-compose-environment.json -f /tmp/tmptx4862lg/docker-compose-mounts.json up --detach --wait. Return code: 1. Stdout:  Image alexgshaw/feal-linear-cryptanalysis:20251031 Pulling \n 06030801ba39 Pulling fs layer 0B\n 8c32da812179 Pulling fs layer 0B\n 9bb652580316 Pulling fs layer 0B\n 742e89473e76 Pulling fs layer 0B\n 48d792ff5b04 Pulling fs layer 0B\n 60c4a3f43375 Pulling fs layer 0B\n 9ebeb1a5f3d3 Pulling fs layer 0B\n 43369d2475b5 Pulling fs layer 0B\n 43369d2475b5 Download complete 0B\n 60c4a3f43375 Download complete 0B\n 9ebeb1a5f3d3 Download complete 0B\n 8c32da812179 Download complete 0B\n 9bb652580316 Download complete 0B\n 48d792ff5b04 Downloading 1.049MB\n 06030801ba39 Download complete 0B\n 48d792ff5b04 Download complete 0B\n 742e89473e76 Downloading 2.097MB\n 742e89473e76 Downloading 9.437MB\n 742e89473e76 Downloading 15.73MB\n 742e89473e76 Downloading 19.92MB\n 742e89473e76 Downloading 27.26MB\n 742e89473e76 Downloading 34.6MB\n 742e89473e76 Downloading 39.85MB\n 742e89473e76 Downloading 45.09MB\n 742e89473e76 Downloading 52.43MB\n 742e89473e76 Downloading 57.67MB\n 742e89473e76 Downloading 65.01MB\n 742e89473e76 Downloading 71.3MB\n 742e89473e76 Downloading 78.64MB\n 742e89473e76 Downloading 84.93MB\n 742e89473e76 Downloading 92.27MB\n 742e89473e76 Downloading 98.57MB\n 742e89473e76 Downloading 99.17MB\n 742e89473e76 Downloading 99.17MB\n 742e89473e76 Download complete 0B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 4B\n 742e89473e76 Extracting 4B\nfailed to extract layer (application/vnd.docker.image.rootfs.diff.tar.gzip sha256:742e89473e769a502c93d86af0b2ebee55f3b9a2f035215fcbf490f2d8a2d8a5) to overlayfs as \"extract-667822008-z0F8 sha256:f7d06d053920723a917c94a2d462a42b11854240e13fe34c3e57768f41382e78\": failed to Lchown \"/var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/99/fs/usr/lib/x86_64-linux-gnu/libx265.so.199\" for UID 0, GID 0: lchown /var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/99/fs/usr/lib/x86_64-linux-gnu/libx265.so.199: no such file or directory\n. Stderr: None. ",
+        "exception_traceback": "Traceback (most recent call last):\n  File \"/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py\", line 406, in run\n    await self._prepare()\n  File \"/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py\", line 444, in _prepare\n    await self._setup_agent_environment()\n  File \"/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py\", line 1423, in _setup_agent_environment\n    await self._start_agent_environment()\n  File \"/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py\", line 1429, in _start_agent_environment\n    await asyncio.wait_for(\n    ...<4 lines>...\n    )\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker.py\", line 913, in start\n    await self._run_docker_compose_command([\"up\", \"--detach\", \"--wait\"])\n  File \"/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker.py\", line 656, in _run_docker_compose_command\n    raise RuntimeError(\n    ...<5 lines>...\n    )\nRuntimeError: Docker compose command failed for environment feal-linear-cryptanalysis. Command: docker compose --project-name feal-linear-cryptanalysis__fdzfrd4__env --project-directory /root/.cache/harbor/tasks/LVyG59RRyF7y2PiCy5VT3B/feal-linear-cryptanalysis/environment -f /tmp/tmp24cls7nr/feal-linear-cryptanalysis__FdzfRD4__env-docker-compose-resources.json -f /home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker-compose-prebuilt.yaml -f /tmp/tmpvhhslkcm/docker-compose-environment.json -f /tmp/tmptx4862lg/docker-compose-mounts.json up --detach --wait. Return code: 1. Stdout:  Image alexgshaw/feal-linear-cryptanalysis:20251031 Pulling \n 06030801ba39 Pulling fs layer 0B\n 8c32da812179 Pulling fs layer 0B\n 9bb652580316 Pulling fs layer 0B\n 742e89473e76 Pulling fs layer 0B\n 48d792ff5b04 Pulling fs layer 0B\n 60c4a3f43375 Pulling fs layer 0B\n 9ebeb1a5f3d3 Pulling fs layer 0B\n 43369d2475b5 Pulling fs layer 0B\n 43369d2475b5 Download complete 0B\n 60c4a3f43375 Download complete 0B\n 9ebeb1a5f3d3 Download complete 0B\n 8c32da812179 Download complete 0B\n 9bb652580316 Download complete 0B\n 48d792ff5b04 Downloading 1.049MB\n 06030801ba39 Download complete 0B\n 48d792ff5b04 Download complete 0B\n 742e89473e76 Downloading 2.097MB\n 742e89473e76 Downloading 9.437MB\n 742e89473e76 Downloading 15.73MB\n 742e89473e76 Downloading 19.92MB\n 742e89473e76 Downloading 27.26MB\n 742e89473e76 Downloading 34.6MB\n 742e89473e76 Downloading 39.85MB\n 742e89473e76 Downloading 45.09MB\n 742e89473e76 Downloading 52.43MB\n 742e89473e76 Downloading 57.67MB\n 742e89473e76 Downloading 65.01MB\n 742e89473e76 Downloading 71.3MB\n 742e89473e76 Downloading 78.64MB\n 742e89473e76 Downloading 84.93MB\n 742e89473e76 Downloading 92.27MB\n 742e89473e76 Downloading 98.57MB\n 742e89473e76 Downloading 99.17MB\n 742e89473e76 Downloading 99.17MB\n 742e89473e76 Download complete 0B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 1B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 2B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 3B\n 742e89473e76 Extracting 4B\n 742e89473e76 Extracting 4B\nfailed to extract layer (application/vnd.docker.image.rootfs.diff.tar.gzip sha256:742e89473e769a502c93d86af0b2ebee55f3b9a2f035215fcbf490f2d8a2d8a5) to overlayfs as \"extract-667822008-z0F8 sha256:f7d06d053920723a917c94a2d462a42b11854240e13fe34c3e57768f41382e78\": failed to Lchown \"/var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/99/fs/usr/lib/x86_64-linux-gnu/libx265.so.199\" for UID 0, GID 0: lchown /var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/99/fs/usr/lib/x86_64-linux-gnu/libx265.so.199: no such file or directory\n. Stderr: None. \n",
+        "occurred_at": "2026-08-24T18:09:35.915424Z"
+    },
+    "started_at": "2026-08-24T18:09:26.876818Z",
+    "finished_at": "2026-08-24T18:09:36.487708Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T18:09:26.878352Z",
+        "finished_at": "2026-08-24T18:09:35.913454Z"
+    },
+    "agent_setup": null,
+    "agent_execution": null,
+    "verifier": null,
+    "step_results": null
+}

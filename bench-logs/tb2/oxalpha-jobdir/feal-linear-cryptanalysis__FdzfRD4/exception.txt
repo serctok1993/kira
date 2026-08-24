@@ -1,0 +1,90 @@
+Traceback (most recent call last):
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 406, in run
+    await self._prepare()
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 444, in _prepare
+    await self._setup_agent_environment()
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 1423, in _setup_agent_environment
+    await self._start_agent_environment()
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 1429, in _start_agent_environment
+    await asyncio.wait_for(
+    ...<4 lines>...
+    )
+  File "/usr/lib/python3.13/asyncio/tasks.py", line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker.py", line 913, in start
+    await self._run_docker_compose_command(["up", "--detach", "--wait"])
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker.py", line 656, in _run_docker_compose_command
+    raise RuntimeError(
+    ...<5 lines>...
+    )
+RuntimeError: Docker compose command failed for environment feal-linear-cryptanalysis. Command: docker compose --project-name feal-linear-cryptanalysis__fdzfrd4__env --project-directory /root/.cache/harbor/tasks/LVyG59RRyF7y2PiCy5VT3B/feal-linear-cryptanalysis/environment -f /tmp/tmp24cls7nr/feal-linear-cryptanalysis__FdzfRD4__env-docker-compose-resources.json -f /home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker-compose-prebuilt.yaml -f /tmp/tmpvhhslkcm/docker-compose-environment.json -f /tmp/tmptx4862lg/docker-compose-mounts.json up --detach --wait. Return code: 1. Stdout:  Image alexgshaw/feal-linear-cryptanalysis:20251031 Pulling 
+ 06030801ba39 Pulling fs layer 0B
+ 8c32da812179 Pulling fs layer 0B
+ 9bb652580316 Pulling fs layer 0B
+ 742e89473e76 Pulling fs layer 0B
+ 48d792ff5b04 Pulling fs layer 0B
+ 60c4a3f43375 Pulling fs layer 0B
+ 9ebeb1a5f3d3 Pulling fs layer 0B
+ 43369d2475b5 Pulling fs layer 0B
+ 43369d2475b5 Download complete 0B
+ 60c4a3f43375 Download complete 0B
+ 9ebeb1a5f3d3 Download complete 0B
+ 8c32da812179 Download complete 0B
+ 9bb652580316 Download complete 0B
+ 48d792ff5b04 Downloading 1.049MB
+ 06030801ba39 Download complete 0B
+ 48d792ff5b04 Download complete 0B
+ 742e89473e76 Downloading 2.097MB
+ 742e89473e76 Downloading 9.437MB
+ 742e89473e76 Downloading 15.73MB
+ 742e89473e76 Downloading 19.92MB
+ 742e89473e76 Downloading 27.26MB
+ 742e89473e76 Downloading 34.6MB
+ 742e89473e76 Downloading 39.85MB
+ 742e89473e76 Downloading 45.09MB
+ 742e89473e76 Downloading 52.43MB
+ 742e89473e76 Downloading 57.67MB
+ 742e89473e76 Downloading 65.01MB
+ 742e89473e76 Downloading 71.3MB
+ 742e89473e76 Downloading 78.64MB
+ 742e89473e76 Downloading 84.93MB
+ 742e89473e76 Downloading 92.27MB
+ 742e89473e76 Downloading 98.57MB
+ 742e89473e76 Downloading 99.17MB
+ 742e89473e76 Downloading 99.17MB
+ 742e89473e76 Download complete 0B
+ 742e89473e76 Extracting 1B
+ 742e89473e76 Extracting 1B
+ 742e89473e76 Extracting 1B
+ 742e89473e76 Extracting 1B
+ 742e89473e76 Extracting 1B
+ 742e89473e76 Extracting 1B
+ 742e89473e76 Extracting 1B
+ 742e89473e76 Extracting 1B
+ 742e89473e76 Extracting 1B
+ 742e89473e76 Extracting 1B
+ 742e89473e76 Extracting 2B
+ 742e89473e76 Extracting 2B
+ 742e89473e76 Extracting 2B
+ 742e89473e76 Extracting 2B
+ 742e89473e76 Extracting 2B
+ 742e89473e76 Extracting 2B
+ 742e89473e76 Extracting 2B
+ 742e89473e76 Extracting 2B
+ 742e89473e76 Extracting 2B
+ 742e89473e76 Extracting 2B
+ 742e89473e76 Extracting 3B
+ 742e89473e76 Extracting 3B
+ 742e89473e76 Extracting 3B
+ 742e89473e76 Extracting 3B
+ 742e89473e76 Extracting 3B
+ 742e89473e76 Extracting 3B
+ 742e89473e76 Extracting 3B
+ 742e89473e76 Extracting 3B
+ 742e89473e76 Extracting 3B
+ 742e89473e76 Extracting 3B
+ 742e89473e76 Extracting 4B
+ 742e89473e76 Extracting 4B
+failed to extract layer (application/vnd.docker.image.rootfs.diff.tar.gzip sha256:742e89473e769a502c93d86af0b2ebee55f3b9a2f035215fcbf490f2d8a2d8a5) to overlayfs as "extract-667822008-z0F8 sha256:f7d06d053920723a917c94a2d462a42b11854240e13fe34c3e57768f41382e78": failed to Lchown "/var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/99/fs/usr/lib/x86_64-linux-gnu/libx265.so.199" for UID 0, GID 0: lchown /var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/99/fs/usr/lib/x86_64-linux-gnu/libx265.so.199: no such file or directory
+. Stderr: None. 
