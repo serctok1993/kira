@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T22:35:33.839625Z",
+    "updated_at": "2026-08-24T22:42:48.045795Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 69,
-        "n_errored_trials": 18,
+        "n_completed_trials": 73,
+        "n_errored_trials": 19,
         "n_running_trials": 3,
-        "n_pending_trials": 17,
+        "n_pending_trials": 13,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 62,
-                "n_errors": 18,
+                "n_trials": 65,
+                "n_errors": 19,
                 "metrics": [
                     {
-                        "mean": 0.36231884057971014
+                        "mean": 0.3698630136986301
                     }
                 ],
                 "pass_at_k": {},
@@ -48,7 +48,9 @@
                             "fix-code-vulnerability__NPD5QaM",
                             "financial-document-processor__ju22szh",
                             "regex-log__xhmtLFW",
-                            "mcmc-sampling-stan__8ukvFyU"
+                            "mcmc-sampling-stan__8ukvFyU",
+                            "git-leak-recovery__V8qWtMD",
+                            "feal-differential-cryptanalysis__JYJyoif"
                         ],
                         "0.0": [
                             "merge-diff-arc-agi-task__S3u4eek",
@@ -87,7 +89,8 @@
                             "code-from-image__Qp5H9xU",
                             "polyglot-c-py__2MSofKN",
                             "cancel-async-tasks__dmvD9Ho",
-                            "bn-fit-modify__KxMc6Su"
+                            "bn-fit-modify__KxMc6Su",
+                            "build-cython-ext__wesA4iV"
                         ]
                     }
                 },
@@ -112,14 +115,15 @@
                         "install-windows-3.11__yZZAmJe",
                         "mteb-leaderboard__5Xcvhy7",
                         "extract-elf__r9mZ6eu",
-                        "filter-js-from-html__Z7QzuQs"
+                        "filter-js-from-html__Z7QzuQs",
+                        "pytorch-model-recovery__B8oGkKn"
                     ]
                 }
             }
         },
-        "n_input_tokens": 62660445,
+        "n_input_tokens": 63909815,
         "n_cache_tokens": null,
-        "n_output_tokens": 415971,
+        "n_output_tokens": 459613,
         "cost_usd": null
     }
 }
