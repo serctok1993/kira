@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T23:07:53.140339Z",
+    "updated_at": "2026-08-24T23:10:17.482935Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 86,
+        "n_completed_trials": 87,
         "n_errored_trials": 20,
-        "n_running_trials": 3,
+        "n_running_trials": 2,
         "n_pending_trials": 0,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 78,
+                "n_trials": 79,
                 "n_errors": 20,
                 "metrics": [
                     {
-                        "mean": 0.38372093023255816
+                        "mean": 0.39080459770114945
                     }
                 ],
                 "pass_at_k": {},
@@ -56,7 +56,8 @@
                             "build-pmars__K6RVfk7",
                             "sqlite-with-gcov__aWo7onU",
                             "constraints-scheduling__D7LiFZH",
-                            "vulnerable-secret__MAJ7VhN"
+                            "vulnerable-secret__MAJ7VhN",
+                            "fix-ocaml-gc__8P6zZTv"
                         ],
                         "0.0": [
                             "merge-diff-arc-agi-task__S3u4eek",
@@ -135,9 +136,9 @@
                 }
             }
         },
-        "n_input_tokens": 64229314,
+        "n_input_tokens": 64592754,
         "n_cache_tokens": null,
-        "n_output_tokens": 481169,
+        "n_output_tokens": 492907,
         "cost_usd": null
     }
 }
