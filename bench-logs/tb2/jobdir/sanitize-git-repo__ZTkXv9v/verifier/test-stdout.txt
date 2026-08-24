@@ -23,7 +23,28 @@ Get:3 http://deb.debian.org/debian bookworm/main amd64 libcurl3-gnutls amd64 7.8
 debconf: delaying package configuration, since apt-utils is not installed
 Fetched 1094 kB in 0s (10.1 MB/s)
 Selecting previously unselected package libcurl4:amd64.
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 10322 files and directories currently installed.)
+(Reading database ... 
+(Reading database ... 5%
+(Reading database ... 10%
+(Reading database ... 15%
+(Reading database ... 20%
+(Reading database ... 25%
+(Reading database ... 30%
+(Reading database ... 35%
+(Reading database ... 40%
+(Reading database ... 45%
+(Reading database ... 50%
+(Reading database ... 55%
+(Reading database ... 60%
+(Reading database ... 65%
+(Reading database ... 70%
+(Reading database ... 75%
+(Reading database ... 80%
+(Reading database ... 85%
+(Reading database ... 90%
+(Reading database ... 95%
+(Reading database ... 100%
+(Reading database ... 10322 files and directories currently installed.)
 Preparing to unpack .../libcurl4_7.88.1-10+deb12u15_amd64.deb ...
 Unpacking libcurl4:amd64 (7.88.1-10+deb12u15) ...
 Selecting previously unselected package curl.
@@ -70,10 +91,10 @@ ______________________ test_removal_of_secret_information ______________________
             assert FAKE_GITHUB_TOKEN.lower() not in contaminated_text.lower()
             assert FAKE_HUGGINGFACE_TOKEN.lower() not in contaminated_text.lower()
 >           assert FAKE_HUGGINGFACE_TOKEN_2.lower() not in contaminated_text.lower()
-E           assert 'hf_ocffijsv...yinvdczmtqkf' not in '{\n    "uui...ml": null\n}'
+E           assert '[KEY-REDIGIERT]...yinvdczmtqkf' not in '{\n    "uui...ml": null\n}'
 E             
-E             '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' is contained here:
-E                hf_token=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' >> ~/.bashrc\n+    - mkdir -p ~/.cache/huggingface/\n+    - echo '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' > ~/.cache/huggingface/token\n     - pip install --upgrade pip setuptools wheel\n     - pip install -u \"ray[default] @ https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-3.0.0.dev0-cp310-cp310-manylinux2014_x86_64.whl\"\n     - pip install boto3==1.26.90\n@@ -55,5 +58,7 @@ setup_commands:\n     - pip install 'pandas==2.1.4'\n     - pip install psutil\n ...
+E             '[KEY-REDIGIERT]' is contained here:
+E                hf_token=[KEY-REDIGIERT]' >> ~/.bashrc\n+    - mkdir -p ~/.cache/huggingface/\n+    - echo '[KEY-REDIGIERT]' > ~/.cache/huggingface/token\n     - pip install --upgrade pip setuptools wheel\n     - pip install -u \"ray[default] @ https://s3-us-west-2.amazonaws.com/ray-wheels/latest/ray-3.0.0.dev0-cp310-cp310-manylinux2014_x86_64.whl\"\n     - pip install boto3==1.26.90\n@@ -55,5 +58,7 @@ setup_commands:\n     - pip install 'pandas==2.1.4'\n     - pip install psutil\n ...
 E             
 E             ...Full output truncated (5 lines hidden), use '-vv' to show
 
