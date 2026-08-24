@@ -424,7 +424,19 @@ def is_reasoning_model(model_id: str) -> bool:
 
 def _reasoning_extra(model_id: str, level: str | None) -> dict:
     """OpenRouter/litellm-Reasoning-Parameter — NUR fuer denk-faehige Modelle, sonst leer.
-    litellm.drop_params=True verwirft ihn ohnehin still bei Modellen ohne Reasoning."""
+    litellm.drop_params=True verwirft ihn ohnehin still bei Modellen ohne Reasoning.
+
+    KIRA_FORCE_REASONING_EFFORT (Bench-Knopf, 24.08.): Stealth-Reasoning-Modelle, die der
+    OpenRouter-Katalog NICHT als denk-faehig meldet (ox-alpha), verdenken sonst ihr ganzes
+    Ausgabe-Budget im agentischen Loop — gemessen 8192 Token / 229s pro Zug (finish_reason
+    "length"), also nie ein Tool-Call. Der Override erzwingt den effort bedingungslos (ohne
+    Katalog-Check); mit effort=low liefert dasselbe Modell den Tool-Call in ~5s. Live (Env
+    ungesetzt) bleibt alles beim Katalog-gesteuerten Verhalten."""
+    forced = os.getenv("KIRA_FORCE_REASONING_EFFORT")
+    if forced:
+        eff = _REASON_EFFORT.get(forced.strip().lower())
+        if eff:
+            return {"reasoning_effort": eff}
     if not level:
         return {}
     eff = _REASON_EFFORT.get(str(level).strip().lower())
