@@ -1,91 +1,67 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T19:23:56.069158Z",
+    "updated_at": "2026-08-24T19:35:00.502911Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 40,
-        "n_errored_trials": 14,
+        "n_completed_trials": 27,
+        "n_errored_trials": 0,
         "n_running_trials": 3,
-        "n_pending_trials": 46,
+        "n_pending_trials": 59,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 32,
-                "n_errors": 14,
+                "n_trials": 27,
+                "n_errors": 0,
                 "metrics": [
                     {
-                        "mean": 0.375
+                        "mean": 0.5185185185185185
                     }
                 ],
                 "pass_at_k": {},
                 "reward_stats": {
                     "reward": {
-                        "0.0": [
-                            "break-filter-js-from-html__F55BWXq",
-                            "gpt2-codegolf__8e2oe7s",
-                            "write-compressor__4dmJHgw",
-                            "merge-diff-arc-agi-task__S3u4eek",
-                            "password-recovery__mGMDG23",
-                            "llm-inference-batching-scheduler__fsNB6Aq",
-                            "torch-tensor-parallelism__fXAjcFP",
-                            "path-tracing-reverse__yPEv9i4",
-                            "regex-chess__gQxxvd4",
-                            "caffe-cifar-10__kAhvpms",
-                            "path-tracing__5qt9zwA",
-                            "distribution-search__DcovLCU",
-                            "chess-best-move__tvJLYDh",
-                            "crack-7z-hash__oaB3JCm",
-                            "polyglot-rust-c__LZyJXVb",
-                            "overfull-hbox__CkKAa96",
-                            "build-pov-ray__kbquV9s"
-                        ],
                         "1.0": [
-                            "log-summary-date-ranges__yEnjEDC",
-                            "largest-eigenval__wdaJCsD",
-                            "pytorch-model-cli__irc6uix",
                             "portfolio-optimization__4gbeFYf",
+                            "fix-git__GUUYn2t",
                             "prove-plus-comm__B8SmKuF",
+                            "git-multibranch__gbq5ETH",
+                            "db-wal-recovery__23xU2eU",
+                            "log-summary-date-ranges__yEnjEDC",
+                            "configure-git-webserver__9Wjf7D9",
                             "pypi-server__U5R94Gj",
                             "multi-source-data-merger__v9E9gUY",
-                            "configure-git-webserver__9Wjf7D9",
-                            "adaptive-rejection-sampler__SiqCnQU",
-                            "db-wal-recovery__23xU2eU",
                             "headless-terminal__HAjeQSE",
-                            "fix-git__GUUYn2t",
-                            "qemu-startup__sD4EdDH",
                             "compile-compcert__898kjvc",
-                            "git-multibranch__gbq5ETH"
+                            "largest-eigenval__wdaJCsD",
+                            "pytorch-model-cli__irc6uix",
+                            "reshard-c4-data__6AuZqi8"
+                        ],
+                        "0.0": [
+                            "merge-diff-arc-agi-task__S3u4eek",
+                            "build-pov-ray__kbquV9s",
+                            "regex-chess__gQxxvd4",
+                            "break-filter-js-from-html__F55BWXq",
+                            "overfull-hbox__CkKAa96",
+                            "password-recovery__mGMDG23",
+                            "polyglot-rust-c__LZyJXVb",
+                            "torch-tensor-parallelism__fXAjcFP",
+                            "path-tracing-reverse__yPEv9i4",
+                            "distribution-search__DcovLCU",
+                            "chess-best-move__tvJLYDh",
+                            "llm-inference-batching-scheduler__fsNB6Aq",
+                            "path-tracing__5qt9zwA"
                         ]
                     }
                 },
-                "exception_stats": {
-                    "RuntimeError": [
-                        "reshard-c4-data__s3Feuu8",
-                        "winning-avg-corewars__HEXHWt9",
-                        "modernize-scientific-stack__bt9zDzm",
-                        "feal-linear-cryptanalysis__FdzfRD4",
-                        "custom-memory-heap-crash__4P7P7S9",
-                        "mteb-retrieve__JzSCN8W",
-                        "cobol-modernization__ePLgEDv",
-                        "hf-model-inference__YrxZT4G"
-                    ],
-                    "AgentTimeoutError": [
-                        "gpt2-codegolf__8e2oe7s",
-                        "write-compressor__4dmJHgw",
-                        "caffe-cifar-10__kAhvpms",
-                        "adaptive-rejection-sampler__SiqCnQU",
-                        "crack-7z-hash__oaB3JCm",
-                        "qemu-startup__sD4EdDH"
-                    ]
-                }
+                "exception_stats": {}
             }
         },
-        "n_input_tokens": 31660857,
+        "n_input_tokens": 31708510,
         "n_cache_tokens": null,
-        "n_output_tokens": 188785,
+        "n_output_tokens": 191923,
         "cost_usd": null
     }
 }
