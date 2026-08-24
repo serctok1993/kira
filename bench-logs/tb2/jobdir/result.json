@@ -1,23 +1,23 @@
 {
     "id": "daa371d9-4d04-49ba-9f2f-0328d7b845f1",
     "started_at": "2026-08-23T23:03:04.761365",
-    "updated_at": "2026-08-24T01:43:20.667580Z",
+    "updated_at": "2026-08-24T02:10:42.917665Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 72,
-        "n_errored_trials": 55,
+        "n_completed_trials": 79,
+        "n_errored_trials": 56,
         "n_running_trials": 2,
-        "n_pending_trials": 15,
+        "n_pending_trials": 8,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__nvidia/nemotron-3-ultra-550b-a55b:free__terminal-bench": {
-                "n_trials": 20,
-                "n_errors": 55,
+                "n_trials": 26,
+                "n_errors": 56,
                 "metrics": [
                     {
-                        "mean": 0.08333333333333333
+                        "mean": 0.08860759493670886
                     }
                 ],
                 "pass_at_k": {},
@@ -37,7 +37,12 @@
                             "feal-differential-cryptanalysis__oznMH9E",
                             "polyglot-c-py__LctetAx",
                             "bn-fit-modify__UxvUrhZ",
-                            "build-cython-ext__Mgt7Tte"
+                            "build-cython-ext__Mgt7Tte",
+                            "fix-ocaml-gc__xJ55cqi",
+                            "sam-cell-seg__N4ELMat",
+                            "model-extraction-relu-logits__Xup8GpZ",
+                            "sparql-university__zwBDASQ",
+                            "sqlite-db-truncate__4nDmwfz"
                         ],
                         "1.0": [
                             "merge-diff-arc-agi-task__t8EpMPs",
@@ -45,7 +50,8 @@
                             "code-from-image__ff4yadG",
                             "regex-log__ELj3jLM",
                             "mcmc-sampling-stan__gtZG4y3",
-                            "cancel-async-tasks__tHo7dz5"
+                            "cancel-async-tasks__tHo7dz5",
+                            "nginx-request-logging__jKFK7pL"
                         ]
                     }
                 },
@@ -100,7 +106,8 @@
                         "make-mips-interpreter__HFPHQST",
                         "circuit-fibsqrt__osiVkHQ",
                         "mteb-leaderboard__KE6pjmP",
-                        "git-leak-recovery__dUCukcA"
+                        "git-leak-recovery__dUCukcA",
+                        "pytorch-model-recovery__NBnMVfN"
                     ],
                     "AgentTimeoutError": [
                         "break-filter-js-from-html__wEbdBcW",
@@ -114,9 +121,9 @@
                 }
             }
         },
-        "n_input_tokens": 15154914,
+        "n_input_tokens": 18234825,
         "n_cache_tokens": null,
-        "n_output_tokens": 294144,
+        "n_output_tokens": 394585,
         "cost_usd": null
     }
 }

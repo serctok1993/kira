@@ -1,0 +1,131 @@
+{
+    "id": "fb175108-51f7-4fe0-8a8c-c1abbd5b685e",
+    "task_name": "sparql-university",
+    "trial_name": "sparql-university__zwBDASQ",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-official/sparql-university__zwBDASQ",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "sparql-university"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "5f84ab8191b8b921e3adeae2fa11f7a1f5fc2549627cce7218ae0046f66d450b",
+    "config": {
+        "task": {
+            "path": "sparql-university",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "sparql-university__zwBDASQ",
+        "trials_dir": "tb-jobs/kira-tb2-official",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "daa371d9-4d04-49ba-9f2f-0328d7b845f1",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "nvidia/nemotron-3-ultra-550b-a55b:free",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 215796,
+        "n_cache_tokens": null,
+        "n_output_tokens": 13666,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "The SPARQL query has been created and saved to `/app/solution.sparql`. The query retrieves all full professors who:\n1. Have a role containing \"Professor\" but not \"Assistant Professor\"\n2. Work in at least one department of a university located in an EU country (using the 27 EU member states as of 2025-08-16)\n3. Have at least one department they work in with more than 10 currently enrolled students (enrolled on or before 2025-08-16 and not graduated by that date)\n\nThe query returns the professor's name and a concatenated list of all countries where they currently work.",
+            "session_id": "tb-8704e6f198"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T01:56:59.965142Z",
+    "finished_at": "2026-08-24T02:03:31.843807Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T01:56:59.966583Z",
+        "finished_at": "2026-08-24T01:57:06.206293Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T01:57:06.206329Z",
+        "finished_at": "2026-08-24T01:57:06.642980Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T01:57:06.643123Z",
+        "finished_at": "2026-08-24T02:03:02.244918Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T02:03:02.732508Z",
+        "finished_at": "2026-08-24T02:03:20.461960Z"
+    },
+    "step_results": null
+}
