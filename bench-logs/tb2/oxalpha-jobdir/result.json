@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T18:52:14.024203Z",
+    "updated_at": "2026-08-24T19:03:33.384986Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 29,
-        "n_errored_trials": 11,
+        "n_completed_trials": 36,
+        "n_errored_trials": 13,
         "n_running_trials": 3,
-        "n_pending_trials": 57,
+        "n_pending_trials": 50,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 22,
-                "n_errors": 11,
+                "n_trials": 28,
+                "n_errors": 13,
                 "metrics": [
                     {
-                        "mean": 0.3103448275862069
+                        "mean": 0.3333333333333333
                     }
                 ],
                 "pass_at_k": {},
@@ -36,7 +36,10 @@
                             "caffe-cifar-10__kAhvpms",
                             "path-tracing__5qt9zwA",
                             "distribution-search__DcovLCU",
-                            "chess-best-move__tvJLYDh"
+                            "chess-best-move__tvJLYDh",
+                            "crack-7z-hash__oaB3JCm",
+                            "polyglot-rust-c__LZyJXVb",
+                            "overfull-hbox__CkKAa96"
                         ],
                         "1.0": [
                             "log-summary-date-ranges__yEnjEDC",
@@ -47,7 +50,10 @@
                             "pypi-server__U5R94Gj",
                             "multi-source-data-merger__v9E9gUY",
                             "configure-git-webserver__9Wjf7D9",
-                            "adaptive-rejection-sampler__SiqCnQU"
+                            "adaptive-rejection-sampler__SiqCnQU",
+                            "db-wal-recovery__23xU2eU",
+                            "headless-terminal__HAjeQSE",
+                            "fix-git__GUUYn2t"
                         ]
                     }
                 },
@@ -59,20 +65,22 @@
                         "feal-linear-cryptanalysis__FdzfRD4",
                         "custom-memory-heap-crash__4P7P7S9",
                         "mteb-retrieve__JzSCN8W",
-                        "cobol-modernization__ePLgEDv"
+                        "cobol-modernization__ePLgEDv",
+                        "hf-model-inference__YrxZT4G"
                     ],
                     "AgentTimeoutError": [
                         "gpt2-codegolf__8e2oe7s",
                         "write-compressor__4dmJHgw",
                         "caffe-cifar-10__kAhvpms",
-                        "adaptive-rejection-sampler__SiqCnQU"
+                        "adaptive-rejection-sampler__SiqCnQU",
+                        "crack-7z-hash__oaB3JCm"
                     ]
                 }
             }
         },
-        "n_input_tokens": 28588734,
+        "n_input_tokens": 31411738,
         "n_cache_tokens": null,
-        "n_output_tokens": 158144,
+        "n_output_tokens": 183521,
         "cost_usd": null
     }
 }
