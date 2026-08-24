@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T18:33:05.160098Z",
+    "updated_at": "2026-08-24T18:40:37.652979Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 21,
-        "n_errored_trials": 7,
+        "n_completed_trials": 25,
+        "n_errored_trials": 9,
         "n_running_trials": 3,
-        "n_pending_trials": 65,
+        "n_pending_trials": 61,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 17,
-                "n_errors": 7,
+                "n_trials": 19,
+                "n_errors": 9,
                 "metrics": [
                     {
-                        "mean": 0.2857142857142857
+                        "mean": 0.32
                     }
                 ],
                 "pass_at_k": {},
@@ -42,7 +42,9 @@
                             "pytorch-model-cli__irc6uix",
                             "portfolio-optimization__4gbeFYf",
                             "prove-plus-comm__B8SmKuF",
-                            "pypi-server__U5R94Gj"
+                            "pypi-server__U5R94Gj",
+                            "multi-source-data-merger__v9E9gUY",
+                            "configure-git-webserver__9Wjf7D9"
                         ]
                     }
                 },
@@ -51,7 +53,9 @@
                         "reshard-c4-data__s3Feuu8",
                         "winning-avg-corewars__HEXHWt9",
                         "modernize-scientific-stack__bt9zDzm",
-                        "feal-linear-cryptanalysis__FdzfRD4"
+                        "feal-linear-cryptanalysis__FdzfRD4",
+                        "custom-memory-heap-crash__4P7P7S9",
+                        "mteb-retrieve__JzSCN8W"
                     ],
                     "AgentTimeoutError": [
                         "gpt2-codegolf__8e2oe7s",
@@ -61,9 +65,9 @@
                 }
             }
         },
-        "n_input_tokens": 22358265,
+        "n_input_tokens": 22400213,
         "n_cache_tokens": null,
-        "n_output_tokens": 108483,
+        "n_output_tokens": 113070,
         "cost_usd": null
     }
 }
