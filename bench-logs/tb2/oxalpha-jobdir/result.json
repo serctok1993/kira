@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T23:10:17.482935Z",
+    "updated_at": "2026-08-24T23:18:05.355079Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 87,
+        "n_completed_trials": 88,
         "n_errored_trials": 20,
-        "n_running_trials": 2,
+        "n_running_trials": 1,
         "n_pending_trials": 0,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 79,
+                "n_trials": 80,
                 "n_errors": 20,
                 "metrics": [
                     {
-                        "mean": 0.39080459770114945
+                        "mean": 0.38636363636363635
                     }
                 ],
                 "pass_at_k": {},
@@ -104,7 +104,8 @@
                             "large-scale-text-editing__5iVrTDX",
                             "model-extraction-relu-logits__4PkWd5Y",
                             "openssl-selfsigned-cert__Gu9aWBZ",
-                            "dna-insert__Bp4TMom"
+                            "dna-insert__Bp4TMom",
+                            "rstan-to-pystan__avKEKvS"
                         ]
                     }
                 },
@@ -136,9 +137,9 @@
                 }
             }
         },
-        "n_input_tokens": 64592754,
+        "n_input_tokens": 64701452,
         "n_cache_tokens": null,
-        "n_output_tokens": 492907,
+        "n_output_tokens": 496097,
         "cost_usd": null
     }
 }
