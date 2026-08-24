@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T19:03:33.384986Z",
+    "updated_at": "2026-08-24T19:23:56.069158Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 36,
-        "n_errored_trials": 13,
+        "n_completed_trials": 40,
+        "n_errored_trials": 14,
         "n_running_trials": 3,
-        "n_pending_trials": 50,
+        "n_pending_trials": 46,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 28,
-                "n_errors": 13,
+                "n_trials": 32,
+                "n_errors": 14,
                 "metrics": [
                     {
-                        "mean": 0.3333333333333333
+                        "mean": 0.375
                     }
                 ],
                 "pass_at_k": {},
@@ -39,7 +39,8 @@
                             "chess-best-move__tvJLYDh",
                             "crack-7z-hash__oaB3JCm",
                             "polyglot-rust-c__LZyJXVb",
-                            "overfull-hbox__CkKAa96"
+                            "overfull-hbox__CkKAa96",
+                            "build-pov-ray__kbquV9s"
                         ],
                         "1.0": [
                             "log-summary-date-ranges__yEnjEDC",
@@ -53,7 +54,10 @@
                             "adaptive-rejection-sampler__SiqCnQU",
                             "db-wal-recovery__23xU2eU",
                             "headless-terminal__HAjeQSE",
-                            "fix-git__GUUYn2t"
+                            "fix-git__GUUYn2t",
+                            "qemu-startup__sD4EdDH",
+                            "compile-compcert__898kjvc",
+                            "git-multibranch__gbq5ETH"
                         ]
                     }
                 },
@@ -73,14 +77,15 @@
                         "write-compressor__4dmJHgw",
                         "caffe-cifar-10__kAhvpms",
                         "adaptive-rejection-sampler__SiqCnQU",
-                        "crack-7z-hash__oaB3JCm"
+                        "crack-7z-hash__oaB3JCm",
+                        "qemu-startup__sD4EdDH"
                     ]
                 }
             }
         },
-        "n_input_tokens": 31411738,
+        "n_input_tokens": 31660857,
         "n_cache_tokens": null,
-        "n_output_tokens": 183521,
+        "n_output_tokens": 188785,
         "cost_usd": null
     }
 }
