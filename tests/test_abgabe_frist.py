@@ -35,7 +35,11 @@ def _probe_werkzeug(monkeypatch):
 
 
 class _Uhr:
-    """Steuerbare Wanduhr: jeder Aufruf von time.time() rueckt sie um `takt` vor."""
+    """Steuerbare Wanduhr fuer act._jetzt: jeder Aufruf rueckt sie um `takt` vor.
+
+    Ueber die Naht _jetzt() statt time.time() global — sonst haengt der Test daran,
+    wie oft FREMDER Code (z.B. jede Ereignis-Buchung) die Uhr liest, und wird
+    reihenfolgenabhaengig flakig."""
 
     def __init__(self, start: float = 1000.0, takt: float = 0.0):
         self.jetzt = start
@@ -87,7 +91,7 @@ class TestReserve:
 class TestFristImLoop:
     def test_ohne_frist_bleibt_alles_wie_bisher(self, monkeypatch):
         """Chat und Missionen ohne Uhr duerfen den Waechter nicht einmal bemerken."""
-        monkeypatch.setattr(act.time, "time", _Uhr(takt=1000.0))  # Zeit rast — egal
+        monkeypatch.setattr(act, "_jetzt", _Uhr(takt=1000.0))  # Zeit rast — egal
         antworten = _Werkzeugzuege()
         _lauf(monkeypatch, antworten, frist_ts=None, max_steps=3)
         assert antworten.zuege == 4, "ohne Frist muessen alle Schritte laufen (3 + Abschluss)"
@@ -95,7 +99,7 @@ class TestFristImLoop:
     def test_vor_der_frist_wird_einmal_gewarnt(self, monkeypatch):
         from core.kernel import events
         # Budget 400s, pro Zug vergehen 60s -> Warnung ab <=100s uebrig, Schnitt bei <=60s
-        monkeypatch.setattr(act.time, "time", _Uhr(start=1000.0, takt=60.0))
+        monkeypatch.setattr(act, "_jetzt", _Uhr(start=1000.0, takt=60.0))
         antworten = _Werkzeugzuege()
         _lauf(monkeypatch, antworten, frist_ts=1400.0, session_id="t-frist-warn")
         warnungen = [m for zug in antworten.gesehen for m in zug
@@ -107,7 +111,7 @@ class TestFristImLoop:
 
     def test_nach_der_frist_wird_kein_werkzeug_mehr_gestartet(self, monkeypatch):
         from core.kernel import events
-        monkeypatch.setattr(act.time, "time", _Uhr(start=1000.0, takt=60.0))
+        monkeypatch.setattr(act, "_jetzt", _Uhr(start=1000.0, takt=60.0))
         antworten = _Werkzeugzuege()
         ergebnis = _lauf(monkeypatch, antworten, frist_ts=1400.0, max_steps=50,
                          session_id="t-frist-stop")
@@ -118,7 +122,7 @@ class TestFristImLoop:
 
     def test_abgelaufene_frist_stoppt_sofort(self, monkeypatch):
         """Frist schon vorbei: kein einziger Werkzeugzug mehr, nur noch die Abgabe."""
-        monkeypatch.setattr(act.time, "time", _Uhr(start=5000.0, takt=0.0))
+        monkeypatch.setattr(act, "_jetzt", _Uhr(start=5000.0, takt=0.0))
         antworten = _Werkzeugzuege()
         ergebnis = _lauf(monkeypatch, antworten, frist_ts=4000.0, session_id="t-frist-vorbei")
         assert antworten.zuege == 1, "trotz abgelaufener Frist wurde noch gearbeitet"

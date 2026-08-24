@@ -306,6 +306,18 @@ _FRIST_RESERVE_MAX_S = 90.0
 _FRIST_RESERVE_ANTEIL = 0.15
 
 
+def _jetzt() -> float:
+    """Die Wanduhr als eigene, ersetzbare Funktion.
+
+    Bewusst NICHT time.time() direkt an der Aufrufstelle: das haengt global an der
+    stdlib, und dieselbe Uhr liest auch jede Ereignis-Buchung. Ein Test, der sie
+    ersetzt, haengt damit an der Zahl FREMDER Zeitabfragen — genau daran scheiterte
+    der erste Frist-Test in CI, waehrend er lokal gruen war. Ueber diese Naht liest
+    der Frist-Waechter die Uhr genau einmal pro Zug: nachvollziehbar und testbar.
+    """
+    return time.time()
+
+
 def _frist_reserve(gesamt_s: float) -> float:
     """Wieviel Zeit vor der Frist fuer die Abgabe freigehalten wird (kurze Fristen: anteilig)."""
     return min(_FRIST_RESERVE_MAX_S, max(5.0, gesamt_s * _FRIST_RESERVE_ANTEIL))
@@ -1491,7 +1503,7 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
     beweis_nachgefragt = False      # Beweispflicht II: hoechstens EINE Rueckfrage pro Zug
     abgabe_gestupst = False         # Abgabe-Pflicht: ebenfalls hoechstens EINMAL pro Lauf
     frist_gewarnt = False           # Abgabe-Frist: die Vorwarnung kommt genau einmal
-    frist_start = time.time()
+    frist_start = _jetzt()
     last_reasoning = ""
 
     def _emit_reasoning(res: dict) -> None:
@@ -1511,7 +1523,7 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
         # Vorwarnung im letzten Viertel, danach Schluss mit neuen Werkzeugzuegen, damit
         # die Schluss-Zusammenfassung noch INNERHALB der Frist ankommt.
         if frist_ts is not None:
-            uebrig = frist_ts - time.time()
+            uebrig = frist_ts - _jetzt()
             if uebrig <= _frist_reserve(frist_ts - frist_start):
                 events.emit("frist_abgelaufen", {"step": step, "uebrig_s": round(uebrig, 1)},
                             session_id=session_id)
