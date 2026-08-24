@@ -1,0 +1,103 @@
+{
+    "id": "daa371d9-4d04-49ba-9f2f-0328d7b845f1",
+    "started_at": "2026-08-23T23:03:04.761365",
+    "updated_at": "2026-08-24T00:01:44.302290Z",
+    "finished_at": null,
+    "n_total_trials": 89,
+    "stats": {
+        "n_completed_trials": 55,
+        "n_errored_trials": 52,
+        "n_running_trials": 2,
+        "n_pending_trials": 32,
+        "n_cancelled_trials": 0,
+        "n_retries": 0,
+        "evals": {
+            "kira__nvidia/nemotron-3-ultra-550b-a55b:free__terminal-bench": {
+                "n_trials": 6,
+                "n_errors": 52,
+                "metrics": [
+                    {
+                        "mean": 0.03636363636363636
+                    }
+                ],
+                "pass_at_k": {},
+                "reward_stats": {
+                    "reward": {
+                        "0.0": [
+                            "break-filter-js-from-html__wEbdBcW",
+                            "reshard-c4-data__WCXt7mV",
+                            "llm-inference-batching-scheduler__LftqDWp",
+                            "write-compressor__37MLbBu"
+                        ],
+                        "1.0": [
+                            "merge-diff-arc-agi-task__t8EpMPs",
+                            "log-summary-date-ranges__rtPQyaH"
+                        ]
+                    }
+                },
+                "exception_stats": {
+                    "RuntimeError": [
+                        "gpt2-codegolf__Yb5DXmo",
+                        "winning-avg-corewars__WpQfwxt",
+                        "largest-eigenval__gcir3dr",
+                        "password-recovery__xy7j3pt",
+                        "pytorch-model-cli__J8oqCD2",
+                        "portfolio-optimization__SmcQGj3",
+                        "path-tracing-reverse__DsgQSZU",
+                        "modernize-scientific-stack__gGjBEdn",
+                        "regex-chess__qKRtRGt",
+                        "torch-tensor-parallelism__3W9JdzQ",
+                        "path-tracing__zAHtMn4",
+                        "prove-plus-comm__7JoHKy9",
+                        "feal-linear-cryptanalysis__yudwmWt",
+                        "caffe-cifar-10__3ZXQn6W",
+                        "distribution-search__haPpfXp",
+                        "pypi-server__2b9H4d3",
+                        "mteb-retrieve__iqJ6Zjw",
+                        "adaptive-rejection-sampler__Qd6nMYh",
+                        "custom-memory-heap-crash__NCqSP7L",
+                        "multi-source-data-merger__eib7voQ",
+                        "configure-git-webserver__EKfpriw",
+                        "chess-best-move__ch8ZPeR",
+                        "crack-7z-hash__hdn9x5N",
+                        "cobol-modernization__rAUQczU",
+                        "overfull-hbox__q5BBmrG",
+                        "polyglot-rust-c__pjUCkPR",
+                        "compile-compcert__SQkPD7M",
+                        "db-wal-recovery__DrqXFzF",
+                        "hf-model-inference__GZisPwC",
+                        "headless-terminal__yDD5dEJ",
+                        "fix-git__TDC8cyK",
+                        "schemelike-metacircular-eval__PsZvh7e",
+                        "build-pov-ray__aiCj8HZ",
+                        "qemu-startup__wZvdmpz",
+                        "git-multibranch__LoQpaph",
+                        "train-fasttext__Da7gM32",
+                        "video-processing__dZMEy54",
+                        "qemu-alpine-ssh__ZuoUMVc",
+                        "install-windows-3.11__5iwJFWi",
+                        "kv-store-grpc__yDF7sL4",
+                        "make-doom-for-mips__6hSiw8C",
+                        "torch-pipeline-parallelism__2v354Uh",
+                        "extract-moves-from-video__2UQteWt",
+                        "tune-mjcf__PRWVqvH",
+                        "gcode-to-text__LUU45bh",
+                        "count-dataset-tokens__uNLvpQN",
+                        "make-mips-interpreter__HFPHQST",
+                        "circuit-fibsqrt__osiVkHQ",
+                        "mteb-leaderboard__KE6pjmP"
+                    ],
+                    "AgentTimeoutError": [
+                        "break-filter-js-from-html__wEbdBcW",
+                        "llm-inference-batching-scheduler__LftqDWp",
+                        "write-compressor__37MLbBu"
+                    ]
+                }
+            }
+        },
+        "n_input_tokens": 1576056,
+        "n_cache_tokens": null,
+        "n_output_tokens": 52185,
+        "cost_usd": null
+    }
+}
