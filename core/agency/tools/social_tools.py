@@ -12,8 +12,8 @@ from core.agency.tools.registry import tool
 
 
 @tool("bluesky_post",
-      "Postet einen Text auf Bluesky (max 300 Zeichen). Aussenwirkung: wartet in der "
-      "Freigabe-Inbox auf {{USER_NAME_S}} GO — die Freigabe sendet dann wirklich.",
+      "Postet einen Text auf Bluesky (max 300 Zeichen) — DIREKT (+ Audit-Log). Nur bei "
+      "konfiguriertem 'publish'-hard_gate wartet der Post in der Freigabe-Inbox.",
       {"text": "der Post-Text (max 300 Zeichen, Hashtags erlaubt)"})
 def bluesky_post(text: str) -> str:
     from core.agency.connectors import bluesky

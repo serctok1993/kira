@@ -1,0 +1,95 @@
+{
+    "results": {
+        "tool": {
+            "name": "pytest",
+            "version": "8.4.1"
+        },
+        "summary": {
+            "tests": 8,
+            "passed": 7,
+            "failed": 1,
+            "skipped": 0,
+            "pending": 0,
+            "other": 0,
+            "start": 1787611576.495037,
+            "stop": 1787611579.0503426
+        },
+        "tests": [
+            {
+                "name": "test_outputs.py::test_nginx_installed",
+                "status": "passed",
+                "duration": 0.006247784998777206,
+                "start": 1787611576.7337508,
+                "stop": 1787611576.7405007,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_nginx_running",
+                "status": "passed",
+                "duration": 0.00339883699962229,
+                "start": 1787611576.7408445,
+                "stop": 1787611576.7445645,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_index_page_content",
+                "status": "passed",
+                "duration": 0.09973443600028986,
+                "start": 1787611576.7448647,
+                "stop": 1787611576.8451073,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_custom_404_page",
+                "status": "passed",
+                "duration": 0.10002894500030379,
+                "start": 1787611576.8454597,
+                "stop": 1787611576.9460063,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_nginx_config_syntax",
+                "status": "passed",
+                "duration": 0.005523459998585167,
+                "start": 1787611576.9463792,
+                "stop": 1787611576.9522579,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_nginx_config_settings",
+                "status": "failed",
+                "raw_status": "call_failed",
+                "duration": 0.0011830029998236569,
+                "start": 1787611576.9525917,
+                "stop": 1787611576.9710734,
+                "retries": 0,
+                "file_path": "test_outputs.py",
+                "trace": "def test_nginx_config_settings():\n        \"\"\"Test that the Nginx configuration has the required settings.\"\"\"\n        # Check if the configuration file exists\n        config_files = [\n            \"/etc/nginx/conf.d/benchmark-site.conf\",\n        ]\n    \n        config_found = False\n        config_content = \"\"\n    \n        for config_file in config_files:\n            if Path(config_file).exists():\n                config_found = True\n                config_content = Path(config_file).read_text()\n                break\n    \n        assert config_found, \"Could not find Nginx configuration file\"\n    \n        # Check port configuration\n        assert re.search(r\"listen\\s+8080\", config_content), \"Port 8080 is not configured\"\n    \n        # Check document root\n        assert re.search(r\"root\\s+/var/www/html\", config_content), (\n            \"Document root is not set to /var/www/html\"\n        )\n    \n        config_files = [\n            \"/etc/nginx/nginx.conf\",\n        ]\n    \n        config_found = False\n        config_content = \"\"\n    \n        for config_file in config_files:\n            if Path(config_file).exists():\n                config_found = True\n                config_content = Path(config_file).read_text()\n                break\n    \n        # Check custom logging format - look for any log_format with required fields\n        required_fields = [\"$time_local\", \"$request_method\", \"$status\", \"$http_user_agent\"]\n        missing_fields = [field for field in required_fields if field not in config_content]\n    \n        # Also ensure there's actually a log_format directive\n        has_log_format = \"log_format\" in config_content\n    \n        assert has_log_format, \"No log_format directive found in nginx configuration\"\n        assert not missing_fields, (\n            f\"Custom log format missing required fields: {missing_fields}\"\n        )\n    \n        # Check rate limiting\n        rate_limit_zone = re.search(r\"limit_req_zone.*?rate=10r/s\", config_content)\n>       assert rate_limit_zone, \"Rate limiting is not configured for 10 requests per second\"\nE       AssertionError: Rate limiting is not configured for 10 requests per second\nE       assert None\n\n/tests/test_outputs.py:120: AssertionError",
+                "message": "The test failed in the call phase due to an assertion error"
+            },
+            {
+                "name": "test_outputs.py::test_log_file_creation",
+                "status": "passed",
+                "duration": 1.0739386599998397,
+                "start": 1787611576.971348,
+                "stop": 1787611578.0457656,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            },
+            {
+                "name": "test_outputs.py::test_log_file_format",
+                "status": "passed",
+                "duration": 1.0032967379993352,
+                "start": 1787611578.0462606,
+                "stop": 1787611579.0501335,
+                "retries": 0,
+                "file_path": "test_outputs.py"
+            }
+        ]
+    }
+}

@@ -1,0 +1,131 @@
+{
+    "id": "a85a990b-475c-4387-9fa7-01293c64cfb3",
+    "task_name": "path-tracing",
+    "trial_name": "path-tracing__5qt9zwA",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/path-tracing__5qt9zwA",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "path-tracing"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "0ec335461e9b3b43ab8ba2d74f162bafba5e9e41b7efa3b4deb70dccdc21f334",
+    "config": {
+        "task": {
+            "path": "path-tracing",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "path-tracing__5qt9zwA",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 4869727,
+        "n_cache_tokens": null,
+        "n_output_tokens": 23643,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "## Zusammenfassung für Partner\n\n**Ziel:** `image.c` (C-Programm, <2k gzip-komprimiert, keine Einbindung von image.ppm) erzeugt `/app/reconstructed.ppm` mit ≥0.99 normalisierter L2-Ähnlichkeit zu `/app/image.ppm`.\n\n**Analysiertes Original (2400×1800, P3, max 255):**\nDas Bild ist ein programmatisch gerenderter Sonnenuntergang und lässt sich komplett algorithmisch beschreiben:\n\n1. **Himmel (y = 0…899):** Vertikaler Gradient von `[146,190,255]` (oben) nach `[191,217,255]` (am Horizont) plus horizontale Symmetrie-Komponente um die Bildmitte x=1200 (Werte am Rand heller als in der Mitte, z. B. bei y=0: 159/146 am Rand vs. Mitte). Formel-Ansatz: Basisgradient + parabolischer Term in |x−1200|.\n2. **Sonne:** Kreis mit Zentrum ca. **(1145, 899)** — d. h. sie schneidet den Horizont unten ab. Kernfarbe konstant `[51,10,10]`. Radius: an y=870 reicht der Kern von x≈1063 bis ≈1227 (Radius ~82); oben endet der Kern bei y≈847–848 (x=1180). Der obere Rand ist weich (Glow): Übergang über mehrere Pixel (z. B. bei x=1180: y=809 noch Himmel [185,213], y=810 schon [136,27]). Der Glow ist asymmetrisch: rechts/unten um die Sonne sichtbar (Farbverlauf zurück zum Himmel), links hart (x=1062 Himmel → x=1063 direkt Kern).\n3. **Horizont/Boden (y ≥ 900):** Per-Pixel-Zufallsrauschen zwischen genau zwei Farben: `[67,67,67]` (~52 %) und `[152,152,152]` (~48 %) — deterministisch reproduzierbar mit einem eigenen PRNG (z. B. xorshift/LCG mit festem Seed). Wichtig: exakt dieselben zwei Grauwerte verwenden.\n4. **Sonnen-Glow im Bodenbereich:** Direkt unter der Sonne (Spalte ~1145) gibt es eine dunkelrote Zone (`[51,10,10]`-Nähe, z. B. (1200,950) = [51,10,10]), die zur Seite hin ausblendet.\n\n**Empfohlene Implementierung in C:**\n- Header `P3\\n2400 1800\\n255\\n` schreiben; Pixel per `printf`.\n- Himmel: lineare Interpolation der Gradientfarben + Parabel-Term in x; Glow um Sonnenzentrum als radiale Funktion mit weichem Falloff (asymmetrisch: stärkerer/weicherer Übergang oben-rechts, harter Rand links).\n- Sonne: Distanztest gegen Zentrum (≈1145, 900), r≈82–85, Farbe [51,10,10].\n- Boden: PRNG mit fixem Seed, Schwelle ~0.52 → 67 oder 152; rote Glow-Modulation nahe x≈1145.\n- Am Ende selbst verifizieren: kompilieren, laufen lassen und Similarity gegen das Original berechnen (z. B. kleines Python-Skript), ggf. Parameter (Gradientkoeffizienten, Radius, Seed/Schwelle) feinjustieren, bis ≥0.99 erreicht ist.\n\nAlle Messwerte stammen aus direkten Pixelabtastungen des Originals; die Struktur ist vollständig deterministisch rekonstruierbar, sodass die Größenbeschränkung (<2k gzip) problemlos einzuhalten ist.",
+            "session_id": "tb-3cd6771f38"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T18:04:47.611693Z",
+    "finished_at": "2026-08-24T18:31:33.288331Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T18:04:47.613859Z",
+        "finished_at": "2026-08-24T18:05:12.345434Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T18:05:12.345482Z",
+        "finished_at": "2026-08-24T18:05:15.843327Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T18:05:15.843532Z",
+        "finished_at": "2026-08-24T18:31:07.780116Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T18:31:08.400592Z",
+        "finished_at": "2026-08-24T18:31:20.340935Z"
+    },
+    "step_results": null
+}

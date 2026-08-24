@@ -1,0 +1,40 @@
+{
+ "name": "Kira Workflow-Suite v2: Alltagsdeutsch-Auftraege (Termine, Rechnungen, Einkauf, Daten-Hygiene, Lager)",
+ "tasks": [
+  {
+   "id": "wf-termin-konflikte",
+   "prompt": "Alltags-Auftrag im aktuellen Ordner: In termine.csv stehen Kundentermine (Spalten: id,kunde,datum,von,bis). Finde ALLE Paare von Terminen, die sich ueberschneiden: gleicher Tag UND gemeinsame Zeitspanne von mehr als 0 Minuten — reines Aneinandergrenzen (Ende = Anfang) zaehlt NICHT als Konflikt. Schreibe konflikte.csv mit den Spalten a,b — pro Konfliktpaar eine Zeile, in jeder Zeile die beiden Termin-IDs alphabetisch sortiert (a < b).",
+   "setup_cmd": "printf 'id,kunde,datum,von,bis\\nt1,Meier,2026-09-01,09:00,10:00\\nt2,Schulz,2026-09-01,09:30,10:30\\nt3,Weber,2026-09-01,10:00,11:00\\nt4,Braun,2026-09-02,09:00,10:00\\nt5,Krause,2026-09-02,09:45,10:15\\nt6,Lang,2026-09-03,14:00,15:00\\n' > termine.csv",
+   "verify_cmd": "python -c \"import csv; rows=list(csv.DictReader(open('konflikte.csv'))); paare={tuple(sorted((r['a'],r['b']))) for r in rows}; soll={('t1','t2'),('t2','t3'),('t4','t5')}; assert paare==soll, 'Konflikte falsch: %s statt %s' % (sorted(paare), sorted(soll)); print('termine ok')\"",
+   "timeout": 1800
+  },
+  {
+   "id": "wf-rechnung-pruefung",
+   "prompt": "Alltags-Auftrag im aktuellen Ordner: Im Ordner rechnungen/ liegt je Rechnung eine Textdatei (Semikolon-Zeilen: artikel;menge;einzelpreis, erste Zeile ist die Kopfzeile; Preise in Euro). In zahlungen.csv steht, was je Rechnung schon bezahlt wurde (Rechnungen ohne Eintrag: nichts bezahlt). 1) Berechne je Rechnung die Gesamtsumme (menge mal einzelpreis, aufsummiert). 2) Schreibe offene_posten.csv mit den Spalten rechnung,offen — NUR Rechnungen, bei denen noch etwas offen ist (offen = Summe minus bezahlt, ganze Euro). 3) Schreibe die Gesamtsumme aller offenen Betraege in die Datei gesamt.txt.",
+   "setup_cmd": "mkdir -p rechnungen && printf 'artikel;menge;einzelpreis\\nduebel;3;10\\nschrauben;2;5\\n' > rechnungen/r1.txt && printf 'artikel;menge;einzelpreis\\nleisten;5;7\\nfarbe;1;15\\n' > rechnungen/r2.txt && printf 'artikel;menge;einzelpreis\\nplatten;4;12\\n' > rechnungen/r3.txt && printf 'rechnung,betrag\\nr1,40\\nr2,30\\n' > zahlungen.csv",
+   "verify_cmd": "python -c \"import csv; rows=list(csv.DictReader(open('offene_posten.csv'))); d={r['rechnung']: int(r['offen']) for r in rows}; assert d=={'r2': 20, 'r3': 48}, 'offene_posten falsch: %s' % d; g=open('gesamt.txt', encoding='utf-8').read(); assert '68' in g, 'gesamt.txt muss die Summe 68 enthalten: %r' % g; print('rechnungen ok')\"",
+   "timeout": 1800
+  },
+  {
+   "id": "wf-angebot-vergleich",
+   "prompt": "Alltags-Auftrag im aktuellen Ordner: In angebote.json stehen eine Einkaufsliste (Artikel -> Stueckzahl) und drei Lieferanten mit Stueckpreisen, Versandkosten und Lieferzeit. Ermittle fuer JEDEN Lieferanten die Gesamtkosten der kompletten Einkaufsliste INKLUSIVE Versand. Waehle den guenstigsten Lieferanten; bei Preisgleichheit gewinnt die KUERZERE Lieferzeit. Schreibe entscheidung.json mit den Feldern lieferant (Name) und gesamt (Gesamtkosten in Euro).",
+   "setup_cmd": "cat > angebote.json << 'JSONEOF'\n{\n \"einkaufsliste\": {\n  \"schrauben\": 10,\n  \"duebel\": 5,\n  \"leisten\": 3\n },\n \"lieferanten\": [\n  {\n   \"name\": \"Bauprofi\",\n   \"preise\": {\n    \"schrauben\": 2,\n    \"duebel\": 1,\n    \"leisten\": 4\n   },\n   \"versand\": 10,\n   \"lieferzeit_tage\": 5\n  },\n  {\n   \"name\": \"Handwerk24\",\n   \"preise\": {\n    \"schrauben\": 1,\n    \"duebel\": 2,\n    \"leisten\": 5\n   },\n   \"versand\": 15,\n   \"lieferzeit_tage\": 2\n  },\n  {\n   \"name\": \"Megabau\",\n   \"preise\": {\n    \"schrauben\": 2,\n    \"duebel\": 2,\n    \"leisten\": 3\n   },\n   \"versand\": 8,\n   \"lieferzeit_tage\": 7\n  }\n ]\n}\nJSONEOF",
+   "verify_cmd": "python -c \"import json; d=json.load(open('entscheidung.json')); assert d.get('lieferant')=='Bauprofi', 'falscher Lieferant: %s' % d; assert int(d.get('gesamt'))==47, 'falsche Summe: %s' % d; print('angebot ok')\"",
+   "timeout": 1800
+  },
+  {
+   "id": "wf-adress-bereinigung",
+   "prompt": "Alltags-Auftrag im aktuellen Ordner: kontakte.csv (Spalten: id,name,email,telefon) enthaelt Duplikate und unsaubere Daten. 1) Entferne Duplikate: zwei Zeilen sind Duplikate, wenn die E-Mail nach Kleinschreibung und ohne fuehrende/anhaengende Leerzeichen gleich ist — behalte jeweils die ERSTE Zeile. 2) Normalisiere die Telefonnummern: nur noch Ziffern (Leerzeichen, Bindestriche, Schraegstriche entfernen). 3) Normalisiere die E-Mails auf Kleinschreibung ohne Randleerzeichen. Schreibe das Ergebnis in kontakte_sauber.csv mit denselben Spalten, Reihenfolge wie im Original.",
+   "setup_cmd": "printf 'id,name,email,telefon\\nk1,Anna Beispiel,anna@web.de,0228 12 34 56\\nk2,A. Beispiel,ANNA@WEB.DE,0228-123456\\nk3,Ben Muster,ben@gmx.de,0170/111222\\nk4,Ben Muster,ben@gmx.de ,0170 111 222\\nk5,Cem Test,cem@mail.de,030-99 88 77\\n' > kontakte.csv",
+   "verify_cmd": "python -c \"import csv; rows=list(csv.DictReader(open('kontakte_sauber.csv'))); assert [r['id'] for r in rows]==['k1','k3','k5'], 'IDs falsch: %s' % [r['id'] for r in rows]; t={r['id']: r['telefon'] for r in rows}; assert t=={'k1':'0228123456','k3':'0170111222','k5':'030998877'}, 'telefon falsch: %s' % t; assert all(r['email']==r['email'].lower().strip() for r in rows), 'email nicht normalisiert'; print('kontakte ok')\"",
+   "timeout": 1800
+  },
+  {
+   "id": "wf-lager-nachbestellung",
+   "prompt": "Alltags-Auftrag im aktuellen Ordner: lager.csv (Spalten: artikel,bestand,mindestbestand,lieferant) und bestellungen_offen.csv (Artikel, die bereits nachbestellt sind). Erstelle einen Nachbestell-Vorschlag: 1) Nur Artikel, deren Bestand UNTER dem Mindestbestand liegt (strikt kleiner). 2) Artikel, die schon in bestellungen_offen.csv stehen, werden NICHT erneut bestellt. 3) Bestellmenge = 2 mal Mindestbestand minus Bestand. Schreibe nachbestellung.csv mit den Spalten artikel,menge,lieferant, alphabetisch nach artikel sortiert.",
+   "setup_cmd": "printf 'artikel,bestand,mindestbestand,lieferant\\nschrauben,4,10,Bauprofi\\nnaegel,20,10,Bauprofi\\nduebel,2,8,Handwerk24\\nleisten,5,5,Megabau\\nfarbe,1,6,Handwerk24\\n' > lager.csv && printf 'artikel\\nduebel\\n' > bestellungen_offen.csv",
+   "verify_cmd": "python -c \"import csv; rows=list(csv.DictReader(open('nachbestellung.csv'))); d={r['artikel']: (int(r['menge']), r['lieferant']) for r in rows}; soll={'schrauben': (16,'Bauprofi'), 'farbe': (11,'Handwerk24')}; assert d==soll, 'nachbestellung falsch: %s statt %s' % (d, soll); assert [r['artikel'] for r in rows]==sorted(d), 'nicht sortiert'; print('lager ok')\"",
+   "timeout": 1800
+  }
+ ]
+}

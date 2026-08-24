@@ -1,0 +1,131 @@
+{
+    "id": "022cafcd-ac42-4102-bfa9-d71f3e7a2663",
+    "task_name": "multi-source-data-merger",
+    "trial_name": "multi-source-data-merger__v9E9gUY",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/multi-source-data-merger__v9E9gUY",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "multi-source-data-merger"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "0f86ced6d81948760d828ee03060c28c44eb7244e7ef72442c18dc1c71115280",
+    "config": {
+        "task": {
+            "path": "multi-source-data-merger",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "multi-source-data-merger__v9E9gUY",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 22442,
+        "n_cache_tokens": null,
+        "n_output_tokens": 3366,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "Done. Both output files are generated and verified:\n\n**/app/merged_users.parquet** — 4 unique users, all fields mapped and merged with priority source_a > source_b > source_c:\n\n| user_id | name | email | created_date | status |\n|---|---|---|---|---|\n| 101 | John Doe | john@a.com | 2024-01-15 | active |\n| 102 | Jane Smith | jane@a.com | 2024-02-20 | inactive |\n| 103 | Bob Wilson | bob@b.com | 2024-03-01 | active |\n| 104 | Alice Brown | alice@c.com | 2024-04-01 | active |\n\n- `user_id` is int64; dates normalized to YYYY-MM-DD\n- Field mappings applied (id/userId→user_id, email_address→email, full_name/userName→name, registration_date/created_at/joined→created_date); boolean flags (is_active, active) converted to status strings\n\n**/app/conflicts.json** — 3 real conflicts for user 101 (name \"John D.\" from source_c, email differing across all three sources, created_date differing across all three), each resolved to the highest-priority value. `total_conflicts` matches the list length.",
+            "session_id": "tb-69c0ce2125"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 1.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T18:34:42.453668Z",
+    "finished_at": "2026-08-24T18:37:32.379795Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T18:34:42.455774Z",
+        "finished_at": "2026-08-24T18:35:05.763541Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T18:35:05.763576Z",
+        "finished_at": "2026-08-24T18:35:09.693071Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T18:35:09.693298Z",
+        "finished_at": "2026-08-24T18:36:58.932192Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T18:36:59.425357Z",
+        "finished_at": "2026-08-24T18:37:20.770089Z"
+    },
+    "step_results": null
+}

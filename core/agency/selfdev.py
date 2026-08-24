@@ -118,7 +118,19 @@ def set_fast_verify(on: bool) -> None:
 
 
 def fast_verify_active() -> bool:
-    return _FAST_VERIFY
+    """Entfesselung 23.08. (Inventur H7/H11): der schnelle Per-Edit-Check ist jetzt
+    DEFAULT fuer alle Pfade — auch ausserhalb von code:-Laeufen kostete sonst jeder
+    einzelne chirurgische Edit die komplette Testsuite (Minuten pro Edit). Wer die
+    volle Suite pro Edit zurueck will: selfdev.edit_vollpruefung: true in config.yaml.
+    Config-Dateien (.yaml/.json) behalten IMMER die volle Verify (siehe apply_edit)."""
+    if _FAST_VERIFY:
+        return True
+    try:
+        from core.config import CONFIG
+
+        return not bool((CONFIG.get("selfdev", {}) or {}).get("edit_vollpruefung", False))
+    except Exception:  # noqa: BLE001
+        return True
 
 
 def _verify() -> tuple[bool, str]:
@@ -241,7 +253,7 @@ def apply_edit(rel_path: str, new_content: str, reason: str = "", verify: bool =
         # Lauf-Modus: fuer .py sind py_compile + _lost_defs oben schon gruen -> committen,
         # die volle Suite prueft der Lauf am Ende. Config-Dateien (.yaml/.json) behalten IMMER
         # die volle Verify (pytest importiert core.config -> faengt kaputtes YAML ab).
-        if _FAST_VERIFY and p.suffix == ".py":
+        if fast_verify_active() and p.suffix == ".py":
             _git("add", rel_path)
             _git("commit", "-m", f"selfdev: {reason or rel_path}")
             events.emit("selfdev_applied", {"file": rel_path, "reason": reason, "fast": True})

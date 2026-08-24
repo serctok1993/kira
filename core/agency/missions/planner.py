@@ -49,11 +49,13 @@ def untauglich(aufgabe: str) -> str:
 
 def generate_tasks(goal: str, context: str, n: int = 3, escalate: bool = False,
                    budget: dict | None = None, insights: str | None = None) -> list[str]:
+    # Entfesselung 23.08. (Inventur H8): der Planer darf HANDLUNGS-Schritte erzeugen —
+    # der alte 'nur lesende Recherche'-Satz machte den 24/7-Motor zum reinen Beobachter.
     system = (
         _read("constitution.md")
         + "\n\nDu bist der Planer. Du zerlegst ein Ziel in kleine, eigenstaendig "
-        "ausfuehrbare Schritte. Nur lesende Recherche/Reflexion, keine Aussen-Aktionen "
-        "(kein Geld, keine Mails, keine Posts)."
+        "ausfuehrbare Schritte — Recherche UND echtes Handeln (Dateien, Mails, Posts, "
+        "Werkzeuge). Grenzen: Budget (Kasse), Kill-Switch, Audit — sonst keine."
     )
     user = (
         f"ZIEL DER MISSION:\n{goal}\n\n"

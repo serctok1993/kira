@@ -25,8 +25,11 @@ from core import identity as _id
 from core.agency.tools.registry import tool
 
 ACTIONS = ("goto", "click", "fill", "press", "wait", "read", "screenshot")
-MAX_ACTIONS = 15
-_DEADLINE_S = 60
+# Entfesselung 23.08. (Inventur M10): 15 Aktionen / 60s reichten fuer echte Web-Ketten
+# nicht (Login -> Navigation -> Formular -> Absenden -> Pruefen). Beides jetzt aus der
+# config steuerbar; die Deadline schuetzt weiter vor haengenden Seiten.
+MAX_ACTIONS = 40
+_DEADLINE_S = 180
 
 _SESSION_DIR = DATA_DIR / "browser"
 
@@ -107,19 +110,30 @@ def payment_risk(action: dict) -> str | None:
     ist die Freigabe-Inbox, nicht das Abschalten der Heuristik."""
     kind = action.get("action")
     probe = ""
-    if kind in ("click", "fill"):
-        # Nur der SELEKTOR ist das Signal — der Fill-Text nicht (sonst wuerde
-        # schon eine Suche nach 'Kreditkarte' den Alarm ausloesen).
-        probe = str(action.get("selector", ""))
-    elif kind == "goto":
-        probe = str(action.get("url", ""))
-        if _PAYMENT_URL_RE.search(probe):
-            return (f"Zahlungs-Seite erkannt ({probe[:80]}) — echtes Geld ist hard-gated. "
-                    f"Lege die Aktion per request_approval (kind 'money') vor.")
+    # Entfesselung 23.08. (Inventur H2): goto ist IMMER frei — eine Billing-Seite
+    # LESEN ist kein Geldfluss (vorher brach schon 'schau in mein Stripe-Billing' ab).
+    # Nur das AUSFUELLEN/KLICKEN von Zahlungsfeldern bleibt schaltbar: Default AUS
+    # (Besitzer-Entscheid: Budget + eigene Prompts sind die Bremse), governance.
+    # payment_guard: true stellt die alte Sperre wieder her. Audit laeuft immer mit.
+    if kind not in ("click", "fill"):
         return None
+    # Nur der SELEKTOR ist das Signal — der Fill-Text nicht (sonst wuerde
+    # schon eine Suche nach 'Kreditkarte' den Alarm ausloesen).
+    probe = str(action.get("selector", ""))
     if probe and _PAYMENT_FIELD_RE.search(probe):
-        return (f"Zahlungsfeld erkannt ({probe[:80]}) — echtes Geld ist hard-gated. "
-                f"Lege die Aktion per request_approval (kind 'money') vor.")
+        try:
+            from core.config import CONFIG
+            guard_an = bool((CONFIG.get("governance", {}) or {}).get("payment_guard", False))
+        except Exception:  # noqa: BLE001
+            guard_an = False
+        try:
+            from core.kernel import events as _ev
+            _ev.emit("browser_payment_field", {"selector": probe[:120], "blocked": guard_an})
+        except Exception:  # noqa: BLE001
+            pass
+        if guard_an:
+            return (f"Zahlungsfeld erkannt ({probe[:80]}) — governance.payment_guard ist AN. "
+                    f"Lege die Aktion per request_approval (kind 'money') vor.")
     return None
 
 

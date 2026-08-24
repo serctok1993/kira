@@ -36,3 +36,73 @@ def test_parse_leaked_typing_number():
 def test_parse_leaked_none_on_normal_text():
     assert _parse_leaked_tool_calls("Hallo, hier ist deine Antwort. Kein Tool noetig.") == []
     assert _parse_leaked_tool_calls("") == []
+
+
+# --- Hermes-Stil (Qwen/Nemotron) -----------------------------------------------------
+# Echter Endtext des Terminal-Bench-Laufs 'mailman' (24.08.2026): der Lauf endete nach
+# 4,68 Mio. Token mit genau diesem Block als "Ergebnis" — ein Befehl, der nie lief.
+_HERMES = (
+    "<tool_call>\n"
+    "<function=terminal>\n"
+    "<parameter=befehl>\n"
+    "python3 /app/eval.py 2>&1\n"
+    "</parameter>\n"
+    "<parameter=timeout_sek>\n"
+    "120\n"
+    "</parameter>\n"
+    "</function>\n"
+    "</tool_call>"
+)
+
+
+def test_parse_leaked_hermes_function_style():
+    calls = _parse_leaked_tool_calls(_HERMES)
+    assert len(calls) == 1
+    assert calls[0]["name"] == "terminal"
+    assert calls[0]["args"]["befehl"] == "python3 /app/eval.py 2>&1"
+    assert calls[0]["args"]["timeout_sek"] == 120  # numerisch getypt
+
+
+def test_parse_leaked_hermes_json_style():
+    txt = '<tool_call>{"name": "read_file", "arguments": {"path": "core/x.py"}}</tool_call>'
+    calls = _parse_leaked_tool_calls(txt)
+    assert len(calls) == 1
+    assert calls[0]["name"] == "read_file"
+    assert calls[0]["args"]["path"] == "core/x.py"
+
+
+def test_parse_leaked_hermes_json_arguments_als_string():
+    """Manche Anbieter verschachteln arguments als JSON-String — auch das ist ein Aufruf."""
+    txt = '<tool_call>{"name": "terminal", "arguments": "{\\"befehl\\": \\"ls /app\\"}"}</tool_call>'
+    calls = _parse_leaked_tool_calls(txt)
+    assert calls[0]["args"]["befehl"] == "ls /app"
+
+
+def test_parse_leaked_kaputtes_json_wirft_nicht():
+    assert _parse_leaked_tool_calls('<tool_call>{"name": "x", "argu</tool_call>') == []
+
+
+# --- Zitat-Schutz --------------------------------------------------------------------
+# Kira liest bei Selbstentwicklung ihre eigenen Tests — deren Beispielbloecke (wie die
+# oben in DIESER Datei!) duerfen niemals als echte Aufrufe ausgefuehrt werden.
+
+def test_zitat_im_code_zaun_wird_nicht_ausgefuehrt():
+    txt = ("Der Parser kennt jetzt auch den Hermes-Stil, zum Beispiel:\n"
+           "```\n" + _HERMES + "\n```\n"
+           "Das deckt der neue Test ab.")
+    assert _parse_leaked_tool_calls(txt) == []
+
+
+def test_zitat_hinter_backtick_wird_nicht_ausgefuehrt():
+    txt = 'Der Marker `<tool_call>{"name": "terminal", "arguments": {"befehl": "rm -rf /"}}</tool_call>` ist der Vorfilter.'
+    assert _parse_leaked_tool_calls(txt) == []
+
+
+def test_echter_leak_neben_zitat_wird_trotzdem_geborgen():
+    """Ein Zaun-Zitat im selben Text darf den ECHTEN rohen Leak nicht verschlucken."""
+    txt = ("Beispiel aus der Doku:\n```\n<function=read_file><parameter=path>x</parameter></function>\n```\n"
+           "Und jetzt fuehre ich aus:\n" + _HERMES)
+    calls = _parse_leaked_tool_calls(txt)
+    assert len(calls) == 1
+    assert calls[0]["name"] == "terminal"
+    assert calls[0]["args"]["befehl"] == "python3 /app/eval.py 2>&1"

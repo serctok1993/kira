@@ -1,0 +1,113 @@
+{
+    "id": "b2655514-7ff4-4f68-b5b5-56b990f8c31e",
+    "task_name": "chess-best-move",
+    "trial_name": "chess-best-move__ch8ZPeR",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-official/chess-best-move__ch8ZPeR",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "chess-best-move"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "a31d482d846322d57f0e3ee3c56d4ff2171fe39908dadd8092d036f17114fbef",
+    "config": {
+        "task": {
+            "path": "chess-best-move",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "chess-best-move__ch8ZPeR",
+        "trials_dir": "tb-jobs/kira-tb2-official",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "daa371d9-4d04-49ba-9f2f-0328d7b845f1",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "nvidia/nemotron-3-ultra-550b-a55b:free",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": null,
+    "verifier_result": null,
+    "verifier_environment_mode": "shared",
+    "exception_info": {
+        "exception_type": "RuntimeError",
+        "exception_message": "Docker compose command failed for environment chess-best-move. Command: docker compose --project-name chess-best-move__ch8zper__env --project-directory /root/.cache/harbor/tasks/7bFmFkDrFkAzWEnmNWFgw9/chess-best-move/environment -f /tmp/tmpbm6a0jfg/chess-best-move__ch8ZPeR__env-docker-compose-resources.json -f /home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker-compose-prebuilt.yaml -f /tmp/tmpx5rc_139/docker-compose-environment.json -f /tmp/tmpqdd98228/docker-compose-mounts.json up --detach --wait. Return code: 1. Stdout:  Image alexgshaw/chess-best-move:20251031 Pulling \n 79e41a00ade0 Pulling fs layer 0B\n 9fcf91c5d8f3 Pulling fs layer 0B\n 64370410d5ca Pulling fs layer 0B\n 58eb935af274 Pulling fs layer 0B\n 84d2affda6c8 Pulling fs layer 0B\n a77d67507195 Pulling fs layer 0B\n b2cc7717b0b6 Pulling fs layer 0B\n d8f12b6818bd Pulling fs layer 0B\n 6ada36832d15 Pulling fs layer 0B\n c38c7b25e3de Pulling fs layer 0B\n 79e41a00ade0 Download complete 0B\n c38c7b25e3de Downloading 1.049MB\n 84d2affda6c8 Download complete 0B\n c38c7b25e3de Downloading 7.34MB\n b2cc7717b0b6 Download complete 0B\n c38c7b25e3de Downloading 11.53MB\n a77d67507195 Downloading 8.389MB\n 58eb935af274 Download complete 0B\n c38c7b25e3de Downloading 15.73MB\n 64370410d5ca Downloading 1.049MB\n a77d67507195 Downloading 8.389MB\n 9fcf91c5d8f3 Downloading 2.097MB\n 6ada36832d15 Download complete 0B\n c38c7b25e3de Downloading 19.92MB\n 64370410d5ca Downloading 4.194MB\n a77d67507195 Downloading 12.58MB\n c38c7b25e3de Downloading 23.07MB\n 64370410d5ca Downloading 8.389MB\n a77d67507195 Download complete 0B\n 9fcf91c5d8f3 Downloading 6.291MB\n 9fcf91c5d8f3 Download complete 0B\n c38c7b25e3de Downloading 28.31MB\n 64370410d5ca Downloading 16.78MB\n c38c7b25e3de Downloading 33.55MB\n 64370410d5ca Downloading 20.97MB\n d8f12b6818bd Download complete 0B\n c38c7b25e3de Downloading 40.89MB\n 64370410d5ca Downloading 25.17MB\n c38c7b25e3de Downloading 46.14MB\n 64370410d5ca Downloading 32.51MB\n c38c7b25e3de Downloading 53.48MB\n 64370410d5ca Downloading 38.81MB\n c38c7b25e3de Downloading 65.01MB\n 64370410d5ca Download complete 0B\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 76.55MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 85.98MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 96.47MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 103.8MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 112.2MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 119.5MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 123.7MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 131.1MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 138.4MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 143.8MB\n 64370410d5ca Extracting 2B\n c38c7b25e3de Downloading 143.8MB\n 64370410d5ca Extracting 2B\n c38c7b25e3de Download complete 0B\n 64370410d5ca Extracting 2B\n 64370410d5ca Pull complete 0B\n a77d67507195 Extracting 1B\n a77d67507195 Extracting 1B\n a77d67507195 Extracting 1B\n a77d67507195 Extracting 1B\n a77d67507195 Pull complete 0B\n d8f12b6818bd Extracting 1B\n d8f12b6818bd Extracting 1B\n d8f12b6818bd Pull complete 0B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\nfailed to extract layer (application/vnd.docker.image.rootfs.diff.tar.gzip sha256:c38c7b25e3debb87a228e22d3d32e99ea6865e2a0af482a34ff56559f41f83ce) to overlayfs as \"extract-906952955-LSl8 sha256:93c8aebdd69a0bab2ad7a1ccf08557237edc53beac04d87b27f6e2bf38ecf409\": failed to Lchown \"/var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/391/fs/usr/lib/x86_64-linux-gnu/libpython3.12.so.1.0\" for UID 0, GID 0: lchown /var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/391/fs/usr/lib/x86_64-linux-gnu/libpython3.12.so.1.0: no such file or directory\n. Stderr: None. ",
+        "exception_traceback": "Traceback (most recent call last):\n  File \"/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py\", line 406, in run\n    await self._prepare()\n  File \"/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py\", line 444, in _prepare\n    await self._setup_agent_environment()\n  File \"/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py\", line 1423, in _setup_agent_environment\n    await self._start_agent_environment()\n  File \"/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py\", line 1429, in _start_agent_environment\n    await asyncio.wait_for(\n    ...<4 lines>...\n    )\n  File \"/usr/lib/python3.13/asyncio/tasks.py\", line 507, in wait_for\n    return await fut\n           ^^^^^^^^^\n  File \"/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker.py\", line 913, in start\n    await self._run_docker_compose_command([\"up\", \"--detach\", \"--wait\"])\n  File \"/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker.py\", line 656, in _run_docker_compose_command\n    raise RuntimeError(\n    ...<5 lines>...\n    )\nRuntimeError: Docker compose command failed for environment chess-best-move. Command: docker compose --project-name chess-best-move__ch8zper__env --project-directory /root/.cache/harbor/tasks/7bFmFkDrFkAzWEnmNWFgw9/chess-best-move/environment -f /tmp/tmpbm6a0jfg/chess-best-move__ch8ZPeR__env-docker-compose-resources.json -f /home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker-compose-prebuilt.yaml -f /tmp/tmpx5rc_139/docker-compose-environment.json -f /tmp/tmpqdd98228/docker-compose-mounts.json up --detach --wait. Return code: 1. Stdout:  Image alexgshaw/chess-best-move:20251031 Pulling \n 79e41a00ade0 Pulling fs layer 0B\n 9fcf91c5d8f3 Pulling fs layer 0B\n 64370410d5ca Pulling fs layer 0B\n 58eb935af274 Pulling fs layer 0B\n 84d2affda6c8 Pulling fs layer 0B\n a77d67507195 Pulling fs layer 0B\n b2cc7717b0b6 Pulling fs layer 0B\n d8f12b6818bd Pulling fs layer 0B\n 6ada36832d15 Pulling fs layer 0B\n c38c7b25e3de Pulling fs layer 0B\n 79e41a00ade0 Download complete 0B\n c38c7b25e3de Downloading 1.049MB\n 84d2affda6c8 Download complete 0B\n c38c7b25e3de Downloading 7.34MB\n b2cc7717b0b6 Download complete 0B\n c38c7b25e3de Downloading 11.53MB\n a77d67507195 Downloading 8.389MB\n 58eb935af274 Download complete 0B\n c38c7b25e3de Downloading 15.73MB\n 64370410d5ca Downloading 1.049MB\n a77d67507195 Downloading 8.389MB\n 9fcf91c5d8f3 Downloading 2.097MB\n 6ada36832d15 Download complete 0B\n c38c7b25e3de Downloading 19.92MB\n 64370410d5ca Downloading 4.194MB\n a77d67507195 Downloading 12.58MB\n c38c7b25e3de Downloading 23.07MB\n 64370410d5ca Downloading 8.389MB\n a77d67507195 Download complete 0B\n 9fcf91c5d8f3 Downloading 6.291MB\n 9fcf91c5d8f3 Download complete 0B\n c38c7b25e3de Downloading 28.31MB\n 64370410d5ca Downloading 16.78MB\n c38c7b25e3de Downloading 33.55MB\n 64370410d5ca Downloading 20.97MB\n d8f12b6818bd Download complete 0B\n c38c7b25e3de Downloading 40.89MB\n 64370410d5ca Downloading 25.17MB\n c38c7b25e3de Downloading 46.14MB\n 64370410d5ca Downloading 32.51MB\n c38c7b25e3de Downloading 53.48MB\n 64370410d5ca Downloading 38.81MB\n c38c7b25e3de Downloading 65.01MB\n 64370410d5ca Download complete 0B\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 76.55MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 85.98MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 96.47MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 103.8MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 112.2MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 119.5MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 123.7MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 131.1MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 138.4MB\n 64370410d5ca Extracting 1B\n c38c7b25e3de Downloading 143.8MB\n 64370410d5ca Extracting 2B\n c38c7b25e3de Downloading 143.8MB\n 64370410d5ca Extracting 2B\n c38c7b25e3de Download complete 0B\n 64370410d5ca Extracting 2B\n 64370410d5ca Pull complete 0B\n a77d67507195 Extracting 1B\n a77d67507195 Extracting 1B\n a77d67507195 Extracting 1B\n a77d67507195 Extracting 1B\n a77d67507195 Pull complete 0B\n d8f12b6818bd Extracting 1B\n d8f12b6818bd Extracting 1B\n d8f12b6818bd Pull complete 0B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 1B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 2B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\n c38c7b25e3de Extracting 3B\nfailed to extract layer (application/vnd.docker.image.rootfs.diff.tar.gzip sha256:c38c7b25e3debb87a228e22d3d32e99ea6865e2a0af482a34ff56559f41f83ce) to overlayfs as \"extract-906952955-LSl8 sha256:93c8aebdd69a0bab2ad7a1ccf08557237edc53beac04d87b27f6e2bf38ecf409\": failed to Lchown \"/var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/391/fs/usr/lib/x86_64-linux-gnu/libpython3.12.so.1.0\" for UID 0, GID 0: lchown /var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/391/fs/usr/lib/x86_64-linux-gnu/libpython3.12.so.1.0: no such file or directory\n. Stderr: None. \n",
+        "occurred_at": "2026-08-23T23:53:43.126939Z"
+    },
+    "started_at": "2026-08-23T23:53:34.054153Z",
+    "finished_at": "2026-08-23T23:53:43.743123Z",
+    "environment_setup": {
+        "started_at": "2026-08-23T23:53:34.056703Z",
+        "finished_at": "2026-08-23T23:53:43.125620Z"
+    },
+    "agent_setup": null,
+    "agent_execution": null,
+    "verifier": null,
+    "step_results": null
+}

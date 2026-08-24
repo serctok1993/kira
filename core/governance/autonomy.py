@@ -18,7 +18,11 @@ from core.kernel.fs import atomic_write
 _PATH = DATA_DIR / "autonomy.json"
 _DEFAULT = {
     "chains_off": True,                          # eigenstaendig; Inbox nur beratend
-    "hard_gate": ["money", "email_stranger", "publish"],    # DIESE Arten brauchen Freigabe
+    # Voll-Entfesselung 23.08. (Besitzer-Entscheid): KEIN Default-Gate mehr — auch Geld
+    # nicht. Die Grenzen setzt der Besitzer selbst: governance.budget (Treasury-Deckel),
+    # Kill-Switch und eigene Prompts. Das Audit-Log protokolliert weiterhin lueckenlos
+    # jede Aussen-Aktion. Wer Gates will, traegt sie in data/autonomy.json ein (Cockpit).
+    "hard_gate": [],
 }
 
 

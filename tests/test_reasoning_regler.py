@@ -42,6 +42,27 @@ def test_reasoning_extra_nur_bei_faehigen(_ohne_katalog):
     assert llm_router._reasoning_extra("openrouter/z-ai/glm-5.2", "") == {}
 
 
+def test_reasoning_effort_bench_override(_ohne_katalog, monkeypatch):
+    """KIRA_FORCE_REASONING_EFFORT erzwingt den effort BEDINGUNGSLOS — auch fuer Modelle,
+    die der Katalog nicht als denk-faehig meldet (ox-alpha). Ohne die Env bleibt alles
+    katalog-gesteuert; das ist die Voraussetzung fuer den agentischen ox-alpha-Lauf."""
+    oxa = "openrouter/stealth/ox-alpha"
+    # ohne Env: Katalog kennt ox-alpha nicht -> kein effort, es verdenkt sich
+    monkeypatch.delenv("KIRA_FORCE_REASONING_EFFORT", raising=False)
+    assert llm_router._reasoning_extra(oxa, None) == {}
+    assert llm_router._reasoning_extra(oxa, "hoch") == {}   # Level allein reicht nicht
+    # mit Env: bedingungslos. Fuer OpenRouter als ROHER reasoning-Parameter (extra_body),
+    # weil litellms drop_params reasoning_effort bei litellm-unbekannten Modellen verwirft.
+    monkeypatch.setenv("KIRA_FORCE_REASONING_EFFORT", "niedrig")
+    assert llm_router._reasoning_extra(oxa, None) == {"extra_body": {"reasoning": {"effort": "low"}}}
+    assert llm_router._reasoning_extra("openrouter/deepseek/deepseek-v4-flash", None) == {"extra_body": {"reasoning": {"effort": "low"}}}
+    # Nicht-OpenRouter behaelt den litellm-Standardparameter
+    assert llm_router._reasoning_extra("anthropic/claude-x", None) == {"reasoning_effort": "low"}
+    # unbekannter Wert wird ignoriert (fail-soft, faellt auf Katalog-Logik zurueck)
+    monkeypatch.setenv("KIRA_FORCE_REASONING_EFFORT", "quatsch")
+    assert llm_router._reasoning_extra(oxa, None) == {}
+
+
 # ---- 'denk:'-Prefix wird geparst und bis zum Modell-Call durchgereicht ----------------
 
 def _dbs(monkeypatch, tmp_path):

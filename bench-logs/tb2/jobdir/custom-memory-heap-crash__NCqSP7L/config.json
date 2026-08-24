@@ -1,0 +1,26 @@
+{
+    "task": {
+        "path": "custom-memory-heap-crash",
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "source": "terminal-bench"
+    },
+    "trial_name": "custom-memory-heap-crash__NCqSP7L",
+    "trials_dir": "tb-jobs/kira-tb2-official",
+    "agent": {
+        "name": "core.testkit.tb_kira_agent:KiraAgent",
+        "model_name": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free"
+    },
+    "verifier": {
+        "env": {
+            "UV_NATIVE_TLS": "1",
+            "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+            "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+            "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+            "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+            "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+            "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+        }
+    },
+    "job_id": "daa371d9-4d04-49ba-9f2f-0328d7b845f1"
+}

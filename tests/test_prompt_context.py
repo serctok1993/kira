@@ -21,6 +21,9 @@ def _nageln(monkeypatch):
 
     monkeypatch.setattr(identity, "render", lambda s: s)
     monkeypatch.setattr(identity, "user_name", lambda: "PARTNER-PLATZHALTER")
+    # Entfesselung 22.08.: Live-Default ist der Schlank-Prompt; der Golden-Test beweist
+    # weiterhin den HISTORISCHEN Vollprompt-Vertrag (prompt.schlank: false).
+    monkeypatch.setattr(agent, "_schlank_aktiv", lambda: False)
     monkeypatch.setattr(agent, "jetzt_zeile", lambda: "JETZT: Mittwoch, 15.07.2026, 12:00 Uhr")
     monkeypatch.setattr(agent, "_read", lambda name: f"<<{name}>>")
     monkeypatch.setattr(agent, "_body_compact", lambda: "<<koerper>>")

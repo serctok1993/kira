@@ -1,0 +1,131 @@
+{
+    "id": "24ba7058-354f-447b-a922-f70b350d2281",
+    "task_name": "reshard-c4-data",
+    "trial_name": "reshard-c4-data__WCXt7mV",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-official/reshard-c4-data__WCXt7mV",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "reshard-c4-data"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "19f99d7567f3e6e6ebe453523d76a69c2196bc34b0aa668abfb997d797cc6bd5",
+    "config": {
+        "task": {
+            "path": "reshard-c4-data",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "reshard-c4-data__WCXt7mV",
+        "trials_dir": "tb-jobs/kira-tb2-official",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "daa371d9-4d04-49ba-9f2f-0328d7b845f1",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "nvidia/nemotron-3-ultra-550b-a55b:free",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 494259,
+        "n_cache_tokens": null,
+        "n_output_tokens": 8233,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "The scripts are complete and verified. Here's a summary:\n\n**Created files in `/app/`:**\n1. **`compress.py`** - Reshards input directory into output directory with:\n   - Max 30 files per subdirectory (000/, 001/, etc.)\n   - Max 15MB per output file (part-XXXXX.jsonl)\n   - Creates a `manifest.json` mapping original files to their locations\n   - Usage: `python /app/compress.py <input_dir> <output_dir>`\n\n2. **`decompress.py`** - Reconstructs original files from resharded structure:\n   - Reads manifest.json to locate all file parts\n   - Extracts each original file at exact byte offsets\n   - Recreates original directory alongside resharded directory\n   - Usage: `python /app/decompress.py <resharded_dir>`\n\n3. **`pyproject.toml`** - uv-compatible package config with `uv sync` support\n\n**Verified with c4_sample/ (9,898 files, 800MB):**\n- ✅ Compress: Created 53 output files in 2 directories (30 + 23 files)\n- ✅ All output files ≤ 15MB\n- ✅ All directories ≤ 30 files\n- ✅ Decompress: Reconstructed all 9,898 files exactly\n- ✅ SHA256 checksums match perfectly\n- ✅ Works with `uv run python compress.py ...` and `uv run python decompress.py ...`",
+            "session_id": "tb-9ffa29f60a"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-23T23:24:01.756399Z",
+    "finished_at": "2026-08-23T23:30:05.909939Z",
+    "environment_setup": {
+        "started_at": "2026-08-23T23:24:01.760573Z",
+        "finished_at": "2026-08-23T23:24:52.007191Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-23T23:24:52.007238Z",
+        "finished_at": "2026-08-23T23:24:55.088929Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-23T23:24:55.089067Z",
+        "finished_at": "2026-08-23T23:28:50.105814Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-23T23:28:50.513389Z",
+        "finished_at": "2026-08-23T23:29:52.474449Z"
+    },
+    "step_results": null
+}

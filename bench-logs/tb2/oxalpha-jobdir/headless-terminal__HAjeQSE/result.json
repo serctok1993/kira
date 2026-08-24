@@ -1,0 +1,131 @@
+{
+    "id": "6b81bcb3-189c-4349-8baf-4a754015555a",
+    "task_name": "headless-terminal",
+    "trial_name": "headless-terminal__HAjeQSE",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/headless-terminal__HAjeQSE",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "headless-terminal"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "0f08b1ccc560ac08b8420b4a493a3b4c5354e2ace9f0cbe63a44e861e46c780d",
+    "config": {
+        "task": {
+            "path": "headless-terminal",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "headless-terminal__HAjeQSE",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 9442,
+        "n_cache_tokens": null,
+        "n_output_tokens": 2235,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "Implementation complete and verified. `/app/headless_terminal.py` contains `HeadlessTerminal(BaseTerminal)`:\n\n- **Interactive bash**: spawns `/bin/bash --login -i` via pexpect, so startup files (`/etc/profile`, `~/.bashrc`) are sourced — verified with `shopt -q login_shell` → `LOGINOK`.\n- **`send_keystrokes(keystrokes, wait_sec)`**: sends raw characters; control chars like `\"\\x03\"` (Ctrl-C) pass through verbatim — verified interrupting a running `sleep 10` (saw `^C` and prompt return).\n- **Interactive programs**: tested by launching a nested Python REPL and executing code in it.\n- Extras: `read_output()`, `is_alive()`, `close()`, context-manager support, TERM fallback (`dumb`), prompt synchronization at startup. Dependency `pexpect` installed into system Python.",
+            "session_id": "tb-8c4e346162"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 1.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T19:00:38.262083Z",
+    "finished_at": "2026-08-24T19:02:49.341644Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T19:00:38.263576Z",
+        "finished_at": "2026-08-24T19:00:48.126385Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T19:00:48.126420Z",
+        "finished_at": "2026-08-24T19:00:51.850426Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T19:00:51.850549Z",
+        "finished_at": "2026-08-24T19:02:13.712818Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T19:02:14.233143Z",
+        "finished_at": "2026-08-24T19:02:38.384528Z"
+    },
+    "step_results": null
+}

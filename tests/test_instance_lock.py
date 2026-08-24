@@ -25,9 +25,22 @@ def _free_port() -> int:
 
 
 def _spawn_marked(marker: str) -> subprocess.Popen:
-    """Harmloser Schlaefer-Prozess mit Marker in der Kommandozeile (wie ein Dienst-Kind)."""
-    return subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)", marker],
-                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    """Harmloser Schlaefer-Prozess mit Marker in der Kommandozeile (wie ein Dienst-Kind).
+
+    CI-Flake 22.08. (419c11c): direkt nach Popen kann /proc/<pid>/cmdline noch leer
+    sein (exec nicht vollzogen) — looks_like_ours sagt dann korrekt 'nicht unserer'
+    und der Test laeuft in den Timeout. Deshalb warten, bis der Marker sichtbar ist."""
+    p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)", marker],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    from pathlib import Path as _P
+    for _ in range(100):  # max ~5s — lokal ist der erste Versuch schon gruen
+        try:
+            if marker.encode() in _P(f"/proc/{p.pid}/cmdline").read_bytes():
+                break
+        except Exception:  # noqa: BLE001 — kein /proc (macOS/Windows): nicht warten
+            break
+        time.sleep(0.05)
+    return p
 
 
 # --- 1) Lock-Mechanik ---------------------------------------------------------------

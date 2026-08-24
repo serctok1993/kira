@@ -40,7 +40,11 @@ models:
   #                         # Modell entscheidet. Bequemer: /denk hoch (Chat/Telegram) oder
   #                         # Einstellungen -> Denk-Tiefe — beides ueberlebt Neustarts (overrides).
   temperature: 0.7
-  request_timeout: 120                      # hartes Timeout pro LLM-Call (Sek.) -> kein Einfrieren
+  request_timeout: 300                      # hartes Timeout pro LLM-Call (Sek.) -> kein Einfrieren
+                                            # (Entfesselung 23.08.: 120s riss lange lokale
+                                            # Reasoning-Zuege ab — Qwen 3.8 denkt teils Minuten)
+  hard_call_timeout: 300                    # Cloud-Wall-Clock bleibt scharf: ein haengender
+                                            # Socket laeuft aufs Geld (sonst request_timeout+30)
   # Die harte Wall-Clock-Grenze haengt davon ab, WO der Call laeuft. Cloud bleibt eng
   # (haengender Socket kostet Geld), lokal bekommt Luft: ein lokaler Call kostet nichts
   # ausser Zeit, und ihn abzuschiessen wirft die ganze Runde weg. Gemessen (28.07.):
@@ -90,8 +94,10 @@ features:
 # Kosten sind durch governance.budget gedeckelt.
 agency:
   max_steps: 80              # Werkzeug-Runden pro TASK (schwere/lange Aufgaben; via /work oder /plan)
-  max_steps_chat: 12          # knapper Deckel fuer NORMALEN Chat -> kein 80er-Tool-Sturm bei Small-Talk
-  max_steps_plan_step: 12   # Werkzeug-Runden pro Teilschritt im Plan-Modus (vorher: 6)
+  max_steps_chat: 24          # Entfesselung 23.08.: 12 war zu knapp fuer echte Alltags-Auftraege
+                              # im Chat — die Schleife endet ohnehin frueh, wenn fertig
+  max_steps_plan_step: 32   # Entfesselung 23.08.: 12 schnitt Arbeiter mitten im Edit ab
+                            # (v4-Befund: 9/10 leere Patches) — Kosten deckelt governance.budget
   obs_max_chars: 16000      # wie viel eines Werkzeug-Ergebnisses das Modell sieht (vorher: 6000)
   # Kontext-Abriss-Schutz (Forensik 23.07.): lokale Slots sind klein (16k Token) — die
   # ACT-History bleibt unter diesem Zeichen-Budget, indem Observations AELTERER Schritte
@@ -108,7 +114,9 @@ agency:
   # Call in 21 Tagen ueber 150s), aber sobald qwen35b wieder auf chat/reason liegt,
   # reisst die Marke.
   turn_stall_seconds: 660
-  auto_plan: false           # klarer Arbeitsauftrag im Plain-Chat -> automatisch Plan-Modus (Denker-Rang, nicht Eskalation); Aenderung braucht Neustart
+  auto_plan: true            # Entfesselung 23.08.: klarer Arbeitsauftrag im Plain-Chat geht
+                             # automatisch in den Plan-Modus, statt im 24-Runden-Chat zu
+                             # ersticken (Denker-Rang, keine Eskalation); braucht Neustart
   claim_check: true         # Beweispflicht: behauptete Dateien in Antworten werden nachgeprueft, fehlende sichtbar gestempelt
   # Fable-freundliche Arbeitsflaeche: laeuft die Runde REAL auf einem starken Cloud-Modell
   # (Marker unten, kein Fallback), gelten diese grosszuegigeren Decken statt der Basis oben.
@@ -155,6 +163,24 @@ selfdev:
   fast_verify_in_run: true
 
 # Autonomie & Sicherung
+# Entfesselung II (22.08.): Zwei-Rollen-Betrieb statt 5-Etagen-Kaskade. Sobald
+# models.kopf/ausfuehrer gesetzt sind, laufen ALLE Aufgaben ueber genau zwei Rollen:
+#   kopf       = Planung + finale Urteile (escalate=True, task_type 'plan')
+#   ausfuehrer = alles andere (Chat, Coding, Delegation, Masse)
+# Beide duerfen DASSELBE Modell sein (Ziel: Qwen 3.8 lokal fuer beides), oder getrennt
+# (stark planen, guenstig ausfuehren). Beispiel fuer den Umstieg:
+#   models:
+#     kopf: ollama_chat/qwen3.8
+#     ausfuehrer: ollama_chat/qwen3.8
+# Ohne die Keys gilt das historische Routing unten unveraendert (Cloud-Mix).
+
+prompt:
+  # Entfesselung 22.08.: EIN Modell faehrt alles -> der 9k-Token-Vollprompt (Verfassung+
+  # Seele+Ziel+Koerper+Playbooks) ist Prefill-Ballast und sein Vorsichts-Ton bremste
+  # simple Arbeit (Datei loeschen -> "unumkehrbar?"). schlank=true: operativer Kern,
+  # direkte Ausfuehrung, Arbeitsbereich frei. false = historischer Vollprompt (Golden-Test).
+  schlank: true
+
 governance:
   trust_level: 3                  # DEPRECATED (S8.3): Gating laeuft ueber data/autonomy.json
                                   # (hard_gate im Cockpit unter Gewissen->Autonomie einstellbar)
@@ -184,7 +210,8 @@ outcomes:
 # (schreibt "on") — nach gruenem Doctor-Check und unter Aufsicht des Nutzers (S6.5).
 heartbeat:
   enabled: false                   # Baseline an — aber inert bis der Flag "on" ist
-  interval_seconds: 1800          # alle 30 min ein Mission-Schritt
+  interval_seconds: 120           # Entfesselung 23.08.: arbeitsgetriebener Takt statt
+                                  # 30-min-Schlaf — die Kasse deckelt, nicht die Uhr
 
 # Die 24/7-Mission — Zweck: den Alltag des Nutzers tragen + dich selbst pflegen (Dienst-Mission
 # ohne Geldziel; Business-Ziele sind Projekte des Nutzers, nicht die Mission. Messbar wird die
@@ -192,8 +219,8 @@ heartbeat:
 mission:
   name: "Assistenz & Selbstpflege"
   self_every: 0                   # S8.1: jeder 3. Tick ist ein Selbst-Optimierungs-Tick
-  steps_per_objective_daily: 3    # Werktakt: max. erledigte Schritte PRO ZIEL und Tag (0 = aus)
-                                  # — dosiert statt 4-6 Fallstudien am Tag; Rest rueckt auf morgen
+  steps_per_objective_daily: 0    # Entfesselung 23.08.: 0 = KEIN Werktakt-Deckel mehr —
+                                  # das Treasury-Budget ist die einzige Mengen-Bremse
   goal: >
     Laufe 24/7 und arbeite pro Tick EINEN abgeschlossenen, gemeldeten Schritt. Prioritaet:
     (1) DEN ALLTAG DEINES PARTNERS TRAGEN: seine offenen Auftraege/Todos und sein aktueller Fokus zuerst —
@@ -210,8 +237,8 @@ mission:
     ehrlich; NIE Erfolg behaupten ohne Beleg; nichts erfinden; bei Unsicherheit sagen, dass du
     unsicher bist. Melde in KLARTEXT: einfache Sprache, kurze Saetze, Fachbegriffe in einer
     Klammer erklaeren — kein Behoerdendeutsch, keine Textwueste.
-    Aussen-Aktionen (Mails, Posts, Publish, Geld) nur ueber die bestehenden Gates (Freigabe-Inbox;
-    Geld zusaetzlich durch den Rat). Nichts Irreversibles ohne Freigabe. Budget + Verfassung strikt.
+    Handle DIREKT — auch nach aussen (Mails, Posts, Publish). Einzige Grenzen: Budget
+    (governance.budget, die Kasse deckelt), Kill-Switch, Audit-Log. Verfassung gilt.
     Bevorzuge billige lokale Schritte; eskaliere nur, wenn das Ergebnis es rechtfertigt.
   notify_telegram: true           # AN: knappe Mission-Reports per Telegram (im Dashboard/Mission-Tab umschaltbar)
   notify_mode: gebuendelt         # gebuendelt (Default: 1 Sammel-Post statt Flut) | sofort | aus

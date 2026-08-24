@@ -71,7 +71,10 @@ def sandbox_env(worktree: str | Path, allow_llm: bool = False, model: str | None
            "KIRA_ROOT": w,
            "KIRA_DATA_DIR": str(data),
            "KIRA_TEST_MODE": "1",
-           "KIRA_NO_OUTBOUND": "1"}
+           "KIRA_NO_OUTBOUND": "1",
+           # Gratis-Reasoning-Modelle denken teils >300s/Zug — der Geld-Schutz der
+           # Cloud-Wall-Clock riss sonst fertige Bench-Tasks ab (wf2-Befund 23.08.).
+           "KIRA_HARD_CALL_TIMEOUT": "600"}
     if allow_llm:
         env["KIRA_ALLOW_LLM"] = "1"
     else:

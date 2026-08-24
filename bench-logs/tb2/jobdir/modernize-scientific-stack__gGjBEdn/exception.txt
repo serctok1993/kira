@@ -1,0 +1,138 @@
+Traceback (most recent call last):
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 406, in run
+    await self._prepare()
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 444, in _prepare
+    await self._setup_agent_environment()
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 1423, in _setup_agent_environment
+    await self._start_agent_environment()
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 1429, in _start_agent_environment
+    await asyncio.wait_for(
+    ...<4 lines>...
+    )
+  File "/usr/lib/python3.13/asyncio/tasks.py", line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker.py", line 913, in start
+    await self._run_docker_compose_command(["up", "--detach", "--wait"])
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker.py", line 656, in _run_docker_compose_command
+    raise RuntimeError(
+    ...<5 lines>...
+    )
+RuntimeError: Docker compose command failed for environment modernize-scientific-stack. Command: docker compose --project-name modernize-scientific-stack__ggjbedn__env --project-directory /root/.cache/harbor/tasks/n9YQuCoRJFAyCD3Zs6amRV/modernize-scientific-stack/environment -f /tmp/tmpu0k5syiy/modernize-scientific-stack__gGjBEdn__env-docker-compose-resources.json -f /home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/environments/docker/docker-compose-prebuilt.yaml -f /tmp/tmp3f2pn2ue/docker-compose-environment.json -f /tmp/tmpz7ica75j/docker-compose-mounts.json up --detach --wait. Return code: 1. Stdout:  Image alexgshaw/modernize-scientific-stack:20251031 Pulling 
+ c36f0e7399a7 Pulling fs layer 0B
+ 2954a93c6f01 Pulling fs layer 0B
+ 8b995efd6971 Pulling fs layer 0B
+ 2954a93c6f01 Download complete 0B
+ 8b995efd6971 Downloading 12.58MB
+ 8b995efd6971 Downloading 25.17MB
+ c36f0e7399a7 Downloading 2.097MB
+ 8b995efd6971 Downloading 25.17MB
+ c36f0e7399a7 Downloading 14.68MB
+ 8b995efd6971 Downloading 25.17MB
+ 8b995efd6971 Downloading 25.17MB
+ c36f0e7399a7 Downloading 16.78MB
+ c36f0e7399a7 Downloading 16.78MB
+ 8b995efd6971 Downloading 25.17MB
+ 8b995efd6971 Downloading 32.51MB
+ c36f0e7399a7 Downloading 16.78MB
+ c36f0e7399a7 Downloading 22.02MB
+ 8b995efd6971 Downloading 42.99MB
+ c36f0e7399a7 Downloading 32.51MB
+ 8b995efd6971 Downloading 53.48MB
+ 8b995efd6971 Downloading 66.06MB
+ c36f0e7399a7 Downloading 33.55MB
+ c36f0e7399a7 Downloading 37.75MB
+ 8b995efd6971 Downloading 76.55MB
+ c36f0e7399a7 Downloading 48.23MB
+ 8b995efd6971 Downloading 88.08MB
+ 8b995efd6971 Downloading 97.52MB
+ c36f0e7399a7 Downloading 59.77MB
+ c36f0e7399a7 Downloading 67.11MB
+ 8b995efd6971 Downloading 104.9MB
+ c36f0e7399a7 Downloading 78.64MB
+ 8b995efd6971 Downloading 115.3MB
+ 8b995efd6971 Downloading 118.5MB
+ c36f0e7399a7 Downloading 92.27MB
+ c36f0e7399a7 Downloading 95.42MB
+ 8b995efd6971 Download complete 0B
+ c36f0e7399a7 Downloading 109.1MB
+ c36f0e7399a7 Downloading 117.4MB
+ c36f0e7399a7 Downloading 117.4MB
+ c36f0e7399a7 Downloading 122.7MB
+ c36f0e7399a7 Downloading 134.2MB
+ c36f0e7399a7 Downloading 148.9MB
+ c36f0e7399a7 Downloading 159.4MB
+ c36f0e7399a7 Downloading 164.6MB
+ c36f0e7399a7 Downloading 176.2MB
+ c36f0e7399a7 Downloading 184MB
+ c36f0e7399a7 Downloading 184MB
+ c36f0e7399a7 Downloading 184MB
+ c36f0e7399a7 Download complete 0B
+ c36f0e7399a7 Extracting 1B
+ c36f0e7399a7 Extracting 1B
+ c36f0e7399a7 Extracting 1B
+ c36f0e7399a7 Extracting 1B
+ c36f0e7399a7 Extracting 1B
+ c36f0e7399a7 Extracting 1B
+ c36f0e7399a7 Extracting 1B
+ c36f0e7399a7 Extracting 1B
+ c36f0e7399a7 Extracting 1B
+ c36f0e7399a7 Extracting 1B
+ c36f0e7399a7 Extracting 1B
+ c36f0e7399a7 Extracting 2B
+ c36f0e7399a7 Extracting 2B
+ c36f0e7399a7 Extracting 2B
+ c36f0e7399a7 Extracting 2B
+ c36f0e7399a7 Extracting 2B
+ c36f0e7399a7 Extracting 2B
+ c36f0e7399a7 Extracting 2B
+ c36f0e7399a7 Extracting 2B
+ c36f0e7399a7 Extracting 2B
+ c36f0e7399a7 Extracting 2B
+ c36f0e7399a7 Extracting 3B
+ c36f0e7399a7 Extracting 3B
+ c36f0e7399a7 Extracting 3B
+ c36f0e7399a7 Extracting 3B
+ c36f0e7399a7 Extracting 3B
+ c36f0e7399a7 Extracting 3B
+ c36f0e7399a7 Extracting 3B
+ c36f0e7399a7 Extracting 3B
+ c36f0e7399a7 Extracting 3B
+ c36f0e7399a7 Extracting 3B
+ c36f0e7399a7 Extracting 4B
+ c36f0e7399a7 Extracting 4B
+ c36f0e7399a7 Extracting 4B
+ c36f0e7399a7 Extracting 4B
+ c36f0e7399a7 Extracting 4B
+ c36f0e7399a7 Extracting 4B
+ c36f0e7399a7 Extracting 4B
+ c36f0e7399a7 Extracting 4B
+ c36f0e7399a7 Extracting 4B
+ c36f0e7399a7 Extracting 5B
+ c36f0e7399a7 Extracting 5B
+ c36f0e7399a7 Extracting 5B
+ c36f0e7399a7 Extracting 5B
+ c36f0e7399a7 Extracting 5B
+ c36f0e7399a7 Extracting 5B
+ c36f0e7399a7 Extracting 5B
+ c36f0e7399a7 Extracting 5B
+ c36f0e7399a7 Extracting 5B
+ c36f0e7399a7 Extracting 5B
+ c36f0e7399a7 Extracting 5B
+ c36f0e7399a7 Extracting 6B
+ c36f0e7399a7 Extracting 6B
+ c36f0e7399a7 Extracting 6B
+ c36f0e7399a7 Extracting 6B
+ c36f0e7399a7 Extracting 6B
+ c36f0e7399a7 Extracting 6B
+ c36f0e7399a7 Extracting 6B
+ c36f0e7399a7 Extracting 6B
+ c36f0e7399a7 Extracting 6B
+ c36f0e7399a7 Extracting 6B
+ c36f0e7399a7 Extracting 7B
+ 8b995efd6971 Extracting 1B
+ c36f0e7399a7 Pull complete 0B
+ 8b995efd6971 Extracting 1B
+ 8b995efd6971 Extracting 1B
+failed to extract layer (application/vnd.docker.image.rootfs.diff.tar.gzip sha256:8b995efd6971a119e0332d7f6143cb4c6fd1ae402d135d8b70ee20018e005f2c) to overlayfs as "extract-109158492-4UGP sha256:8bf20d7a785eb3a1d57555f9acc3789dcfc58c57bbece8c4b32cd1e5581b5205": failed to Lchown "/var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/301/fs/usr/local/lib/python3.13/site-packages/kiwisolver/_cext.cpython-313-x86_64-linux-gnu.so" for UID 0, GID 0: lchown /var/lib/docker/containerd/daemon/io.containerd.snapshotter.v1.overlayfs/snapshots/301/fs/usr/local/lib/python3.13/site-packages/kiwisolver/_cext.cpython-313-x86_64-linux-gnu.so: no such file or directory
+. Stderr: None. 

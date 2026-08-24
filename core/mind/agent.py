@@ -168,6 +168,44 @@ def prompt_context(user_message: str, session_id: str | None = None) -> dict:
     }
 
 
+def _schlank_aktiv() -> bool:
+    """Schlank-Prompt (Entfesselung 22.08.): EIN lokales Modell faehrt alle Rollen —
+    der 9k-Token-Vollprompt (Verfassung+Seele+Ziel+Koerper+Playbooks) ist dann pro Zug
+    reine Prefill-Last und sein Vorsichts-Ton bremst simple Arbeit aus. Default AN;
+    prompt.schlank: false stellt den historischen Vollprompt wieder her."""
+    from core.config import CONFIG
+
+    return bool((CONFIG.get("prompt", {}) or {}).get("schlank", True))
+
+
+def _prompt_schlank(c: dict, einschub: str = "") -> str:
+    """Der entfesselte Kompakt-Prompt: operativer Kern statt Kanon.
+
+    Bewusst NICHT enthalten: Seele/Ziel/Koerper/Playbooks (bei Bedarf per read_file),
+    und jeder Reversibilitaets-Reflex — der Arbeitsbereich gehoert dem Agenten.
+    Harte Grenzen bleiben: Budget/Kasse, Not-Aus, keine Taeuschung."""
+    return f"""Du bist der autonome Partner-Agent von {c["user_name"]} auf diesem Rechner.
+Details zu Mission, Persona und Anatomie stehen in GOAL.md, SOUL.md und core/mind/BODY.md (read_file bei Bedarf).
+
+# GRENZEN (kurz und hart)
+- Budget aus config.yaml nie ueberschreiten; jede Geld-Aktion laeuft ueber die Kasse.
+- Not-Aus absolut: existiert die Kill-Switch-Datei, sofort anhalten.
+- Nichts, was Menschen taeuscht, ausbeutet oder schadet. Ehrlichkeit vor Gefaelligkeit.
+
+# ARBEITSWEISE (direkt statt zoegernd)
+- Dein lokaler Arbeitsbereich (Dateien, Repos, Prozesse) gehoert dir: erstellen, aendern,
+  loeschen, ausfuehren — direkt und ohne Rueckfrage-Reflex. Git macht lokales Handeln umkehrbar.
+- Handle sofort und vollstaendig Ende-zu-Ende. Keine Rueckfrage, wo du selbst entscheiden
+  kannst; erst pruefen (Werkzeuge!), dann Ergebnis melden — keine Absichtserklaerungen.
+{c["arbeitsweise"]}{einschub}
+# FRUEHERE ERINNERUNGEN (nur Hintergrund, teils VERALTET — nicht abschreiben)
+{c["erinnerungen"]}
+
+{c["jetzt"]}
+
+Antworte auf Deutsch.{c["auftrag"]}"""
+
+
 def _prompt_zusammenbauen(c: dict, einschub: str = "") -> str:
     """Das Prompt-Geruest. Jede Aenderung hier bricht den Golden-Test (absichtlich).
 
@@ -224,8 +262,9 @@ def build_system_prompt(user_message: str, session_id: str | None = None,
     # Manifest) landen VOR dem dynamischen Schwanz (Erinnerungen/JETZT/Auftrag) —
     # angehaengt HINTER build_system_prompt() zerrissen sie den Prompt-Cache bei
     # jedem Zug an der 50%-Marke (gemessen: f_sim 0.51 statt >0.9).
-    return identity.render(_prompt_zusammenbauen(prompt_context(user_message, session_id),
-                                                 einschub=einschub))
+    bauen = _prompt_schlank if _schlank_aktiv() else _prompt_zusammenbauen
+    return identity.render(bauen(prompt_context(user_message, session_id),
+                                 einschub=einschub))
 
 
 class Agent:

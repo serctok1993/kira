@@ -160,19 +160,25 @@ def test_harmlose_helfer_laufen_weiter(tmp_path, monkeypatch):
 
 # --- Kern-Schreibwache: write_file/append_file --------------------------------------
 
-def test_write_file_core_blockiert():
-    """write_file darf core/** gar nicht anfassen — auch NEUE Dateien nicht (das Loch,
-    durch das data/_fix_v.py ueberhaupt entstehen durfte, gilt nicht fuer den Kern)."""
-    from core.agency.tools.builtin import append_file, write_file
+def test_write_file_core_schuetzt_bestehendes(monkeypatch, tmp_path):
+    """Entfesselung 23.08. (Inventur H6): BESTEHENDE Kern-Dateien bleiben vor
+    Komplett-Ueberschreiben geschuetzt (die laufen ueber edit_datei mit Verify +
+    Rollback). NEUE Dateien unter core/ darf write_file anlegen — vorher war das
+    eine Sackgasse: write_file verwies auf edit_datei, edit_datei zurueck auf
+    write_file, und ein neues Kern-Modul konnte gar nicht entstehen."""
+    from core.agency.tools.builtin import write_file
 
-    ziel = Path(config.ROOT) / "core" / "agency" / "geist_neu_boese.py"
+    bestehend = Path(config.ROOT) / "core" / "agency" / "act.py"
+    out_b = write_file(path=str(bestehend), content="boese")
+    assert "BLOCKIERT" in out_b and "edit_datei" in out_b
+    assert "def act(" in bestehend.read_text(encoding="utf-8"), "Datei wurde angetastet!"
+
+    ziel = Path(config.ROOT) / "core" / "agency" / "geist_neu_erlaubt.py"
     try:
-        out = write_file(path=str(ziel), content="boese")
-        assert "BLOCKIERT" in out and "edit_datei" in out
-        assert not ziel.exists()
-        out2 = append_file(path=str(ziel), content="boese")
-        assert "BLOCKIERT" in out2
-        assert not ziel.exists()
+        out = write_file(path=str(ziel), content="# neu\n")
+        assert "BLOCKIERT" not in out, out
+        assert ziel.exists()
+        ziel.unlink()
     finally:
         ziel.unlink(missing_ok=True)
 

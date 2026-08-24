@@ -1,0 +1,131 @@
+{
+    "id": "ac4e4273-7fd4-45b4-a9de-b0945d1954de",
+    "task_name": "openssl-selfsigned-cert",
+    "trial_name": "openssl-selfsigned-cert__Gu9aWBZ",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/openssl-selfsigned-cert__Gu9aWBZ",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "openssl-selfsigned-cert"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "8c096d8af92f88d8f876e26efc7f495ff13f50586736e56f35140fbb080ff390",
+    "config": {
+        "task": {
+            "path": "openssl-selfsigned-cert",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "openssl-selfsigned-cert__Gu9aWBZ",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 6658,
+        "n_cache_tokens": null,
+        "n_output_tokens": 581,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "All done and verified:\n\n- `/app/ssl/server.key` — 2048-bit RSA key, permissions `600`\n- `/app/ssl/server.crt` — self-signed cert, O=\"DevOps Team\", CN=\"dev-internal.company.local\", valid 365 days (2026-08-24 → 2027-08-24)\n- `/app/ssl/server.pem` — combined key + certificate\n- `/app/ssl/verification.txt` — contains subject, validity dates, and SHA-256 fingerprint (`2A:14:93:...:92`)\n- `/app/check_cert.py` — loads the cert, prints CN (`dev-internal.company.local`) and expiration date (`2027-08-24`), then outputs \"Certificate verification successful\"",
+            "session_id": "tb-80343a4d87"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T23:00:35.205439Z",
+    "finished_at": "2026-08-24T23:01:26.551346Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T23:00:35.207183Z",
+        "finished_at": "2026-08-24T23:00:41.639715Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T23:00:41.639756Z",
+        "finished_at": "2026-08-24T23:00:44.871056Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T23:00:44.871166Z",
+        "finished_at": "2026-08-24T23:01:06.825028Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T23:01:07.282750Z",
+        "finished_at": "2026-08-24T23:01:14.526183Z"
+    },
+    "step_results": null
+}

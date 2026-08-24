@@ -60,7 +60,18 @@ def _hard_cap_seconds(lokal: bool = False) -> float:
 
     Ein lokaler Call kostet nichts ausser Zeit, und ihn abzuschiessen wirft die ganze
     Runde weg. Cloud bleibt eng: dort ist ein haengender Socket real (ein Call hing
-    ~8 Minuten) und laeuft aufs Geld."""
+    ~8 Minuten) und laeuft aufs Geld.
+
+    KIRA_HARD_CALL_TIMEOUT (Bench-Knopf, 23.08.): kostenlose Reasoning-Modelle
+    (ox-alpha & Co.) denken teils >300s pro Zug — der Geld-Schutz greift dort ins
+    Leere und riss im wf2-Lauf einen fertigen Task ab. Die Bench-Sandbox setzt den
+    Override; Live-Verhalten bleibt unveraendert."""
+    ov = os.getenv("KIRA_HARD_CALL_TIMEOUT")
+    if ov:
+        try:
+            return float(ov)
+        except ValueError:
+            pass
     base = float(CONFIG["models"].get("request_timeout", 120))
     if lokal:
         return float(CONFIG["models"].get("hard_call_timeout_local", 600))
@@ -413,7 +424,26 @@ def is_reasoning_model(model_id: str) -> bool:
 
 def _reasoning_extra(model_id: str, level: str | None) -> dict:
     """OpenRouter/litellm-Reasoning-Parameter — NUR fuer denk-faehige Modelle, sonst leer.
-    litellm.drop_params=True verwirft ihn ohnehin still bei Modellen ohne Reasoning."""
+    litellm.drop_params=True verwirft ihn ohnehin still bei Modellen ohne Reasoning.
+
+    KIRA_FORCE_REASONING_EFFORT (Bench-Knopf, 24.08.): Stealth-Reasoning-Modelle, die der
+    OpenRouter-Katalog NICHT als denk-faehig meldet (ox-alpha), verdenken sonst ihr ganzes
+    Ausgabe-Budget im agentischen Loop — gemessen 8192 Token / 229s pro Zug (finish_reason
+    "length"), also nie ein Tool-Call. Der Override erzwingt den effort bedingungslos (ohne
+    Katalog-Check); mit effort=low liefert dasselbe Modell den Tool-Call in ~5s. Live (Env
+    ungesetzt) bleibt alles beim Katalog-gesteuerten Verhalten."""
+    forced = os.getenv("KIRA_FORCE_REASONING_EFFORT")
+    if forced:
+        eff = _REASON_EFFORT.get(forced.strip().lower())
+        if eff:
+            # ROHER OpenRouter-Parameter statt litellms reasoning_effort: litellm's
+            # drop_params=True verwirft reasoning_effort STILL, wenn es das Modell nicht
+            # als reasoning-faehig kennt — genau der Fall bei Stealth-Modellen (ox-alpha),
+            # fuer die dieser Override ueberhaupt existiert. extra_body wird ungefiltert
+            # in den Request-Body gemergt und kommt daher immer an.
+            if str(model_id).startswith("openrouter/"):
+                return {"extra_body": {"reasoning": {"effort": eff}}}
+            return {"reasoning_effort": eff}
     if not level:
         return {}
     eff = _REASON_EFFORT.get(str(level).strip().lower())
@@ -436,6 +466,20 @@ def resolve_model(task_type: str = "default", escalate: bool = False) -> tuple[s
     forced = os.getenv("KIRA_FORCE_MODEL")
     if forced:
         return forced, False
+    # Entfesselung II (22.08., Kurs Ein-Modell-Betrieb): sind models.kopf/ausfuehrer
+    # gesetzt, kollabiert die 5-Etagen-Kaskade auf ZWEI Rollen — Kopf (Planung/Urteil:
+    # escalate=True und task_type 'plan') und Ausfuehrer (alles andere). Beide duerfen
+    # dasselbe Modell sein (Qwen 3.8 lokal) oder getrennt (stark planen, guenstig
+    # ausfuehren). Ohne die Keys laeuft das historische Routing unveraendert.
+    kopf = models.get("kopf")
+    ausfuehrer = models.get("ausfuehrer")
+    if kopf or ausfuehrer:
+        ziel = (kopf if (escalate or task_type == "plan") else ausfuehrer) \
+            or kopf or ausfuehrer
+        if _has_key(ziel):
+            return ziel, False
+        _note_fallback(task_type, ziel, models["local_fallback"])
+        return models["local_fallback"], True
     if escalate:
         target = models.get("escalation_model")
         if target and _has_key(target):
@@ -670,6 +714,11 @@ def complete(
             raise
     latency = time.time() - t0
 
+    # finish_reason durchreichen: "length" heisst, die Generierung wurde am Token-Deckel
+    # GEKAPPT — der Text ist ein Fragment, kein Ergebnis. Ohne dieses Signal nahm der
+    # Loop den abgeschnittenen Halbsatz als Endantwort (TB2-Befund 24.08.: polyglot-c-py
+    # verbrannte seine 8192 Ausgabe-Token in EINEM Denk-Zug und lieferte nie eine Datei).
+    finish_reason = getattr(resp.choices[0], "finish_reason", None) or ""
     message = resp.choices[0].message
     raw_text = message.content or ""
     text = _strip_think(raw_text)
@@ -734,6 +783,7 @@ def complete(
         "escalated": escalate,
         "tool_calls": tool_calls,
         "reasoning": reasoning,
+        "finish_reason": finish_reason,
     }
 
 

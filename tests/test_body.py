@@ -75,9 +75,14 @@ def test_real_body_md_structure():
 
 
 def test_identity_and_system_prompt_carry_body(monkeypatch, tmp_path):
+    """Vollprompt-Vertrag; im Schlank-Modus (Live-Default) steht statt des Koerper-Blocks
+    nur der read_file-Verweis auf BODY.md — das Selbstwissen bleibt erreichbar."""
     from core.agency.act import _identity
     from core.mind import agent
 
+    monkeypatch.setattr(agent, "_schlank_aktiv", lambda: False)
     assert "DEIN KOERPER" in _identity()
+    monkeypatch.setattr(agent, "_schlank_aktiv", lambda: True)
+    assert "BODY.md" in _identity()
     # build_system_prompt braucht Memory -> nur die Kopf-Funktion pruefen
     assert "Organe" in agent._body_compact()

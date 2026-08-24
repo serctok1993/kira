@@ -1,0 +1,19 @@
+Traceback (most recent call last):
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 409, in run
+    await self._run()
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/single_step.py", line 41, in _run
+    await self._run_agent()
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/single_step.py", line 77, in _run_agent
+    await self._run_agent_phase(
+    ...<5 lines>...
+    )
+  File "/home/user/kira/.tb-venv/lib/python3.13/site-packages/harbor/trial/trial.py", line 545, in _run_agent_phase
+    await asyncio.wait_for(
+    ...<6 lines>...
+    )
+  File "/usr/lib/python3.13/asyncio/tasks.py", line 507, in wait_for
+    return await fut
+           ^^^^^^^^^
+  File "/home/user/kira/core/testkit/tb_kira_agent.py", line 223, in run
+    raise RuntimeError(f"KiraDegraded: {deg}")
+RuntimeError: KiraDegraded: litellm.RateLimitError: RateLimitError: OpenrouterException - {"error":{"message":"Rate limit exceeded: free-models-per-day-high-balance. ","code":429,"metadata":{"headers":{"X-RateLimit-Limit":"1000","X-RateLimit-Remaining":"0","X-RateLimit-Reset":"1787529600000"},"limit_source":"openrouter_free_ti

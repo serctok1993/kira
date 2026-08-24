@@ -1,0 +1,12 @@
+{"kind": "suite_start", "total": 10, "suite": "swebench", "role": "harness", "model": "openrouter/stealth/ox-alpha"}
+{"kind": "task_done", "id": "astropy__astropy-12907", "passed": true, "rc": 0, "out": "Patch beruehrt Gold-Datei(en): astropy/modeling/separable.py · 678s"}
+{"kind": "task_done", "id": "astropy__astropy-14182", "passed": true, "rc": 0, "out": "Patch beruehrt Gold-Datei(en): astropy/io/ascii/rst.py · 1168s"}
+{"kind": "task_done", "id": "astropy__astropy-14365", "passed": true, "rc": 0, "out": "Patch beruehrt Gold-Datei(en): astropy/io/ascii/qdp.py · 896s"}
+{"kind": "task_done", "id": "django__django-10914", "passed": true, "rc": 0, "out": "Patch beruehrt Gold-Datei(en): django/conf/global_settings.py · 324s"}
+{"kind": "task_done", "id": "matplotlib__matplotlib-18869", "passed": true, "rc": 0, "out": "Patch beruehrt Gold-Datei(en): lib/matplotlib/__init__.py · 1540s"}
+{"kind": "task_done", "id": "mwaskom__seaborn-2848", "passed": true, "rc": 0, "out": "Patch beruehrt Gold-Datei(en): seaborn/_oldcore.py · 825s"}
+{"kind": "task_done", "id": "pallets__flask-4045", "passed": true, "rc": 0, "out": "Patch beruehrt Gold-Datei(en): src/flask/blueprints.py · 895s"}
+{"kind": "task_done", "id": "psf__requests-1963", "passed": true, "rc": 0, "out": "Patch beruehrt Gold-Datei(en): requests/sessions.py · 897s"}
+{"kind": "task_done", "id": "pydata__xarray-3364", "passed": true, "rc": 0, "out": "Patch beruehrt Gold-Datei(en): xarray/core/concat.py · 1612s"}
+{"kind": "task_done", "id": "pylint-dev__pylint-5859", "passed": true, "rc": 0, "out": "Patch beruehrt Gold-Datei(en): pylint/checkers/misc.py · 1367s"}
+{"kind": "summary", "passed": 10, "total": 10, "role": "harness", "model": "openrouter/stealth/ox-alpha", "suite": "swebench", "pass_at_1": 100.0, "note": "PROGNOSE (Datei-Treffer) — amtlicher Score via predictions.jsonl", "predictions": "/home/user/kira/bench-logs/predictions-shared10-entfesselt.jsonl"}

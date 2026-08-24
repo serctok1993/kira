@@ -28,3 +28,8 @@ dev = [
 
 [tool.uv]
 package = false
+
+[tool.pytest.ini_options]
+# data/ enthaelt Laufzeitdaten und Bench-Arbeitskopien fremder Repos (SWE-bench):
+# deren eigene Tests/conftest gehoeren NIE zu Kiras Suite und rissen die Collection.
+norecursedirs = ["data", ".venv", ".git"]

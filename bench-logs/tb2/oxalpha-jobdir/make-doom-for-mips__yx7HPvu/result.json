@@ -1,0 +1,131 @@
+{
+    "id": "2794c3f6-202d-4832-87b6-fa8395dbc315",
+    "task_name": "make-doom-for-mips",
+    "trial_name": "make-doom-for-mips__yx7HPvu",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/make-doom-for-mips__yx7HPvu",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "make-doom-for-mips"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "48c24358a58435a97de86cc88255b6faf1cd3cb28bd27ff6a918e01655095981",
+    "config": {
+        "task": {
+            "path": "make-doom-for-mips",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "make-doom-for-mips__yx7HPvu",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 4250822,
+        "n_cache_tokens": null,
+        "n_output_tokens": 24060,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "## Zusammenfassung für den Partner\n\n**Ziel:** `doomgeneric_mips` (MIPS-ELF, little-endian) bauen, damit `node /app/vm.js` Doom ausführt und Frames nach `/tmp/frame.bmp` schreibt.\n\n### Was erledigt ist\n\n1. **Analyse der Umgebung**\n   - `vm.js` ist ein MIPS-o32-JS-Emulator: lädt ELF32-LE, lädt nur die Sektionen `.text`, `.data`, `.rodata` in den Speicher (**`.bss` wird NICHT geladen!**), startet am Entry Point. Syscalls implementiert: read(0), write(1), open(2), close(3), lseek(8), time(201). Stack-Pointer wird auf 0x7FFFFFFC initialisiert.\n\n2. **Toolchain installiert:** `gcc-mipsel-linux-gnu` (Cross-Compiler).\n\n3. **Freestanding-Umgebung geschaffen** (`/app/doomgeneric/doomgeneric/my_stdlib.h`):\n   - Syscall-Wrapper (o32-Nummern: read=0, write=1, open=2, close=3, exit=4001)\n   - Bump-Allocator auf `__heap_start`\n   - Vollständige Implementierungen von string/memory-Funktionen, `printf/snprintf/fopen/fwrite/fclose` (über Syscalls), `atoi`, `toupper/tolower` etc.\n   - Fake-Headers in `/app/fakeinc` (stdio.h, stdlib.h, stdarg.h, limits.h mit INT_MAX, errno.h mit EISDIR …), die alle auf `my_stdlib.h` weiterleiten — nötig, weil `-msoft-float` gegen glibc-Header bricht.\n\n4. **Linker-Script** `/app/doomgeneric/doomgeneric/link.ld`: Entry `__start` bei 0x400000; `.text.startup` zuerst; `__heap_start` vor `.data`; `.bss` folgt direkt hinter `.data`.\n\n5. **Kompilierung:** 82/83 Objekte erfolgreich mit\n   `mipsel-linux-gnu-gcc -march=mips32r2 -msoft-float -ffreestanding -fno-pic -fno-stack-protector -O1 -G0 -DNORMALUNIX -DLINUX -I. -I/app/fakeinc`\n   (alle SDL/allegro/win/xlib/soso-Varianten ausgeschlossen, `doomgeneric_img.c` als Plattform-Backend inklusive `__start` → `main` → Endlosschleife).\n\n### Offene Punkte (noch zu tun)\n\n1. **m_misc.o**: kompiliert jetzt vermutlich (errno.h wurde nachgelegt) — final verifizieren.\n2. **Fehlende Symbole** ergänzen: `strcasecmp`, `strdup` (kleine compat.c schreiben und mitlinken).\n3. **BSS-Problem lösen** (kritisch): vm.js lädt `.bss` nicht. Lösung: im Linker-Script `.bss` als `AT(...)`/`(NOLOAD)` vermeiden und stattdessen per `objcopy --alloc-sections` bzw. Umwandlung von `.bss` in eine geladene Sektion (z.B. `BYTE(0)`-Fill im Script oder `objcopy`-Trick), damit alle Nullen physisch in der Datei liegen.\n4. **Relocation-Probleme vom ersten Linkversuch** beheben: GOT16/CALL16-Overflows traten wegen `-fno-pic` + Rest-GOT-Nutzung auf → zusätzlich `-fno-jump-tables`? Nein, korrekt: `-G0` war schon gesetzt; Ursache waren die alten Objekte ohne `-G0`-Effekt bei inline asm / large data — erneuter sauberer Link mit allen neu gebauten Objekten prüfen.\n5. **Verifikation:** `node vm.js` starten (mit `nohup`, Log prüfen), stdout-Kontrolle (\"DoomGeneric initialized…\"), und prüfen, dass `/tmp/frame.bmp` wächst und ein gültiges BMP ist (`xxd | head`).\n\n**Status:** ~90 % fertig; Rest ist ein sauberer Relink (compat-Symbole + BSS-in-Datei) und die Laufzeit-Verifikation.",
+            "session_id": "tb-749f2fd7c8"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T20:43:44.591758Z",
+    "finished_at": "2026-08-24T20:59:59.938102Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T20:43:44.595003Z",
+        "finished_at": "2026-08-24T20:43:55.935940Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T20:43:55.936001Z",
+        "finished_at": "2026-08-24T20:43:59.535441Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T20:43:59.535563Z",
+        "finished_at": "2026-08-24T20:58:09.018600Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T20:58:09.539220Z",
+        "finished_at": "2026-08-24T20:59:48.631692Z"
+    },
+    "step_results": null
+}

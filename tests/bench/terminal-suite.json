@@ -1,0 +1,39 @@
+{
+  "name": "Kira Terminal-Suite: agentische Shell-Ketten (Terminal-Bench-inspiriert)",
+  "tasks": [
+    {
+      "id": "term-log-jagd",
+      "prompt": "Im aktuellen Ordner liegt app.log. Finde per Shell heraus, welche ERROR-Meldung am HAEUFIGSTEN vorkommt (der Text nach 'ERROR: '), und schreibe NUR diesen Meldungstext (eine Zeile, ohne 'ERROR: '-Praefix) in haeufigster_fehler.txt.",
+      "setup_cmd": "printf 'INFO: start\\nERROR: db timeout\\nINFO: ok\\nERROR: disk voll\\nERROR: db timeout\\nWARN: x\\nERROR: db timeout\\nERROR: disk voll\\n' > app.log",
+      "verify_cmd": "python -c \"s=open('haeufigster_fehler.txt').read().strip(); assert s=='db timeout', repr(s); print('log ok')\"",
+      "timeout": 900
+    },
+    {
+      "id": "term-git-archäologie",
+      "prompt": "Im aktuellen Ordner liegt ein git-Repo unter miniprojekt/. Finde per git-Befehlen heraus, in welchem Commit (Betreffzeile!) die Funktion 'berechne' in rechner.py EINGEFUEHRT wurde, und schreibe die Commit-Betreffzeile in fund.txt.",
+      "setup_cmd": "mkdir miniprojekt && cd miniprojekt && git init -q && git -c user.name=t -c user.email=t@t commit -q --allow-empty -m 'init' && printf 'x = 1\\n' > rechner.py && git add -A && git -c user.name=t -c user.email=t@t commit -qm 'basis anlegen' && printf 'x = 1\\n\\ndef berechne(a, b):\\n    return a + b\\n' > rechner.py && git add -A && git -c user.name=t -c user.email=t@t commit -qm 'berechne-funktion einfuehren' && printf 'x = 2\\n\\ndef berechne(a, b):\\n    return a + b\\n' > rechner.py && git add -A && git -c user.name=t -c user.email=t@t commit -qm 'x anpassen'",
+      "verify_cmd": "python -c \"s=open('fund.txt').read().strip(); assert 'berechne-funktion einfuehren' in s, repr(s); print('git ok')\"",
+      "timeout": 1200
+    },
+    {
+      "id": "term-daten-kette",
+      "prompt": "Im aktuellen Ordner liegen messung_a.csv und messung_b.csv (Spalten: id,wert). Fuehre sie per Shell/Python zusammen, berechne die Summe aller wert-Spalten BEIDER Dateien und schreibe die Summe als ganze Zahl in summe.txt. Pruefe dein Ergebnis, bevor du fertig meldest.",
+      "setup_cmd": "printf 'id,wert\\n1,10\\n2,20\\n' > messung_a.csv && printf 'id,wert\\n3,5\\n4,15\\n' > messung_b.csv",
+      "verify_cmd": "python -c \"s=open('summe.txt').read().strip(); assert s=='50', repr(s); print('kette ok')\"",
+      "timeout": 900
+    },
+    {
+      "id": "term-prozess-umgebung",
+      "prompt": "Ermittle per Shell die Python-Version (python --version), die Anzahl der CPU-Kerne (nproc) und das aktuelle Arbeitsverzeichnis (pwd) und schreibe die drei Werte in dieser Reihenfolge als drei Zeilen in system.txt.",
+      "verify_cmd": "python -c \"z=open('system.txt').read().strip().splitlines(); import os; assert len(z)==3, z; assert 'Python' in z[0], z; assert z[1].strip().isdigit(), z; assert z[2].strip().rstrip('/').endswith(os.path.basename(os.getcwd())) or '/' in z[2], z; print('system ok')\"",
+      "timeout": 900
+    },
+    {
+      "id": "term-reparatur-pipeline",
+      "prompt": "Im aktuellen Ordner liegt sortiere.sh, ein Shell-Skript das die Zeilen von namen.txt alphabetisch sortiert nach sortiert.txt schreiben SOLL — es ist aber kaputt (falscher Dateiname im Skript). Fuehre es aus, sieh dir den Fehler an, repariere das Skript MINIMAL und fuehre es erfolgreich aus.",
+      "setup_cmd": "printf 'zeta\\nanna\\nmike\\n' > namen.txt && printf '#!/bin/bash\\nsort nmaen.txt > sortiert.txt\\n' > sortiere.sh && chmod +x sortiere.sh",
+      "verify_cmd": "python -c \"s=open('sortiert.txt').read(); assert s.splitlines()==['anna','mike','zeta'], s; inhalt=open('sortiere.sh').read(); assert 'namen.txt' in inhalt, 'Skript nicht repariert'; print('pipeline ok')\"",
+      "timeout": 900
+    }
+  ]
+}

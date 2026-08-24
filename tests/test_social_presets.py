@@ -289,14 +289,17 @@ def test_bluesky_tool_dry_run_behind_firewall(monkeypatch, tmp_path):
     assert approvals.pending() == []  # nicht mal ein Inbox-Eintrag
 
 
-def test_hard_gate_default_contains_publish():
-    assert "publish" in autonomy._DEFAULT["hard_gate"]
+def test_hard_gate_default_leer():
+    """Voll-Entfesselung 23.08.: KEIN Default-Gate — Budget/Kill-Switch/Audit sind
+    die Grenzen; Gates traegt der Besitzer bei Bedarf selbst in data/autonomy.json ein."""
+    assert autonomy._DEFAULT["hard_gate"] == []
 
 
-def test_publish_needs_approval_by_default(monkeypatch, tmp_path):
+def test_alles_laeuft_default_frei(monkeypatch, tmp_path):
     monkeypatch.setattr(autonomy, "_PATH", tmp_path / "keine-datei.json")
-    assert autonomy.needs_approval("publish")
-    assert autonomy.needs_approval("email_stranger")
+    assert not autonomy.needs_approval("money")
+    assert not autonomy.needs_approval("publish")
+    assert not autonomy.needs_approval("email_stranger")
     assert not autonomy.needs_approval("generic")
 
 

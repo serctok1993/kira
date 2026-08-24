@@ -67,11 +67,13 @@ def _write_guard(p: Path, tool_name: str) -> str | None:
             pass
         return ("BLOCKIERT: constitution.md ist unantastbar (Verfassung). "
                 f"Aenderungen daran macht nur {_id.user_name()} selbst via Git.")
-    # Kern-Schreibwache (Worktree-Vorfall 18./19.07.): core/** ist fuer Komplett-Schreiber
-    # komplett zu — auch fuer NEUE Dateien und Nicht-Code. Kern-Aenderungen laufen NUR
-    # ueber edit_datei/self_edit (Verify + Rollback); core/mind-Live-Dateien pflegt das
-    # Cockpit (eigener Server-Pfad).
-    if _core_schutz(rp):
+    # Kern-Schreibwache (Worktree-Vorfall 18./19.07.), entfesselt 23.08.: nur noch
+    # BESTEHENDE core/**-Dateien sind fuer Komplett-Schreiber zu (die laufen ueber
+    # edit_datei/self_edit mit Verify + Rollback). NEUE Dateien unter core/ sind
+    # erlaubt — vorher war das eine Sackgasse: write_file verwies auf edit_datei,
+    # edit_datei ('nur bestehende Dateien') zurueck auf write_file; ein neues
+    # Kern-Modul konnte mit KEINEM Werkzeug entstehen.
+    if _core_schutz(rp) and rp.exists():
         try:
             events.emit("write_blocked", {"path": str(rp), "tool": tool_name, "grund": "core"})
         except Exception:  # noqa: BLE001
@@ -470,17 +472,21 @@ def _destruktiv_guard(p: Path, tool_name: str, was: str,
         return ("BLOCKIERT: data/backups ist der Sicherungs-Ordner (auch der Papierkorb). "
                 f"Dort raeumt nur {_id.user_name()} selbst auf. Etwas aus dem Papierkorb "
                 "zurueckholen geht mit move_file.")
-    if rp.suffix.lower() in _CODE_EXT and rp.exists():
+    # Entfesselung 23.08. (Inventur M8): nur noch der KERN (core/**) ist vor move/delete
+    # geschuetzt — vorher war JEDE Code-Datei im Repo unloeschbar, und genau das war die
+    # Ur-Beschwerde des Besitzers ('selbst eine Datei loeschen wurde blockiert').
+    # Eigene Skripte, Daten-Ablagen und Wegwerf-Code raeumt der Agent jetzt direkt weg;
+    # Git macht es umkehrbar, das write_blocked-Event protokolliert den Kern-Fall.
+    if rp.suffix.lower() in _CODE_EXT and rp.exists() and _core_schutz(rp):
+        rel = str(rp)
         try:
-            in_repo = rp.is_relative_to(ROOT.resolve())
-        except Exception:  # noqa: BLE001
-            in_repo = False
-        if in_repo:
             rel = rp.relative_to(ROOT.resolve()).as_posix()
-            _melden("write_blocked",
-                    {"path": str(rp), "tool": tool_name, "grund": "code_destruktiv"})
-            return (f"BLOCKIERT: bestehende Code-Datei ({rel}) nicht per {tool_name} {was} — "
-                    "das umgeht Verify + Gate. Code-Umbauten laufen ueber self_edit.")
+        except Exception:  # noqa: BLE001
+            pass
+        _melden("write_blocked",
+                {"path": str(rp), "tool": tool_name, "grund": "code_destruktiv"})
+        return (f"BLOCKIERT: Kern-Datei ({rel}) nicht per {tool_name} {was} — "
+                "Kern-Umbauten laufen ueber self_edit (Verify + Rollback).")
     return None
 
 
@@ -697,10 +703,10 @@ def remember_fact(fact: str) -> str:
 
 
 @tool("request_approval",
-      "Lege eine Aussen-Aktion / oeffentliche oder irreversible Handlung (Post, Mail, "
-      "Veroeffentlichung) oder einen fertigen Entwurf zur FREIGABE vor. Sie wird NICHT "
-      "sofort ausgefuehrt, sondern wartet in {{USER_NAME_S}} Freigabe-Inbox auf sein GO. Nutze "
-      "das IMMER, bevor etwas nach aussen geht. Bei MAILS gehoert in 'detail' reines JSON "
+      "OPTIONAL: Lege {{USER_NAME}} etwas zur Ansicht/Entscheidung in die Freigabe-Inbox "
+      "— NUR wenn er es ausdruecklich wuenscht oder du seine Meinung willst. Normale "
+      "Aussen-Aktionen (Mails, Posts) fuehrst du DIREKT mit ihren Werkzeugen aus "
+      "(Audit-Log laeuft automatisch). Bei MAILS gehoert in 'detail' reines JSON "
       '{"to": "...", "subject": "...", "body": "..."} — nur so kann die Freigabe die Mail '
       "wirklich verschicken; freier Text bleibt ein Entwurf, den {{USER_NAME}} selbst senden muss.",
       {"title": "kurze Bezeichnung, z.B. 'Blogartikel posten'",

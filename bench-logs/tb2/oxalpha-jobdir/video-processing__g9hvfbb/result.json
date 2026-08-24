@@ -1,0 +1,131 @@
+{
+    "id": "dbab85b8-d9eb-4a3b-b83b-2edae2445bfa",
+    "task_name": "video-processing",
+    "trial_name": "video-processing__g9hvfbb",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/video-processing__g9hvfbb",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "video-processing"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "b62eef3fb5c016796ec8b1eda72f2be68fcb44844d2dbe12776412e1580a33b3",
+    "config": {
+        "task": {
+            "path": "video-processing",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "video-processing__g9hvfbb",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 7300573,
+        "n_cache_tokens": null,
+        "n_output_tokens": 10402,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "## Zusammenfassung für Partner\n\n**Aufgabe:** Skript `/app/jump_analyzer.py` erstellt, das MP4-Videos von Hürdenspringern analysiert und `/app/output.toml` mit `jump_takeoff_frame_number` und `jump_land_frame_number` erzeugt (nur cv2, numpy, toml).\n\n**Erkenntnisse aus der Beispielvideo-Analyse (120 Frames, 960×540):**\n\n1. **Hintergrundsubtraktion funktioniert:** Differenz gegen Frame 0 (leere Bahn) mit Schwelle >40 isoliert den Läufer; Rauschen (kleine Komponenten <200 px Fläche) wird per Connected-Components-Filterung entfernt.\n\n2. **Läufer-Tracking:** Pro Frame wird die signifikanteste Bewegungskomponente gewählt (Kriterium: Fläche × Höhe, da der Läufer die größte/höchste Komponente ist). Verfolgbar sind Zentrum-x, ytop, ybot über alle ~86 aktiven Frames.\n\n3. **Jump-Detection-Logik (im Skript implementiert):**\n   - **Takeoff:** Der Läufer nähert sich von rechts (x sinkt von ~954 auf ~78). Der Absprung ist erkennbar am charakteristischen Muster: ytop erreicht sein Minimum (Höhepunkt des Sprungs, im Beispiel Frame ~60–66, ytop ≈ 44→29) nach dem letzten Bodenkontakt-Muster — detektiert als Beginn des steilen Aufwärtsdrifts von ybot/ytop kurz vor Erreichen der Hürdenzone.\n   - **Landung:** Nach dem Flug (ytop bleibt niedrig, ybot konstant hoch bei ~230) folgt ein plötzliches starkes Anwachsen der bounding box (ybot springt von ~230 auf 242–269 und die Komponente wächst massiv, Frames ~100–111 im Beispiel) — das ist der Lande-/Auslaufmoment. Landeframe = erster Frame dieses Sprungs in ybot bzw. Flächenexplosion.\n\n4. **Ergebnis fürs Beispielvideo:** Takeoff ≈ **Frame 60**, Landung ≈ **Frame 100–102** (Flugphase ~40 Frames, konsistent mit dem beobachteten Parabelverlauf von ytop).\n\n**Robustheit:** Da Kamera, Hürde und Hintergrund fix sind, arbeitet das Skript rein relativ (Differenz zu Frame 0 + Schwellen auf Komponentengröße/Höhe), keine hartkodierten Pixelpositionen — sollte auf alle Testvideos gleicher Dimensionen übertragbar sein. Output wird als TOML mit exakt den geforderten Feldnamen geschrieben.\n\nDas Skript liegt fertig unter `/app/jump_analyzer.py` und schreibt bei Ausführung `/app/output.toml`.",
+            "session_id": "tb-28bf067eee"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T20:23:07.119278Z",
+    "finished_at": "2026-08-24T20:36:22.976497Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T20:23:07.125079Z",
+        "finished_at": "2026-08-24T20:23:20.523563Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T20:23:20.523626Z",
+        "finished_at": "2026-08-24T20:23:23.929568Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T20:23:23.929666Z",
+        "finished_at": "2026-08-24T20:36:01.219477Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T20:36:01.771641Z",
+        "finished_at": "2026-08-24T20:36:11.254712Z"
+    },
+    "step_results": null
+}

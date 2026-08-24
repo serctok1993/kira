@@ -179,3 +179,105 @@ def test_fuege_hinzu_darf_neue_datei(monkeypatch):
     monkeypatch.setattr(act, "act", fake_act)
     act.plan_and_execute("Baue helpers", session_id=sid)
     assert len(laeufe) == 1, "write_file erfuellt einen Hinzufuege-Auftrag"
+
+
+def test_rueckfrage_im_endergebnis_wird_im_autonomen_lauf_fortgesetzt(monkeypatch, tmp_path):
+    """Workflow-Befund (wf-friseur-leads): das Modell kannte den naechsten Schritt und
+    endete trotzdem mit 'Soll ich direkt loslegen?' — im Bench wartet niemand. Im
+    Sandbox-Kontext erzwingt eine End-Rueckfrage genau EINE Fortsetzungsrunde."""
+    sid = "t-handwerk-10"
+    monkeypatch.setenv("KIRA_DATA_DIR", str(tmp_path))  # sandbox_active() -> True
+    _mini_plan(monkeypatch, "Lies die Datei x.py")
+    monkeypatch.setattr(act.llm_router, "complete", lambda *a, **k: {
+        "text": "Auswahl steht. Die Mails fehlen noch.\n\nSoll ich direkt loslegen?"})
+    laeufe = []
+    def fake_act(task, **kw):
+        laeufe.append(task)
+        if "KEINEN Nutzer" in task:
+            return {"text": "Mails geschrieben, alles erledigt."}
+        return {"text": "Schritt fertig."}
+    monkeypatch.setattr(act, "act", fake_act)
+    out = act.plan_and_execute("Leads bearbeiten", session_id=sid)
+    assert any("KEINEN Nutzer" in t for t in laeufe), "Fortsetzungsrunde lief nicht"
+    assert "Soll ich direkt loslegen?" not in out
+    assert "alles erledigt" in out
+
+
+def test_rueckfrage_im_live_chat_bleibt_unangetastet(monkeypatch):
+    """Ohne Sandbox-Kontext (Live-Chat) ist eine Rueckfrage LEGITIM — kein Zwang."""
+    sid = "t-handwerk-11"
+    _mini_plan(monkeypatch, "Lies die Datei x.py")
+    monkeypatch.setattr(act.llm_router, "complete", lambda *a, **k: {
+        "text": "Fertig. Soll ich noch einen Testfall ergaenzen?"})
+    laeufe = []
+    monkeypatch.setattr(act, "act", lambda task, **kw: (laeufe.append(task), {"text": "ok."})[1])
+    out = act.plan_and_execute("Aufgabe", session_id=sid)
+    assert not any("KEINEN Nutzer" in t for t in laeufe)
+    assert "Soll ich noch einen Testfall ergaenzen?" in out
+
+
+def _fake_act(aufrufe, text="Erledigt.", schreibt=None):
+    """act()-Ersatz fuer run_single_loop: protokolliert Prompts, schreibt optional eine Datei."""
+    def fn(prompt, **kw):
+        aufrufe.append(prompt)
+        if schreibt is not None:
+            schreibt.write_text("x", encoding="utf-8")
+        return {"text": text}
+    return fn
+
+
+def test_single_loop_ohne_aenderung_bekommt_fortsetzungsrunde(monkeypatch, tmp_path):
+    import subprocess
+
+    from core.testkit import attempt
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    monkeypatch.chdir(tmp_path)
+    aufrufe: list[str] = []
+    attempt.run_single_loop({"id": "t", "prompt": "Behebe den Fehler im Parser."},
+                            _fake_act(aufrufe))
+    assert len(aufrufe) == 2
+    assert "OHNE eine einzige Aenderung" in aufrufe[1]
+    assert "KEINEN Nutzer" in aufrufe[1]
+
+
+def test_single_loop_mit_aenderung_laeuft_ohne_stups(monkeypatch, tmp_path):
+    import subprocess
+
+    from core.testkit import attempt
+
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+    monkeypatch.chdir(tmp_path)
+    aufrufe: list[str] = []
+    attempt.run_single_loop({"id": "t", "prompt": "Behebe den Fehler."},
+                            _fake_act(aufrufe, schreibt=tmp_path / "fix.py"))
+    assert len(aufrufe) == 1
+
+
+def test_single_loop_ohne_gitrepo_schweigt_der_waechter(monkeypatch, tmp_path):
+    from core.testkit import attempt
+
+    monkeypatch.chdir(tmp_path)
+    aufrufe: list[str] = []
+    attempt.run_single_loop({"id": "t", "prompt": "Behebe den Fehler."},
+                            _fake_act(aufrufe))
+    assert len(aufrufe) == 1
+
+
+def test_single_loop_prueft_das_fremdrepo_nicht_das_cwd(monkeypatch, tmp_path):
+    """SWE-bench: der Diff-Check gehoert ins Fremd-Repo (task['workdir']). Ein sauberes
+    cwd-Repo darf NICHT anschlagen, wenn im Fremd-Repo laengst editiert wurde."""
+    import subprocess
+
+    from core.testkit import attempt
+
+    cwd_repo = tmp_path / "kira"
+    fremd = tmp_path / "fremd"
+    for d in (cwd_repo, fremd):
+        d.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=d, check=True)
+    monkeypatch.chdir(cwd_repo)
+    aufrufe: list[str] = []
+    attempt.run_single_loop({"id": "t", "prompt": "Fix.", "workdir": str(fremd)},
+                            _fake_act(aufrufe, schreibt=fremd / "fix.py"))
+    assert len(aufrufe) == 1

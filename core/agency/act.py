@@ -14,6 +14,7 @@ from core import identity as _id
 import json
 import os as _os
 import re
+import time
 
 from core.kernel import events, executor, llm_router
 from core.agency.tools import builtin  # noqa: F401  -> registriert die eingebauten Tools
@@ -175,6 +176,16 @@ _FENCE_CALL_RE = re.compile(
 
 
 def _identity() -> str:
+    # Entfesselung II (22.08.): im Schlank-Modus (prompt.schlank, Default AN) bekommt
+    # auch der HANDLUNGS-Pfad den operativen Kompakt-Kern statt des Kanons — der volle
+    # Block (Verfassung+Seele+Ziel+Koerper+Playbooks) kostete JEDEN act()-Schritt
+    # tausende Prefill-Token und impfte kleinen Modellen den Zoeger-Ton ein.
+    try:
+        from core.mind.agent import _schlank_aktiv
+        if _schlank_aktiv():
+            return _identity_schlank()
+    except Exception:  # noqa: BLE001
+        pass
     try:
         from core.mind.agent import _body_compact, _playbooks_block
 
@@ -226,6 +237,44 @@ def _identity() -> str:
     )
 
 
+def _identity_schlank() -> str:
+    """Operativer Kern fuer den Handlungs-Pfad: Grenzen, Arbeitsweise, Lektionen.
+    Nutzer-Direktiven (ARBEITSWEISE.md) bleiben bindend; alles andere per read_file."""
+    lernen = ""
+    try:
+        from core.mind.memory import store as _mem
+
+        lessons = _mem.recall_lessons(limit=5)
+        if lessons:
+            lernen = "# LEKTIONEN (aus eigenen Fehlern)\n" + "\n".join(
+                f"- {l}" for l in lessons) + "\n\n"
+    except Exception:  # noqa: BLE001
+        lernen = ""
+    try:
+        from core.mind.agent import arbeitsweise_block
+        _arbeitsweise = arbeitsweise_block()
+    except Exception:  # noqa: BLE001
+        _arbeitsweise = ""
+    from core import identity as _ident
+
+    return _ident.render(
+        f"{jetzt_zeile()}\n\n"
+        "Du bist {{AGENT_NAME}}, {{USER_NAME}}s autonomer Agent auf diesem Rechner. "
+        "Details zu Mission und Anatomie: GOAL.md, SOUL.md, core/mind/BODY.md (read_file bei Bedarf).\n\n"
+        "# GRENZEN (kurz und hart)\n"
+        "- Budget aus config.yaml nie ueberschreiten; Geld-Aktionen laufen ueber die Kasse.\n"
+        "- Not-Aus absolut: existiert die Kill-Switch-Datei, sofort anhalten.\n"
+        "- Nichts, was Menschen taeuscht, ausbeutet oder schadet.\n\n"
+        "# ARBEITSWEISE (direkt statt zoegernd)\n"
+        "- Dein lokaler Arbeitsbereich (Dateien, Repos, Prozesse) gehoert dir: erstellen,\n"
+        "  aendern, loeschen, ausfuehren — direkt und ohne Rueckfrage-Reflex.\n"
+        "- Handle sofort und vollstaendig Ende-zu-Ende; erst pruefen (Werkzeuge!), dann\n"
+        "  Ergebnis melden — keine Absichtserklaerungen.\n\n"
+        + lernen
+        + _arbeitsweise
+    )
+
+
 # Was Kira sagt, wenn auch der Nachfass-Zug nichts brachte. Als Konstante, weil es
 # GENAU EINEN Ort geben muss, an dem der Satz steht: die Trainingsmitschrift muss ihn
 # erkennen und aussortieren koennen. Sonst lernt das Modell aus den eigenen
@@ -248,6 +297,49 @@ STUPS_ACT = ("Der Auftrag liegt bereits vor — tu es JETZT mit einem Werkzeug (
 STUPS_NATIV = ("Der Auftrag liegt bereits vor — tu es JETZT in diesem Zug: nutze die "
                "passenden Werkzeuge und antworte erst mit dem Ergebnis. Nicht "
                "ankuendigen, nicht zurueckfragen.")
+# Abgabe-Frist: im letzten Viertel des Zeitbudgets EINMAL vorwarnen, damit aus einer
+# halben Loesung ein gemeldetes Teilergebnis wird statt eines Abbruchs ohne alles.
+_FRIST_WARNUNG_ANTEIL = 0.25
+# Fuer die Schluss-Zusammenfassung bleibt eine Reserve: lieber ein Werkzeugzug weniger
+# als eine Antwort, die nach der Frist eintrifft und niemanden mehr erreicht.
+_FRIST_RESERVE_MAX_S = 90.0
+_FRIST_RESERVE_ANTEIL = 0.15
+
+
+def _jetzt() -> float:
+    """Die Wanduhr als eigene, ersetzbare Funktion.
+
+    Bewusst NICHT time.time() direkt an der Aufrufstelle: das haengt global an der
+    stdlib, und dieselbe Uhr liest auch jede Ereignis-Buchung. Ein Test, der sie
+    ersetzt, haengt damit an der Zahl FREMDER Zeitabfragen — genau daran scheiterte
+    der erste Frist-Test in CI, waehrend er lokal gruen war. Ueber diese Naht liest
+    der Frist-Waechter die Uhr genau einmal pro Zug: nachvollziehbar und testbar.
+    """
+    return time.time()
+
+
+def _frist_reserve(gesamt_s: float) -> float:
+    """Wieviel Zeit vor der Frist fuer die Abgabe freigehalten wird (kurze Fristen: anteilig)."""
+    return min(_FRIST_RESERVE_MAX_S, max(5.0, gesamt_s * _FRIST_RESERVE_ANTEIL))
+
+
+def frist_warnung(uebrig_s: float) -> str:
+    """Die einmalige Vorwarnung, wenn das Zeitbudget zur Neige geht."""
+    return (f"ZEITBUDGET: nur noch etwa {int(max(uebrig_s, 0))} Sekunden. Beginne nichts "
+            f"Neues mehr. Bringe JETZT das Geforderte in einen abgabefaehigen Zustand: "
+            f"schreibe die verlangte Datei bzw. sichere das Ergebnis, pruefe es einmal kurz "
+            f"nach und melde dann in wenigen Saetzen, was tatsaechlich vorliegt — auch wenn "
+            f"es nur ein Teilergebnis ist. Ein gemeldetes Teilergebnis ist mehr wert als "
+            f"eine unfertige Idee.")
+
+
+# Abgabe-Pflicht: deine letzte Antwort war kein Ergebnis, sondern ein Fragment.
+STUPS_ABGABE = ("Deine letzte Antwort war unfertig — ein abgeschnittener oder offener "
+                "Gedanke, kein Ergebnis. Denke kurz, handle dann: fuehre die naechsten "
+                "Schritte mit Werkzeugen aus, pruefe das Ergebnis nach (Datei da? Test "
+                "gruen? Dienst antwortet?) und antworte ERST danach — in wenigen Saetzen, "
+                "nur was tatsaechlich vorliegt. Ist bereits alles fertig und geprueft, "
+                "melde genau das kurz.")
 
 
 def beweis_nachfrage(wort: str, nativ: bool = False) -> str:
@@ -769,6 +861,25 @@ _PROMISE_RE = re.compile(
     r"darf ich|gib (mir )?gruenes licht|wenn du einverstanden)", re.IGNORECASE)
 
 
+def _abgabe_unfertig(text: str, finish_reason: str = "") -> bool:
+    """True, wenn die Antwort ein Fragment ist statt einer Abgabe.
+
+    Zwei Gruende, beide aus dem Terminal-Bench-Lauf vom 24.08.2026 belegt:
+      * finish_reason == "length" — der Anbieter hat die Generierung am Token-Deckel
+        GEKAPPT. Kein Urteil noetig, das ist gemessen (polyglot-c-py verbrannte 8192
+        Ausgabe-Token in einem einzigen Denk-Zug und schrieb nie eine Datei).
+      * Der Text endet auf einen Doppelpunkt — die angekuendigte Fortsetzung fehlt
+        schlicht ("Let me parse this:"). Bewusst NUR dieses eine Textmuster: ein
+        fertiger Bericht endet praktisch nie so, waehrend weichere Heuristiken
+        ("Let me ...") an Hoeflichkeitsfloskeln wie "Let me know if ..." falsch
+        anschlagen wuerden. Lieber ein Fragment durchlassen als eine gute Antwort
+        in eine Extrarunde schicken.
+    """
+    if (finish_reason or "").lower() == "length":
+        return True
+    return (text or "").strip().endswith(":")
+
+
 def _looks_like_promise(text: str) -> bool:
     """Erkennt eine 'ich tu gleich was'- ODER 'soll ich?'-Antwort ohne Handlung (Heuristik)."""
     t = (text or "").strip()
@@ -940,12 +1051,12 @@ def _behauptet_zustandsaenderung(text: str) -> str | None:
 # Nudge zu einem echten run_command, weil der Harness die Rueckfrage des Modells als
 # Ankuendigung wegbuegelte. Bei sicherheits- oder geldrelevanten Wuenschen ist Nachfragen
 # die RICHTIGE Antwort — da wird nie gestupst.
+# Entfesselung 23.08. (Inventur M16): NUR noch echte System-Sicherheits-Begriffe gelten
+# als heikel (Defender/Firewall/Registry/Formatieren) — Kaufen/Bestellen/Posten/Kuendigen
+# sind seit dem Gate-Aus normale Auftraege und werden wie jede Arbeit direkt erledigt.
 _HEIKEL_RE = re.compile(
     r"\b(defender|firewall|virenschutz|antivirus|registry|bitlocker|"
-    r"deinstallier|formatier|partition|systemwiederherstellung|"
-    r"abschalten|ausschalten|deaktivier|abstellen|"
-    r"kuendig|kündig|ueberweis|überweis|bezahl|kaufe?n?|bestell|"
-    r"veroeffentlich|veröffentlich|poste?n?\b|tweete?n?)\b", re.IGNORECASE)
+    r"deinstallier|formatier|partition|systemwiederherstellung)\b", re.IGNORECASE)
 
 
 def _nudge_angebracht(user_message: str) -> bool:
@@ -1162,6 +1273,15 @@ _EDIT_INTENT_NOT = re.compile(
     r"lies\b|liste\w*|untersuch\w*|miss\b|beobacht\w*|dokumentier\w*)", re.IGNORECASE)
 
 
+def _frage_am_ende(text: str) -> bool:
+    """Endet ein Ergebnis mit einer Rueckfrage an den Nutzer? (Workflow-Befund
+    wf-friseur-leads: das Modell kannte den naechsten Schritt exakt und fragte
+    trotzdem 'Soll ich direkt loslegen?' — im autonomen Lauf wartet dann niemand.)
+    Bewusst konservativ: nur die LETZTE nicht-leere Zeile zaehlt."""
+    zeilen = [z.strip() for z in (text or "").strip().splitlines() if z.strip()]
+    return bool(zeilen) and zeilen[-1].endswith("?")
+
+
 def _edit_tried_get(session_id: str | None) -> int:
     return int(_EDIT_TRIED.get(session_id or "_", 0))
 
@@ -1318,35 +1438,94 @@ def _degrade_text(messages: list[dict], err: Exception) -> str:
 # aus dem Text -> billige Modelle bleiben nutzbar, der Loop wird robust gegen den Leak.
 _LEAK_INVOKE_RE = re.compile(r"invoke\s+name=\"([^\"]+)\"[^>]*>(.*?)</[^>]*invoke\s*>", re.DOTALL)
 _LEAK_PARAM_RE = re.compile(r"parameter\s+name=\"([^\"]+)\"[^>]*>(.*?)</[^>]*parameter\s*>", re.DOTALL)
+# Hermes-Stil (Qwen/Nemotron): <function=name> … <parameter=key>wert</parameter> …
+_LEAK_FUNC_RE = re.compile(r"<function=([A-Za-z_][\w.-]*)\s*>(.*?)</function\s*>", re.DOTALL)
+_LEAK_FUNC_PARAM_RE = re.compile(r"<parameter=([A-Za-z_][\w.-]*)\s*>(.*?)</parameter\s*>", re.DOTALL)
+# JSON-Variante desselben Stils: <tool_call>{"name": …, "arguments": {…}}</tool_call>
+_LEAK_JSON_RE = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
+# Billiger Vorfilter: ohne eines dieser Woerter kann kein Leak drinstehen.
+_LEAK_HINT_RE = re.compile(r"invoke|<function=|<tool_call>")
+
+
+def _typisiert(roh: str):
+    """Zahlen/Bools/JSON sauber typisieren, sonst als String (z.B. SQL/Pfad/Befehl)."""
+    roh = roh.strip()
+    try:
+        return json.loads(roh)
+    except Exception:  # noqa: BLE001
+        return roh
+
+
+def _im_zitat(text: str, start: int) -> bool:
+    """Steht die Fundstelle in einem Code-Zaun oder direkt hinter einem Backtick?
+
+    Eine ungerade Zahl von ``` vor der Stelle heisst: wir sind IN einem Zaun.
+    Der Backtick unmittelbar davor faengt Inline-Zitate wie `<tool_call>…` ab.
+    """
+    if text.count("```", 0, start) % 2 == 1:
+        return True
+    return start > 0 and text[start - 1] == "`"
 
 
 def _parse_leaked_tool_calls(text: str) -> list[dict]:
-    """Holt als TEXT geleakte Tool-Calls (DeepSeek-DSML / Claude-XML-Stil) heraus."""
-    if not text or "invoke" not in text:
+    """Holt als TEXT geleakte Tool-Calls heraus — drei Dialekte, ein Ergebnis.
+
+    Neben DeepSeek-DSML/Claude-XML (`invoke name="..."`) kennt der Parser seit dem
+    TB2-Befund vom 24.08.2026 auch den Hermes-Stil von Qwen/Nemotron:
+    `<tool_call><function=name><parameter=key>wert</parameter></function></tool_call>`
+    und dessen JSON-Variante `<tool_call>{"name":…,"arguments":{…}}</tool_call>`.
+    Ohne sie endete der Lauf 'mailman' nach 4,68 Mio. Token mit einem NICHT ausgefuehrten
+    Befehl als Endantwort — der Schritt war formuliert, aber nie gelaufen.
+
+    ZITAT-Schutz: Markup in einem Code-Zaun (```…```) oder direkt hinter einem
+    Backtick ist ein Beispiel, kein Aufruf — Kira liest bei Selbstentwicklung ihre
+    eigenen Tests, und deren Beispielbloecke duerfen nie ausgefuehrt werden. Echte
+    Leaks kommen roh: der mailman-Block stand mit NULL Zeichen Prosa im Text.
+    """
+    if not text or not _LEAK_HINT_RE.search(text):
         return []
     out: list[dict] = []
     for m in _LEAK_INVOKE_RE.finditer(text):
-        args: dict = {}
-        for pm in _LEAK_PARAM_RE.finditer(m.group(2)):
-            raw = pm.group(2).strip()
-            try:
-                val = json.loads(raw)      # Zahlen/Bools/JSON sauber typisieren ...
-            except Exception:  # noqa: BLE001
-                val = raw                  # ... sonst als String (z.B. SQL/Pfad)
-            args[pm.group(1)] = val
+        if _im_zitat(text, m.start()):
+            continue
+        args = {pm.group(1): _typisiert(pm.group(2)) for pm in _LEAK_PARAM_RE.finditer(m.group(2))}
         out.append({"id": None, "name": m.group(1), "args": args})
+    for m in _LEAK_FUNC_RE.finditer(text):
+        if _im_zitat(text, m.start()):
+            continue
+        args = {pm.group(1): _typisiert(pm.group(2))
+                for pm in _LEAK_FUNC_PARAM_RE.finditer(m.group(2))}
+        out.append({"id": None, "name": m.group(1), "args": args})
+    for m in _LEAK_JSON_RE.finditer(text):
+        if _im_zitat(text, m.start()):
+            continue
+        try:
+            d = json.loads(m.group(1))
+        except Exception:  # noqa: BLE001 — halbe JSON-Bloecke einfach ueberspringen
+            continue
+        name = d.get("name") or d.get("function")
+        if isinstance(name, str) and name:
+            roh_args = d.get("arguments") if d.get("arguments") is not None else d.get("args")
+            if isinstance(roh_args, str):
+                roh_args = _typisiert(roh_args)
+            out.append({"id": None, "name": name,
+                        "args": roh_args if isinstance(roh_args, dict) else {}})
     return out
 
 
-def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, emit, max_steps: int = _MAX_STEPS, task_type: str = "reason", reasoning: str | None = None, erlaubt: frozenset | None = None, rolle: str = "") -> str:
+def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, emit, max_steps: int = _MAX_STEPS, task_type: str = "reason", reasoning: str | None = None, erlaubt: frozenset | None = None, rolle: str = "", frist_ts: float | None = None) -> str:
     """Nativer Function-Calling-Loop fuer Cloud-Modelle: strukturierte tool_calls statt
     ACT-Text — robust, kein Leak. Streamt Schritte ueber emit({'kind':'tool'|'obs'|...}).
-    P5: 'erlaubt' = Rollen-Toolset eines Unteragenten (None = volle Flotte)."""
+    P5: 'erlaubt' = Rollen-Toolset eines Unteragenten (None = volle Flotte).
+    'frist_ts' = harte Wanduhr-Frist (Unix-Zeit), bis zu der ein Ergebnis vorliegen muss."""
     schemas = registry.tool_schemas(nur=erlaubt)
     obs_cap = _budget("obs_max_chars", _OBS_MAX, task_type, escalate)  # starkes Modell -> sieht mehr
     used_tools = False
     nudged = False
     beweis_nachgefragt = False      # Beweispflicht II: hoechstens EINE Rueckfrage pro Zug
+    abgabe_gestupst = False         # Abgabe-Pflicht: ebenfalls hoechstens EINMAL pro Lauf
+    frist_gewarnt = False           # Abgabe-Frist: die Vorwarnung kommt genau einmal
+    frist_start = _jetzt()
     last_reasoning = ""
 
     def _emit_reasoning(res: dict) -> None:
@@ -1360,6 +1539,22 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
             emit({"kind": "think", "text": r + "\n"})
 
     for step in range(max_steps):
+        # Abgabe-Frist (TB2-Befund 24.08.2026): sechs Laeufe wurden mitten in der Arbeit
+        # abgeschnitten und bekamen NULL Punkte — obwohl bei write-compressor schon zwei
+        # von drei Tests gruen waren. Wer eine Frist kennt, kann vorher liefern: eine
+        # Vorwarnung im letzten Viertel, danach Schluss mit neuen Werkzeugzuegen, damit
+        # die Schluss-Zusammenfassung noch INNERHALB der Frist ankommt.
+        if frist_ts is not None:
+            uebrig = frist_ts - _jetzt()
+            if uebrig <= _frist_reserve(frist_ts - frist_start):
+                events.emit("frist_abgelaufen", {"step": step, "uebrig_s": round(uebrig, 1)},
+                            session_id=session_id)
+                break
+            if not frist_gewarnt and uebrig <= (frist_ts - frist_start) * _FRIST_WARNUNG_ANTEIL:
+                frist_gewarnt = True
+                events.emit("frist_warnung", {"step": step, "uebrig_s": round(uebrig, 1)},
+                            session_id=session_id)
+                messages.append({"role": "user", "content": frist_warnung(uebrig)})
         try:
             res = _complete_resilient(messages, system=system, task_type=task_type,
                                       session_id=session_id, escalate=escalate, tools=schemas,
@@ -1379,6 +1574,25 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
                             session_id=session_id)
         if not calls:
             text = res["text"].strip()
+            # Abgabe-Pflicht (TB2-Befund 24.08.2026): ALLE Waechter darunter sind auf
+            # `not used_tools` verriegelt — sie greifen also nur, wenn ein Lauf NIE ein
+            # Werkzeug angefasst hat. Genau das rettet den Fall nicht, der auf Terminal-
+            # Bench am haeufigsten Punkte kostete: Kira arbeitet 50+ Schritte und bricht
+            # dann mitten im Denken ab; der Halbsatz wird als Endergebnis zurueckgegeben,
+            # obwohl kein Artefakt existiert. Der Abschneide-Fall ist dabei nicht geraten,
+            # sondern gemessen: finish_reason == "length" heisst, der Anbieter hat die
+            # Generierung am Token-Deckel gekappt (polyglot-c-py: 8192 Ausgabe-Token in
+            # EINEM Zug, danach Stille). Ein Zug Luft, dann geht es normal weiter.
+            if (not abgabe_gestupst and step < max_steps - 1
+                    and _abgabe_unfertig(text, res.get("finish_reason") or "")):
+                abgabe_gestupst = True
+                events.emit("abgabe_stups", {"grund": res.get("finish_reason") or "gedankenende",
+                                             "model": res.get("model") or "",
+                                             "used_tools": used_tools},
+                            session_id=session_id)
+                messages.append({"role": "assistant", "content": text})
+                messages.append({"role": "user", "content": STUPS_ABGABE})
+                continue
             # "Promise statt Action": etwas angekuendigt, aber kein Werkzeug genutzt -> einmal anschubsen
             if not used_tools and not nudged and _looks_like_promise(text):
                 nudged = True
@@ -2058,7 +2272,18 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
 
     # Diff-Review (nur code:-Laeufe): ein frischer Denker liest den entstandenen Diff
     # gegen den Auftrag — Maengel -> EIN Fix-Schritt, danach ehrlicher Vermerk.
-    review_note = _code_review_run(task, head0, session_id, escalate, emit) if code_review else ""
+    # Entfesselung 23.08. (Inventur H12): der Review-Zyklus kostet pro Lauf einen extra
+    # LLM-Call (+ ggf. Fix-Lauf) und ist jetzt OPT-IN via selfdev.code_review: true.
+    # Die Endabnahme (Testsuite am Lauf-Ende + Rollback bei Rot) bleibt unveraendert —
+    # SIE ist das Sicherheitsnetz, der Review war die zweite Meinung.
+    def _review_aktiv() -> bool:
+        try:
+            from core.config import CONFIG as _C
+            return bool((_C.get("selfdev", {}) or {}).get("code_review", False))
+        except Exception:  # noqa: BLE001
+            return False
+    review_note = (_code_review_run(task, head0, session_id, escalate, emit)
+                   if code_review and _review_aktiv() else "")
     # Endabnahme + Fast-Verify-Flag SICHER zuruecksetzen (auch die Review-Fixes liefen schnell).
     endab = _endabnahme(head0, session_id, emit) if fast_on else ""
     if fast_on:
@@ -2102,6 +2327,26 @@ def plan_and_execute(task: str, session_id: str | None = None, on_event=None, es
     if not final:  # Synthese leer (Modell-Haenger/Timeout) -> NIE leer: aus den Schritten zusammenbauen
         final = ("Ich habe die Aufgabe abgearbeitet — die Abschluss-Zusammenfassung kam leer zurueck, "
                  "darum hier die Ergebnisse der Schritte direkt:\n" + "\n".join(f"• {d}" for d in done))
+    # Autonome Laeufe (Sandbox/Bench): endet das ENDERGEBNIS mit einer Rueckfrage,
+    # wartet niemand auf eine Antwort — der angekuendigte Schritt muss JETZT passieren.
+    # Genau EINE Fortsetzungsrunde; im Live-Chat (kein Sandbox-Kontext) unveraendert.
+    from core import config as _cfgmod2
+    if _frage_am_ende(final) and (_cfgmod2.sandbox_active() or _cfgmod2.outbound_blocked()):
+        events.emit("plan_final_rueckfrage", {}, session_id=session_id)
+        emit({"kind": "obs", "name": "\u26a0 Rueckfrage im Endergebnis",
+              "text": "autonomer Lauf -> EINE Fortsetzungsrunde statt warten"})
+        weiter_task = (f"Gesamtziel: {task}\n\nDein bisheriges Ergebnis endete mit einer "
+                       f"Rueckfrage:\n{final[-600:]}\n\nEs gibt hier KEINEN Nutzer, der "
+                       "antworten koennte. Entscheide selbst und fuehre den von dir "
+                       "angekuendigten naechsten Schritt JETZT vollstaendig aus. Melde danach "
+                       "das Ergebnis — ohne neue Rueckfrage.")
+        try:
+            final = act(weiter_task, session_id=session_id,
+                        max_steps=_budget("max_steps_plan_step", _MAX_STEPS_PLAN, "reason", escalate),
+                        escalate=escalate, task_type="reason")["text"].strip() or final
+        except Exception:  # noqa: BLE001 — die Fortsetzung darf das Ergebnis nie verlieren
+            pass
+
     final += review_note
     events.emit("plan_done", {"task": task, "steps": len(steps)}, session_id=session_id)
 

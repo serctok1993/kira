@@ -1,0 +1,140 @@
+{
+    "id": "daa371d9-4d04-49ba-9f2f-0328d7b845f1",
+    "started_at": "2026-08-23T23:03:04.761365",
+    "updated_at": "2026-08-24T02:23:10.140069",
+    "finished_at": "2026-08-24T02:23:10.140069",
+    "n_total_trials": 89,
+    "stats": {
+        "n_completed_trials": 89,
+        "n_errored_trials": 65,
+        "n_running_trials": 0,
+        "n_pending_trials": 0,
+        "n_cancelled_trials": 0,
+        "n_retries": 0,
+        "evals": {
+            "kira__nvidia/nemotron-3-ultra-550b-a55b:free__terminal-bench": {
+                "n_trials": 28,
+                "n_errors": 65,
+                "metrics": [
+                    {
+                        "mean": 0.07865168539325842
+                    }
+                ],
+                "pass_at_k": {},
+                "reward_stats": {
+                    "reward": {
+                        "0.0": [
+                            "llm-inference-batching-scheduler__LftqDWp",
+                            "break-filter-js-from-html__wEbdBcW",
+                            "reshard-c4-data__WCXt7mV",
+                            "write-compressor__37MLbBu",
+                            "mailman__8h7paNh",
+                            "raman-fitting__LZfuCQP",
+                            "extract-elf__u83CaLG",
+                            "protein-assembly__ZGyWAhD",
+                            "fix-code-vulnerability__XvoMjPR",
+                            "financial-document-processor__5Lo4i6L",
+                            "feal-differential-cryptanalysis__oznMH9E",
+                            "polyglot-c-py__LctetAx",
+                            "bn-fit-modify__UxvUrhZ",
+                            "fix-ocaml-gc__xJ55cqi",
+                            "build-cython-ext__Mgt7Tte",
+                            "sam-cell-seg__N4ELMat",
+                            "model-extraction-relu-logits__Xup8GpZ",
+                            "sparql-university__zwBDASQ",
+                            "large-scale-text-editing__RwT8tH9",
+                            "sqlite-db-truncate__4nDmwfz",
+                            "sanitize-git-repo__ZTkXv9v"
+                        ],
+                        "1.0": [
+                            "merge-diff-arc-agi-task__t8EpMPs",
+                            "log-summary-date-ranges__rtPQyaH",
+                            "code-from-image__ff4yadG",
+                            "mcmc-sampling-stan__gtZG4y3",
+                            "regex-log__ELj3jLM",
+                            "cancel-async-tasks__tHo7dz5",
+                            "nginx-request-logging__jKFK7pL"
+                        ]
+                    }
+                },
+                "exception_stats": {
+                    "RuntimeError": [
+                        "gpt2-codegolf__Yb5DXmo",
+                        "winning-avg-corewars__WpQfwxt",
+                        "pytorch-model-cli__J8oqCD2",
+                        "largest-eigenval__gcir3dr",
+                        "password-recovery__xy7j3pt",
+                        "portfolio-optimization__SmcQGj3",
+                        "path-tracing-reverse__DsgQSZU",
+                        "regex-chess__qKRtRGt",
+                        "modernize-scientific-stack__gGjBEdn",
+                        "torch-tensor-parallelism__3W9JdzQ",
+                        "path-tracing__zAHtMn4",
+                        "prove-plus-comm__7JoHKy9",
+                        "feal-linear-cryptanalysis__yudwmWt",
+                        "caffe-cifar-10__3ZXQn6W",
+                        "distribution-search__haPpfXp",
+                        "mteb-retrieve__iqJ6Zjw",
+                        "pypi-server__2b9H4d3",
+                        "custom-memory-heap-crash__NCqSP7L",
+                        "adaptive-rejection-sampler__Qd6nMYh",
+                        "multi-source-data-merger__eib7voQ",
+                        "configure-git-webserver__EKfpriw",
+                        "crack-7z-hash__hdn9x5N",
+                        "chess-best-move__ch8ZPeR",
+                        "cobol-modernization__rAUQczU",
+                        "overfull-hbox__q5BBmrG",
+                        "polyglot-rust-c__pjUCkPR",
+                        "hf-model-inference__GZisPwC",
+                        "compile-compcert__SQkPD7M",
+                        "db-wal-recovery__DrqXFzF",
+                        "headless-terminal__yDD5dEJ",
+                        "fix-git__TDC8cyK",
+                        "schemelike-metacircular-eval__PsZvh7e",
+                        "qemu-startup__wZvdmpz",
+                        "build-pov-ray__aiCj8HZ",
+                        "git-multibranch__LoQpaph",
+                        "train-fasttext__Da7gM32",
+                        "video-processing__dZMEy54",
+                        "qemu-alpine-ssh__ZuoUMVc",
+                        "kv-store-grpc__yDF7sL4",
+                        "install-windows-3.11__5iwJFWi",
+                        "make-doom-for-mips__6hSiw8C",
+                        "torch-pipeline-parallelism__2v354Uh",
+                        "tune-mjcf__PRWVqvH",
+                        "extract-moves-from-video__2UQteWt",
+                        "gcode-to-text__LUU45bh",
+                        "make-mips-interpreter__HFPHQST",
+                        "count-dataset-tokens__uNLvpQN",
+                        "circuit-fibsqrt__osiVkHQ",
+                        "mteb-leaderboard__KE6pjmP",
+                        "git-leak-recovery__dUCukcA",
+                        "pytorch-model-recovery__NBnMVfN",
+                        "build-pmars__z9W3whT",
+                        "rstan-to-pystan__XxJPuFc",
+                        "sqlite-with-gcov__85yPUqm",
+                        "openssl-selfsigned-cert__7bw2xoD",
+                        "constraints-scheduling__rgVmTAA",
+                        "dna-insert__qZNQn6E",
+                        "vulnerable-secret__adyF55y",
+                        "dna-assembly__eeSvKLS"
+                    ],
+                    "AgentTimeoutError": [
+                        "llm-inference-batching-scheduler__LftqDWp",
+                        "break-filter-js-from-html__wEbdBcW",
+                        "write-compressor__37MLbBu",
+                        "large-scale-text-editing__RwT8tH9"
+                    ],
+                    "VerifierTimeoutError": [
+                        "query-optimize__PqQ65eY",
+                        "filter-js-from-html__Ks8xQ8g"
+                    ]
+                }
+            }
+        },
+        "n_input_tokens": 19184815,
+        "n_cache_tokens": null,
+        "n_output_tokens": 405291,
+        "cost_usd": null
+    }
+}

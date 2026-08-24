@@ -1,0 +1,28 @@
+{
+    "job_name": "kira-tb2-oxalpha",
+    "jobs_dir": "tb-jobs",
+    "n_concurrent_trials": 3,
+    "verifier": {
+        "env": {
+            "UV_NATIVE_TLS": "1",
+            "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+            "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+            "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+            "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+            "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+            "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+        }
+    },
+    "agents": [
+        {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "model_name": "openrouter/stealth/ox-alpha"
+        }
+    ],
+    "datasets": [
+        {
+            "name": "terminal-bench",
+            "version": "2.0"
+        }
+    ]
+}

@@ -32,7 +32,8 @@ def test_parse_valid_list():
     (json.dumps([{"action": "click"}]), "selector"),
     (json.dumps([{"action": "fill", "selector": "#a"}]), "text"),
     (json.dumps([{"action": "press"}]), "key"),
-    (json.dumps([{"action": "read"}] * 16), "Hoechstens 15"),
+    (json.dumps([{"action": "read"}] * (browser.MAX_ACTIONS + 1)),
+     f"Hoechstens {browser.MAX_ACTIONS}"),
 ])
 def test_parse_rejects(bad, hint):
     with pytest.raises(ValueError) as e:
@@ -54,24 +55,40 @@ def test_url_sandbox():
 
 # --- Zahlungsfeld-Stopp ----------------------------------------------------------
 
-def test_payment_risk_selectors():
+def test_payment_guard_aus_laesst_alles_durch(monkeypatch):
+    """Voll-Entfesselung 23.08.: Default ist der Guard AUS — Zahlungsfelder auszufuellen
+    ist erlaubt (Grenze ist das Budget, nicht eine Selektor-Heuristik)."""
+    import core.config as cfg
+    monkeypatch.setattr(cfg, "CONFIG", {})
+    assert browser.payment_risk({"action": "fill", "selector": "#cvc", "text": "123"}) is None
+    assert browser.payment_risk({"action": "click", "selector": "#expiry-month"}) is None
+
+
+def test_payment_guard_an_blockt_nur_felder(monkeypatch):
+    """governance.payment_guard: true stellt die alte Sperre wieder her — aber NUR fuer
+    das Ausfuellen/Klicken von Zahlungsfeldern."""
+    import core.config as cfg
+    monkeypatch.setattr(cfg, "CONFIG", {"governance": {"payment_guard": True}})
     assert browser.payment_risk({"action": "fill", "selector": "input[name=card_number]", "text": "x"})
     assert browser.payment_risk({"action": "fill", "selector": "#cvc", "text": "123"})
     assert browser.payment_risk({"action": "fill", "selector": "#iban-eingabe", "text": ""})
     assert browser.payment_risk({"action": "fill", "selector": ".kreditkarte-feld", "text": ""})
     assert browser.payment_risk({"action": "click", "selector": "#expiry-month"})
-    # unbedenklich:
+    # unbedenklich bleibt unbedenklich:
     assert browser.payment_risk({"action": "fill", "selector": "#email", "text": "a@b.de"}) is None
     assert browser.payment_risk({"action": "fill", "selector": "#search", "text": "Kreditkarte Vergleich"}) is None
     assert browser.payment_risk({"action": "click", "selector": "button.weiter"}) is None
 
 
-def test_payment_risk_urls():
-    assert browser.payment_risk({"action": "goto", "url": "https://shop.de/checkout"})
-    assert browser.payment_risk({"action": "goto", "url": "https://shop.de/kasse"})
-    assert browser.payment_risk({"action": "goto", "url": "https://firma.de/billing/upgrade"})
-    assert browser.payment_risk({"action": "goto", "url": "https://firma.de/blog/checkout-trends"}) is None
-    assert browser.payment_risk({"action": "goto", "url": "https://example.com"}) is None
+def test_navigation_ist_immer_frei(monkeypatch):
+    """Eine Billing-/Checkout-Seite zu OEFFNEN ist kein Geldfluss — auch mit Guard AN.
+    Vorher brach schon 'schau in mein Stripe-Billing' ab (Inventur-Befund H2)."""
+    import core.config as cfg
+    for conf in ({}, {"governance": {"payment_guard": True}}):
+        monkeypatch.setattr(cfg, "CONFIG", conf)
+        assert browser.payment_risk({"action": "goto", "url": "https://shop.de/checkout"}) is None
+        assert browser.payment_risk({"action": "goto", "url": "https://firma.de/billing/upgrade"}) is None
+        assert browser.payment_risk({"action": "goto", "url": "https://example.com"}) is None
 
 
 def test_module_imports_without_playwright():

@@ -1,0 +1,33 @@
+{
+ "name": "Kira Workflow-Suite v3: schwere Alltagsdeutsch-Auftraege (Regelwerke, Querbezuege, Constraints)",
+ "tasks": [
+  {
+   "id": "wf3-reisekosten",
+   "prompt": "Alltags-Auftrag im aktuellen Ordner: In reisen.csv stehen Dienstreisen (reise,start,ende,km), in regeln.txt das verbindliche Regelwerk. Berechne fuer JEDE Reise die Erstattung (Kilometergeld + Verpflegung nach regeln.txt, Zwischentage zaehlen als volle Tage). Schreibe abrechnung.csv mit den Spalten reise,summe (Summe in EUR, zwei Nachkommastellen) und die Gesamtsumme aller Reisen in gesamt.txt.",
+   "setup_cmd": "printf 'reise,start,ende,km\\nr1,2026-03-02 08:00,2026-03-02 18:30,80\\nr2,2026-03-10 07:00,2026-03-12 19:00,240\\nr3,2026-03-20 09:00,2026-03-20 15:00,30\\n' > reisen.csv && printf 'REGELN Reisekosten:\\n1. Kilometergeld: 0,30 EUR je km.\\n2. Mehrtaegige Reise: Anreisetag 14 EUR, Abreisetag 14 EUR, jeder volle Zwischentag 28 EUR Verpflegung.\\n3. Eintaegige Reise: 14 EUR Verpflegung NUR bei mehr als 8 Stunden Dauer, sonst 0 EUR.\\n' > regeln.txt",
+   "verify_cmd": "python -c \"import csv; rows=list(csv.DictReader(open('abrechnung.csv'))); d={r['reise']: round(float(r['summe']),2) for r in rows}; soll={'r1':38.0,'r2':128.0,'r3':9.0}; assert d==soll, 'abrechnung falsch: %s statt %s' % (d, soll); g=open('gesamt.txt',encoding='utf-8').read(); assert '175' in g, 'gesamt.txt muss 175 enthalten: %r' % g; print('reisekosten ok')\"",
+   "timeout": 1800
+  },
+  {
+   "id": "wf3-dienstplan",
+   "prompt": "Alltags-Auftrag im aktuellen Ordner: Erstelle aus mitarbeiter.csv (name,verfuegbar mit Semikolon-Tagen,max_schichten) und bedarf.csv (tag,benoetigt) einen Wochen-Dienstplan. REGELN: (1) an jedem Tag arbeiten GENAU so viele verschiedene Personen wie benoetigt, (2) niemand an einem Tag, an dem er nicht verfuegbar ist, (3) niemand mehr Schichten als sein Maximum erlaubt. Es gibt viele gueltige Plaene — jeder regelkonforme zaehlt. Schreibe dienstplan.csv mit den Spalten tag,name (eine Zeile pro Person und Tag).",
+   "setup_cmd": "printf 'name,verfuegbar,max_schichten\\nAnna,Mo;Di;Mi;Do;Fr,3\\nBen,Mo;Mi;Fr,2\\nCem,Di;Do;Fr,2\\nDana,Mo;Di;Mi;Do,2\\n' > mitarbeiter.csv && printf 'tag,benoetigt\\nMo,2\\nDi,2\\nMi,1\\nDo,2\\nFr,2\\n' > bedarf.csv",
+   "verify_cmd": "python -c \"import csv, collections; ma={r['name']:(set(r['verfuegbar'].split(';')),int(r['max_schichten'])) for r in csv.DictReader(open('mitarbeiter.csv'))}; bed={r['tag']:int(r['benoetigt']) for r in csv.DictReader(open('bedarf.csv'))}; plan=list(csv.DictReader(open('dienstplan.csv'))); belegt=collections.Counter(); je_tag=collections.defaultdict(set); fehler=[]; [fehler.append('unbekannt '+r['name']) for r in plan if r['name'] not in ma]; [fehler.append(r['name']+' nicht verfuegbar am '+r['tag']) for r in plan if r['name'] in ma and r['tag'] not in ma[r['name']][0]]; [(belegt.update([r['name']]), je_tag[r['tag']].add(r['name'])) for r in plan]; [fehler.append(n+' ueber max') for n,c in belegt.items() if n in ma and c>ma[n][1]]; [fehler.append('Tag '+t+' unterbesetzt: %d statt %d'%(len(je_tag[t]),b)) for t,b in bed.items() if len(je_tag[t])!=b]; assert not fehler, 'Regelverstoesse: %s' % fehler[:6]; print('dienstplan ok')\"",
+   "timeout": 1800
+  },
+  {
+   "id": "wf3-mahnlauf",
+   "prompt": "Alltags-Auftrag im aktuellen Ordner: rechnungen.csv (id,kunde,betrag,faellig_am) und mahnregeln.txt mit Stichtag und Stufen. 1) Bestimme fuer jede Rechnung die Mahnstufe nach den Regeln (Tage ueberfaellig = Stichtag minus faellig_am). 2) Schreibe mahnliste.csv mit den Spalten id,stufe,forderung — NUR zu mahnende Rechnungen; forderung = Betrag plus Gebuehr der Stufe. 3) Lege den Ordner mahnungen/ an und schreibe je gemahnter Rechnung mahnungen/<id>.txt mit Kundenname, Betrag und - bei Stufe 2 - der Gebuehr im Text.",
+   "setup_cmd": "printf 'id,kunde,betrag,faellig_am\\nf1,Werkstatt Sonne,100,2026-06-20\\nf2,Baeckerei Korn,200,2026-07-10\\nf3,Blumen Peters,80,2026-07-25\\nf4,Kanzlei Roth,300,2026-08-15\\nf5,Salon Wende,50,2026-06-01\\n' > rechnungen.csv && printf 'Stichtag: 2026-08-01\\nMahnstufe 2 (Gebuehr 5 EUR): mehr als 30 Tage ueberfaellig.\\nMahnstufe 1 (keine Gebuehr): 15 bis 30 Tage ueberfaellig.\\nBis 14 Tage ueberfaellig oder noch nicht faellig: KEINE Mahnung.\\n' > mahnregeln.txt",
+   "verify_cmd": "python -c \"import csv, os; rows=list(csv.DictReader(open('mahnliste.csv'))); d={r['id']:(int(r['stufe']), round(float(r['forderung']),2)) for r in rows}; soll={'f1':(2,105.0),'f2':(1,200.0),'f5':(2,55.0)}; assert d==soll, 'mahnliste falsch: %s statt %s' % (d, soll); da={f[:-4] for f in os.listdir('mahnungen') if f.endswith('.txt')}; assert da=={'f1','f2','f5'}, 'mahnungen/ falsch: %s' % sorted(da); fehler=[i for i in soll if soll[i][0]==2 and '5' not in open('mahnungen/%s.txt'%i,encoding='utf-8').read()]; assert not fehler, 'Gebuehr fehlt im Text: %s' % fehler; print('mahnlauf ok')\"",
+   "timeout": 1800
+  },
+  {
+   "id": "wf3-inventur",
+   "prompt": "Alltags-Auftrag im aktuellen Ordner: Drei Dateien — bestand.csv (artikel,anfang,gezaehlt), wareneingang.csv (artikel,menge) und verkaeufe.csv (artikel,menge). Der erwartete Bestand ist anfang + Wareneingang - Verkaeufe (Artikel ohne Eintrag: 0). Finde alle Artikel, bei denen der GEZAEHLTE Bestand vom erwarteten abweicht, und schreibe differenzen.csv mit den Spalten artikel,differenz (gezaehlt minus erwartet, mit Vorzeichen), alphabetisch nach artikel. Artikel ohne Abweichung kommen NICHT in die Datei.",
+   "setup_cmd": "printf 'artikel,anfang,gezaehlt\\nA,10,12\\nB,4,5\\nC,7,1\\nD,20,12\\nE,6,9\\n' > bestand.csv && printf 'artikel,menge\\nA,5\\nC,2\\nE,3\\n' > wareneingang.csv && printf 'artikel,menge\\nA,3\\nB,1\\nC,9\\nD,5\\n' > verkaeufe.csv",
+   "verify_cmd": "python -c \"import csv; rows=list(csv.DictReader(open('differenzen.csv'))); d={r['artikel']:int(r['differenz']) for r in rows}; soll={'B':2,'C':1,'D':-3}; assert d==soll, 'differenzen falsch: %s statt %s' % (d, soll); assert [r['artikel'] for r in rows]==sorted(soll), 'nicht alphabetisch sortiert'; print('inventur ok')\"",
+   "timeout": 1800
+  }
+ ]
+}
