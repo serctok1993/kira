@@ -14,6 +14,7 @@ from core import identity as _id
 import json
 import os as _os
 import re
+import time
 
 from core.kernel import events, executor, llm_router
 from core.agency.tools import builtin  # noqa: F401  -> registriert die eingebauten Tools
@@ -296,6 +297,30 @@ STUPS_ACT = ("Der Auftrag liegt bereits vor — tu es JETZT mit einem Werkzeug (
 STUPS_NATIV = ("Der Auftrag liegt bereits vor — tu es JETZT in diesem Zug: nutze die "
                "passenden Werkzeuge und antworte erst mit dem Ergebnis. Nicht "
                "ankuendigen, nicht zurueckfragen.")
+# Abgabe-Frist: im letzten Viertel des Zeitbudgets EINMAL vorwarnen, damit aus einer
+# halben Loesung ein gemeldetes Teilergebnis wird statt eines Abbruchs ohne alles.
+_FRIST_WARNUNG_ANTEIL = 0.25
+# Fuer die Schluss-Zusammenfassung bleibt eine Reserve: lieber ein Werkzeugzug weniger
+# als eine Antwort, die nach der Frist eintrifft und niemanden mehr erreicht.
+_FRIST_RESERVE_MAX_S = 90.0
+_FRIST_RESERVE_ANTEIL = 0.15
+
+
+def _frist_reserve(gesamt_s: float) -> float:
+    """Wieviel Zeit vor der Frist fuer die Abgabe freigehalten wird (kurze Fristen: anteilig)."""
+    return min(_FRIST_RESERVE_MAX_S, max(5.0, gesamt_s * _FRIST_RESERVE_ANTEIL))
+
+
+def frist_warnung(uebrig_s: float) -> str:
+    """Die einmalige Vorwarnung, wenn das Zeitbudget zur Neige geht."""
+    return (f"ZEITBUDGET: nur noch etwa {int(max(uebrig_s, 0))} Sekunden. Beginne nichts "
+            f"Neues mehr. Bringe JETZT das Geforderte in einen abgabefaehigen Zustand: "
+            f"schreibe die verlangte Datei bzw. sichere das Ergebnis, pruefe es einmal kurz "
+            f"nach und melde dann in wenigen Saetzen, was tatsaechlich vorliegt — auch wenn "
+            f"es nur ein Teilergebnis ist. Ein gemeldetes Teilergebnis ist mehr wert als "
+            f"eine unfertige Idee.")
+
+
 # Abgabe-Pflicht: deine letzte Antwort war kein Ergebnis, sondern ein Fragment.
 STUPS_ABGABE = ("Deine letzte Antwort war unfertig — ein abgeschnittener oder offener "
                 "Gedanke, kein Ergebnis. Denke kurz, handle dann: fuehre die naechsten "
@@ -1454,16 +1479,19 @@ def _parse_leaked_tool_calls(text: str) -> list[dict]:
     return out
 
 
-def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, emit, max_steps: int = _MAX_STEPS, task_type: str = "reason", reasoning: str | None = None, erlaubt: frozenset | None = None, rolle: str = "") -> str:
+def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, emit, max_steps: int = _MAX_STEPS, task_type: str = "reason", reasoning: str | None = None, erlaubt: frozenset | None = None, rolle: str = "", frist_ts: float | None = None) -> str:
     """Nativer Function-Calling-Loop fuer Cloud-Modelle: strukturierte tool_calls statt
     ACT-Text — robust, kein Leak. Streamt Schritte ueber emit({'kind':'tool'|'obs'|...}).
-    P5: 'erlaubt' = Rollen-Toolset eines Unteragenten (None = volle Flotte)."""
+    P5: 'erlaubt' = Rollen-Toolset eines Unteragenten (None = volle Flotte).
+    'frist_ts' = harte Wanduhr-Frist (Unix-Zeit), bis zu der ein Ergebnis vorliegen muss."""
     schemas = registry.tool_schemas(nur=erlaubt)
     obs_cap = _budget("obs_max_chars", _OBS_MAX, task_type, escalate)  # starkes Modell -> sieht mehr
     used_tools = False
     nudged = False
     beweis_nachgefragt = False      # Beweispflicht II: hoechstens EINE Rueckfrage pro Zug
     abgabe_gestupst = False         # Abgabe-Pflicht: ebenfalls hoechstens EINMAL pro Lauf
+    frist_gewarnt = False           # Abgabe-Frist: die Vorwarnung kommt genau einmal
+    frist_start = time.time()
     last_reasoning = ""
 
     def _emit_reasoning(res: dict) -> None:
@@ -1477,6 +1505,22 @@ def _native_loop(messages: list[dict], system: str, session_id, escalate: bool, 
             emit({"kind": "think", "text": r + "\n"})
 
     for step in range(max_steps):
+        # Abgabe-Frist (TB2-Befund 24.08.2026): sechs Laeufe wurden mitten in der Arbeit
+        # abgeschnitten und bekamen NULL Punkte — obwohl bei write-compressor schon zwei
+        # von drei Tests gruen waren. Wer eine Frist kennt, kann vorher liefern: eine
+        # Vorwarnung im letzten Viertel, danach Schluss mit neuen Werkzeugzuegen, damit
+        # die Schluss-Zusammenfassung noch INNERHALB der Frist ankommt.
+        if frist_ts is not None:
+            uebrig = frist_ts - time.time()
+            if uebrig <= _frist_reserve(frist_ts - frist_start):
+                events.emit("frist_abgelaufen", {"step": step, "uebrig_s": round(uebrig, 1)},
+                            session_id=session_id)
+                break
+            if not frist_gewarnt and uebrig <= (frist_ts - frist_start) * _FRIST_WARNUNG_ANTEIL:
+                frist_gewarnt = True
+                events.emit("frist_warnung", {"step": step, "uebrig_s": round(uebrig, 1)},
+                            session_id=session_id)
+                messages.append({"role": "user", "content": frist_warnung(uebrig)})
         try:
             res = _complete_resilient(messages, system=system, task_type=task_type,
                                       session_id=session_id, escalate=escalate, tools=schemas,

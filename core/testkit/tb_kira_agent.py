@@ -22,6 +22,7 @@ import os
 import sys
 import tempfile
 import threading
+import time
 import uuid
 from pathlib import Path
 
@@ -157,6 +158,29 @@ class KiraAgent(BaseAgent):
         except Exception:  # noqa: BLE001 — Minimal-Container ohne awk/sh: Agent laeuft trotzdem
             pass
 
+    def _frist(self) -> float | None:
+        """Wanduhr-Frist dieses Tasks als Unix-Zeit — oder None, wenn keine bekannt ist.
+
+        Harbor erschlaegt den Agenten hart bei `[agent] timeout_sec` der Task-Definition
+        (900-1800s). Kira liefert dann nichts ab, obwohl teils schon Tests gruen waren.
+        Die Quelle wird der Reihe nach gesucht: ausdrueckliche Env-Vorgabe, dann die
+        Timeout-Felder, die Harbor je nach Version am Agenten hinterlegt. Findet sich
+        keine, laeuft der Loop wie bisher ohne Uhr — nie geraten.
+        """
+        roh = os.getenv("KIRA_TB_FRIST_S")
+        if not roh:
+            for feld in ("timeout_sec", "_timeout_sec", "override_timeout_sec",
+                         "max_timeout_sec"):
+                wert = getattr(self, feld, None)
+                if isinstance(wert, (int, float)) and wert > 0:
+                    roh = str(wert)
+                    break
+        try:
+            sek = float(roh) if roh else 0.0
+        except (TypeError, ValueError):
+            return None
+        return time.time() + sek if sek > 0 else None
+
     @staticmethod
     def _anthropic_cas(bundle: Path) -> str:
         """Nur die Sandbox-Abfang-CAs aus dem Bundle (DER-Bytes nach 'Anthropic'
@@ -186,6 +210,7 @@ class KiraAgent(BaseAgent):
             os.environ["KIRA_FORCE_MODEL"] = self.model_name
         sid = "tb-" + uuid.uuid4().hex[:10]
         loop = asyncio.get_running_loop()
+        frist_ts = self._frist()
 
         def _kira_lauf() -> str:
             _TL.loop = loop
@@ -197,11 +222,13 @@ class KiraAgent(BaseAgent):
                 events.init_db()
                 messages = [{"role": "user", "content": instruction}]
                 # max_steps grosszuegig: die echte Grenze ist Harbors Task-Wall-Clock
-                # (900-1800s); der Loop endet frueher, sobald die Aufgabe fertig ist.
+                # (900-1800s), und die kennt der Loop jetzt als frist_ts — er gibt vorher
+                # ab, statt mitten im Zug erschlagen zu werden (TB2-Befund 24.08.).
                 return act._native_loop(
                     messages, _SYSTEM, session_id=sid, escalate=True,
                     emit=lambda ev: None, max_steps=150, task_type="reason",
-                    erlaubt=frozenset({"terminal"}), rolle="terminal-bench")
+                    erlaubt=frozenset({"terminal"}), rolle="terminal-bench",
+                    frist_ts=frist_ts)
             finally:
                 _TL.loop = None
                 _TL.env = None
@@ -212,7 +239,10 @@ class KiraAgent(BaseAgent):
         context.n_input_tokens = ein or None
         context.n_output_tokens = aus or None
         context.cost_usd = kosten or None
-        context.metadata = {"kira_final": (final or "")[:1500], "session_id": sid}
+        # 1500 Zeichen waren zu knapp: bei der Fehleranalyse des ersten Laufs war jede
+        # lange Schlussantwort genau dort abgeschnitten — man sah nicht mehr, OB das
+        # Modell mitten im Satz aufhoerte oder sauber abgab. 6000 kostet nichts.
+        context.metadata = {"kira_final": (final or "")[:6000], "session_id": sid}
 
         # Degradation (Provider-/Quota-Tod: _native_loop liefert einen Degrade-Bericht
         # statt zu werfen — richtig fuer Live, falsch fuer den Benchmark) als Exception
