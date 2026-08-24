@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T19:45:48.959216Z",
+    "updated_at": "2026-08-24T20:01:51.663480Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 30,
-        "n_errored_trials": 2,
+        "n_completed_trials": 33,
+        "n_errored_trials": 4,
         "n_running_trials": 3,
-        "n_pending_trials": 56,
+        "n_pending_trials": 53,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 30,
-                "n_errors": 2,
+                "n_trials": 31,
+                "n_errors": 4,
                 "metrics": [
                     {
-                        "mean": 0.5
+                        "mean": 0.45454545454545453
                     }
                 ],
                 "pass_at_k": {},
@@ -55,7 +55,8 @@
                             "llm-inference-batching-scheduler__fsNB6Aq",
                             "path-tracing__5qt9zwA",
                             "write-compressor__D4FNw53",
-                            "gpt2-codegolf__YNbCouj"
+                            "gpt2-codegolf__YNbCouj",
+                            "winning-avg-corewars__4Viqarw"
                         ]
                     }
                 },
@@ -63,13 +64,17 @@
                     "AgentTimeoutError": [
                         "write-compressor__D4FNw53",
                         "gpt2-codegolf__YNbCouj"
+                    ],
+                    "RuntimeError": [
+                        "mteb-retrieve__JkmNqEj",
+                        "custom-memory-heap-crash__w7aixk9"
                     ]
                 }
             }
         },
-        "n_input_tokens": 31714247,
+        "n_input_tokens": 35135069,
         "n_cache_tokens": null,
-        "n_output_tokens": 192461,
+        "n_output_tokens": 222297,
         "cost_usd": null
     }
 }
