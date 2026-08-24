@@ -1,0 +1,131 @@
+{
+    "id": "82a20e64-bd02-4d3e-a576-6d3f9c02f05e",
+    "task_name": "sam-cell-seg",
+    "trial_name": "sam-cell-seg__xfYr9HZ",
+    "trial_uri": "file:///home/user/kira/tb-jobs/kira-tb2-oxalpha/sam-cell-seg__xfYr9HZ",
+    "task_id": {
+        "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+        "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+        "path": "sam-cell-seg"
+    },
+    "source": "terminal-bench",
+    "task_checksum": "1bc7f69e2e775b9ceac4b65975556b8c838b2d77cc0f50b01162adfea1630eb5",
+    "config": {
+        "task": {
+            "path": "sam-cell-seg",
+            "git_url": "https://github.com/laude-institute/terminal-bench-2.git",
+            "git_commit_id": "69671fbaac6d67a7ef0dfec016cc38a64ef7a77c",
+            "name": null,
+            "ref": null,
+            "overwrite": false,
+            "download_dir": null,
+            "source": "terminal-bench"
+        },
+        "trial_name": "sam-cell-seg__xfYr9HZ",
+        "trials_dir": "tb-jobs/kira-tb2-oxalpha",
+        "install_only": false,
+        "timeout_multiplier": 1.0,
+        "agent_timeout_multiplier": null,
+        "verifier_timeout_multiplier": null,
+        "agent_setup_timeout_multiplier": null,
+        "environment_build_timeout_multiplier": null,
+        "agent": {
+            "name": "core.testkit.tb_kira_agent:KiraAgent",
+            "import_path": null,
+            "model_name": "openrouter/stealth/ox-alpha",
+            "n_concurrent": null,
+            "concurrency_group": null,
+            "skills": [],
+            "override_timeout_sec": null,
+            "override_setup_timeout_sec": null,
+            "max_timeout_sec": null,
+            "resume_trajectory": false,
+            "load_trajectory": null,
+            "extra_allowed_hosts": [],
+            "kwargs": {},
+            "mcp_servers": []
+        },
+        "user_agent": null,
+        "environment": {
+            "type": "docker",
+            "import_path": null,
+            "force_build": false,
+            "delete": true,
+            "cpu_enforcement_policy": "auto",
+            "memory_enforcement_policy": "auto",
+            "override_cpus": null,
+            "override_memory_mb": null,
+            "override_storage_mb": null,
+            "override_gpus": null,
+            "override_tpu": null,
+            "mounts": null,
+            "extra_docker_compose": [],
+            "kwargs": {},
+            "extra_allowed_hosts": []
+        },
+        "verifier": {
+            "override_timeout_sec": null,
+            "max_timeout_sec": null,
+            "env": {
+                "UV_NATIVE_TLS": "1",
+                "SSL_CERT_FILE": "/etc/ssl/certs/ca-certificates.crt",
+                "REQUESTS_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "CURL_CA_BUNDLE": "/etc/ssl/certs/ca-certificates.crt",
+                "NODE_EXTRA_CA_CERTS": "/etc/ssl/certs/ca-certificates.crt",
+                "GIT_SSL_CAINFO": "/etc/ssl/certs/ca-certificates.crt",
+                "PIP_CERT": "/etc/ssl/certs/ca-certificates.crt"
+            },
+            "disable": false
+        },
+        "artifacts": [],
+        "extra_instruction_paths": [],
+        "extra_instructions": [],
+        "job_id": "e8518be5-da77-4c78-91ad-82e184694817",
+        "source_trial": null
+    },
+    "agent_info": {
+        "name": "kira",
+        "version": "2026.08",
+        "model_info": {
+            "name": "stealth/ox-alpha",
+            "provider": "openrouter"
+        }
+    },
+    "agent_result": {
+        "n_input_tokens": 49589,
+        "n_cache_tokens": null,
+        "n_output_tokens": 2895,
+        "cost_usd": null,
+        "rollout_details": null,
+        "metadata": {
+            "kira_final": "Done. `/app/convert_masks.py` is written and verified end-to-end on the demo data.\n\n**How it works:**\n1. Loads MobileSAM (`vit_t`) from the given weights path on CPU (or GPU if available) via the official `mobile_sam` package — MobileSAM source is untouched.\n2. Rasterizes every input mask (polyline → `fillPoly`, degenerate/rectangle-only rows → bounding box).\n3. Runs MobileSAM once per mask with a **box prompt** derived from the mask extent, requesting 3 candidate masks; picks the highest-scoring candidate that is a single contiguous component (largest connected component enforced) and does not overlap any previously claimed pixel — guaranteeing no inter-mask overlap and one contiguous region per cell. Falls back to the original mask minus occupied pixels if needed.\n4. Extracts closed polylines with `cv2.findContours`, updates `xmin/xmax/ymin/ymax/coords_x/coords_y` (and sets `type=polyline`), preserving all other columns.\n5. Saves to `<output_path>/<csv basename>`.\n\n**Verification on demo set:** all 48 masks output as closed polylines, zero overlap between masks, every mask single-contiguous, ~28% image coverage. Runtime ≈10 s on CPU (~5 masks/s). I also installed the missing deps in the container (`torch` CPU build, `timm`, `pandas`, `tqdm`, `opencv-python-headless`) and downloaded weights to `/app/mobile_sam.pt` for testing.",
+            "session_id": "tb-c4eb3dc565"
+        }
+    },
+    "verifier_result": {
+        "rewards": {
+            "reward": 0.0
+        }
+    },
+    "verifier_environment_mode": "shared",
+    "exception_info": null,
+    "started_at": "2026-08-24T22:40:55.566583Z",
+    "finished_at": "2026-08-24T22:45:33.857709Z",
+    "environment_setup": {
+        "started_at": "2026-08-24T22:40:55.569218Z",
+        "finished_at": "2026-08-24T22:41:17.150934Z"
+    },
+    "agent_setup": {
+        "started_at": "2026-08-24T22:41:17.150966Z",
+        "finished_at": "2026-08-24T22:41:20.892062Z"
+    },
+    "agent_execution": {
+        "started_at": "2026-08-24T22:41:20.892154Z",
+        "finished_at": "2026-08-24T22:44:46.798430Z"
+    },
+    "verifier": {
+        "started_at": "2026-08-24T22:44:47.249807Z",
+        "finished_at": "2026-08-24T22:45:20.052298Z"
+    },
+    "step_results": null
+}

@@ -1,23 +1,23 @@
 {
     "id": "e8518be5-da77-4c78-91ad-82e184694817",
     "started_at": "2026-08-24T17:32:21.732613",
-    "updated_at": "2026-08-24T22:42:48.045795Z",
+    "updated_at": "2026-08-24T22:51:18.787766Z",
     "finished_at": null,
     "n_total_trials": 89,
     "stats": {
-        "n_completed_trials": 73,
+        "n_completed_trials": 77,
         "n_errored_trials": 19,
         "n_running_trials": 3,
-        "n_pending_trials": 13,
+        "n_pending_trials": 9,
         "n_cancelled_trials": 0,
         "n_retries": 0,
         "evals": {
             "kira__stealth/ox-alpha__terminal-bench": {
-                "n_trials": 65,
+                "n_trials": 69,
                 "n_errors": 19,
                 "metrics": [
                     {
-                        "mean": 0.3698630136986301
+                        "mean": 0.35064935064935066
                     }
                 ],
                 "pass_at_k": {},
@@ -90,7 +90,11 @@
                             "polyglot-c-py__2MSofKN",
                             "cancel-async-tasks__dmvD9Ho",
                             "bn-fit-modify__KxMc6Su",
-                            "build-cython-ext__wesA4iV"
+                            "build-cython-ext__wesA4iV",
+                            "sam-cell-seg__xfYr9HZ",
+                            "nginx-request-logging__ALNACUi",
+                            "sparql-university__kYhibgg",
+                            "large-scale-text-editing__5iVrTDX"
                         ]
                     }
                 },
@@ -121,9 +125,9 @@
                 }
             }
         },
-        "n_input_tokens": 63909815,
+        "n_input_tokens": 64009562,
         "n_cache_tokens": null,
-        "n_output_tokens": 459613,
+        "n_output_tokens": 466790,
         "cost_usd": null
     }
 }
